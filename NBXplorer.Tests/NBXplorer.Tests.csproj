@@ -10,6 +10,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.3.0-beta3-build3705" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\NBXplorer.Client\NBXplorer.Client.csproj" />
     <ProjectReference Include="..\NBXplorer\NBXplorer.csproj" />
   </ItemGroup>
   <ItemGroup>

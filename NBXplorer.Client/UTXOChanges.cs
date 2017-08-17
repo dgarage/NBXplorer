@@ -205,7 +205,7 @@ namespace NBXplorer
 			return diff;
 		}
 
-		internal void Clear()
+		public void Clear()
 		{
 			Reset = false;
 			UTXOs.Clear();
