@@ -44,16 +44,6 @@ namespace ElementsExplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("asset/{assetId}")]
-		public FileContentResult GetAssetName(
-			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
-			uint256 assetId)
-		{
-			var name = Runtime.Repository.GetAssetName(assetId) ?? "";
-			return new FileContentResult(Encoding.UTF8.GetBytes(name), "application/octet-stream");
-		}
-
-		[HttpGet]
 		[Route("sync/{extPubKey}")]
 		public async Task<FileContentResult> Sync(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]

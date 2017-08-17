@@ -231,42 +231,6 @@ namespace ElementsExplorer
 			}
 		}
 
-		public string GetAssetName(uint256 assetId)
-		{
-			using(var tx = _Engine.GetTransaction())
-			{
-				var row = tx.Select<string, string>("AssetNameById", assetId.ToString());
-				if(row == null || !row.Exists)
-					return null;
-				return row.Value;
-			}
-		}
-
-		public enum SetNameResult
-		{
-			AssetNameAlreadyExist,
-			AssetIdAlreadyClaimedAName,
-			Success
-		}
-		public SetNameResult SetAssetName(NamedIssuance issuance)
-		{
-			using(var tx = _Engine.GetTransaction())
-			{
-				byte[] a;
-				bool b;
-				tx.Insert("AssetNameById", issuance.AssetId.ToString(), issuance.Name, out a, out b, true);
-				if(b)
-					return SetNameResult.AssetIdAlreadyClaimedAName;
-				tx.Insert("AssetIdByName", issuance.Name, issuance.AssetId.ToString(), out a, out b, true);
-				if(b)
-					return SetNameResult.AssetNameAlreadyExist;
-				tx.Commit();
-				return SetNameResult.Success;
-			}
-		}
-
-
-
 		public TrackedTransaction[] GetTransactions(BitcoinExtPubKey pubkey)
 		{
 			var tableName = $"T-{Hashes.Hash160(pubkey.ToBytes()).ToString()}";

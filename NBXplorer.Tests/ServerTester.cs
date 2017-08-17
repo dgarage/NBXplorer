@@ -57,6 +57,7 @@ namespace ElementsExplorer.Tests
 				_Directory = directory;
 				if(!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
+				Directory.Delete(cachedNodes, true);
 				if(!Directory.Exists(cachedNodes))
 				{
 					Directory.CreateDirectory(cachedNodes);
@@ -65,7 +66,7 @@ namespace ElementsExplorer.Tests
 
 				if(!TryDelete(directory, false))
 				{
-					foreach(var process in Process.GetProcessesByName("elementd"))
+					foreach(var process in Process.GetProcessesByName("bitcoind"))
 					{
 						if(process.MainModule.FileName.Replace("\\", "/").StartsWith(Path.GetFullPath(rootTestData).Replace("\\", "/"), StringComparison.Ordinal))
 						{
@@ -86,6 +87,7 @@ namespace ElementsExplorer.Tests
 				Explorer = NodeBuilder.CreateNode();
 				NodeBuilder.StartAll();
 
+				var a = Explorer.CreateRPCClient().GetBlockCount();
 				var creds = ExtractCredentials(File.ReadAllText(Explorer.Config));
 				var conf = new ExplorerConfiguration();
 				conf.DataDir = Path.Combine(directory, "explorer");
@@ -98,7 +100,6 @@ namespace ElementsExplorer.Tests
 					NoTest = true
 				};
 				conf.NodeEndpoint = Explorer.Endpoint;
-				conf.Network = ExplorerConfiguration.CreateNetwork(conf.Network, Explorer.CreateRPCClient().GetBlock(0));
 
 				Runtime = conf.CreateRuntime();
 
@@ -123,10 +124,11 @@ namespace ElementsExplorer.Tests
 			Explorer = NodeBuilder.CreateNode();
 			NodeBuilder.StartAll();
 			User1.CreateRPCClient().Generate(1);
+			User1.Sync(Explorer, true);
 			Explorer.CreateRPCClient().Generate(1);
+			Explorer.Sync(User2, true);
 			User2.CreateRPCClient().Generate(101);
 			User1.Sync(User2, true);
-			Explorer.Sync(User1, true);
 			var a = User1.CreateRPCClient().GetBlockCount();
 			var b = User1.CreateRPCClient().GetBlockCount();
 			var c = User1.CreateRPCClient().GetBlockCount();

@@ -227,9 +227,6 @@ namespace ElementsExplorer
 						Logs.Explorer.LogInformation($"Processed block {block.Object.GetHash()}");
 					}
 
-					foreach(var tx in block.Object.Transactions)
-						ScanForAssetName(tx, false);
-
 					foreach(var pubkey in pubKeys)
 					{
 						Notify(pubkey, false);
@@ -258,27 +255,12 @@ namespace ElementsExplorer
 					});
 				}
 
-				ScanForAssetName(txPayload.Object, true);
 				foreach(var pubkey in pubKeys)
 				{
 					Notify(pubkey, true);
 				}
 			});
 
-		}
-
-		private void ScanForAssetName(Transaction tx, bool logFailure)
-		{
-			var name = NamedIssuance.Extract(tx);
-			if(name != null)
-			{
-				var result = Runtime.Repository.SetAssetName(name);
-				if(result == Repository.SetNameResult.Success)
-					Logs.Explorer.LogInformation($"Name {name.Name} claimed by {name.AssetId}");
-				else
-					if(logFailure)
-					Logs.Explorer.LogInformation($"Name {name.Name} failed to be claimed by {name.AssetId}, cause: {result}");
-			}
 		}
 
 		private void Notify(ExtPubKey pubkey, bool log)

@@ -122,15 +122,5 @@ namespace ElementsExplorer
 				return (T)(object)str;
 			return Serializer.ToObject<T>(str, Network);
 		}
-
-		public async Task<string> GetAssetNameAsync(uint256 assetId)
-		{
-			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/asset/" + assetId).ConfigureAwait(false);
-			return Encoding.UTF8.GetString(bytes);
-		}
-		public string GetAssetName(uint256 assetId)
-		{
-			return GetAssetNameAsync(assetId).GetAwaiter().GetResult();
-		}
 	}
 }

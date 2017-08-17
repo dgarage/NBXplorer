@@ -61,7 +61,7 @@ namespace ElementsExplorer.Configuration
 
 			Network = args.Contains("-testnet", StringComparer.OrdinalIgnoreCase) ? Network.TestNet :
 				args.Contains("-regtest", StringComparer.OrdinalIgnoreCase) ? Network.RegTest :
-				Network.DefaultMain;
+				Network.Main;
 
 			if(ConfigurationFile != null)
 			{
@@ -69,7 +69,7 @@ namespace ElementsExplorer.Configuration
 				var configTemp = TextFileConfiguration.Parse(File.ReadAllText(ConfigurationFile));
 				Network = configTemp.GetOrDefault<bool>("testnet", false) ? Network.TestNet :
 						  configTemp.GetOrDefault<bool>("regtest", false) ? Network.RegTest :
-						  Network.DefaultMain;
+						  Network.Main;
 			}
 			if(DataDir == null)
 			{
@@ -87,13 +87,6 @@ namespace ElementsExplorer.Configuration
 			var consoleConfig = new TextFileConfiguration(args);
 			var config = TextFileConfiguration.Parse(File.ReadAllText(ConfigurationFile));
 			consoleConfig.MergeInto(config, true);
-
-			if(Network == Network.DefaultMain || Network == Network.RegTest)
-			{
-				var rpc = RPCArgs.Parse(config, Network).ConfigureRPCClient(Network);
-				Network = CreateNetwork(Network, rpc.GetBlock(0));
-				RPCArgs.CheckNetwork(Network, rpc);
-			}
 
 			Logs.Configuration.LogInformation("Network: " + Network);
 			Logs.Configuration.LogInformation("Data directory set to " + DataDir);
@@ -120,20 +113,6 @@ namespace ElementsExplorer.Configuration
 		public int StartHeight
 		{
 			get; set;
-		}
-
-		public static Network CreateNetwork(Network parent, Block genesisblock)
-		{
-			if(genesisblock == null)
-				return null;
-			try
-			{
-				return parent.CreateNetwork("explorernetwork", parent, genesisblock);
-			}
-			catch
-			{
-				return Network.GetNetwork("explorernetwork");
-			}
 		}
 
 		public string[] GetUrls()

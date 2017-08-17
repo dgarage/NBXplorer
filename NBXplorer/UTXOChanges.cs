@@ -242,101 +242,26 @@ namespace ElementsExplorer
 		}
 
 
-		Script _ScriptPubKey;
-		public Script ScriptPubKey
+
+		TxOut _Output;
+		public TxOut Output
 		{
 			get
 			{
-				return _ScriptPubKey;
+				return _Output;
 			}
 			set
 			{
-				_ScriptPubKey = value;
+				_Output = value;
 			}
 		}
-
-
-		ConfidentialAsset _Asset;
-		public ConfidentialAsset Asset
-		{
-			get
-			{
-				return _Asset;
-			}
-			set
-			{
-				_Asset = value;
-			}
-		}
-
-
-		ConfidentialValue _Value;
-		public ConfidentialValue Value
-		{
-			get
-			{
-				return _Value;
-			}
-			set
-			{
-				_Value = value;
-			}
-		}
-
-
-		ConfidentialNonce _Nonce;
-		public ConfidentialNonce Nonce
-		{
-			get
-			{
-				return _Nonce;
-			}
-			set
-			{
-				_Nonce = value;
-			}
-		}
-
-
-		byte[] _RangeProof;
-		public byte[] RangeProof
-		{
-			get
-			{
-				return _RangeProof;
-			}
-			set
-			{
-				_RangeProof = value;
-			}
-		}
-
-
-		byte[] _SurjectionProof;
-		public byte[] SurjectionProof
-		{
-			get
-			{
-				return _SurjectionProof;
-			}
-			set
-			{
-				_SurjectionProof = value;
-			}
-		}
-
 
 		KeyPath _KeyPath;
 
 		public UTXO(OutPoint outPoint, TxOut output, KeyPath keyPath)
 		{
 			Outpoint = outPoint;
-			RangeProof = output.RangeProof;
-			SurjectionProof = output.SurjectionProof;
-			Nonce = output.Nonce;
-			Asset = output.Asset;
-			Value = output.ConfidentialValue;
-			ScriptPubKey = output.ScriptPubKey;
+			Output = output;
 			KeyPath = keyPath;
 		}
 
@@ -355,12 +280,7 @@ namespace ElementsExplorer
 		public void ReadWrite(BitcoinStream stream)
 		{
 			stream.ReadWrite(ref _Outpoint);
-			stream.ReadWrite(ref _ScriptPubKey);
-			stream.ReadWrite(ref _Asset);
-			stream.ReadWrite(ref _Value);
-			stream.ReadWrite(ref _Nonce);
-			stream.ReadWriteAsVarString(ref _RangeProof);
-			stream.ReadWriteAsVarString(ref _SurjectionProof);
+			stream.ReadWrite(ref _Output);
 
 			uint[] indexes = _KeyPath?.Indexes ?? new uint[0];
 			stream.ReadWrite(ref indexes);
