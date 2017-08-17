@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace ElementsExplorer.Tests
+namespace NBXplorer.Tests
 {
 	public class RepositoryTester : IDisposable
 	{

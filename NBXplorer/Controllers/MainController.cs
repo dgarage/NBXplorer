@@ -1,5 +1,5 @@
-﻿using ElementsExplorer.Logging;
-using ElementsExplorer.ModelBinders;
+﻿using NBXplorer.Logging;
+using NBXplorer.ModelBinders;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
@@ -14,7 +14,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ElementsExplorer.Controllers
+namespace NBXplorer.Controllers
 {
 	[Route("v1")]
 	public class MainController : Controller

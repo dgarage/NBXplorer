@@ -6,11 +6,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using ElementsExplorer.Configuration;
-using ElementsExplorer.Logging;
+using NBXplorer.Configuration;
+using NBXplorer.Logging;
 using NBitcoin.Protocol;
 
-namespace ElementsExplorer
+namespace NBXplorer
 {
     public class Program
     {

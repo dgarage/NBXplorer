@@ -1,4 +1,4 @@
-﻿using ElementsExplorer.Logging;
+﻿using NBXplorer.Logging;
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using System;
@@ -11,7 +11,7 @@ using System.Text;
 using NBitcoin.Crypto;
 using System.Collections.Generic;
 
-namespace ElementsExplorer.Tests
+namespace NBXplorer.Tests
 {
 	public class UnitTest1
 	{

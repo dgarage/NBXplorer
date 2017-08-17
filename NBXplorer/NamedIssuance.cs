@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Text;
 using NBitcoin.DataEncoders;
 
-namespace ElementsExplorer
+namespace NBXplorer
 {
 	public class NamedIssuance
 	{

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace ElementsExplorer.Logging
+namespace NBXplorer.Logging
 {
 	public class Logs
 	{

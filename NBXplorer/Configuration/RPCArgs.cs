@@ -7,9 +7,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
-using ElementsExplorer.Logging;
+using NBXplorer.Logging;
 
-namespace ElementsExplorer.Configuration
+namespace NBXplorer.Configuration
 {
 	public class RPCArgs
 	{

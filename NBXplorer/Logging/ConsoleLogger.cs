@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ElementsExplorer.Logging
+namespace NBXplorer.Logging
 {
 	/// <summary>
 	/// A variant of ASP.NET Core ConsoleLogger which does not make new line for the category

@@ -6,12 +6,12 @@ using System.Text;
 using NBitcoin;
 using System.IO;
 using System.Net;
-using ElementsExplorer.Logging;
+using NBXplorer.Logging;
 using NBitcoin.Protocol;
 using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
 
-namespace ElementsExplorer.Configuration
+namespace NBXplorer.Configuration
 {
 	public class ExplorerConfiguration
 	{
@@ -73,7 +73,7 @@ namespace ElementsExplorer.Configuration
 			}
 			if(DataDir == null)
 			{
-				DataDir = DefaultDataDirectory.GetDefaultDirectory("ElementExplorer", Network);
+				DataDir = DefaultDataDirectory.GetDefaultDirectory("NBXplorer", Network);
 			}
 
 			if(ConfigurationFile == null)

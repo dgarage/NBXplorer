@@ -15,7 +15,7 @@ using Microsoft.Net.Http.Headers;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Http.Features;
 
-namespace ElementsExplorer
+namespace NBXplorer
 {
 	public class Startup
 	{

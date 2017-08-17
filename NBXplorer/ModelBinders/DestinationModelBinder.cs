@@ -5,7 +5,7 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Internal;
 
-namespace ElementsExplorer.ModelBinders
+namespace NBXplorer.ModelBinders
 {
 	public class DestinationModelBinder : IModelBinder
 	{

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using Xunit.Abstractions;
 
-namespace ElementsExplorer.Tests
+namespace NBXplorer.Tests
 {
 	public class TestOutputHelperFactory : ILoggerFactory, ILogger
 	{

@@ -5,9 +5,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.IO;
-using ElementsExplorer.Logging;
+using NBXplorer.Logging;
 
-namespace ElementsExplorer.Configuration
+namespace NBXplorer.Configuration
 {
 	public class DefaultDataDirectory
 	{
@@ -39,7 +39,7 @@ namespace ElementsExplorer.Configuration
 			{
 				Directory.CreateDirectory(directory);
 			}
-			directory = Path.Combine(directory, network?.Name ?? "elements");
+			directory = Path.Combine(directory, network.Name);
 			if(!Directory.Exists(directory))
 			{
 				Logs.Configuration.LogInformation("Creating data directory");

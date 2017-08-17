@@ -1,4 +1,4 @@
-﻿using ElementsExplorer.Configuration;
+﻿using NBXplorer.Configuration;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
@@ -9,14 +9,14 @@ using Microsoft.Extensions.DependencyInjection;
 using NBitcoin.RPC;
 using NBitcoin.Protocol;
 using System.Threading;
-using ElementsExplorer.Logging;
+using NBXplorer.Logging;
 using Microsoft.AspNetCore.Hosting;
 using System.Net;
 using NBitcoin.Protocol.Behaviors;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace ElementsExplorer
+namespace NBXplorer
 {
 	public class ExplorerRuntime : IDisposable
 	{

@@ -10,7 +10,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 
-namespace ElementsExplorer
+namespace NBXplorer
 {
 	public class TrackedTransaction
 	{

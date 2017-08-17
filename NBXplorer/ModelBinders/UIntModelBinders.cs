@@ -5,7 +5,7 @@ using System;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace ElementsExplorer.ModelBinders
+namespace NBXplorer.ModelBinders
 {
     public class UInt256ModelBinding : IModelBinder
     {

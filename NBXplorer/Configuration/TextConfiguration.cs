@@ -8,7 +8,7 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ElementsExplorer.Configuration
+namespace NBXplorer.Configuration
 {
 	public class ConfigurationException : Exception
 	{

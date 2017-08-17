@@ -7,7 +7,7 @@ using System.Text;
 using NBitcoin.Crypto;
 using System.IO;
 
-namespace ElementsExplorer
+namespace NBXplorer
 {
 	public class UTXOChanges : IBitcoinSerializable
 	{

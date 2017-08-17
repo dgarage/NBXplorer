@@ -1,5 +1,5 @@
 ﻿using System.Linq;
-using ElementsExplorer.Configuration;
+using NBXplorer.Configuration;
 using Microsoft.AspNetCore.Hosting;
 using NBitcoin;
 using NBitcoin.Tests;
@@ -16,7 +16,7 @@ using Microsoft.AspNetCore.Server.Kestrel;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 
-namespace ElementsExplorer.Tests
+namespace NBXplorer.Tests
 {
 	public class ServerTester : IDisposable
 	{

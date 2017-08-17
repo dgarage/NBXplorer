@@ -5,7 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace ElementsExplorer
+namespace NBXplorer
 {
 	/// <summary>
 	/// A MultiValueDictionary can be viewed as a <see cref="IDictionary" /> that allows multiple 

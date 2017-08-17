@@ -1,4 +1,4 @@
-﻿using ElementsExplorer.Logging;
+﻿using NBXplorer.Logging;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 using NBitcoin.Crypto;
 using Completion = System.Threading.Tasks.TaskCompletionSource<bool>;
 
-namespace ElementsExplorer
+namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
