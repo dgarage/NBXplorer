@@ -3,14 +3,10 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26430.6
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElementsExplorer", "ElementsExplorer\ElementsExplorer.csproj", "{9C18B7C4-8FA8-4DBC-8E11-2C7C302D4CD9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NBXplorer", "NBXplorer\NBXplorer.csproj", "{9C18B7C4-8FA8-4DBC-8E11-2C7C302D4CD9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ElementsExplorer.Tests", "ElementsExplorer.Tests\ElementsExplorer.Tests.csproj", "{F1F294B4-C7B2-439E-90B6-9A90815B0D51}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NBitcoin.NETCore", "NElements\NBitcoin.NETCore\NBitcoin.NETCore.csproj", "{A1E918F1-4F8E-4833-95E4-8EBC45FAA734}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NBitcoin.TestFramework", "NElements.TestFramework\NBitcoin.TestFramework.csproj", "{74B03BA5-1FCA-4906-887C-3E9559394619}"
-EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NBXplorer.Tests", "NBXplorer.Tests\NBXplorer.Tests.csproj", "{F1F294B4-C7B2-439E-90B6-9A90815B0D51}"
+EndProject 
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
