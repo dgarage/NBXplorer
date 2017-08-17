@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NBitcoin;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -17,7 +18,7 @@ namespace NBXplorer.Tests
 		{
 			_Name = name;
 			ServerTester.DeleteRecursivelyWithMagicDust(name);
-			_Repository = new Repository(name, caching);
+			_Repository = new Repository(new Serializer(Network.RegTest), name, caching);
 		}
 
 		public void Dispose()
@@ -29,7 +30,7 @@ namespace NBXplorer.Tests
 		public void ReloadRepository(bool caching)
 		{
 			_Repository.Dispose();
-			_Repository = new Repository(_Name, caching);
+			_Repository = new Repository(new Serializer(Network.RegTest), _Name, caching);
 		}
 
 		private Repository _Repository;

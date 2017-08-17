@@ -10,6 +10,7 @@ using NBitcoin.RPC;
 using System.Text;
 using NBitcoin.Crypto;
 using System.Collections.Generic;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Tests
 {
@@ -27,11 +28,11 @@ namespace NBXplorer.Tests
 			{
 				RepositoryCanTrackAddresses(tester);
 				tester.ReloadRepository(true);
-				var keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/26")).PubKey.Hash.ScriptPubKey);
+				var keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(26).ScriptPubKey);
 				Assert.NotNull(keyInfo);
 				Assert.Equal(new KeyPath("1/26"), keyInfo.KeyPath);
-				Assert.True(keyInfo.RootKey.SequenceEqual(pubKey.ToBytes()));
-				keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/27")).PubKey.Hash.ScriptPubKey);
+				Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+				keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(27).ScriptPubKey);
 				Assert.Null(keyInfo);
 
 			}
@@ -41,65 +42,65 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		static ExtPubKey pubKey = new ExtKey().Neuter();
+		static IDerivationStrategy pubKey = new DirectDerivationStrategy(new ExtKey().Neuter());
 		private static void RepositoryCanTrackAddresses(RepositoryTester tester)
 		{
 
 			tester.Repository.MarkAsUsed(new KeyInformation(pubKey));
-			var keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("0/0")).PubKey.Hash.ScriptPubKey);
+			var keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(0).First().Derive(0).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/0"), keyInfo.KeyPath);
-			Assert.True(keyInfo.RootKey.SequenceEqual(pubKey.ToBytes()));
+			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
 
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("0/1")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(0).First().Derive(1).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/1"), keyInfo.KeyPath);
-			Assert.True(keyInfo.RootKey.SequenceEqual(pubKey.ToBytes()));
+			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
 
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("0/19")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(0).First().Derive(19).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/19"), keyInfo.KeyPath);
-			Assert.True(keyInfo.RootKey.SequenceEqual(pubKey.ToBytes()));
+			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
 
 
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/19")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(19).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/19"), keyInfo.KeyPath);
-			Assert.True(keyInfo.RootKey.SequenceEqual(pubKey.ToBytes()));
+			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
 
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("0/20")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(0).First().Derive(20).ScriptPubKey);
 			Assert.Null(keyInfo);
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/20")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(20).ScriptPubKey);
 			Assert.Null(keyInfo);
 
 			tester.Repository.MarkAsUsed(new KeyInformation(pubKey, new KeyPath("1/5")));
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/25")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(25).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/25"), keyInfo.KeyPath);
-			Assert.True(keyInfo.RootKey.SequenceEqual(pubKey.ToBytes()));
+			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
 
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/26")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(26).ScriptPubKey);
 			Assert.Null(keyInfo);
 
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("0/20")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(0).First().Derive(20).ScriptPubKey);
 			Assert.Null(keyInfo);
 
 
 			tester.Repository.MarkAsUsed(new KeyInformation(pubKey, new KeyPath("1/6")));
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/26")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(26).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/26"), keyInfo.KeyPath);
-			Assert.True(keyInfo.RootKey.SequenceEqual(pubKey.ToBytes()));
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/27")).PubKey.Hash.ScriptPubKey);
+			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(27).ScriptPubKey);
 			Assert.Null(keyInfo);
 
 			//No op
 			tester.Repository.MarkAsUsed(new KeyInformation(pubKey, new KeyPath("1/6")));
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/26")).PubKey.Hash.ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(26).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/26"), keyInfo.KeyPath);
-			Assert.True(keyInfo.RootKey.SequenceEqual(pubKey.ToBytes()));
-			keyInfo = tester.Repository.GetKeyInformation(pubKey.Derive(new KeyPath("1/27")).PubKey.Hash.ScriptPubKey);
+			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(27).ScriptPubKey);
 			Assert.Null(keyInfo);
 		}
 

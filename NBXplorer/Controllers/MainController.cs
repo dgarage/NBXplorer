@@ -13,6 +13,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Controllers
 {
@@ -47,13 +48,15 @@ namespace NBXplorer.Controllers
 		[Route("sync/{extPubKey}")]
 		public async Task<FileContentResult> Sync(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			BitcoinExtPubKey extPubKey,
+			IDerivationStrategy extPubKey,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 lastBlockHash = null,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 unconfirmedHash = null,
 			bool noWait = false)
 		{
+			if(extPubKey == null)
+				throw new ArgumentNullException(nameof(extPubKey));
 			lastBlockHash = lastBlockHash ?? uint256.Zero;
 			var actualLastBlockHash = uint256.Zero;
 
@@ -142,13 +145,13 @@ namespace NBXplorer.Controllers
 				waitingTransaction = Task.FromResult(false); //next time, will not wait
 			}
 
-			Runtime.Repository.CleanTransactions(extPubKey.ExtPubKey, cleanList);
+			Runtime.Repository.CleanTransactions(extPubKey, cleanList);
 
 			return new FileContentResult(changes.ToBytes(), "application/octet-stream");
 
 		}
 
-		private List<AnnotatedTransaction> GetAnnotatedTransactions(BitcoinExtPubKey extPubKey)
+		private List<AnnotatedTransaction> GetAnnotatedTransactions(IDerivationStrategy extPubKey)
 		{
 			return Runtime.Repository
 									.GetTransactions(extPubKey)
@@ -172,7 +175,7 @@ namespace NBXplorer.Controllers
 			};
 		}
 
-		private async Task<bool> WaitingTransaction(BitcoinExtPubKey extPubKey)
+		private async Task<bool> WaitingTransaction(IDerivationStrategy extPubKey)
 		{
 			CancellationTokenSource cts = new CancellationTokenSource();
 			int timeout = 10000;
@@ -180,7 +183,7 @@ namespace NBXplorer.Controllers
 
 			try
 			{
-				if(!await Runtime.WaitFor(extPubKey.ExtPubKey, cts.Token))
+				if(!await Runtime.WaitFor(extPubKey, cts.Token))
 				{
 					await Task.Delay(timeout);
 					return false;
@@ -190,11 +193,11 @@ namespace NBXplorer.Controllers
 			return true;
 		}
 
-		private Func<Script, KeyPath> GetKeyPaths(BitcoinExtPubKey extPubKey)
+		private Func<Script, KeyPath> GetKeyPaths(IDerivationStrategy extPubKey)
 		{
 			return (script) =>
 			{
-				return Runtime.Repository.GetKeyInformation(extPubKey.ExtPubKey, script)?.KeyPath;
+				return Runtime.Repository.GetKeyInformation(extPubKey, script)?.KeyPath;
 			};
 		}
 
@@ -210,17 +213,10 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("broadcast")]
-		public async Task<bool> Broadcast()
+		public async Task<bool> Broadcast(
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			IDerivationStrategy extPubKey)
 		{
-			BitcoinExtPubKey extPubKey = null;
-
-			//Crazy hack to get extPubKey... For some reason it is impossible to pass it as argument without crashing on linux
-			if(Request.Query.ContainsKey("extPubKey"))
-			{
-				extPubKey = new BitcoinExtPubKey(Request.Query["extPubKey"], Runtime.Network);
-			}
-			////
-
 			var tx = new Transaction();
 			var stream = new BitcoinStream(Request.Body, false);
 			tx.ReadWrite(stream);

@@ -15,6 +15,7 @@ using System.Net;
 using NBitcoin.Protocol.Behaviors;
 using System.IO;
 using System.Threading.Tasks;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer
 {
@@ -79,12 +80,17 @@ namespace NBXplorer
 			}
 
 			var dbPath = Path.Combine(configuration.DataDir, "db");
-			Repository = new Repository(dbPath, true);
+			Repository = new Repository(configuration.CreateSerializer(), dbPath, true);
 			if(configuration.Rescan)
 			{
 				Logs.Configuration.LogInformation("Rescanning...");
 				Repository.SetIndexProgress(null);
 			}
+		}
+
+		internal Serializer CreateSerializer()
+		{
+			return new Serializer(Network);
 		}
 
 		public void StartNodeListener(int startHeight)
@@ -99,7 +105,7 @@ namespace NBXplorer
 			get; set;
 		}
 
-		public async Task<bool> WaitFor(ExtPubKey extPubKey, CancellationToken token)
+		public async Task<bool> WaitFor(IDerivationStrategy extPubKey, CancellationToken token)
 		{
 			var node = _Nodes.ConnectedNodes.FirstOrDefault();
 			if(node == null)

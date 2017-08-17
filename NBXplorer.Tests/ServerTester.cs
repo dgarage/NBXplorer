@@ -57,7 +57,6 @@ namespace NBXplorer.Tests
 				_Directory = directory;
 				if(!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
-				Directory.Delete(cachedNodes, true);
 				if(!Directory.Exists(cachedNodes))
 				{
 					Directory.CreateDirectory(cachedNodes);
@@ -85,6 +84,8 @@ namespace NBXplorer.Tests
 				User1 = NodeBuilder.CreateNode();
 				User2 = NodeBuilder.CreateNode();
 				Explorer = NodeBuilder.CreateNode();
+				foreach(var node in NodeBuilder.Nodes)
+					node.WhiteBind = true;
 				NodeBuilder.StartAll();
 
 				var a = Explorer.CreateRPCClient().GetBlockCount();

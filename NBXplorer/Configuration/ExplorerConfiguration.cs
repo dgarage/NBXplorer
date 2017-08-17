@@ -110,6 +110,11 @@ namespace NBXplorer.Configuration
 			return this;
 		}
 
+		public Serializer CreateSerializer()
+		{
+			return new Serializer(Network);
+		}
+
 		public int StartHeight
 		{
 			get; set;

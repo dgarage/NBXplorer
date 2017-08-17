@@ -65,7 +65,7 @@ namespace NBXplorer
 
 			var config = serviceProvider.GetService<ExplorerRuntime>();
 			var options = GetMVCOptions(serviceProvider);
-			Serializer.RegisterFrontConverters(options.SerializerSettings, config.Network);
+			config.CreateSerializer().ConfigureSerializer(options.SerializerSettings);
 		}
 		private static MvcJsonOptions GetMVCOptions(IServiceProvider serviceProvider)
 		{

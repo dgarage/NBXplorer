@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer
 {
@@ -32,7 +33,7 @@ namespace NBXplorer
 
 	public class InsertTransaction
 	{
-		public ExtPubKey PubKey
+		public IDerivationStrategy PubKey
 		{
 			get; set;
 		}
@@ -48,16 +49,16 @@ namespace NBXplorer
 		{
 
 		}
-		public KeyInformation(ExtPubKey pubKey) : this(pubKey, null)
+		public KeyInformation(IDerivationStrategy pubKey) : this(pubKey, null)
 		{
 
 		}
-		public KeyInformation(ExtPubKey pubKey, KeyPath keyPath)
+		public KeyInformation(IDerivationStrategy pubKey, KeyPath keyPath)
 		{
 			KeyPath = keyPath;
-			RootKey = pubKey.ToBytes();
+			RootKey = pubKey;
 		}
-		public byte[] RootKey
+		public IDerivationStrategy RootKey
 		{
 			get; set;
 		}
@@ -70,10 +71,15 @@ namespace NBXplorer
 	public class Repository : IDisposable
 	{
 		DBreezeEngine _Engine;
-		public Repository(string directory, bool caching)
+		Serializer Serializer;
+		public Repository(Serializer serializer, string directory, bool caching)
 		{
+			if(serializer == null)
+				throw new ArgumentNullException(nameof(serializer));
 			if(!Directory.Exists(directory))
 				Directory.CreateDirectory(directory);
+
+			Serializer = serializer;
 			_Engine = new DBreezeEngine(directory);
 
 			Caching = caching;
@@ -117,10 +123,10 @@ namespace NBXplorer
 			}
 		}
 
-		public KeyInformation GetKeyInformation(ExtPubKey pubKey, Script script)
+		public KeyInformation GetKeyInformation(IDerivationStrategy pubKey, Script script)
 		{
 			var info = GetKeyInformation(script);
-			if(info == null || !pubKey.ToBytes().SequenceEqual(info.RootKey))
+			if(info == null || pubKey.GetHash() != info.RootKey.GetHash())
 				return null;
 			return info;
 		}
@@ -169,7 +175,7 @@ namespace NBXplorer
 		readonly KeyPath[] TrackedPathes = new KeyPath[] { new KeyPath("0"), new KeyPath("1") };
 		public void MarkAsUsed(KeyInformation info)
 		{
-			var tableName = $"U-{Hashes.Hash160(info.RootKey).ToString()}";
+			var tableName = $"U-{info.RootKey.GetHash()}";
 			var highestUsedIndexes = new Dictionary<KeyPath, long>();
 			var highestUnusedIndexes = new Dictionary<KeyPath, long>();
 			using(var tx = _Engine.GetTransaction())
@@ -191,9 +197,10 @@ namespace NBXplorer
 					highestIndexes.AddOrReplace(k.Parent, highestKey);
 				}
 
-				foreach(var trackedPath in TrackedPathes)
+				var derivationLines = info.RootKey.GetLines();
+				foreach(var derivationLine in derivationLines)
 				{
-					ExtPubKey pathPubKey = null;
+					var trackedPath = derivationLine.Path;
 					long highestUnused;
 					if(!highestUnusedIndexes.TryGetValue(trackedPath, out highestUnused))
 						highestUnused = -1;
@@ -210,10 +217,9 @@ namespace NBXplorer
 						highestUnused++;
 
 						highestUnusedPath = trackedPath.Derive((uint)highestUnused);
-						pathPubKey = pathPubKey ?? new ExtPubKey(info.RootKey).Derive(trackedPath);
 
-						var scriptPubKey = pathPubKey.Derive((uint)highestUnused).PubKey.Hash.ScriptPubKey;
-						InsertKeyInformation(tx, scriptPubKey, new KeyInformation()
+						var derivation = derivationLine.Derive((uint)highestUnused);
+						InsertKeyInformation(tx, derivation.ScriptPubKey, new KeyInformation()
 						{
 							KeyPath = trackedPath.Derive((uint)highestUnused),
 							RootKey = info.RootKey
@@ -231,9 +237,9 @@ namespace NBXplorer
 			}
 		}
 
-		public TrackedTransaction[] GetTransactions(BitcoinExtPubKey pubkey)
+		public TrackedTransaction[] GetTransactions(IDerivationStrategy pubkey)
 		{
-			var tableName = $"T-{Hashes.Hash160(pubkey.ToBytes()).ToString()}";
+			var tableName = $"T-{pubkey.GetHash()}";
 			var result = new List<TrackedTransaction>();
 			using(var tx = _Engine.GetTransaction())
 			{
@@ -259,7 +265,7 @@ namespace NBXplorer
 		{
 			if(transactions.Length == 0)
 				return;
-			var groups = transactions.GroupBy(i => $"T-{Hashes.Hash160(i.PubKey.ToBytes()).ToString()}");
+			var groups = transactions.GroupBy(i => $"T-{i.PubKey.GetHash()}");
 
 			using(var tx = _Engine.GetTransaction())
 			{
@@ -272,11 +278,11 @@ namespace NBXplorer
 			}
 		}
 
-		public void CleanTransactions(ExtPubKey pubkey, List<TrackedTransaction> cleanList)
+		public void CleanTransactions(IDerivationStrategy pubkey, List<TrackedTransaction> cleanList)
 		{
 			if(cleanList == null || cleanList.Count == 0)
 				return;
-			var tableName = $"T-{Hashes.Hash160(pubkey.ToBytes()).ToString()}";
+			var tableName = $"T-{pubkey.GetHash()}";
 			using(var tx = _Engine.GetTransaction())
 			{
 				foreach(var tracked in cleanList)

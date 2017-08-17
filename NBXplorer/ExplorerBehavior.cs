@@ -12,11 +12,55 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using NBitcoin.Crypto;
 using Completion = System.Threading.Tasks.TaskCompletionSource<bool>;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
+		class DerivationStrategyWrapper
+		{
+			IDerivationStrategy _Strat;
+			public DerivationStrategyWrapper(IDerivationStrategy strat)
+			{
+				_Strat = strat;
+			}
+
+			public IDerivationStrategy Strat
+			{
+				get
+				{
+					return _Strat;
+				}
+			}
+
+			public override bool Equals(object obj)
+			{
+				DerivationStrategyWrapper item = obj as DerivationStrategyWrapper;
+				if(item == null)
+					return false;
+				return _Strat.GetHash().Equals(item._Strat.GetHash());
+			}
+			public static bool operator ==(DerivationStrategyWrapper a, DerivationStrategyWrapper b)
+			{
+				if(System.Object.ReferenceEquals(a, b))
+					return true;
+				if(((object)a == null) || ((object)b == null))
+					return false;
+				return a._Strat.GetHash() == b._Strat.GetHash();
+			}
+
+			public static bool operator !=(DerivationStrategyWrapper a, DerivationStrategyWrapper b)
+			{
+				return !(a == b);
+			}
+
+			public override int GetHashCode()
+			{
+				return _Strat.GetHash().GetHashCode();
+			}
+		}
+
 		public ExplorerBehavior(ExplorerRuntime runtime, ConcurrentChain chain)
 		{
 			if(runtime == null)
@@ -68,11 +112,11 @@ namespace NBXplorer
 		}
 
 
-		public async Task WaitFor(ExtPubKey pubKey, CancellationToken cancellation = default(CancellationToken))
+		public async Task WaitFor(IDerivationStrategy pubKey, CancellationToken cancellation = default(CancellationToken))
 		{
 			TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>();
 
-			var key = Hashes.Hash160(pubKey.ToBytes());
+			var key = pubKey.GetHash();
 
 			lock(_WaitFor)
 			{
@@ -194,7 +238,7 @@ namespace NBXplorer
 				Download o;
 				if(_InFlights.TryRemove(block.Object.GetHash(), out o))
 				{
-					HashSet<ExtPubKey> pubKeys = new HashSet<ExtPubKey>();
+					var pubKeys = new HashSet<DerivationStrategyWrapper>();
 					foreach(var tx in block.Object.Transactions)
 						tx.CacheHashes();
 
@@ -209,7 +253,7 @@ namespace NBXplorer
 							trackedTransactions.Add(
 								new InsertTransaction()
 								{
-									PubKey = pubkey,
+									PubKey = pubkey.Strat,
 									TrackedTransaction = new TrackedTransaction()
 									{
 										BlockHash = block.Object.GetHash(),
@@ -229,7 +273,7 @@ namespace NBXplorer
 
 					foreach(var pubkey in pubKeys)
 					{
-						Notify(pubkey, false);
+						Notify(pubkey.Strat, false);
 					}
 				}
 				if(_InFlights.Count == 0)
@@ -246,7 +290,7 @@ namespace NBXplorer
 					{
 						new InsertTransaction()
 						{
-							PubKey = pubkey,
+							PubKey = pubkey.Strat,
 							TrackedTransaction = new TrackedTransaction()
 							{
 								Transaction = txPayload.Object
@@ -257,17 +301,17 @@ namespace NBXplorer
 
 				foreach(var pubkey in pubKeys)
 				{
-					Notify(pubkey, true);
+					Notify(pubkey.Strat, true);
 				}
 			});
 
 		}
 
-		private void Notify(ExtPubKey pubkey, bool log)
+		private void Notify(IDerivationStrategy pubkey, bool log)
 		{
 			if(log)
 				Logs.Explorer.LogInformation($"A wallet received money");
-			var key = Hashes.Hash160(pubkey.ToBytes());
+			var key = pubkey.GetHash();
 			lock(_WaitFor)
 			{
 				IReadOnlyCollection<Completion> completions;
@@ -281,9 +325,9 @@ namespace NBXplorer
 			}
 		}
 
-		private HashSet<ExtPubKey> GetInterestedWallets(Transaction tx)
+		private HashSet<DerivationStrategyWrapper> GetInterestedWallets(Transaction tx)
 		{
-			var pubKeys = new HashSet<ExtPubKey>();
+			var pubKeys = new HashSet<DerivationStrategyWrapper>();
 			tx.CacheHashes();
 			foreach(var input in tx.Inputs)
 			{
@@ -293,7 +337,7 @@ namespace NBXplorer
 					var keyInfo = Runtime.Repository.GetKeyInformation(signer.ScriptPubKey);
 					if(keyInfo != null)
 					{
-						pubKeys.Add(new ExtPubKey(keyInfo.RootKey));
+						pubKeys.Add(new DerivationStrategyWrapper(keyInfo.RootKey));
 						Runtime.Repository.MarkAsUsed(keyInfo);
 					}
 				}
@@ -304,7 +348,7 @@ namespace NBXplorer
 				var keyInfo = Runtime.Repository.GetKeyInformation(output.ScriptPubKey);
 				if(keyInfo != null)
 				{
-					pubKeys.Add(new ExtPubKey(keyInfo.RootKey));
+					pubKeys.Add(new DerivationStrategyWrapper(keyInfo.RootKey));
 					Runtime.Repository.MarkAsUsed(keyInfo);
 				}
 			}

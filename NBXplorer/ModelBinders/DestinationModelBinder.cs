@@ -4,6 +4,7 @@ using System.Reflection;
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Internal;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.ModelBinders
 {
@@ -18,9 +19,7 @@ namespace NBXplorer.ModelBinders
 
 		public Task BindModelAsync(ModelBindingContext bindingContext)
 		{
-			if(!
-				(typeof(Base58Data).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType) ||
-				typeof(IDestination).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType)))
+			if(!typeof(IDerivationStrategy).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType))
 			{
 				return TaskCache.CompletedTask;
 			}
@@ -39,7 +38,7 @@ namespace NBXplorer.ModelBinders
 			}
 
 			var network = (Network)bindingContext.HttpContext.RequestServices.GetService(typeof(Network));
-			var data = Network.Parse(key, network);
+			var data = new DerivationStrategy.DerivationStrategyFactory(network).Parse(key);
 			if(!bindingContext.ModelType.IsInstanceOfType(data))
 			{
 				throw new FormatException("Invalid destination type");
