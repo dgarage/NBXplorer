@@ -1,5 +1,6 @@
 ﻿using NBitcoin;
 using NBitcoin.JsonConverters;
+using NBXplorer.DerivationStrategy;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -19,28 +20,31 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(network));
 			_Address = serverAddress;
 			_Network = network;
+			_Serializer = new Serializer(network);
+			_Factory = new DerivationStrategyFactory(Network);
 		}
-
-		public UTXOChanges Sync(BitcoinExtPubKey extKey, UTXOChanges previousChange, bool noWait = false)
+		Serializer _Serializer;
+		DerivationStrategyFactory _Factory;
+		public UTXOChanges Sync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false)
 		{
 			return SyncAsync(extKey, previousChange, noWait).GetAwaiter().GetResult();
 		}
 
-		public Task<UTXOChanges> SyncAsync(BitcoinExtPubKey extKey, UTXOChanges previousChange, bool noWait = false)
+		public Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false)
 		{
 			return SyncAsync(extKey, previousChange?.Confirmed?.Hash, previousChange?.Unconfirmed?.Hash, noWait);
 		}
 
-		public UTXOChanges Sync(BitcoinExtPubKey extKey, uint256 lastBlockHash, uint256 unconfirmedHash, bool noWait = false)
+		public UTXOChanges Sync(IDerivationStrategy extKey, uint256 lastBlockHash, uint256 unconfirmedHash, bool noWait = false)
 		{
 			return SyncAsync(extKey, lastBlockHash, unconfirmedHash, noWait).GetAwaiter().GetResult();
 		}
 
-		public async Task<UTXOChanges> SyncAsync(BitcoinExtPubKey extKey, uint256 lastBlockHash, uint256 unconfirmedHash, bool noWait = false)
+		public async Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, uint256 lastBlockHash, uint256 unconfirmedHash, bool noWait = false)
 		{
 			lastBlockHash = lastBlockHash ?? uint256.Zero;
 			unconfirmedHash = unconfirmedHash ?? uint256.Zero;
-			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?lastBlockHash={1}&unconfirmedHash={2}&noWait={3}", extKey, lastBlockHash, unconfirmedHash, noWait).ConfigureAwait(false);
+			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?lastBlockHash={1}&unconfirmedHash={2}&noWait={3}", _Factory.Serialize(extKey), lastBlockHash, unconfirmedHash, noWait).ConfigureAwait(false);
 			UTXOChanges changes = new UTXOChanges();
 			changes.FromBytes(bytes);
 			return changes;
@@ -101,7 +105,7 @@ namespace NBXplorer
 				if(body is byte[])
 					message.Content = new ByteArrayContent((byte[])body);
 				else
-					message.Content = new StringContent(Serializer.ToString(body, Network), Encoding.UTF8, "application/json");
+					message.Content = new StringContent(_Serializer.ToString(body), Encoding.UTF8, "application/json");
 			}
 			var result = await Client.SendAsync(message).ConfigureAwait(false);
 			if(result.StatusCode == HttpStatusCode.NotFound)
@@ -120,7 +124,7 @@ namespace NBXplorer
 			var str = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
 			if(typeof(T) == typeof(string))
 				return (T)(object)str;
-			return Serializer.ToObject<T>(str, Network);
+			return _Serializer.ToObject<T>(str);
 		}
 	}
 }
