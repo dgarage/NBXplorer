@@ -27,7 +27,6 @@ namespace NBXplorer
 			_Network = network;
 			_Serializer = new Serializer(network);
 			_Factory = new DerivationStrategyFactory(Network);
-
 			_CookieFilePath = NBXplorer.Client.Utils.GetDefaultCookieFilePath(network);
 		}
 
