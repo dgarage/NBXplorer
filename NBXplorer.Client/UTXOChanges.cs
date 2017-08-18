@@ -13,8 +13,23 @@ namespace NBXplorer
 	{
 		public void ReadWrite(BitcoinStream stream)
 		{
+			stream.ReadWriteAsVarInt(ref _CurrentHeight);
 			stream.ReadWrite(ref _Confirmed);
 			stream.ReadWrite(ref _Unconfirmed);
+		}
+
+
+		uint _CurrentHeight;
+		public int CurrentHeight
+		{
+			get
+			{
+				return checked((int)_CurrentHeight);
+			}
+			set
+			{
+				_CurrentHeight = checked((uint)value);
+			}
 		}
 
 		UTXOChange _Unconfirmed = new UTXOChange();
@@ -78,7 +93,7 @@ namespace NBXplorer
 			{
 				_Hash = value;
 			}
-		}		
+		}
 
 
 		List<UTXO> _UTXOs = new List<UTXO>();
@@ -123,13 +138,13 @@ namespace NBXplorer
 			stream.ReadWrite(ref _SpentOutpoints);
 		}
 
-		public void LoadChanges(Transaction tx, Func<Script, KeyPath> getKeyPath)
+		public void LoadChanges(Transaction tx, int confirmations, Func<Script, KeyPath> getKeyPath)
 		{
 			if(tx == null)
 				throw new ArgumentNullException("tx");
 			tx.CacheHashes();
 
-			
+
 			var existingUTXOs = new HashSet<OutPoint>(UTXOs.Select(u => u.Outpoint));
 			var removedUTXOs = new HashSet<OutPoint>(SpentOutpoints);
 
@@ -149,7 +164,7 @@ namespace NBXplorer
 					if(keyPath != null)
 					{
 						var outpoint = new OutPoint(tx.GetHash(), index);
-						UTXOs.Add(new UTXO(outpoint, output, keyPath));
+						UTXOs.Add(new UTXO(outpoint, output, keyPath, confirmations));
 						existingUTXOs.Add(outpoint);
 					}
 				}
@@ -258,11 +273,12 @@ namespace NBXplorer
 
 		KeyPath _KeyPath;
 
-		public UTXO(OutPoint outPoint, TxOut output, KeyPath keyPath)
+		public UTXO(OutPoint outPoint, TxOut output, KeyPath keyPath, int confirmations)
 		{
 			Outpoint = outPoint;
 			Output = output;
 			KeyPath = keyPath;
+			Confirmations = confirmations;
 		}
 
 		public KeyPath KeyPath
@@ -277,10 +293,25 @@ namespace NBXplorer
 			}
 		}
 
+
+		uint _Confirmations;
+		public int Confirmations
+		{
+			get
+			{
+				return checked((int)_Confirmations);
+			}
+			set
+			{
+				_Confirmations = checked((uint)value);
+			}
+		}
+
 		public void ReadWrite(BitcoinStream stream)
 		{
 			stream.ReadWrite(ref _Outpoint);
 			stream.ReadWrite(ref _Output);
+			stream.ReadWriteAsVarInt(ref _Confirmations);
 
 			uint[] indexes = _KeyPath?.Indexes ?? new uint[0];
 			stream.ReadWrite(ref indexes);

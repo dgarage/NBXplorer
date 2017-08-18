@@ -298,11 +298,12 @@ namespace NBXplorer.Tests
 				var gettingUTXO = tester.Client.SyncAsync(pubkey, utxo);
 				var txId = tester.Runtime.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = gettingUTXO.GetAwaiter().GetResult();
-
+				Assert.Equal(103, utxo.CurrentHeight);
 
 				Assert.False(utxo.Confirmed.Reset);
 				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
 				Assert.Equal(txId, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+				Assert.Equal(0, utxo.Unconfirmed.UTXOs[0].Confirmations);
 				Assert.Equal(0, utxo.Confirmed.UTXOs.Count);
 				Assert.Equal(uint256.Zero, utxo.Confirmed.Hash);
 				Assert.Equal(utxo.Unconfirmed.GetHash(), utxo.Unconfirmed.Hash);
@@ -314,6 +315,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(0, utxo.Unconfirmed.UTXOs.Count);
 				Assert.Equal(1, utxo.Confirmed.UTXOs.Count);
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
+				Assert.Equal(1, utxo.Confirmed.UTXOs[0].Confirmations);
 				var bestBlockHash = tester.Runtime.RPC.GetBestBlockHash();
 				Assert.Equal(bestBlockHash, utxo.Confirmed.Hash);
 
@@ -344,6 +346,7 @@ namespace NBXplorer.Tests
 				Assert.True(utxo.Confirmed.Reset);
 				Assert.Equal(0, utxo.Unconfirmed.UTXOs.Count);
 				Assert.Equal(1, utxo.Confirmed.UTXOs.Count);
+				Assert.Equal(1, utxo.Confirmed.UTXOs[0].Confirmations);
 				tester.Runtime.RPC.Generate(1);
 
 				utxo = tester.Client.Sync(pubkey, utxo);

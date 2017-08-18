@@ -73,13 +73,13 @@ namespace NBXplorer.Controllers
 				cleanList = new List<TrackedTransaction>();
 				HashSet<uint256> conflictedUnconf = new HashSet<uint256>();
 				changes = new UTXOChanges();
+				changes.CurrentHeight = Runtime.Chain.Height;
 				List<AnnotatedTransaction> transactions = GetAnnotatedTransactions(extPubKey);
 				var unconf = transactions.Where(tx => tx.Height == MempoolHeight);
 				var conf = transactions.Where(tx => tx.Height != MempoolHeight);
 
 				conf = conf.TopologicalSort(DependsOn(conf.ToList())).ToList();
 				unconf = unconf.TopologicalSort(DependsOn(unconf.ToList())).ToList();
-
 				foreach(var item in conf.Concat(unconf))
 				{
 					var record = item.Record;
@@ -100,7 +100,7 @@ namespace NBXplorer.Controllers
 							Logs.Explorer.LogInformation($"Conflicts in the mempool. {record.Transaction.GetHash()} ignored");
 							continue;
 						}
-						changes.Unconfirmed.LoadChanges(record.Transaction, getKeyPath);
+						changes.Unconfirmed.LoadChanges(record.Transaction, 0, getKeyPath);
 					}
 					else
 					{
@@ -109,8 +109,8 @@ namespace NBXplorer.Controllers
 							Logs.Explorer.LogError("A conflict among confirmed transaction happened, this should be impossible");
 							throw new InvalidOperationException("The impossible happened");
 						}
-						changes.Unconfirmed.LoadChanges(record.Transaction, getKeyPath);
-						changes.Confirmed.LoadChanges(record.Transaction, getKeyPath);
+						changes.Unconfirmed.LoadChanges(record.Transaction, 0, getKeyPath);
+						changes.Confirmed.LoadChanges(record.Transaction, Math.Max(0, changes.CurrentHeight - item.Height + 1), getKeyPath);
 						changes.Confirmed.Hash = record.BlockHash;
 						actualLastBlockHash = record.BlockHash;
 						if(record.BlockHash == lastBlockHash)
