@@ -368,15 +368,15 @@ namespace NBXplorer
 		{
 			if(node.State == NodeState.HandShaked)
 			{
-				Logs.Explorer.LogInformation($"Handshaked Elements node");
+				Logs.Explorer.LogInformation($"Handshaked Bitcoin node");
 				node.SendMessageAsync(new SendHeadersPayload());
 				node.SendMessageAsync(new MempoolPayload());
 				AskBlocks();
 			}
 			if(node.State == NodeState.Offline)
-				Logs.Explorer.LogInformation($"Closed connection with Elements node");
+				Logs.Explorer.LogInformation($"Closed connection with Bitcoin node");
 			if(node.State == NodeState.Failed)
-				Logs.Explorer.LogError($"Connection with Elements unexpectedly failed: {node.DisconnectReason.Reason}");
+				Logs.Explorer.LogError($"Connection with Bitcoin unexpectedly failed: {node.DisconnectReason.Reason}");
 		}
 	}
 }

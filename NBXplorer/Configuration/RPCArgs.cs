@@ -106,10 +106,10 @@ namespace NBXplorer.Configuration
             var version = ((JObject)getInfo.Result)["version"].Value<int>();
             if(version < MIN_CORE_VERSION)
             {
-                Logs.Configuration.LogError($"The minimum Elements version required is {MIN_CORE_VERSION} (detected: {version})");
+                Logs.Configuration.LogError($"The minimum Bitcoin version required is {MIN_CORE_VERSION} (detected: {version})");
                 throw new ConfigException();
             }
-            Logs.Configuration.LogInformation($"Elements version detected: {version}");
+            Logs.Configuration.LogInformation($"Bitcoin version detected: {version}");
             return rpcClient;
         }
 
