@@ -123,6 +123,43 @@ namespace NBXplorer.Tests
 
 
 		[Fact]
+		public void CanGetUnusedAddresses()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				var bob = new DirectDerivationStrategy(new BitcoinExtKey(new ExtKey(), tester.Runtime.Network).Neuter());
+				var utxo = tester.Client.Sync(bob, null, null, true); //Track things do not wait
+
+				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+				Assert.NotNull(a1);
+				Assert.Equal(a1.Address, tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0).Address);
+				Assert.Equal(a1.Address, bob.Root.Derive(new KeyPath("0/0")).PubKey.Hash.GetAddress(tester.Runtime.Network));
+
+				var a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
+				Assert.Equal(a2.Address, bob.Root.Derive(new KeyPath("0/1")).PubKey.Hash.GetAddress(tester.Runtime.Network));
+
+				var a3 = tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 0);
+				Assert.Equal(a3.Address, bob.Root.Derive(new KeyPath("1/0")).PubKey.Hash.GetAddress(tester.Runtime.Network));
+
+				Assert.Null(tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 30));
+
+				a3 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 2);
+				Assert.Equal(new KeyPath("0/2"), a3.KeyPath);
+
+				//   0/0 and 0/2 used
+				tester.Runtime.RPC.SendToAddressAsync(a1.Address, Money.Coins(1.0m));
+				utxo = tester.Client.Sync(bob, utxo); //Wait tx received
+				tester.Runtime.RPC.SendToAddressAsync(a3.Address, Money.Coins(1.0m));
+				utxo = tester.Client.Sync(bob, utxo); //Wait tx received
+
+				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+				Assert.Equal(a1.Address, bob.Root.Derive(new KeyPath("0/1")).PubKey.Hash.GetAddress(tester.Runtime.Network));
+				a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
+				Assert.Equal(a2.Address, bob.Root.Derive(new KeyPath("0/3")).PubKey.Hash.GetAddress(tester.Runtime.Network));
+			}
+		}
+
+		[Fact]
 		public void CanTrack4()
 		{
 			using(var tester = ServerTester.Create())

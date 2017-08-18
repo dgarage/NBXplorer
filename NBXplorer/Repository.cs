@@ -10,6 +10,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using NBXplorer.DerivationStrategy;
+using NBXplorer.Client.Models;
 
 namespace NBXplorer
 {
@@ -66,7 +67,7 @@ namespace NBXplorer
 		{
 			get; set;
 		}
-	}	
+	}
 
 	public class Repository : IDisposable
 	{
@@ -121,6 +122,40 @@ namespace NBXplorer
 					tx.Insert("IndexProgress", "", locator.ToBytes());
 				tx.Commit();
 			}
+		}
+
+		public KeyPathInformation GetUnused(IDerivationStrategy extPubKey, DerivationFeature derivationFeature, int n)
+		{
+			var tableName = $"U-{extPubKey.GetHash()}";
+			int count = 0;
+			var line = extPubKey.GetLineFor(derivationFeature);
+			if(line == null)
+				return null;
+			List<KeyPath> possiblePaths = new List<KeyPath>();
+			using(var tx = _Engine.GetTransaction())
+			{
+				tx.ValuesLazyLoadingIsOn = false;
+				foreach(var row in tx.SelectForward<string, bool>(tableName))
+				{
+					var keyPath = new KeyPath(row.Key);
+					if(!row.Value && keyPath.Parent == line.Path)
+					{
+						possiblePaths.Add(keyPath);
+					}
+				}
+			}
+
+			var path = possiblePaths.OrderBy(o => o.Indexes.Last()).Skip(n).FirstOrDefault();
+			if(path == null)
+				return null;
+			var derived = line.Derive(path.Indexes.Last());
+			return new KeyPathInformation()
+			{
+				KeyPath = path,
+				ScriptPubKey = derived.ScriptPubKey,
+				Redeem = derived.Redeem,
+				Address = derived.ScriptPubKey.GetDestinationAddress(Serializer.Network)
+			};
 		}
 
 		public KeyInformation GetKeyInformation(IDerivationStrategy pubKey, Script script)
@@ -219,11 +254,16 @@ namespace NBXplorer
 						highestUnusedPath = trackedPath.Derive((uint)highestUnused);
 
 						var derivation = derivationLine.Derive((uint)highestUnused);
-						InsertKeyInformation(tx, derivation.ScriptPubKey, new KeyInformation()
+
+						var keyInfo = new KeyInformation()
 						{
 							KeyPath = trackedPath.Derive((uint)highestUnused),
 							RootKey = info.RootKey
-						});
+						};
+						InsertKeyInformation(tx, derivation.ScriptPubKey, keyInfo);
+						byte[] inserted;
+						bool existed;
+						tx.Insert(tableName, keyInfo.KeyPath.ToString(), false, out inserted, out existed, dontUpdateIfExists: true);
 					}
 
 					if(highestUnusedPath != null)
@@ -260,7 +300,7 @@ namespace NBXplorer
 			return result.ToArray();
 		}
 
-		
+
 		public void InsertTransactions(InsertTransaction[] transactions)
 		{
 			if(transactions.Length == 0)

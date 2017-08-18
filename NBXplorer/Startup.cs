@@ -14,6 +14,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Http.Features;
+using NBXplorer.Filters;
 
 namespace NBXplorer
 {
@@ -36,9 +37,14 @@ namespace NBXplorer
 		public void ConfigureServices(IServiceCollection services)
 		{
 			services.AddSingleton<IObjectModelValidator, NoObjectModelValidator>();
-			services.AddMvcCore()
+			services.AddMvcCore(o =>
+			{
+				o.Filters.Add(new NBXplorerExceptionFilter());
+				o.OutputFormatters.Clear();
+				o.InputFormatters.Clear();
+			})
 				.AddJsonFormatters()
-				.AddFormatterMappings();			
+				.AddFormatterMappings();
 		}
 
 		internal class NoObjectModelValidator : IObjectModelValidator

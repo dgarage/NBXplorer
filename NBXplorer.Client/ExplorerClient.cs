@@ -52,6 +52,25 @@ namespace NBXplorer
 			return changes;
 		}
 
+		public KeyPathInformation GetUnused(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0)
+		{
+			return GetUnusedAsync(strategy, feature, skip).GetAwaiter().GetResult();
+		}
+
+		public async Task<KeyPathInformation> GetUnusedAsync(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0)
+		{
+			try
+			{
+				return await GetAsync<KeyPathInformation>("v1/{0}/unused?feature={1}&skip={2}", _Factory.Serialize(strategy), feature, skip).ConfigureAwait(false);
+			}
+			catch(NBXplorerException ex)
+			{
+				if(ex.Error.HttpCode == 404)
+					return null;
+				throw;
+			}
+		}
+
 		public BroadcastResult Broadcast(Transaction tx)
 		{
 			return BroadcastAsync(tx).GetAwaiter().GetResult();
@@ -110,23 +129,37 @@ namespace NBXplorer
 					message.Content = new StringContent(_Serializer.ToString(body), Encoding.UTF8, "application/json");
 			}
 			var result = await Client.SendAsync(message).ConfigureAwait(false);
-			if(result.StatusCode == HttpStatusCode.NotFound)
-				return default(T);
-			if(!result.IsSuccessStatusCode)
-			{
-				string error = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
-				if(!string.IsNullOrEmpty(error))
+			return await ParseResponse<T>(result).ConfigureAwait(false);
+		}
+
+		private async Task<T> ParseResponse<T>(HttpResponseMessage response)
+		{
+			if(response.IsSuccessStatusCode)
+				if(response.Content.Headers.ContentType.MediaType.Equals("application/json", StringComparison.Ordinal))
+					return _Serializer.ToObject<T>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+				else if(response.Content.Headers.ContentType.MediaType.Equals("application/octet-stream", StringComparison.Ordinal))
 				{
-					throw new HttpRequestException(result.StatusCode + ": " + error);
+					return (T)(object)await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
 				}
-			}
-			result.EnsureSuccessStatusCode();
-			if(typeof(T) == typeof(byte[]))
-				return (T)(object)await result.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
-			var str = await result.Content.ReadAsStringAsync().ConfigureAwait(false);
-			if(typeof(T) == typeof(string))
-				return (T)(object)str;
-			return _Serializer.ToObject<T>(str);
+
+			if(response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+				response.EnsureSuccessStatusCode();
+			var error = _Serializer.ToObject<NBXplorerError>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+			if(error == null)
+				response.EnsureSuccessStatusCode();
+			throw error.AsException();
+		}
+
+		private async Task ParseResponse(HttpResponseMessage response)
+		{
+			if(response.IsSuccessStatusCode)
+				return;
+			if(response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+				response.EnsureSuccessStatusCode();
+			var error = _Serializer.ToObject<NBXplorerError>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+			if(error == null)
+				response.EnsureSuccessStatusCode();
+			throw error.AsException();
 		}
 	}
 }

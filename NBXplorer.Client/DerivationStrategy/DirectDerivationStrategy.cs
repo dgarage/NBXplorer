@@ -55,5 +55,14 @@ namespace NBXplorer.DerivationStrategy
 		{
 			return Hashes.Hash160(_Root.PubKey.ToBytes());
 		}
+
+		public IDerivationStrategyLine GetLineFor(DerivationFeature feature)
+		{
+			if(feature == DerivationFeature.Change)
+				return new LineStrategy(_Root, true);
+			if(feature == DerivationFeature.Deposit)
+				return new LineStrategy(_Root, false);
+			throw new NotSupportedException();
+		}
 	}
 }

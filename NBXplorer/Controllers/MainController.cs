@@ -46,6 +46,28 @@ namespace NBXplorer.Controllers
 			get; set;
 		}
 
+
+		[HttpGet]
+		[Route("{strategy}/unused")]
+		public KeyPathInformation GetUnusedAddress(
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			IDerivationStrategy strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0)
+		{
+			if(strategy == null)
+				throw new ArgumentNullException(nameof(strategy));
+			try
+			{
+				var result = Runtime.Repository.GetUnused(strategy, feature, skip);
+				if(result == null)
+					throw new NBXplorerError(404, "strategy-not-found", $"This strategy is not tracked, or you tried to skip too much unused addresses").AsException();
+				return result;
+			}
+			catch(NotSupportedException)
+			{
+				throw new NBXplorerError(400, "derivation-not-supported", $"The derivation scheme {feature} is not supported").AsException();
+			}
+		}
+
 		[HttpGet]
 		[Route("sync/{extPubKey}")]
 		public async Task<FileContentResult> Sync(
