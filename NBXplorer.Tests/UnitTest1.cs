@@ -11,6 +11,7 @@ using System.Text;
 using NBitcoin.Crypto;
 using System.Collections.Generic;
 using NBXplorer.DerivationStrategy;
+using System.Diagnostics;
 
 namespace NBXplorer.Tests
 {
@@ -102,6 +103,21 @@ namespace NBXplorer.Tests
 			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(27).ScriptPubKey);
 			Assert.Null(keyInfo);
+		}
+
+		[Fact]
+		public void ShouldBlockIfNoChange()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				var bob = new DirectDerivationStrategy(new ExtKey().Neuter());
+				var utxo = tester.Client.Sync(bob, null, true);
+				Stopwatch watch = new Stopwatch();
+				watch.Start();
+				var result = tester.Client.Sync(bob, utxo);
+				watch.Stop();
+				Assert.True(watch.Elapsed > TimeSpan.FromSeconds(10));
+			}
 		}
 
 
@@ -286,6 +302,7 @@ namespace NBXplorer.Tests
 
 				Assert.False(utxo.Confirmed.Reset);
 				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
+				Assert.Equal(txId, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Equal(0, utxo.Confirmed.UTXOs.Count);
 				Assert.Equal(uint256.Zero, utxo.Confirmed.Hash);
 				Assert.Equal(utxo.Unconfirmed.GetHash(), utxo.Unconfirmed.Hash);
@@ -296,6 +313,7 @@ namespace NBXplorer.Tests
 				Assert.True(utxo.Unconfirmed.Reset);
 				Assert.Equal(0, utxo.Unconfirmed.UTXOs.Count);
 				Assert.Equal(1, utxo.Confirmed.UTXOs.Count);
+				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
 				var bestBlockHash = tester.Runtime.RPC.GetBestBlockHash();
 				Assert.Equal(bestBlockHash, utxo.Confirmed.Hash);
 
@@ -303,8 +321,12 @@ namespace NBXplorer.Tests
 
 				prevUtxo = utxo;
 				utxo = tester.Client.Sync(pubkey, utxo);
-				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
 				Assert.Equal(0, utxo.Confirmed.UTXOs.Count);
+				Assert.False(utxo.Confirmed.Reset);
+				Assert.True(utxo.HasChanges);
+				Assert.True(utxo.Unconfirmed.Reset);
+				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
+				Assert.Equal(txId, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				utxo = tester.Client.Sync(pubkey, null, null, true);
 
 				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);

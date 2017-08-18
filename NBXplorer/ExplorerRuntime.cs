@@ -50,18 +50,15 @@ namespace NBXplorer
 			var heightBefore = Chain.Height;
 			try
 			{
-				if(!configuration.RPC.NoTest)
+				Logs.Configuration.LogInformation("Trying to connect to node: " + configuration.NodeEndpoint);
+				using(var node = Node.Connect(Network, configuration.NodeEndpoint))
 				{
-					Logs.Configuration.LogInformation("Trying to connect to node: " + configuration.NodeEndpoint);
-					using(var node = Node.Connect(Network, configuration.NodeEndpoint))
-					{
-						var cts = new CancellationTokenSource();
-						cts.CancelAfter(5000);
-						node.VersionHandshake(cts.Token);
-						node.SynchronizeChain(Chain);
-					}
-					Logs.Configuration.LogInformation("Node connection successfull");
+					var cts = new CancellationTokenSource();
+					cts.CancelAfter(5000);
+					node.VersionHandshake(cts.Token);
+					node.SynchronizeChain(Chain);
 				}
+				Logs.Configuration.LogInformation("Node connection successfull");
 			}
 			catch(Exception ex)
 			{

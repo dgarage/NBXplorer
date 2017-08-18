@@ -74,7 +74,6 @@ namespace NBXplorer.Controllers
 				HashSet<uint256> conflictedUnconf = new HashSet<uint256>();
 				changes = new UTXOChanges();
 				List<AnnotatedTransaction> transactions = GetAnnotatedTransactions(extPubKey);
-
 				var unconf = transactions.Where(tx => tx.Height == MempoolHeight);
 				var conf = transactions.Where(tx => tx.Height != MempoolHeight);
 
@@ -87,7 +86,7 @@ namespace NBXplorer.Controllers
 					if(record.BlockHash == null)
 					{
 						if( //A parent conflicted with the current utxo
-							record.Transaction.Inputs.Any(i => conflictedUnconf.Contains(i.PrevOut.Hash)) 
+							record.Transaction.Inputs.Any(i => conflictedUnconf.Contains(i.PrevOut.Hash))
 							||
 							//Conflict with the confirmed utxo
 							changes.Confirmed.HasConflict(record.Transaction))
@@ -178,14 +177,12 @@ namespace NBXplorer.Controllers
 		private async Task<bool> WaitingTransaction(IDerivationStrategy extPubKey)
 		{
 			CancellationTokenSource cts = new CancellationTokenSource();
-			int timeout = 10000;
-			cts.CancelAfter(timeout);
+			cts.CancelAfter(10000);
 
 			try
 			{
 				if(!await Runtime.WaitFor(extPubKey, cts.Token))
 				{
-					await Task.Delay(timeout);
 					return false;
 				}
 			}

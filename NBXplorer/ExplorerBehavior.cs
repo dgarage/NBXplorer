@@ -154,10 +154,11 @@ namespace NBXplorer
 
 		public void AskBlocks()
 		{
-			if(AttachedNode.State != NodeState.HandShaked)
+			var node = AttachedNode;
+			if(node == null || node.State != NodeState.HandShaked)
 				return;
-			var pendingTip = AttachedNode.Behaviors.Find<ChainBehavior>().PendingTip;
-			if(pendingTip == null || pendingTip.Height < AttachedNode.PeerVersion.StartHeight)
+			var pendingTip = node.Behaviors.Find<ChainBehavior>().PendingTip;
+			if(pendingTip == null || pendingTip.Height < node.PeerVersion.StartHeight)
 				return;
 			if(_InFlights.Count != 0)
 				return;
@@ -173,14 +174,13 @@ namespace NBXplorer
 			var toDownload = pendingTip.EnumerateToGenesis().TakeWhile(b => b.HashBlock != currentBlock.HashBlock).ToArray();
 			Array.Reverse(toDownload);
 			var invs = toDownload.Take(10)
-				.Select(b => new InventoryVector(AttachedNode.AddSupportedOptions(InventoryType.MSG_BLOCK), b.HashBlock))
+				.Select(b => new InventoryVector(node.AddSupportedOptions(InventoryType.MSG_BLOCK), b.HashBlock))
 				.Where(b => _InFlights.TryAdd(b.Hash, new Download()))
 				.ToArray();
 
 			if(invs.Length != 0)
 			{
-				AttachedNode.SendMessageAsync(new GetDataPayload(invs));
-				Runtime.Repository.SetIndexProgress(currentLocation);
+				node.SendMessageAsync(new GetDataPayload(invs));
 			}
 		}
 
@@ -245,48 +245,54 @@ namespace NBXplorer
 			{
 				block.Object.Header.CacheHashes();
 				Download o;
-				if(_InFlights.TryRemove(block.Object.GetHash(), out o))
+				if(_InFlights.ContainsKey(block.Object.GetHash()))
 				{
-					var pubKeys = new HashSet<DerivationStrategyWrapper>();
-					foreach(var tx in block.Object.Transactions)
-						tx.CacheHashes();
-
-
-					List<InsertTransaction> trackedTransactions = new List<InsertTransaction>();
-					foreach(var tx in block.Object.Transactions)
+					var blockHeader = Runtime.Chain.GetBlock(block.Object.GetHash());
+					if(blockHeader == null)
+						return;
+					var currentLocation = blockHeader.GetLocator();
+					_CurrentLocation = currentLocation;
+					if(_InFlights.TryRemove(block.Object.GetHash(), out o))
 					{
-						var pubKeys2 = GetInterestedWallets(tx);
-						foreach(var pubkey in pubKeys2)
+						var pubKeys = new HashSet<DerivationStrategyWrapper>();
+						foreach(var tx in block.Object.Transactions)
+							tx.CacheHashes();
+
+
+						List<InsertTransaction> trackedTransactions = new List<InsertTransaction>();
+						foreach(var tx in block.Object.Transactions)
 						{
-							pubKeys.Add(pubkey);
-							trackedTransactions.Add(
-								new InsertTransaction()
-								{
-									PubKey = pubkey.Strat,
-									TrackedTransaction = new TrackedTransaction()
+							var pubKeys2 = GetInterestedWallets(tx);
+							foreach(var pubkey in pubKeys2)
+							{
+								pubKeys.Add(pubkey);
+								trackedTransactions.Add(
+									new InsertTransaction()
 									{
-										BlockHash = block.Object.GetHash(),
-										Transaction = tx
-									}
-								});
+										PubKey = pubkey.Strat,
+										TrackedTransaction = new TrackedTransaction()
+										{
+											BlockHash = block.Object.GetHash(),
+											Transaction = tx
+										}
+									});
+							}
+						}
+						Runtime.Repository.InsertTransactions(trackedTransactions.ToArray());
+
+						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
+						if(!IsSynching() || block.Object.GetHash().GetLow32() % 100 == 0)
+							Runtime.Repository.SetIndexProgress(currentLocation);
+						Logs.Explorer.LogInformation($"Processed block {block.Object.GetHash()}");
+
+						foreach(var pubkey in pubKeys)
+						{
+							Notify(pubkey.Strat, false);
 						}
 					}
-
-					Runtime.Repository.InsertTransactions(trackedTransactions.ToArray());
-					var blockHeader = Runtime.Chain.GetBlock(block.Object.GetHash());
-					if(blockHeader != null)
-					{
-						_CurrentLocation = blockHeader.GetLocator();
-						Logs.Explorer.LogInformation($"Processed block {block.Object.GetHash()}");
-					}
-
-					foreach(var pubkey in pubKeys)
-					{
-						Notify(pubkey.Strat, false);
-					}
+					if(_InFlights.Count == 0)
+						AskBlocks();
 				}
-				if(_InFlights.Count == 0)
-					AskBlocks();
 			});
 
 			message.Message.IfPayloadIs<TxPayload>(txPayload =>
@@ -314,6 +320,15 @@ namespace NBXplorer
 				}
 			});
 
+		}
+
+		private bool IsSynching()
+		{
+			var location = _CurrentLocation;
+			if(location == null)
+				return true;
+			var fork = Chain.FindFork(location);
+			return Chain.Tip.Height - fork.Height > 10;
 		}
 
 		private void Notify(IDerivationStrategy pubkey, bool log)
