@@ -105,4 +105,7 @@ This project is under MIT License.
 ## Special thanks
 
 Special thanks to Digital Garage for allowing me to open source the project, which is based on an internal work I have done on Elements.
+
 Thanks to the DG Lab Blockchain Team who had to fight with lots of bugs. (in particular kallewoof :p)
+
+Thanks to Metaco SA, whose constant challenging projects refine my taste on what a perfect Bitcoin API should be.
