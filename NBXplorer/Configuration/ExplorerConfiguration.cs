@@ -106,7 +106,7 @@ namespace NBXplorer.Configuration
 			RPC = RPCArgs.Parse(config, Network);
 			NodeEndpoint = ConvertToEndpoint(config.GetOrDefault<string>("node.endpoint", "127.0.0.1"), Network.DefaultPort);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
-			StartHeight = config.GetOrDefault<int>("startheight", 0);
+			StartHeight = config.GetOrDefault<int>("startheight", -1);
 			return this;
 		}
 

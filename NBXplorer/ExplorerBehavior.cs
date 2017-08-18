@@ -107,10 +107,19 @@ namespace NBXplorer
 		{
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
-			_CurrentLocation = Runtime.Repository.GetIndexProgress();
+			_CurrentLocation = Runtime.Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
+			Logs.Explorer.LogInformation("Starting scan at block " + Chain.FindFork(_CurrentLocation).Height);
 			_Timer = new Timer(Tick, null, 0, 30);
 		}
 
+		private BlockLocator GetDefaultCurrentLocation()
+		{
+			if(StartHeight > Chain.Height)
+				throw new InvalidOperationException("StartHeight should not be above the current tip");
+			return StartHeight == -1 ?
+				new BlockLocator() { Blocks = new List<uint256>() { Chain.Tip.HashBlock } } :
+				new BlockLocator() { Blocks = new List<uint256>() { Chain.GetBlock(StartHeight).HashBlock } };
+		}
 
 		public async Task WaitFor(IDerivationStrategy pubKey, CancellationToken cancellation = default(CancellationToken))
 		{
@@ -152,7 +161,7 @@ namespace NBXplorer
 				return;
 			if(_InFlights.Count != 0)
 				return;
-			var currentLocation = _CurrentLocation ?? new BlockLocator() { Blocks = { Chain.GetBlock(StartHeight).HashBlock } }; ;
+			var currentLocation = _CurrentLocation ?? GetDefaultCurrentLocation();
 			var currentBlock = Chain.FindFork(currentLocation);
 			if(currentBlock.Height < StartHeight)
 				currentBlock = Chain.GetBlock(StartHeight) ?? pendingTip;
