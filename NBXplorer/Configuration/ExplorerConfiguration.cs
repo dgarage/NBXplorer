@@ -46,10 +46,15 @@ namespace NBXplorer.Configuration
 			get; set;
 		}
 
-		public ExplorerConfiguration LoadArgs(String[] args)
+		public void LoadArgs(string[] args)
 		{
-			ConfigurationFile = args.Where(a => a.StartsWith("-conf=", StringComparison.Ordinal)).Select(a => a.Substring("-conf=".Length).Replace("\"", "")).FirstOrDefault();
-			DataDir = args.Where(a => a.StartsWith("-datadir=", StringComparison.Ordinal)).Select(a => a.Substring("-datadir=".Length).Replace("\"", "")).FirstOrDefault();
+			LoadArgs(new TextFileConfiguration(args));
+		}
+
+		public ExplorerConfiguration LoadArgs(TextFileConfiguration consoleConfig)
+		{
+			ConfigurationFile = consoleConfig.GetOrDefault<string>("conf", null);
+			DataDir = consoleConfig.GetOrDefault<string>("datadir", null);
 			if(DataDir != null && ConfigurationFile != null)
 			{
 				var isRelativePath = Path.GetFullPath(ConfigurationFile).Length > ConfigurationFile.Length;
@@ -59,8 +64,8 @@ namespace NBXplorer.Configuration
 				}
 			}
 
-			Network = args.Contains("-testnet", StringComparer.OrdinalIgnoreCase) ? Network.TestNet :
-				args.Contains("-regtest", StringComparer.OrdinalIgnoreCase) ? Network.RegTest :
+			Network = consoleConfig.GetOrDefault<bool>("testnet", false) ? Network.TestNet :
+				consoleConfig.GetOrDefault<bool>("regtest", false) ? Network.RegTest :
 				Network.Main;
 
 			if(ConfigurationFile != null)
@@ -84,7 +89,6 @@ namespace NBXplorer.Configuration
 			if(!Directory.Exists(DataDir))
 				throw new ConfigurationException("Data directory does not exists");
 
-			var consoleConfig = new TextFileConfiguration(args);
 			var config = TextFileConfiguration.Parse(File.ReadAllText(ConfigurationFile));
 			consoleConfig.MergeInto(config, true);
 
@@ -186,19 +190,31 @@ namespace NBXplorer.Configuration
 				Logs.Configuration.LogInformation("Creating configuration file");
 				StringBuilder builder = new StringBuilder();
 				builder.AppendLine("####Common Commands####");
-				builder.AppendLine("#Connection to the node instance");
+				builder.AppendLine("####If Bitcoin Core is running with default settings, you should not need to modify this file####");
+				builder.AppendLine("####All those options can be passed by commandline through (like -port=19382)####");
+
+				builder.AppendLine("## This is the RPC Connection to your node");
 				builder.AppendLine("#rpc.url=http://localhost:" + Network.RPCPort + "/");
 				builder.AppendLine("#rpc.user=bitcoinuser");
 				builder.AppendLine("#rpc.password=bitcoinpassword");
 				builder.AppendLine("#rpc.cookiefile=yourbitcoinfolder/.cookie");
+				builder.AppendLine();
+				builder.AppendLine("## This is the connection to your node through P2P");
 				builder.AppendLine("#node.endpoint=localhost:" + Network.DefaultPort);
+				builder.AppendLine();
+				builder.AppendLine("## startheight defines from which block you will start scanning, if -1 is set, it will use current blockchain height");
+				builder.AppendLine("#startheight=-1");
+				builder.AppendLine("## rescan forces a rescan from startheight");
+				builder.AppendLine("#rescan=0");
 
 				builder.AppendLine();
 				builder.AppendLine();
 
 				builder.AppendLine("####Server Commands####");
-				builder.AppendLine("#port=37123");
-				builder.AppendLine("#listen=0.0.0.0");
+				builder.AppendLine("#port=" + GetDefaultPort(Network));
+				builder.AppendLine("#bind=127.0.0.1");
+				builder.AppendLine("#testnet=0");
+				builder.AppendLine("#regtest=0");
 				File.WriteAllText(config, builder.ToString());
 			}
 			return config;
