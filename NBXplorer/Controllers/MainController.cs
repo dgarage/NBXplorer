@@ -48,7 +48,7 @@ namespace NBXplorer.Controllers
 
 
 		[HttpGet]
-		[Route("{strategy}/unused")]
+		[Route("addresses/{strategy}/unused")]
 		public KeyPathInformation GetUnusedAddress(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			IDerivationStrategy strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0)

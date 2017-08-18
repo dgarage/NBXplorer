@@ -61,7 +61,7 @@ namespace NBXplorer
 		{
 			try
 			{
-				return await GetAsync<KeyPathInformation>("v1/{0}/unused?feature={1}&skip={2}", _Factory.Serialize(strategy), feature, skip).ConfigureAwait(false);
+				return await GetAsync<KeyPathInformation>("v1/addresses/{0}/unused?feature={1}&skip={2}", _Factory.Serialize(strategy), feature, skip).ConfigureAwait(false);
 			}
 			catch(NBXplorerException ex)
 			{
