@@ -50,14 +50,14 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			IDerivationStrategy extPubKey,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
-			uint256 lastBlockHash = null,
+			uint256 confHash = null,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
-			uint256 unconfirmedHash = null,
+			uint256 unconfHash = null,
 			bool noWait = false)
 		{
 			if(extPubKey == null)
 				throw new ArgumentNullException(nameof(extPubKey));
-			lastBlockHash = lastBlockHash ?? uint256.Zero;
+			confHash = confHash ?? uint256.Zero;
 			var actualLastBlockHash = uint256.Zero;
 
 			var waitingTransaction = noWait ? Task.FromResult(false) : WaitingTransaction(extPubKey);
@@ -113,20 +113,20 @@ namespace NBXplorer.Controllers
 						changes.Confirmed.LoadChanges(record.Transaction, Math.Max(0, changes.CurrentHeight - item.Height + 1), getKeyPath);
 						changes.Confirmed.Hash = record.BlockHash;
 						actualLastBlockHash = record.BlockHash;
-						if(record.BlockHash == lastBlockHash)
+						if(record.BlockHash == confHash)
 							previousChanges = changes.Clone();
 					}
 				}
 
 				changes.Unconfirmed = changes.Unconfirmed.Diff(changes.Confirmed);
 				changes.Unconfirmed.Hash = changes.Unconfirmed.GetHash();
-				if(changes.Unconfirmed.Hash == unconfirmedHash)
+				if(changes.Unconfirmed.Hash == unconfHash)
 					changes.Unconfirmed.Clear();
 				else
 					changes.Unconfirmed.Reset = true;
 
 
-				if(actualLastBlockHash == lastBlockHash)
+				if(actualLastBlockHash == confHash)
 					changes.Confirmed.Clear();
 				else if(previousChanges != null)
 				{

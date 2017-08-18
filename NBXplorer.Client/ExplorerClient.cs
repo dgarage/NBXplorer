@@ -40,11 +40,11 @@ namespace NBXplorer
 			return SyncAsync(extKey, lastBlockHash, unconfirmedHash, noWait).GetAwaiter().GetResult();
 		}
 
-		public async Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, uint256 lastBlockHash, uint256 unconfirmedHash, bool noWait = false)
+		public async Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, uint256 confHash, uint256 unconfHash, bool noWait = false)
 		{
-			lastBlockHash = lastBlockHash ?? uint256.Zero;
-			unconfirmedHash = unconfirmedHash ?? uint256.Zero;
-			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?lastBlockHash={1}&unconfirmedHash={2}&noWait={3}", _Factory.Serialize(extKey), lastBlockHash, unconfirmedHash, noWait).ConfigureAwait(false);
+			confHash = confHash ?? uint256.Zero;
+			unconfHash = unconfHash ?? uint256.Zero;
+			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?confHash={1}&unconfHash={2}&noWait={3}", _Factory.Serialize(extKey), confHash, unconfHash, noWait).ConfigureAwait(false);
 			UTXOChanges changes = new UTXOChanges();
 			changes.FromBytes(bytes);
 			return changes;
