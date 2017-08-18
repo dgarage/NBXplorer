@@ -191,7 +191,7 @@ namespace NBXplorer.Configuration
 				StringBuilder builder = new StringBuilder();
 				builder.AppendLine("####Common Commands####");
 				builder.AppendLine("####If Bitcoin Core is running with default settings, you should not need to modify this file####");
-				builder.AppendLine("####All those options can be passed by commandline through (like -port=19382)####");
+				builder.AppendLine("####All those options can be passed by through command like arguments (ie `-port=19382`)####");
 
 				builder.AppendLine("## This is the RPC Connection to your node");
 				builder.AppendLine("#rpc.url=http://localhost:" + Network.RPCPort + "/");

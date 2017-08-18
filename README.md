@@ -53,7 +53,7 @@ The default config file is shows you all options, if you need to change, remove 
 ```
 ####Common Commands####
 ####If Bitcoin Core is running with default settings, you should not need to modify this file####
-####All those options can be passed by commandline through (like -port=19382)####
+####All those options can be passed by through command like arguments (ie `-port=19382`)####
 ## This is the RPC Connection to your node
 #rpc.url=http://localhost:18332/
 #rpc.user=bitcoinuser
