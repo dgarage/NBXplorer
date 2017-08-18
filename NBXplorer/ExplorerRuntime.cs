@@ -16,6 +16,7 @@ using NBitcoin.Protocol.Behaviors;
 using System.IO;
 using System.Threading.Tasks;
 using NBXplorer.DerivationStrategy;
+using NBXplorer.Filters;
 
 namespace NBXplorer
 {
@@ -83,6 +84,19 @@ namespace NBXplorer
 				Logs.Configuration.LogInformation("Rescanning...");
 				Repository.SetIndexProgress(null);
 			}
+
+			var cookieFile = Path.Combine(configuration.DataDir, ".cookie");
+			var cookieStr = "__cookie__:" + new uint256(RandomUtils.GetBytes(32));
+			File.WriteAllText(cookieFile, cookieStr);
+
+
+			RPCAuthorization auth = new RPCAuthorization();
+			auth.AllowIp.Add(IPAddress.Parse("127.0.0.1"));
+			auth.AllowIp.Add(IPAddress.Parse("::1"));
+			auth.Authorized.Add(cookieStr);
+			Authorizations = auth;
+
+			StartNodeListener(configuration.StartHeight);
 		}
 
 		internal Serializer CreateSerializer()
@@ -90,7 +104,7 @@ namespace NBXplorer
 			return new Serializer(Network);
 		}
 
-		public void StartNodeListener(int startHeight)
+		void StartNodeListener(int startHeight)
 		{
 			_Nodes = CreateNodeGroup(Chain, startHeight);
 			while(_Nodes.ConnectedNodes.Count == 0)
@@ -119,23 +133,6 @@ namespace NBXplorer
 		public string[] ServerUrls
 		{
 			get; set;
-		}
-
-		public IWebHost CreateWebHost()
-		{
-			return new WebHostBuilder()
-				.UseKestrel()
-				.UseStartup<Startup>()
-				.ConfigureServices(services =>
-				{
-					services.AddSingleton(provider =>
-					{
-						return this;
-					});
-					services.AddSingleton(Network);
-				})
-				.UseUrls(ServerUrls)
-				.Build();
 		}
 
 		NodesGroup CreateNodeGroup(ConcurrentChain chain, int startHeight)
@@ -180,6 +177,10 @@ namespace NBXplorer
 		{
 			get;
 			set;
+		}
+		public RPCAuthorization Authorizations
+		{
+			get;
 		}
 
 		object l = new object();

@@ -98,7 +98,7 @@ namespace NBXplorer
 
 		public override object Clone()
 		{
-			return new ExplorerBehavior(Runtime, _Chain);
+			return new ExplorerBehavior(Runtime, _Chain) { StartHeight = StartHeight };
 		}
 
 		Timer _Timer;

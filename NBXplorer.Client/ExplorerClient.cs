@@ -1,12 +1,15 @@
 ﻿using NBitcoin;
+using NBitcoin.DataEncoders;
 using NBitcoin.JsonConverters;
 using NBXplorer.Client.Models;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -24,7 +27,24 @@ namespace NBXplorer
 			_Network = network;
 			_Serializer = new Serializer(network);
 			_Factory = new DerivationStrategyFactory(Network);
+
+			_CookieFilePath = NBXplorer.Client.Utils.GetDefaultCookieFilePath(network);
 		}
+
+		string _CookieFilePath;
+		AuthenticationHeaderValue _CachedAuth;
+		public void SetCookieFile(string path)
+		{
+			_CookieFilePath = path;
+			RefreshCache();
+		}
+
+		private void RefreshCache()
+		{
+			var cookieData = File.ReadAllText(_CookieFilePath);
+			_CachedAuth = new AuthenticationHeaderValue("Basic", Encoders.Base64.EncodeData(Encoders.ASCII.DecodeData(cookieData)));
+		}
+
 		Serializer _Serializer;
 		DerivationStrategyFactory _Factory;
 		public UTXOChanges Sync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false)
@@ -121,6 +141,9 @@ namespace NBXplorer
 		{
 			var uri = GetFullUri(relativePath, parameters);
 			var message = new HttpRequestMessage(method, uri);
+			if(_CachedAuth == null)
+				RefreshCache();
+			message.Headers.Authorization = _CachedAuth;
 			if(body != null)
 			{
 				if(body is byte[])
@@ -129,6 +152,12 @@ namespace NBXplorer
 					message.Content = new StringContent(_Serializer.ToString(body), Encoding.UTF8, "application/json");
 			}
 			var result = await Client.SendAsync(message).ConfigureAwait(false);
+			if((int)result.StatusCode == 401)
+			{
+				RefreshCache();
+				message.Headers.Authorization = _CachedAuth;
+				result = await Client.SendAsync(message).ConfigureAwait(false);
+			}
 			return await ParseResponse<T>(result).ConfigureAwait(false);
 		}
 

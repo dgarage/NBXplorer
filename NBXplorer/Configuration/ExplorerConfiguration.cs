@@ -93,14 +93,14 @@ namespace NBXplorer.Configuration
 			Logs.Configuration.LogInformation("Configuration file set to " + ConfigurationFile);
 
 			Rescan = config.GetOrDefault<bool>("rescan", false);
-			var defaultPort = config.GetOrDefault<int>("port", 37123);
+			var defaultPort = config.GetOrDefault<int>("port", GetDefaultPort(Network));
 			Listen = config
 						.GetAll("bind")
 						.Select(p => ConvertToEndpoint(p, defaultPort))
 						.ToList();
 			if(Listen.Count == 0)
 			{
-				Listen.Add(new IPEndPoint(IPAddress.Any, defaultPort));
+				Listen.Add(new IPEndPoint(IPAddress.Parse("127.0.0.1"), defaultPort));
 			}
 
 			RPC = RPCArgs.Parse(config, Network);
@@ -108,6 +108,12 @@ namespace NBXplorer.Configuration
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			StartHeight = config.GetOrDefault<int>("startheight", -1);
 			return this;
+		}
+
+		private int GetDefaultPort(Network network)
+		{
+			return network == Network.Main ? 24444 :
+				network == Network.TestNet ? 24445 : 24446;
 		}
 
 		public Serializer CreateSerializer()

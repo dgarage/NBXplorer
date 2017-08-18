@@ -15,6 +15,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Server.Kestrel;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using NBitcoin.RPC;
+using System.Net;
 
 namespace NBXplorer.Tests
 {
@@ -76,7 +78,7 @@ namespace NBXplorer.Tests
 					TryDelete(directory, true);
 				}
 
-				NodeBuilder = NodeBuilder.Create(directory);
+				 NodeBuilder = NodeBuilder.Create(directory);
 				NodeBuilder.CleanBeforeStartingNode = false;
 				Copy(cachedNodes, directory);
 
@@ -88,27 +90,30 @@ namespace NBXplorer.Tests
 					node.WhiteBind = true;
 				NodeBuilder.StartAll();
 
-				var a = Explorer.CreateRPCClient().GetBlockCount();
 				var creds = ExtractCredentials(File.ReadAllText(Explorer.Config));
 				var conf = new ExplorerConfiguration();
 				conf.DataDir = Path.Combine(directory, "explorer");
 				conf.Network = Network.RegTest;
 				conf.RPC = new RPCArgs()
 				{
-					User = creds.Item1,
-					Password = creds.Item2,
+					User = creds.UserName,
+					Password = creds.Password,
 					Url = Explorer.CreateRPCClient().Address,
 					NoTest = true
 				};
 				conf.NodeEndpoint = Explorer.Endpoint;
+				conf.StartHeight = new RPCClient(creds, conf.RPC.Url, conf.Network).GetBlockCount();
 
-				Runtime = conf.CreateRuntime();
-
-				Runtime.Repository.SetIndexProgress(new BlockLocator() { Blocks = { Runtime.RPC.GetBestBlockHash() } });
-
-				Runtime.StartNodeListener(conf.StartHeight);
-				Host = Runtime.CreateWebHost();
+				Host = new WebHostBuilder()
+					.UseNBXplorer(conf)
+					.UseUrls(conf.GetUrls())
+					.UseKestrel()
+					.Build();
+				Runtime = (ExplorerRuntime)Host.Services.GetService(typeof(ExplorerRuntime));
 				Host.Start();
+
+				_Client = new ExplorerClient(Runtime.Network, Address);
+				_Client.SetCookieFile(Path.Combine(conf.DataDir, ".cookie"));
 			}
 			catch
 			{
@@ -146,11 +151,11 @@ namespace NBXplorer.Tests
 			NodeBuilder = null;
 		}
 
-		private Tuple<string, string> ExtractCredentials(string config)
+		private NetworkCredential ExtractCredentials(string config)
 		{
 			var user = Regex.Match(config, "rpcuser=([^\r\n]*)");
 			var pass = Regex.Match(config, "rpcpassword=([^\r\n]*)");
-			return Tuple.Create(user.Groups[1].Value, pass.Groups[1].Value);
+			return new NetworkCredential(user.Groups[1].Value, pass.Groups[1].Value);
 		}
 
 		public Uri Address
@@ -168,7 +173,7 @@ namespace NBXplorer.Tests
 		{
 			get
 			{
-				return _Client = _Client ?? new ExplorerClient(Runtime.Network, Address);
+				return _Client;
 			}
 		}
 

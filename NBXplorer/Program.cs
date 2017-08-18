@@ -22,12 +22,13 @@ namespace NBXplorer
 			{
 				var conf = new ExplorerConfiguration();
 				conf.LoadArgs(args);
-				using(var runtime = conf.CreateRuntime())
-				{
-					runtime.StartNodeListener(conf.StartHeight);
-					host = runtime.CreateWebHost();
-					host.Run();
-				}
+
+				host = new WebHostBuilder()
+					.UseNBXplorer(conf)
+					.UseUrls(conf.GetUrls())
+					.UseKestrel()
+					.Build();
+				host.Start();
 			}
 			catch(ConfigException ex)
 			{

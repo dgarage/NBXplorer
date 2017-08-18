@@ -66,7 +66,10 @@ namespace NBXplorer
 				.WithFilter(logging)
 				.AddConsole();
 
-			app.UseDeveloperExceptionPage();
+			if(env.IsDevelopment())
+				app.UseDeveloperExceptionPage();
+
+			app.UseMiddleware<NBXplorerMiddleware>();
 			app.UseMvc();
 
 			var config = serviceProvider.GetService<ExplorerRuntime>();

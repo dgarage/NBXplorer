@@ -16,10 +16,12 @@ using System.Threading.Tasks;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using NBXplorer.Client.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace NBXplorer.Controllers
 {
 	[Route("v1")]
+	[Authorize]
 	public class MainController : Controller
 	{
 		class AnnotatedTransaction
