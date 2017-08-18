@@ -54,8 +54,8 @@ namespace NBXplorer.Tests
 			{
 
 				var rootTestData = "TestData";
-				var cachedNodes = "TestData/CachedNodes";
-				directory = rootTestData + "/" + directory;
+				var cachedNodes = Path.Combine(rootTestData, "CachedNodes");
+				directory = Path.Combine(rootTestData, directory);
 				_Directory = directory;
 				if(!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
@@ -290,7 +290,6 @@ namespace NBXplorer.Tests
 			// Copy each file into the new directory.
 			foreach(FileInfo fi in source.GetFiles())
 			{
-				Console.WriteLine(@"Copying {0}\{1}", target.FullName, fi.Name);
 				fi.CopyTo(Path.Combine(target.FullName, fi.Name), true);
 			}
 
