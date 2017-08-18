@@ -1,6 +1,8 @@
 ﻿using NBitcoin;
 using NBitcoin.JsonConverters;
+using NBXplorer.Client.Models;
 using NBXplorer.DerivationStrategy;
+using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -50,14 +52,14 @@ namespace NBXplorer
 			return changes;
 		}
 
-		public bool Broadcast(Transaction tx)
+		public BroadcastResult Broadcast(Transaction tx)
 		{
 			return BroadcastAsync(tx).GetAwaiter().GetResult();
 		}
 
-		public Task<bool> BroadcastAsync(Transaction tx)
+		public Task<BroadcastResult> BroadcastAsync(Transaction tx)
 		{
-			return SendAsync<bool>(HttpMethod.Post, tx.ToBytes(), "v1/broadcast");
+			return SendAsync<BroadcastResult>(HttpMethod.Post, tx.ToBytes(), "v1/broadcast");
 		}
 
 		private static readonly HttpClient SharedClient = new HttpClient();

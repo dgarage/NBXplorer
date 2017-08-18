@@ -12,6 +12,7 @@ using NBitcoin.Crypto;
 using System.Collections.Generic;
 using NBXplorer.DerivationStrategy;
 using System.Diagnostics;
+using NBXplorer.Models;
 
 namespace NBXplorer.Tests
 {
@@ -430,9 +431,11 @@ namespace NBXplorer.Tests
 				tx.Outputs.Add(new TxOut(Money.Coins(1.0m), new Key()));
 				var funded = tester.User1.CreateRPCClient().FundRawTransaction(tx);
 				var signed = tester.User1.CreateRPCClient().SignRawTransaction(funded.Transaction);
-				Assert.True(tester.Client.Broadcast(signed));
+				var result = tester.Client.Broadcast(signed);
+				Assert.True(result.Success);
 				signed.Inputs[0].PrevOut.N = 999;
-				Assert.False(tester.Client.Broadcast(signed));
+				result = tester.Client.Broadcast(signed);
+				Assert.False(result.Success);
 			}
 		}
 	}

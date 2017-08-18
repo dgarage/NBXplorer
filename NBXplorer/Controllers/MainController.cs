@@ -14,6 +14,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NBXplorer.DerivationStrategy;
+using NBXplorer.Models;
+using NBXplorer.Client.Models;
 
 namespace NBXplorer.Controllers
 {
@@ -210,20 +212,22 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("broadcast")]
-		public async Task<bool> Broadcast(
+		public async Task<BroadcastResult> Broadcast(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			IDerivationStrategy extPubKey)
 		{
 			var tx = new Transaction();
 			var stream = new BitcoinStream(Request.Body, false);
 			tx.ReadWrite(stream);
+			RPCException rpcEx = null;
 			try
 			{
 				await Runtime.RPC.SendRawTransactionAsync(tx);
-				return true;
+				return new BroadcastResult(true);
 			}
 			catch(RPCException ex)
 			{
+				rpcEx = ex;
 				Logs.Explorer.LogInformation($"Transaction {tx.GetHash()} failed to broadcast (Code: {ex.RPCCode}, Message: {ex.RPCCodeMessage}, Details: {ex.Message} )");
 				if(extPubKey != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
 				{
@@ -244,14 +248,19 @@ namespace NBXplorer.Controllers
 
 						await Runtime.RPC.SendRawTransactionAsync(tx);
 						Logs.Explorer.LogInformation($"Broadcast success");
-						return true;
+						return new BroadcastResult(true);
 					}
 					catch(RPCException)
 					{
 						Logs.Explorer.LogInformation($"Transaction {tx.GetHash()} failed to broadcast (Code: {ex.RPCCode}, Message: {ex.RPCCodeMessage}, Details: {ex.Message} )");
 					}
 				}
-				return false;
+				return new BroadcastResult(false)
+				{
+					RPCCode = rpcEx.RPCCode,
+					RPCCodeMessage = rpcEx.RPCCodeMessage,
+					RPCMessage = rpcEx.Message
+				};
 			}
 		}
 	}
