@@ -17,10 +17,10 @@ If you are using Bitcoin core default settings:
 
 ```
 git clone https://github.com/dgarage/NBXplorer
-cd NBXplorer
+cd NBXplorer/NBXplorer
 dotnet run
 ```
-
+The first run might take some time to start, where you see nothing appearing. No worries, it is just downloading dependencies and compiling.
 Else, you will have to configure manually.
 
 ## How to develop on it?
@@ -91,12 +91,12 @@ You can take a look at [the tests](https://github.com/dgarage/NBXplorer/blob/mas
 
 ## How to run the tests?
 
-This is easy:
+This is easy, from repo directory:
 ```
 cd NBXplorer.Tests
 dotnet test
 ```
-The tests can take long the first time, as it download Bitcoin Core binaries.
+The tests can take long the first time, as it download Bitcoin Core binaries. (Between 5 and 10 minutes)
 
 ## Licence
 
