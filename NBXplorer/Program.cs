@@ -12,10 +12,10 @@ using NBitcoin.Protocol;
 
 namespace NBXplorer
 {
-    public class Program
-    {
-        public static void Main(string[] args)
-        {
+	public class Program
+	{
+		public static void Main(string[] args)
+		{
 			Logs.Configure(new FuncLoggerFactory(i => new CustomerConsoleLogger(i, (a, b) => true, false)));
 			IWebHost host = null;
 			try
@@ -28,7 +28,7 @@ namespace NBXplorer
 					.UseUrls(conf.GetUrls())
 					.UseKestrel()
 					.Build();
-				host.Start();
+				host.Run();
 			}
 			catch(ConfigException ex)
 			{
@@ -45,6 +45,6 @@ namespace NBXplorer
 				if(host != null)
 					host.Dispose();
 			}
-        }
-    }
+		}
+	}
 }

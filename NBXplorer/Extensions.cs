@@ -5,7 +5,6 @@ using NBXplorer.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Mvc;
 using NBXplorer.Filters;

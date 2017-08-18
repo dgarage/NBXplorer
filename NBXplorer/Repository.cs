@@ -127,7 +127,6 @@ namespace NBXplorer
 		public KeyPathInformation GetUnused(IDerivationStrategy extPubKey, DerivationFeature derivationFeature, int n)
 		{
 			var tableName = $"U-{extPubKey.GetHash()}";
-			int count = 0;
 			var line = extPubKey.GetLineFor(derivationFeature);
 			if(line == null)
 				return null;
