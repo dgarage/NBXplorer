@@ -9,7 +9,7 @@ This explorer is not meant to be exposed on internet, but should be used as an i
 ## Prerequisite
 
 * Install [.NET Core 2.0](https://www.microsoft.com/net/core)
-* Have Bitcoin Core instance synched and running
+* Bitcoin Core instance synched and running, at least 0.13.1. (0.14.1 if you want the segwit goodness coming)
 
 ## How to run?
 
@@ -22,6 +22,14 @@ dotnet run
 ```
 
 Else, you will have to configure manually.
+
+## How to develop on it?
+
+If you are on Windows, I recommand Visual Studio 2017 update 3 (15.3).
+If you are on other plateform and want lightweight environment, use [Visual Studio Code](https://code.visualstudio.com/).
+If you are hardcore, you can code on vim.
+
+I like Visual Studio Code and Visual Studio 2017 as it allows me to debug in step by step.
 
 ## How to configure?
 
@@ -74,6 +82,21 @@ This tool will only start scanning from the configured `startheight`. (By defaul
 This mean that you might not see old payment from you HD key.
 
 If you need to see old payments, you need to configure `startheight` to a specific height of your choice, then run with again with `-rescan`.
+
+## How to query?
+
+A better documentation is on the way, for now the only documentation is the client API in C# on [nuget](https://www.nuget.org/packages/NBxplorer.Client).
+The `ExplorerClient` classes allows you to query unused address, and the UTXO of a HD PubKey.
+You can take a look at [the tests](https://github.com/dgarage/NBXplorer/blob/master/NBXplorer.Tests/UnitTest1.cs) to see how it works.
+
+## How to run the tests?
+
+This is easy:
+```
+cd NBXplorer.Tests
+dotnet test
+```
+The tests can take long the first time, as it download Bitcoin Core binaries.
 
 ## Licence
 
