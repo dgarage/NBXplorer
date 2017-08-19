@@ -1,3 +1,5 @@
+[![NuGet](https://img.shields.io/nuget/v/NBxplorer.Client.svg)](https://www.nuget.org/packages/NBxplorer.Client)
+
 # NBXplorer
 
 A minimalist UTXO tracker for HD Wallets
