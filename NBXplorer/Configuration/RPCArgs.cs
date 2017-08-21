@@ -34,6 +34,11 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public string AuthenticationString
+		{
+			get;
+			set;
+		}
 
 		public RPCClient ConfigureRPCClient(Network network)
 		{
@@ -49,13 +54,17 @@ namespace NBXplorer.Configuration
 				{
 					try
 					{
-
 						rpcClient = new RPCClient(File.ReadAllText(CookieFile), url, network);
 					}
 					catch(IOException)
 					{
 						Logs.Configuration.LogWarning("RPC Cookie file not found at " + CookieFile);
 					}
+				}
+
+				if(url != null && AuthenticationString != null)
+				{
+					rpcClient = new RPCClient(AuthenticationString, url, network);
 				}
 
 				if(rpcClient == null)
@@ -145,6 +154,7 @@ namespace NBXplorer.Configuration
 					User = confArgs.GetOrDefault<string>(prefix + "rpc.user", null),
 					Password = confArgs.GetOrDefault<string>(prefix + "rpc.password", null),
 					CookieFile = confArgs.GetOrDefault<string>(prefix + "rpc.cookiefile", null),
+					AuthenticationString = confArgs.GetOrDefault<string>(prefix + "rpc.auth", null),
 					Url = url == null ? null : new Uri(url)
 				};
 			}

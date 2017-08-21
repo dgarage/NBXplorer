@@ -195,9 +195,13 @@ namespace NBXplorer.Configuration
 
 				builder.AppendLine("## This is the RPC Connection to your node");
 				builder.AppendLine("#rpc.url=http://localhost:" + Network.RPCPort + "/");
+				builder.AppendLine("#By user name and password");
 				builder.AppendLine("#rpc.user=bitcoinuser");
 				builder.AppendLine("#rpc.password=bitcoinpassword");
+				builder.AppendLine("#By cookie file");
 				builder.AppendLine("#rpc.cookiefile=yourbitcoinfolder/.cookie");
+				builder.AppendLine("#By raw authentication string");
+				builder.AppendLine("#rpc.auth=walletuser:password");
 				builder.AppendLine();
 				builder.AppendLine("## This is the connection to your node through P2P");
 				builder.AppendLine("#node.endpoint=localhost:" + Network.DefaultPort);
