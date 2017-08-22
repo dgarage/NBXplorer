@@ -66,16 +66,18 @@ namespace NBXplorer.Configuration
 
 			Network = consoleConfig.GetOrDefault<bool>("testnet", false) ? Network.TestNet :
 				consoleConfig.GetOrDefault<bool>("regtest", false) ? Network.RegTest :
-				Network.Main;
+				null;
 
 			if(ConfigurationFile != null)
 			{
 				AssetConfigFileExists();
 				var configTemp = TextFileConfiguration.Parse(File.ReadAllText(ConfigurationFile));
-				Network = configTemp.GetOrDefault<bool>("testnet", false) ? Network.TestNet :
+				Network = Network ?? (configTemp.GetOrDefault<bool>("testnet", false) ? Network.TestNet :
 						  configTemp.GetOrDefault<bool>("regtest", false) ? Network.RegTest :
-						  Network.Main;
+						  null);
 			}
+
+			Network = Network ?? Network.Main;
 			if(DataDir == null)
 			{
 				DataDir = DefaultDataDirectory.GetDefaultDirectory("NBXplorer", Network);
