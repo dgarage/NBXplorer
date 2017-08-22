@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace NBXplorer.Client.Models
+namespace NBXplorer.Models
 {
 	public class NBXplorerException : Exception
 	{

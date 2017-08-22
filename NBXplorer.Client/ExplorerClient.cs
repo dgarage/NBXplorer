@@ -1,7 +1,6 @@
 ﻿using NBitcoin;
 using NBitcoin.DataEncoders;
 using NBitcoin.JsonConverters;
-using NBXplorer.Client.Models;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using System;

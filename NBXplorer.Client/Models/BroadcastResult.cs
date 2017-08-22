@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using NBitcoin.RPC;
 
-namespace NBXplorer.Client.Models
+namespace NBXplorer.Models
 {
     public class BroadcastResult
     {
