@@ -10,6 +10,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NBXplorer
@@ -45,41 +46,62 @@ namespace NBXplorer
 
 		Serializer _Serializer;
 		DerivationStrategyFactory _Factory;
-		public UTXOChanges Sync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false)
+		public UTXOChanges Sync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, previousChange, noWait).GetAwaiter().GetResult();
+			return SyncAsync(extKey, previousChange, noWait, cancellation).GetAwaiter().GetResult();
 		}
 
-		public Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false)
+		public Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, previousChange?.Confirmed?.Hash, previousChange?.Unconfirmed?.Hash, noWait);
+			return SyncAsync(extKey, previousChange?.Confirmed?.Hash, previousChange?.Unconfirmed?.Hash, noWait, cancellation);
 		}
 
-		public UTXOChanges Sync(IDerivationStrategy extKey, uint256 lastBlockHash, uint256 unconfirmedHash, bool noWait = false)
+		public UTXOChanges Sync(IDerivationStrategy extKey, uint256 lastBlockHash, uint256 unconfirmedHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, lastBlockHash, unconfirmedHash, noWait).GetAwaiter().GetResult();
+			return SyncAsync(extKey, lastBlockHash, unconfirmedHash, noWait, cancellation).GetAwaiter().GetResult();
 		}
 
-		public async Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, uint256 confHash, uint256 unconfHash, bool noWait = false)
+		public async Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, uint256 confHash, uint256 unconfHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			confHash = confHash ?? uint256.Zero;
 			unconfHash = unconfHash ?? uint256.Zero;
-			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?confHash={1}&unconfHash={2}&noWait={3}", _Factory.Serialize(extKey), confHash, unconfHash, noWait).ConfigureAwait(false);
+			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?confHash={1}&unconfHash={2}&noWait={3}", new object[] { _Factory.Serialize(extKey), confHash, unconfHash, noWait }, cancellation).ConfigureAwait(false);
 			UTXOChanges changes = new UTXOChanges();
 			changes.FromBytes(bytes);
 			return changes;
 		}
 
-		public KeyPathInformation GetUnused(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0)
+		public void WaitServerStarted(CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetUnusedAsync(strategy, feature, skip).GetAwaiter().GetResult();
+			WaitServerStartedAsync(cancellation).GetAwaiter().GetResult();
+		}
+		public async Task WaitServerStartedAsync(CancellationToken cancellation = default(CancellationToken))
+		{
+			while(true)
+			{
+				try
+				{
+
+					var pong = await SendAsync<string>(HttpMethod.Get, null, "v1/ping", null, cancellation).ConfigureAwait(false);
+					if(pong.Equals("pong", StringComparison.Ordinal))
+						break;
+				}
+				catch(OperationCanceledException) { throw; }
+				catch { }
+				cancellation.ThrowIfCancellationRequested();
+			}
 		}
 
-		public async Task<KeyPathInformation> GetUnusedAsync(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0)
+		public KeyPathInformation GetUnused(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetUnusedAsync(strategy, feature, skip, cancellation).GetAwaiter().GetResult();
+		}
+
+		public async Task<KeyPathInformation> GetUnusedAsync(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0, CancellationToken cancellation = default(CancellationToken))
 		{
 			try
 			{
-				return await GetAsync<KeyPathInformation>("v1/addresses/{0}/unused?feature={1}&skip={2}", _Factory.Serialize(strategy), feature, skip).ConfigureAwait(false);
+				return await GetAsync<KeyPathInformation>("v1/addresses/{0}/unused?feature={1}&skip={2}", new object[] { _Factory.Serialize(strategy), feature, skip }, cancellation).ConfigureAwait(false);
 			}
 			catch(NBXplorerException ex)
 			{
@@ -89,14 +111,14 @@ namespace NBXplorer
 			}
 		}
 
-		public BroadcastResult Broadcast(Transaction tx)
+		public BroadcastResult Broadcast(Transaction tx, CancellationToken cancellation = default(CancellationToken))
 		{
-			return BroadcastAsync(tx).GetAwaiter().GetResult();
+			return BroadcastAsync(tx, cancellation).GetAwaiter().GetResult();
 		}
 
-		public Task<BroadcastResult> BroadcastAsync(Transaction tx)
+		public Task<BroadcastResult> BroadcastAsync(Transaction tx, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SendAsync<BroadcastResult>(HttpMethod.Post, tx.ToBytes(), "v1/broadcast");
+			return SendAsync<BroadcastResult>(HttpMethod.Post, tx.ToBytes(), "v1/broadcast", null, cancellation);
 		}
 
 		private static readonly HttpClient SharedClient = new HttpClient();
@@ -131,11 +153,11 @@ namespace NBXplorer
 			uri += relativePath;
 			return uri;
 		}
-		private Task<T> GetAsync<T>(string relativePath, params object[] parameters)
+		private Task<T> GetAsync<T>(string relativePath, object[] parameters, CancellationToken cancellation)
 		{
-			return SendAsync<T>(HttpMethod.Get, null, relativePath, parameters);
+			return SendAsync<T>(HttpMethod.Get, null, relativePath, parameters, cancellation);
 		}
-		private async Task<T> SendAsync<T>(HttpMethod method, object body, string relativePath, params object[] parameters)
+		private async Task<T> SendAsync<T>(HttpMethod method, object body, string relativePath, object[] parameters, CancellationToken cancellation)
 		{
 			var uri = GetFullUri(relativePath, parameters);
 			var message = new HttpRequestMessage(method, uri);
@@ -149,7 +171,7 @@ namespace NBXplorer
 				else
 					message.Content = new StringContent(_Serializer.ToString(body), Encoding.UTF8, "application/json");
 			}
-			var result = await Client.SendAsync(message).ConfigureAwait(false);
+			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
 			if((int)result.StatusCode == 401)
 			{
 				RefreshCache();

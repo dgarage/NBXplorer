@@ -15,7 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
-using NBXplorer.Client.Models;
+using NBXplorer.Client;
 using Microsoft.AspNetCore.Authorization;
 
 namespace NBXplorer.Controllers
@@ -68,6 +68,13 @@ namespace NBXplorer.Controllers
 			{
 				throw new NBXplorerError(400, "derivation-not-supported", $"The derivation scheme {feature} is not supported").AsException();
 			}
+		}
+
+		[HttpGet]
+		[Route("ping")]
+		public string Ping()
+		{
+			return "pong";
 		}
 
 		[HttpGet]

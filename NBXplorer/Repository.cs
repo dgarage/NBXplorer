@@ -10,7 +10,8 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using NBXplorer.DerivationStrategy;
-using NBXplorer.Client.Models;
+using NBXplorer.Client;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
