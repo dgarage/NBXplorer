@@ -64,6 +64,11 @@ namespace NBXplorer.Configuration
 				}
 			}
 
+			if(DataDir != null && ConfigurationFile == null)
+			{
+				ConfigurationFile = GetDefaultConfigurationFile();
+			}
+
 			Network = consoleConfig.GetOrDefault<bool>("testnet", false) ? Network.TestNet :
 				consoleConfig.GetOrDefault<bool>("regtest", false) ? Network.RegTest :
 				null;
@@ -81,10 +86,6 @@ namespace NBXplorer.Configuration
 			if(DataDir == null)
 			{
 				DataDir = DefaultDataDirectory.GetDefaultDirectory("NBXplorer", Network);
-			}
-
-			if(ConfigurationFile == null)
-			{
 				ConfigurationFile = GetDefaultConfigurationFile();
 			}
 
@@ -183,9 +184,10 @@ namespace NBXplorer.Configuration
 				throw new ConfigurationException("Configuration file does not exists");
 		}
 
+		const string DefaultConfigFile = "settings.config";
 		private string GetDefaultConfigurationFile()
 		{
-			var config = Path.Combine(DataDir, "settings.config");
+			var config = Path.Combine(DataDir, DefaultConfigFile);
 			Logs.Configuration.LogInformation("Configuration file set to " + config);
 			if(!File.Exists(config))
 			{
