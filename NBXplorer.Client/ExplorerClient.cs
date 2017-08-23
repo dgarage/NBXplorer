@@ -160,6 +160,19 @@ namespace NBXplorer
 		private async Task<T> SendAsync<T>(HttpMethod method, object body, string relativePath, object[] parameters, CancellationToken cancellation)
 		{
 			var uri = GetFullUri(relativePath, parameters);
+			HttpRequestMessage message = CreateMessage(method, body, uri);
+			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
+			if((int)result.StatusCode == 401)
+			{
+				RefreshCache();
+				message = CreateMessage(method, body, uri);
+				result = await Client.SendAsync(message).ConfigureAwait(false);
+			}
+			return await ParseResponse<T>(result).ConfigureAwait(false);
+		}
+
+		private HttpRequestMessage CreateMessage(HttpMethod method, object body, string uri)
+		{
 			var message = new HttpRequestMessage(method, uri);
 			if(_CachedAuth == null)
 				RefreshCache();
@@ -171,14 +184,8 @@ namespace NBXplorer
 				else
 					message.Content = new StringContent(_Serializer.ToString(body), Encoding.UTF8, "application/json");
 			}
-			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
-			if((int)result.StatusCode == 401)
-			{
-				RefreshCache();
-				message.Headers.Authorization = _CachedAuth;
-				result = await Client.SendAsync(message).ConfigureAwait(false);
-			}
-			return await ParseResponse<T>(result).ConfigureAwait(false);
+
+			return message;
 		}
 
 		private async Task<T> ParseResponse<T>(HttpResponseMessage response)
