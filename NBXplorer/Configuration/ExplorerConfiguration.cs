@@ -86,7 +86,7 @@ namespace NBXplorer.Configuration
 			if(DataDir == null)
 			{
 				DataDir = DefaultDataDirectory.GetDefaultDirectory("NBXplorer", Network);
-				ConfigurationFile = GetDefaultConfigurationFile(false);
+				ConfigurationFile = GetDefaultConfigurationFile(true);
 			}
 
 			if(!Directory.Exists(DataDir))
