@@ -64,14 +64,14 @@ namespace NBXplorer.Configuration
 				}
 			}
 
-			if(DataDir != null && ConfigurationFile == null)
-			{
-				ConfigurationFile = GetDefaultConfigurationFile();
-			}
-
 			Network = consoleConfig.GetOrDefault<bool>("testnet", false) ? Network.TestNet :
 				consoleConfig.GetOrDefault<bool>("regtest", false) ? Network.RegTest :
 				null;
+
+			if(DataDir != null && ConfigurationFile == null)
+			{
+				ConfigurationFile = GetDefaultConfigurationFile(Network != null);
+			}
 
 			if(ConfigurationFile != null)
 			{
@@ -86,7 +86,7 @@ namespace NBXplorer.Configuration
 			if(DataDir == null)
 			{
 				DataDir = DefaultDataDirectory.GetDefaultDirectory("NBXplorer", Network);
-				ConfigurationFile = GetDefaultConfigurationFile();
+				ConfigurationFile = GetDefaultConfigurationFile(false);
 			}
 
 			if(!Directory.Exists(DataDir))
@@ -185,11 +185,11 @@ namespace NBXplorer.Configuration
 		}
 
 		const string DefaultConfigFile = "settings.config";
-		private string GetDefaultConfigurationFile()
+		private string GetDefaultConfigurationFile(bool createIfNotExist)
 		{
 			var config = Path.Combine(DataDir, DefaultConfigFile);
 			Logs.Configuration.LogInformation("Configuration file set to " + config);
-			if(!File.Exists(config))
+			if(createIfNotExist && !File.Exists(config))
 			{
 				Logs.Configuration.LogInformation("Creating configuration file");
 				StringBuilder builder = new StringBuilder();
