@@ -329,6 +329,8 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = ServerTester.Create())
 			{
+				//WaitServerStarted not needed, just a sanity check
+				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Runtime.Network);
 				var pubkey = new DirectDerivationStrategy(key.Neuter());
 
