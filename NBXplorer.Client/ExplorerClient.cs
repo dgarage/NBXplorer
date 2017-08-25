@@ -92,16 +92,16 @@ namespace NBXplorer
 			}
 		}
 
-		public KeyPathInformation GetUnused(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0, CancellationToken cancellation = default(CancellationToken))
+		public KeyPathInformation GetUnused(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetUnusedAsync(strategy, feature, skip, cancellation).GetAwaiter().GetResult();
+			return GetUnusedAsync(strategy, feature, skip, reserve, cancellation).GetAwaiter().GetResult();
 		}
 
-		public async Task<KeyPathInformation> GetUnusedAsync(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0, CancellationToken cancellation = default(CancellationToken))
+		public async Task<KeyPathInformation> GetUnusedAsync(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			try
 			{
-				return await GetAsync<KeyPathInformation>("v1/addresses/{0}/unused?feature={1}&skip={2}", new object[] { _Factory.Serialize(strategy), feature, skip }, cancellation).ConfigureAwait(false);
+				return await GetAsync<KeyPathInformation>("v1/addresses/{0}/unused?feature={1}&skip={2}&reserve={3}", new object[] { _Factory.Serialize(strategy), feature, skip, reserve }, cancellation).ConfigureAwait(false);
 			}
 			catch(NBXplorerException ex)
 			{

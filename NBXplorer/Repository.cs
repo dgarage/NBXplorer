@@ -125,15 +125,20 @@ namespace NBXplorer
 			}
 		}
 
-		public KeyPathInformation GetUnused(IDerivationStrategy extPubKey, DerivationFeature derivationFeature, int n)
+		public KeyPathInformation GetUnused(IDerivationStrategy extPubKey, DerivationFeature derivationFeature, int n, bool reserve)
 		{
 			var tableName = $"U-{extPubKey.GetHash()}";
+			var readenTable = $"R-{extPubKey.GetHash()}";
 			var line = extPubKey.GetLineFor(derivationFeature);
 			if(line == null)
 				return null;
 			List<KeyPath> possiblePaths = new List<KeyPath>();
+			KeyPath path = null;
 			using(var tx = _Engine.GetTransaction())
 			{
+				tx.ValuesLazyLoadingIsOn = false;
+				if(reserve)
+					tx.SynchronizeTables(readenTable, tableName);
 				tx.ValuesLazyLoadingIsOn = false;
 				foreach(var row in tx.SelectForward<string, bool>(tableName))
 				{
@@ -143,19 +148,35 @@ namespace NBXplorer
 						possiblePaths.Add(keyPath);
 					}
 				}
+				HashSet<KeyPath> readenPaths = new HashSet<KeyPath>();
+				foreach(var row in tx.SelectForward<string, bool>(readenTable))
+				{
+					readenPaths.Add(new KeyPath(row.Key));
+				}
+				path = possiblePaths.Where(p => !readenPaths.Contains(p)).OrderBy(o => o.Indexes.Last()).Skip(n).FirstOrDefault();
+				if(path != null)
+				{
+					tx.Insert(readenTable, path.ToString(), true);
+					tx.Commit();
+				}
 			}
 
-			var path = possiblePaths.OrderBy(o => o.Indexes.Last()).Skip(n).FirstOrDefault();
 			if(path == null)
 				return null;
+
 			var derived = line.Derive(path.Indexes.Last());
-			return new KeyPathInformation()
+			var keyInfo = new KeyPathInformation()
 			{
 				KeyPath = path,
 				ScriptPubKey = derived.ScriptPubKey,
 				Redeem = derived.Redeem,
 				Address = derived.ScriptPubKey.GetDestinationAddress(Serializer.Network)
 			};
+			if(reserve)
+			{
+				MarkAsUsed(new KeyInformation(extPubKey, path));
+			}
+			return keyInfo;
 		}
 
 		public KeyInformation GetKeyInformation(IDerivationStrategy pubKey, Script script)

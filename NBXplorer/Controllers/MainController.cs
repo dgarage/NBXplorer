@@ -48,18 +48,17 @@ namespace NBXplorer.Controllers
 			get; set;
 		}
 
-
 		[HttpGet]
 		[Route("addresses/{strategy}/unused")]
 		public KeyPathInformation GetUnusedAddress(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			IDerivationStrategy strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0)
+			IDerivationStrategy strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false)
 		{
 			if(strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
 			try
 			{
-				var result = Runtime.Repository.GetUnused(strategy, feature, skip);
+				var result = Runtime.Repository.GetUnused(strategy, feature, skip, reserve);
 				if(result == null)
 					throw new NBXplorerError(404, "strategy-not-found", $"This strategy is not tracked, or you tried to skip too much unused addresses").AsException();
 				return result;

@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using NBXplorer.DerivationStrategy;
 using System.Diagnostics;
 using NBXplorer.Models;
+using System.Threading.Tasks;
 
 namespace NBXplorer.Tests
 {
@@ -321,6 +322,27 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.Sync(pubkey, utxo);
 				Assert.Equal(2, utxo.Unconfirmed.UTXOs.Count);
 				Assert.Equal(0, utxo.Unconfirmed.SpentOutpoints.Count);
+			}
+		}
+
+		[Fact]
+		public void CanReserveAddress()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				//WaitServerStarted not needed, just a sanity check
+				tester.Client.WaitServerStarted();
+				var utxo = tester.Client.Sync(pubKey, null, null, true); //Track things do not wait
+
+				var tasks = new List<Task<KeyPathInformation>>();
+				for(int i = 0; i < 100; i++)
+				{
+					tasks.Add(tester.Client.GetUnusedAsync(pubKey, DerivationFeature.Deposit, reserve: true));
+				}
+				Task.WaitAll(tasks.ToArray());
+
+				var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
+				Assert.Equal(99U, paths.Select(p => p.Key.Indexes.Last()).Max());
 			}
 		}
 
