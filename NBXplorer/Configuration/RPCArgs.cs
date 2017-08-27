@@ -63,7 +63,7 @@ namespace NBXplorer.Configuration
 					}
 				}
 
-				if(url != null && AuthenticationString != null)
+				if(AuthenticationString != null)
 				{
 					rpcClient = new RPCClient(RPCCredentialString.Parse(AuthenticationString), url, network);
 				}
