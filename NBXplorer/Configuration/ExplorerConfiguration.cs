@@ -208,7 +208,7 @@ namespace NBXplorer.Configuration
 				builder.AppendLine("#rpc.auth=walletuser:password");
 				builder.AppendLine();
 				builder.AppendLine("## This is the connection to your node through P2P");
-				builder.AppendLine("#node.endpoint=localhost:" + Network.DefaultPort);
+				builder.AppendLine("#node.endpoint=127.0.0.1:" + Network.DefaultPort);
 				builder.AppendLine();
 				builder.AppendLine("## startheight defines from which block you will start scanning, if -1 is set, it will use current blockchain height");
 				builder.AppendLine("#startheight=-1");
