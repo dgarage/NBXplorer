@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using NBXplorer.Logging;
+using System.Net;
 
 namespace NBXplorer.Configuration
 {
@@ -54,7 +55,7 @@ namespace NBXplorer.Configuration
 				{
 					try
 					{
-						rpcClient = new RPCClient(File.ReadAllText(CookieFile), url, network);
+						rpcClient = new RPCClient(new RPCCredentialString() { CookieFile = CookieFile }, url, network);
 					}
 					catch(IOException)
 					{
@@ -64,14 +65,14 @@ namespace NBXplorer.Configuration
 
 				if(url != null && AuthenticationString != null)
 				{
-					rpcClient = new RPCClient(AuthenticationString, url, network);
+					rpcClient = new RPCClient(RPCCredentialString.Parse(AuthenticationString), url, network);
 				}
 
 				if(rpcClient == null)
 				{
 					try
 					{
-						rpcClient = new RPCClient(network);
+						rpcClient = new RPCClient(null as NetworkCredential, url, network);
 					}
 					catch { }
 					if(rpcClient == null)
