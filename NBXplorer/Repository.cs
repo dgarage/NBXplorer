@@ -128,7 +128,9 @@ namespace NBXplorer
 		public KeyPathInformation GetUnused(IDerivationStrategy extPubKey, DerivationFeature derivationFeature, int n, bool reserve)
 		{
 			var tableName = $"U-{extPubKey.GetHash()}";
-			var readenTable = $"R-{extPubKey.GetHash()}";
+			var reservedTable = $"R-{extPubKey.GetHash()}";
+			var readenTable = $"Read-{extPubKey.GetHash()}";
+
 			var line = extPubKey.GetLineFor(derivationFeature);
 			if(line == null)
 				return null;
@@ -137,25 +139,38 @@ namespace NBXplorer
 			using(var tx = _Engine.GetTransaction())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
+				tx.SynchronizeTables(reservedTable, readenTable, tableName);
+
+				HashSet<KeyPath> reservedPaths = new HashSet<KeyPath>();
+				foreach(var row in tx.SelectForward<string, bool>(reservedTable))
+				{
+					reservedPaths.Add(new KeyPath(row.Key));
+				}
+
+				HashSet<KeyPath> readenPaths = new HashSet<KeyPath>();
+
 				if(reserve)
-					tx.SynchronizeTables(readenTable, tableName);
-				tx.ValuesLazyLoadingIsOn = false;
+				{
+					foreach(var row in tx.SelectForward<string, bool>(reservedTable))
+					{
+						readenPaths.Add(new KeyPath(row.Key));
+					}
+				}
+
 				foreach(var row in tx.SelectForward<string, bool>(tableName))
 				{
 					var keyPath = new KeyPath(row.Key);
-					if(!row.Value && keyPath.Parent == line.Path)
+					if(!row.Value && keyPath.Parent == line.Path && !reservedPaths.Contains(keyPath))
 					{
-						possiblePaths.Add(keyPath);
+						if(!reserve || !readenPaths.Contains(keyPath))
+							possiblePaths.Add(keyPath);
 					}
 				}
-				HashSet<KeyPath> readenPaths = new HashSet<KeyPath>();
-				foreach(var row in tx.SelectForward<string, bool>(readenTable))
-				{
-					readenPaths.Add(new KeyPath(row.Key));
-				}
-				path = possiblePaths.Where(p => !readenPaths.Contains(p)).OrderBy(o => o.Indexes.Last()).Skip(n).FirstOrDefault();
+				path = possiblePaths.OrderBy(o => o.Indexes.Last()).Skip(n).FirstOrDefault();
 				if(path != null)
 				{
+					if(reserve)
+						tx.Insert(reservedTable, path.ToString(), true);
 					tx.Insert(readenTable, path.ToString(), true);
 					tx.Commit();
 				}

@@ -89,97 +89,129 @@ namespace NBXplorer.Controllers
 		{
 			if(extPubKey == null)
 				throw new ArgumentNullException(nameof(extPubKey));
-			confHash = confHash ?? uint256.Zero;
-			var actualLastBlockHash = uint256.Zero;
 
 			var waitingTransaction = noWait ? Task.FromResult(false) : WaitingTransaction(extPubKey);
 
 			Runtime.Repository.MarkAsUsed(new KeyInformation(extPubKey));
 			UTXOChanges changes = null;
-			UTXOChanges previousChanges = null;
-			List<TrackedTransaction> cleanList = null;
 			var getKeyPath = GetKeyPaths(extPubKey);
+			UTXOState utxoState = null;
 
 			while(true)
 			{
-				cleanList = new List<TrackedTransaction>();
-				HashSet<uint256> conflictedUnconf = new HashSet<uint256>();
+				utxoState = new UTXOState();
+				utxoState.MatchScript = (script) => getKeyPath(script) != null;
 				changes = new UTXOChanges();
 				changes.CurrentHeight = Runtime.Chain.Height;
-				List<AnnotatedTransaction> transactions = GetAnnotatedTransactions(extPubKey);
+				var transactions = GetAnnotatedTransactions(extPubKey);
 				var unconf = transactions.Where(tx => tx.Height == MempoolHeight);
 				var conf = transactions.Where(tx => tx.Height != MempoolHeight);
 
 				conf = conf.TopologicalSort(DependsOn(conf.ToList())).ToList();
 				unconf = unconf.TopologicalSort(DependsOn(unconf.ToList())).ToList();
-				foreach(var item in conf.Concat(unconf))
+
+
+				var transactionsById = new Dictionary<uint256, AnnotatedTransaction>();
+				var unconfById = new Dictionary<uint256, AnnotatedTransaction>();
+
+				UTXOState knownConf = confHash == uint256.Zero ? new UTXOState() : null;
+
+				foreach(var item in conf)
 				{
-					var record = item.Record;
-					if(record.BlockHash == null)
+					transactionsById.TryAdd(item.Record.Transaction.GetHash(), item);
+
+					var applyResult = utxoState.Apply(item.Record.Transaction);
+					if(applyResult == ApplyTransactionResult.Conflict)
 					{
-						if( //A parent conflicted with the current utxo
-							record.Transaction.Inputs.Any(i => conflictedUnconf.Contains(i.PrevOut.Hash))
-							||
-							//Conflict with the confirmed utxo
-							changes.Confirmed.HasConflict(record.Transaction))
-						{
-							cleanList.Add(record);
-							conflictedUnconf.Add(record.Transaction.GetHash());
-							continue;
-						}
-						if(changes.Unconfirmed.HasConflict(record.Transaction))
-						{
-							Logs.Explorer.LogInformation($"Conflicts in the mempool. {record.Transaction.GetHash()} ignored");
-							continue;
-						}
-						changes.Unconfirmed.LoadChanges(record.Transaction, 0, getKeyPath);
+						Logs.Explorer.LogError("A conflict among confirmed transaction happened, this should be impossible");
+						throw new InvalidOperationException("The impossible happened");
 					}
-					else
+
+					if(applyResult == ApplyTransactionResult.Passed)
 					{
-						if(changes.Confirmed.HasConflict(record.Transaction))
-						{
-							Logs.Explorer.LogError("A conflict among confirmed transaction happened, this should be impossible");
-							throw new InvalidOperationException("The impossible happened");
-						}
-						changes.Unconfirmed.LoadChanges(record.Transaction, 0, getKeyPath);
-						changes.Confirmed.LoadChanges(record.Transaction, Math.Max(0, changes.CurrentHeight - item.Height + 1), getKeyPath);
-						changes.Confirmed.Hash = record.BlockHash;
-						actualLastBlockHash = record.BlockHash;
-						if(record.BlockHash == confHash)
-							previousChanges = changes.Clone();
+						if(utxoState.CurrentHash == confHash)
+							knownConf = utxoState.Snapshot();
 					}
 				}
 
-				changes.Unconfirmed = changes.Unconfirmed.Diff(changes.Confirmed);
-				changes.Unconfirmed.Hash = changes.Unconfirmed.GetHash();
-				if(changes.Unconfirmed.Hash == unconfHash)
-					changes.Unconfirmed.Clear();
-				else
-					changes.Unconfirmed.Reset = true;
+				var actualConf = utxoState.Snapshot();
+				utxoState.ResetEvents();
 
+				UTXOState knownUnconf = null;
+				foreach(var item in unconf)
+				{
+					var txid = item.Record.Transaction.GetHash();
+					transactionsById.TryAdd(txid, item);
+					unconfById.TryAdd(txid, item);
+					if(utxoState.Apply(item.Record.Transaction) == ApplyTransactionResult.Passed)
+					{
+						if(utxoState.CurrentHash == unconfHash)
+							knownUnconf = utxoState.Snapshot();
+					}
+				}
+				knownUnconf = knownUnconf ?? actualConf;
 
-				if(actualLastBlockHash == confHash)
-					changes.Confirmed.Clear();
-				else if(previousChanges != null)
+				var actualUnconf = utxoState.Snapshot();
+				actualUnconf.Remove(actualConf);
+
+				var conflicted = utxoState.Conflicts
+					.SelectMany(c => c.Value)
+					.Select(txid => unconfById[txid].Record)
+					.ToList();
+
+				if(conflicted.Count != 0)
 				{
-					changes.Confirmed.Reset = false;
-					changes.Confirmed = changes.Confirmed.Diff(previousChanges.Confirmed);
+					Logs.Explorer.LogInformation($"Clean {conflicted.Count} conflicted transactions");
+					Runtime.Repository.CleanTransactions(extPubKey, conflicted);
 				}
-				else
-				{
-					changes.Confirmed.Reset = true;
-					changes.Confirmed.SpentOutpoints.Clear();
-				}
+
+				changes.Unconfirmed = SetUTXOChange(knownUnconf, actualUnconf);
+				changes.Unconfirmed.Reset = knownUnconf == actualConf && unconfHash != uint256.Zero;
+				changes.Confirmed = SetUTXOChange(knownConf, actualConf);
+
+				FillUTXOsInformation(changes.Confirmed.UTXOs, getKeyPath, transactionsById, changes.CurrentHeight);
+				FillUTXOsInformation(changes.Unconfirmed.UTXOs, getKeyPath, transactionsById, changes.CurrentHeight);
 
 				if(changes.HasChanges || !(await waitingTransaction))
 					break;
 				waitingTransaction = Task.FromResult(false); //next time, will not wait
 			}
 
-			Runtime.Repository.CleanTransactions(extPubKey, cleanList);
-
 			return new FileContentResult(changes.ToBytes(), "application/octet-stream");
 
+		}
+
+		private void FillUTXOsInformation(List<UTXO> utxos, Func<Script, KeyPath> getKeyPath, Dictionary<uint256, AnnotatedTransaction> transactionsById, int currentHeight)
+		{
+			foreach(var utxo in utxos)
+			{
+				utxo.KeyPath = getKeyPath(utxo.Output.ScriptPubKey);
+				var txHeight = transactionsById[utxo.Outpoint.Hash].Height;
+				txHeight = txHeight == MempoolHeight ? currentHeight + 1 : txHeight;
+				utxo.Confirmations = currentHeight - txHeight + 1;
+			}
+		}
+
+		private UTXOChange SetUTXOChange(UTXOState known, UTXOState actual)
+		{
+			UTXOChange change = new UTXOChange();
+			change.Reset = known == null;
+			change.Hash = actual.CurrentHash;
+
+			known = known ?? new UTXOState();
+
+			foreach(var coin in actual.CoinsByOutpoint)
+			{
+				if(!known.CoinsByOutpoint.ContainsKey(coin.Key))
+					change.UTXOs.Add(new UTXO() { Outpoint = coin.Key, Output = coin.Value.TxOut });
+			}
+
+			foreach(var outpoint in actual.SpentOutpoints)
+			{
+				if(!known.SpentOutpoints.Contains(outpoint) && known.CoinsByOutpoint.ContainsKey(outpoint))
+					change.SpentOutpoints.Add(outpoint);
+			}
+			return change;
 		}
 
 		private List<AnnotatedTransaction> GetAnnotatedTransactions(IDerivationStrategy extPubKey)
@@ -224,9 +256,16 @@ namespace NBXplorer.Controllers
 
 		private Func<Script, KeyPath> GetKeyPaths(IDerivationStrategy extPubKey)
 		{
+			Dictionary<Script, KeyPath> cache = new Dictionary<Script, KeyPath>();
 			return (script) =>
 			{
-				return Runtime.Repository.GetKeyInformation(extPubKey, script)?.KeyPath;
+				KeyPath result;
+				if(cache.TryGetValue(script, out result))
+					return result;
+				result = Runtime.Repository.GetKeyInformation(extPubKey, script)?.KeyPath;
+				if(result != null)
+					cache.TryAdd(script, result);
+				return result;
 			};
 		}
 

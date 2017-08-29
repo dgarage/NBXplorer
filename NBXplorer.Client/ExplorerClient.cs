@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using System.Linq;
 using NBitcoin.DataEncoders;
 using NBitcoin.JsonConverters;
 using NBXplorer.DerivationStrategy;
@@ -56,16 +57,22 @@ namespace NBXplorer
 			return SyncAsync(extKey, previousChange?.Confirmed?.Hash, previousChange?.Unconfirmed?.Hash, noWait, cancellation);
 		}
 
-		public UTXOChanges Sync(IDerivationStrategy extKey, uint256 lastBlockHash, uint256 unconfirmedHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public UTXOChanges Sync(IDerivationStrategy extKey, uint256 confHash, uint256 unconfirmedHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, lastBlockHash, unconfirmedHash, noWait, cancellation).GetAwaiter().GetResult();
+			return SyncAsync(extKey, confHash, unconfirmedHash, noWait, cancellation).GetAwaiter().GetResult();
 		}
 
 		public async Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, uint256 confHash, uint256 unconfHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			confHash = confHash ?? uint256.Zero;
-			unconfHash = unconfHash ?? uint256.Zero;
-			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?confHash={1}&unconfHash={2}&noWait={3}", new object[] { _Factory.Serialize(extKey), confHash, unconfHash, noWait }, cancellation).ConfigureAwait(false);
+			Dictionary<string, string> parameters = new Dictionary<string, string>();
+			if(confHash != null)
+				parameters.Add("confHash", confHash.ToString());
+			if(unconfHash != null)
+				parameters.Add("unconfHash", unconfHash.ToString());
+			parameters.Add("noWait", noWait.ToString());
+
+			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
+			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?" + query, new object[] { _Factory.Serialize(extKey) }, cancellation).ConfigureAwait(false);
 			UTXOChanges changes = new UTXOChanges();
 			changes.FromBytes(bytes);
 			return changes;
