@@ -36,7 +36,7 @@ namespace NBXplorer
 		byte[] _Buffer;
 		public UTXOState()
 		{
-			_Buffer = new byte[32 + 32 + 32 + 4];
+			_Buffer = new byte[32 + 32 + 32 + 4 + 1];
 			_Hasher = new MemoryStream(_Buffer);
 		}
 
@@ -96,8 +96,7 @@ namespace NBXplorer
 					var outpoint = new OutPoint(hash, i);
 					if(CoinsByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
 					{
-						Events.Add(new UTXOEvent() { Added = true, Outpoint = outpoint, TxId = hash });
-						UpdateHash(hash, outpoint);
+						AddEvent(new UTXOEvent() { Added = true, Outpoint = outpoint, TxId = hash });
 					}
 				}
 			}
@@ -107,9 +106,8 @@ namespace NBXplorer
 				var input = tx.Inputs[i];
 				if(CoinsByOutpoint.Remove(input.PrevOut))
 				{
-					Events.Add(new UTXOEvent() { Added = false, Outpoint = input.PrevOut, TxId = hash });
+					AddEvent(new UTXOEvent() { Added = false, Outpoint = input.PrevOut, TxId = hash });
 					SpentOutpoints.Add(input.PrevOut);
-					UpdateHash(hash, input.PrevOut);
 				}
 			}
 			return result;
@@ -131,13 +129,18 @@ namespace NBXplorer
 			}
 		}
 
-		void UpdateHash(uint256 hash, OutPoint outpoint)
+
+		private void AddEvent(UTXOEvent evt)
 		{
+			Events.Add(evt);
+
 			_Hasher.Position = 0;
 			_Hasher.Write(_CurrentHash, 0, 32);
-			_Hasher.Write(hash.ToBytes(), 0, 32);
+			_Hasher.Write(evt.TxId.ToBytes(), 0, 32);
 			var bs = new BitcoinStream(_Hasher, true);
+			var outpoint = evt.Outpoint;
 			bs.ReadWrite(ref outpoint);
+			_Hasher.WriteByte((byte)(evt.Added ? 1 : 0));
 			_CurrentHash = Hashes.SHA256(_Buffer);
 		}
 
@@ -162,14 +165,6 @@ namespace NBXplorer
 		{
 			Array.Clear(_CurrentHash, 0, _CurrentHash.Length);
 			Events.Clear();
-		}
-
-		public void Remove(UTXOState otherState)
-		{
-			foreach(var spent in otherState.SpentOutpoints)
-				this.SpentOutpoints.Remove(spent);
-			foreach(var spent in otherState.CoinsByOutpoint)
-				this.CoinsByOutpoint.Remove(spent.Key);
 		}
 	}
 }

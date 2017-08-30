@@ -399,6 +399,7 @@ namespace NBXplorer.Tests
 				var prevConfHash = utxo.Confirmed.Hash;
 
 				txId = tester.Runtime.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(1.0m));
+				var txId1 = txId;
 
 				prevUtxo = utxo;
 				utxo = tester.Client.Sync(pubkey, utxo);
@@ -458,7 +459,8 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.Sync(pubkey, utxo);
 				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
 				Assert.Equal(new KeyPath("0/3"), utxo.Unconfirmed.UTXOs[0].KeyPath);
-				Assert.Equal(1, utxo.Unconfirmed.SpentOutpoints.Count); //Change should be spent
+				Assert.Equal(1, utxo.Unconfirmed.SpentOutpoints.Count); // "0/1" should be spent
+				Assert.Equal(txId1, utxo.Unconfirmed.SpentOutpoints[0].Hash); // "0/1" should be spent
 
 				utxo = tester.Client.Sync(pubkey, utxo, true);
 				Assert.False(utxo.HasChanges);
