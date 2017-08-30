@@ -141,13 +141,10 @@ namespace NBXplorer.Controllers
 			Runtime.Repository.MarkAsUsed(new KeyInformation(extPubKey));
 			UTXOChanges changes = null;
 			var getKeyPath = GetKeyPaths(extPubKey);
-			UTXOState utxoState = null;
 			var matchScript = MatchKeyPaths(getKeyPath);
 
 			while(true)
 			{
-				utxoState = new UTXOState();
-				utxoState.MatchScript = (script) => getKeyPath(script) != null;
 				changes = new UTXOChanges();
 				changes.CurrentHeight = Runtime.Chain.Height;
 				var transactions = GetAnnotatedTransactions(extPubKey);

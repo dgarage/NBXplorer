@@ -14,7 +14,7 @@ namespace NBXplorer
 		{
 			get; set;
 		}
-		public bool Added
+		public bool Received
 		{
 			get; set;
 		}
@@ -96,7 +96,7 @@ namespace NBXplorer
 					var outpoint = new OutPoint(hash, i);
 					if(CoinsByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
 					{
-						AddEvent(new UTXOEvent() { Added = true, Outpoint = outpoint, TxId = hash });
+						AddEvent(new UTXOEvent() { Received = true, Outpoint = outpoint, TxId = hash });
 					}
 				}
 			}
@@ -106,7 +106,7 @@ namespace NBXplorer
 				var input = tx.Inputs[i];
 				if(CoinsByOutpoint.Remove(input.PrevOut))
 				{
-					AddEvent(new UTXOEvent() { Added = false, Outpoint = input.PrevOut, TxId = hash });
+					AddEvent(new UTXOEvent() { Received = false, Outpoint = input.PrevOut, TxId = hash });
 					SpentOutpoints.Add(input.PrevOut);
 				}
 			}
@@ -140,7 +140,7 @@ namespace NBXplorer
 			var bs = new BitcoinStream(_Hasher, true);
 			var outpoint = evt.Outpoint;
 			bs.ReadWrite(ref outpoint);
-			_Hasher.WriteByte((byte)(evt.Added ? 1 : 0));
+			_Hasher.WriteByte((byte)(evt.Received ? 1 : 0));
 			_CurrentHash = Hashes.SHA256(_Buffer);
 		}
 
