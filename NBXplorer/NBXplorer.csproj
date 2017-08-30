@@ -4,7 +4,7 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NBitcoin" Version="4.0.0.33" />
+    <PackageReference Include="NBitcoin" Version="4.0.0.34" />
 	  <PackageReference Include="DBreeze" Version="1.87.0" />
     <PackageReference Include="Microsoft.AspNetCore" Version="1.1.2" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc" Version="1.1.3" />
