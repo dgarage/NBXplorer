@@ -279,6 +279,7 @@ namespace NBXplorer
 							}
 						}
 						Runtime.Repository.InsertTransactions(trackedTransactions.ToArray());
+						Runtime.Repository.SaveTransactions(trackedTransactions.Select(t => t.TrackedTransaction.Transaction).ToArray(), block.Object.GetHash());
 
 						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 						if(!IsSynching() || block.Object.GetHash().GetLow32() % 100 == 0)
@@ -298,11 +299,10 @@ namespace NBXplorer
 			message.Message.IfPayloadIs<TxPayload>(txPayload =>
 			{
 				var pubKeys = GetInterestedWallets(txPayload.Object);
-
+				var insertedTransactions = new List<InsertTransaction>();
 				foreach(var pubkey in pubKeys)
 				{
-					Runtime.Repository.InsertTransactions(new[]
-					{
+					insertedTransactions.Add(
 						new InsertTransaction()
 						{
 							PubKey = pubkey.Strat,
@@ -310,9 +310,10 @@ namespace NBXplorer
 							{
 								Transaction = txPayload.Object
 							}
-						}
-					});
+						});
 				}
+				Runtime.Repository.InsertTransactions(insertedTransactions.ToArray());
+				Runtime.Repository.SaveTransactions(insertedTransactions.Select(t => t.TrackedTransaction.Transaction).ToArray(), null);
 
 				foreach(var pubkey in pubKeys)
 				{

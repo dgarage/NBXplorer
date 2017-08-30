@@ -194,6 +194,50 @@ namespace NBXplorer
 			return keyInfo;
 		}
 
+		public void SaveTransactions(Transaction[] transactions, uint256 blockHash)
+		{
+			transactions = transactions.Distinct().ToArray();
+			if(transactions.Length == 0)
+				return;
+			using(var tx = _Engine.GetTransaction())
+			{
+				foreach(var btx in transactions)
+				{
+					tx.Insert("tx-" + btx.GetHash().ToString(), blockHash == null ? "0" : blockHash.ToString(), btx.ToBytes());
+				}
+				tx.Commit();
+			}
+		}
+
+		public class SavedTransaction
+		{
+			public Transaction Transaction
+			{
+				get; set;
+			}
+			public uint256 BlockHash
+			{
+				get; set;
+			}
+		}
+
+		public SavedTransaction[] GetSavedTransactions(uint256 txid)
+		{
+			List<SavedTransaction> saved = new List<SavedTransaction>();
+			using(var tx = _Engine.GetTransaction())
+			{
+				foreach(var row in tx.SelectForward<string, byte[]>("tx-" + txid.ToString()))
+				{
+					SavedTransaction t = new SavedTransaction();
+					if(row.Key.Length != 1)
+						t.BlockHash = new uint256(row.Key);
+					t.Transaction = new Transaction(row.Value);
+					saved.Add(t);
+				}
+			}
+			return saved.ToArray();
+		}
+
 		public KeyInformation GetKeyInformation(IDerivationStrategy pubKey, Script script)
 		{
 			var info = GetKeyInformation(script);

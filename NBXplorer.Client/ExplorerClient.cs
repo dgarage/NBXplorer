@@ -52,6 +52,22 @@ namespace NBXplorer
 			return SyncAsync(extKey, previousChange, noWait, cancellation).GetAwaiter().GetResult();
 		}
 
+		public async Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default(CancellationToken))
+		{
+			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/tx/" + txId, null, cancellation).ConfigureAwait(false);
+			if(bytes == null)
+				return null;
+			BitcoinStream bs = new BitcoinStream(bytes);
+			TransactionResult result = null;
+			bs.ReadWrite(ref result);
+			return result;
+		}
+
+		public TransactionResult GetTransaction(uint256 txId, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetTransactionAsync(txId, cancellation).GetAwaiter().GetResult();
+		}
+
 		public Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			return SyncAsync(extKey, previousChange?.Confirmed?.Hash, previousChange?.Unconfirmed?.Hash, noWait, cancellation);
@@ -169,6 +185,10 @@ namespace NBXplorer
 			var uri = GetFullUri(relativePath, parameters);
 			HttpRequestMessage message = CreateMessage(method, body, uri);
 			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
+			if((int)result.StatusCode == 404)
+			{
+				return default(T);
+			}
 			if((int)result.StatusCode == 401)
 			{
 				RefreshCache();

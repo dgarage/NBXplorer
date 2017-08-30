@@ -387,6 +387,11 @@ namespace NBXplorer.Tests
 				Assert.Equal(uint256.Zero, utxo.Confirmed.Hash);
 				Assert.NotEqual(uint256.Zero, utxo.Unconfirmed.Hash);
 
+				var tx = tester.Client.GetTransaction(utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+				Assert.NotNull(tx);
+				Assert.Equal(0, tx.Confirmations);
+				Assert.Equal(utxo.Unconfirmed.UTXOs[0].Outpoint.Hash, tx.Transaction.GetHash());
+
 				tester.Runtime.RPC.Generate(1);
 				var prevUtxo = utxo;
 				utxo = tester.Client.Sync(pubkey, prevUtxo);
@@ -427,6 +432,12 @@ namespace NBXplorer.Tests
 				Assert.Equal(0, utxo.Unconfirmed.UTXOs.Count);
 				Assert.Equal(1, utxo.Confirmed.UTXOs.Count);
 				Assert.Equal(1, utxo.Confirmed.UTXOs[0].Confirmations);
+
+				Assert.Null(tester.Client.GetTransaction(uint256.One));
+				tx = tester.Client.GetTransaction(utxo.Confirmed.UTXOs[0].Outpoint.Hash);
+				Assert.NotNull(tx);
+				Assert.Equal(1, tx.Confirmations);
+				Assert.Equal(utxo.Confirmed.UTXOs[0].Outpoint.Hash, tx.Transaction.GetHash());
 				tester.Runtime.RPC.Generate(1);
 
 				utxo = tester.Client.Sync(pubkey, utxo);

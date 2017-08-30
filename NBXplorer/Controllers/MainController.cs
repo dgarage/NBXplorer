@@ -100,6 +100,29 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
+		[Route("tx/{txId}")]
+		public IActionResult GetTransaction(
+			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
+			uint256 txId)
+		{
+			var result = Runtime.Repository.GetSavedTransactions(txId);
+			if(result.Length == 0)
+				return NotFound();
+
+			var tx = result.First().Transaction;
+
+			var confBlock = result
+						.Where(r => r.BlockHash != null)
+						.Select(r => Runtime.Chain.GetBlock(r.BlockHash))
+						.Where(r => r != null)
+						.FirstOrDefault();
+
+			var conf = confBlock == null ? 0 : Runtime.Chain.Tip.Height - confBlock.Height + 1;
+
+			return new FileContentResult(new TransactionResult() { Confirmations = conf, Transaction = tx }.ToBytes(), "application/octet-stream");
+		}
+
+		[HttpGet]
 		[Route("sync/{extPubKey}")]
 		public async Task<FileContentResult> Sync(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
@@ -165,7 +188,6 @@ namespace NBXplorer.Controllers
 			}
 
 			return new FileContentResult(changes.ToBytes(), "application/octet-stream");
-
 		}
 
 		private void FillUTXOsInformation(List<UTXO> utxos, Func<Script, KeyPath> getKeyPath, AnnotatedTransactionCollection transactionsById, int currentHeight)
