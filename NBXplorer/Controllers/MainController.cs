@@ -17,6 +17,7 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using NBXplorer.Client;
 using Microsoft.AspNetCore.Authorization;
+using Newtonsoft.Json.Linq;
 
 namespace NBXplorer.Controllers
 {
@@ -69,6 +70,21 @@ namespace NBXplorer.Controllers
 		public ExplorerRuntime Runtime
 		{
 			get; set;
+		}
+
+		[HttpGet]
+		[Route("fees/{blockCount}")]
+		public async Task<GetFeeRateResult> GetFeeRate(int blockCount)
+		{
+			var result = await Runtime.RPC.SendCommandAsync("estimatesmartfee", blockCount);
+			var rate = ((JObject)result.Result)["feerate"].Value<decimal>();
+			if(rate == -1)
+				throw new NBXplorerError(400, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
+			return new GetFeeRateResult()
+			{
+				FeeRate = new FeeRate(Money.Coins(rate), 1000),
+				BlockCount = ((JObject)result.Result)["blocks"].Value<int>()
+			};
 		}
 
 		[HttpGet]
@@ -174,7 +190,7 @@ namespace NBXplorer.Controllers
 				changes.Confirmed = SetUTXOChange(states.Confirmed);
 				changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
 
-				
+
 
 				FillUTXOsInformation(changes.Confirmed.UTXOs, getKeyPath, transactions, changes.CurrentHeight);
 				FillUTXOsInformation(changes.Unconfirmed.UTXOs, getKeyPath, transactions, changes.CurrentHeight);
@@ -212,15 +228,15 @@ namespace NBXplorer.Controllers
 
 			foreach(var coin in states.Actual.CoinsByOutpoint)
 			{
-				if(!states.Known.CoinsByOutpoint.ContainsKey(coin.Key) && 
+				if(!states.Known.CoinsByOutpoint.ContainsKey(coin.Key) &&
 					!substractedReceived.Contains(coin.Key))
 					change.UTXOs.Add(new UTXO() { Outpoint = coin.Key, Output = coin.Value.TxOut });
 			}
 
 			foreach(var outpoint in states.Actual.SpentOutpoints)
 			{
-				if(!states.Known.SpentOutpoints.Contains(outpoint) && 
-					states.Known.CoinsByOutpoint.ContainsKey(outpoint) && 
+				if(!states.Known.SpentOutpoints.Contains(outpoint) &&
+					states.Known.CoinsByOutpoint.ContainsKey(outpoint) &&
 					!substractedSpent.Contains(outpoint))
 					change.SpentOutpoints.Add(outpoint);
 			}

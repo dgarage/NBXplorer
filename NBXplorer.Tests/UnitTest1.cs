@@ -531,6 +531,9 @@ namespace NBXplorer.Tests
 				signed.Inputs[0].PrevOut.N = 999;
 				result = tester.Client.Broadcast(signed);
 				Assert.False(result.Success);
+				
+				var ex = Assert.Throws<NBXplorerException>(()=> tester.Client.GetFeeRate(5));
+				Assert.Equal("fee-estimation-unavailable", ex.Error.Code);
 			}
 		}
 	}

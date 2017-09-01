@@ -134,6 +134,17 @@ namespace NBXplorer
 			}
 		}
 
+
+		public GetFeeRateResult GetFeeRate(int blockCount, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetFeeRateAsync(blockCount, cancellation).GetAwaiter().GetResult();
+		}
+
+		public Task<GetFeeRateResult> GetFeeRateAsync(int blockCount, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetAsync<GetFeeRateResult>("v1/fees/{0}", new object[] { blockCount }, cancellation);
+		}
+
 		public BroadcastResult Broadcast(Transaction tx, CancellationToken cancellation = default(CancellationToken))
 		{
 			return BroadcastAsync(tx, cancellation).GetAwaiter().GetResult();
