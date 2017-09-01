@@ -78,7 +78,7 @@ namespace NBXplorer.Tests
 					TryDelete(directory, true);
 				}
 
-				 NodeBuilder = NodeBuilder.Create(directory);
+				NodeBuilder = NodeBuilder.Create(directory, "0.14.2");
 				NodeBuilder.CleanBeforeStartingNode = false;
 				Copy(cachedNodes, directory);
 
