@@ -41,24 +41,25 @@ namespace NBXplorer
 		{
 			if(!this.authorization.IsAuthorized(httpContext.Connection.RemoteIpAddress))
 				return false;
-			StringValues auth;
-			if(!httpContext.Request.Headers.TryGetValue("Authorization", out auth) || auth.Count != 1)
-				return false;
-			var splittedAuth = auth[0].Split(' ');
-			if(splittedAuth.Length != 2 ||
-			   splittedAuth[0] != "Basic")
+			string user = null;
+
+			if(httpContext.Request.Headers.TryGetValue("Authorization", out StringValues auth) && auth.Count == 1)
+			{
+				var splittedAuth = auth[0].Split(' ');
+				if(splittedAuth.Length == 2 &&
+				   splittedAuth[0] == "Basic")
+				{
+					try
+					{
+						user = Encoders.ASCII.EncodeData(Encoders.Base64.DecodeData(splittedAuth[1]));
+					}
+					catch { }
+				}
+			}
+
+			if(!this.authorization.IsAuthorized(user))
 				return false;
 
-			try
-			{
-				var user = Encoders.ASCII.EncodeData(Encoders.Base64.DecodeData(splittedAuth[1]));
-				if(!this.authorization.IsAuthorized(user))
-					return false;
-			}
-			catch
-			{
-				return false;
-			}
 			return true;
 		}
 	}

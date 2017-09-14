@@ -35,10 +35,11 @@ namespace NBXplorer.Filters
 
 		public bool IsAuthorized(string user)
 		{
+			if(this.Authorized.Count == 0)
+				return true;
 			if(user == null)
-				throw new ArgumentNullException(nameof(user));
-
-			return this.Authorized.Count == 0 || this.Authorized.Any(a => a.Equals(user, StringComparison.OrdinalIgnoreCase));
+				return false;
+			return this.Authorized.Any(a => a.Equals(user, StringComparison.OrdinalIgnoreCase));
 		}
 		public bool IsAuthorized(IPAddress ip)
 		{
