@@ -175,7 +175,17 @@ namespace NBXplorer.Configuration
 				hostOut = str.Substring(1, str.Length - 2);
 			else
 				hostOut = str;
-			return new IPEndPoint(IPAddress.Parse(hostOut), portOut);
+
+			IPAddress ip = null;
+
+			if(!IPAddress.TryParse(hostOut, out ip))
+			{
+				ip = Dns.GetHostEntry(hostOut).AddressList.FirstOrDefault();
+				if(ip == null)
+					throw new FormatException("Invalid IP Endpoint");
+			}
+
+			return new IPEndPoint(ip, portOut);
 		}
 
 		private void AssetConfigFileExists()
