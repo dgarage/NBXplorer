@@ -18,6 +18,50 @@ namespace NBXplorer
 {
 	public class ExplorerClient
 	{
+		interface IAuth
+		{
+			bool RefreshCache();
+			void SetAuthorization(HttpRequestMessage message);
+		}
+
+		class CookieAuthentication : IAuth
+		{
+			string _CookieFilePath;
+			AuthenticationHeaderValue _CachedAuth;
+
+			public CookieAuthentication(string path)
+			{
+				_CookieFilePath = path;
+			}
+
+			public bool RefreshCache()
+			{
+				try
+				{
+					var cookieData = File.ReadAllText(_CookieFilePath);
+					_CachedAuth = new AuthenticationHeaderValue("Basic", Encoders.Base64.EncodeData(Encoders.ASCII.DecodeData(cookieData)));
+					return true;
+				}
+				catch { return false; }
+			}
+
+			public void SetAuthorization(HttpRequestMessage message)
+			{
+				message.Headers.Authorization = _CachedAuth;
+			}
+		}
+		class NullAuthentication : IAuth
+		{
+			public bool RefreshCache()
+			{
+				return false;
+			}
+
+			public void SetAuthorization(HttpRequestMessage message)
+			{
+			}
+		}
+
 		public ExplorerClient(Network network, Uri serverAddress)
 		{
 			if(serverAddress == null)
@@ -28,21 +72,27 @@ namespace NBXplorer
 			_Network = network;
 			_Serializer = new Serializer(network);
 			_Factory = new DerivationStrategyFactory(Network);
-			_CookieFilePath = NBXplorer.Client.Utils.GetDefaultCookieFilePath(network);
+			var auth = new CookieAuthentication(NBXplorer.Client.Utils.GetDefaultCookieFilePath(network));
+			if(auth.RefreshCache())
+				_Auth = auth;
 		}
 
-		string _CookieFilePath;
-		AuthenticationHeaderValue _CachedAuth;
-		public void SetCookieFile(string path)
+		IAuth _Auth = new NullAuthentication();
+
+		public bool SetCookieAuth(string path)
 		{
-			_CookieFilePath = path;
-			RefreshCache();
+			if(path == null)
+				throw new ArgumentNullException(nameof(path));
+			CookieAuthentication auth = new CookieAuthentication(path);
+			if(!auth.RefreshCache())
+				return false;
+			_Auth = auth;
+			return true;
 		}
 
-		private void RefreshCache()
+		public void SetNoAuth()
 		{
-			var cookieData = File.ReadAllText(_CookieFilePath);
-			_CachedAuth = new AuthenticationHeaderValue("Basic", Encoders.Base64.EncodeData(Encoders.ASCII.DecodeData(cookieData)));
+			_Auth = new NullAuthentication();
 		}
 
 		Serializer _Serializer;
@@ -202,9 +252,11 @@ namespace NBXplorer
 			}
 			if((int)result.StatusCode == 401)
 			{
-				RefreshCache();
-				message = CreateMessage(method, body, uri);
-				result = await Client.SendAsync(message).ConfigureAwait(false);
+				if(_Auth.RefreshCache())
+				{
+					message = CreateMessage(method, body, uri);
+					result = await Client.SendAsync(message).ConfigureAwait(false);
+				}
 			}
 			return await ParseResponse<T>(result).ConfigureAwait(false);
 		}
@@ -212,9 +264,7 @@ namespace NBXplorer
 		private HttpRequestMessage CreateMessage(HttpMethod method, object body, string uri)
 		{
 			var message = new HttpRequestMessage(method, uri);
-			if(_CachedAuth == null)
-				RefreshCache();
-			message.Headers.Authorization = _CachedAuth;
+			_Auth.SetAuthorization(message);
 			if(body != null)
 			{
 				if(body is byte[])

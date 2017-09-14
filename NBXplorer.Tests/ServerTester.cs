@@ -113,7 +113,7 @@ namespace NBXplorer.Tests
 				Host.Start();
 
 				_Client = new ExplorerClient(Runtime.Network, Address);
-				_Client.SetCookieFile(Path.Combine(conf.DataDir, ".cookie"));
+				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
 			}
 			catch
 			{
