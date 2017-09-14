@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 using NBXplorer.Configuration;
 using NBXplorer.Logging;
 using NBitcoin.Protocol;
+using System.Collections;
 
 namespace NBXplorer
 {
@@ -21,7 +22,10 @@ namespace NBXplorer
 			try
 			{
 				var conf = new ExplorerConfiguration();
-				conf.LoadArgs(args);
+
+				var arguments = new TextFileConfiguration(args);
+				arguments = LoadEnvironmentVariables(arguments);
+				conf.LoadArgs(arguments);
 
 				host = new WebHostBuilder()
 					.UseNBXplorer(conf)
@@ -45,6 +49,27 @@ namespace NBXplorer
 				if(host != null)
 					host.Dispose();
 			}
+		}
+
+		private static TextFileConfiguration LoadEnvironmentVariables(TextFileConfiguration args)
+		{
+			var variables = Environment.GetEnvironmentVariables();
+			List<string> values = new List<string>();
+			foreach(DictionaryEntry variable in variables)
+			{
+				var key = (string)variable.Key;
+				var value = (string)variable.Value;
+				if(key.StartsWith("APPSETTING_", StringComparison.Ordinal))
+				{
+					key = key.Substring("APPSETTING_".Length);
+					values.Add("-" + key);
+					values.Add(value);
+				}
+			}
+
+			TextFileConfiguration envConfig = new TextFileConfiguration(values.ToArray());
+			args.MergeInto(envConfig, true);
+			return envConfig;
 		}
 	}
 }
