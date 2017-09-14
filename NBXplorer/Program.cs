@@ -30,6 +30,7 @@ namespace NBXplorer
 				host = new WebHostBuilder()
 					.UseNBXplorer(conf)
 					.UseUrls(conf.GetUrls())
+					.UseIISIntegration()
 					.UseKestrel()
 					.Build();
 				host.Run();

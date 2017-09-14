@@ -38,16 +38,14 @@ namespace NBXplorer.Filters
 			if(user == null)
 				throw new ArgumentNullException(nameof(user));
 
-			return this.Authorized.Any(a => a.Equals(user, StringComparison.OrdinalIgnoreCase));
+			return this.Authorized.Count == 0 || this.Authorized.Any(a => a.Equals(user, StringComparison.OrdinalIgnoreCase));
 		}
 		public bool IsAuthorized(IPAddress ip)
 		{
 			if(ip == null)
 				throw new ArgumentNullException(nameof(ip));
-
-			if(this.AllowIp.Count == 0)
-				return true;
-			return this.AllowIp.Any(i => i.AddressFamily == ip.AddressFamily && i.Equals(ip));
+			
+			return this.AllowIp.Count == 0 || this.AllowIp.Any(i => i.AddressFamily == ip.AddressFamily && i.Equals(ip));
 		}
 	}
 }

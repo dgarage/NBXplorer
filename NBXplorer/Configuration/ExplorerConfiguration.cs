@@ -114,6 +114,7 @@ namespace NBXplorer.Configuration
 			NodeEndpoint = ConvertToEndpoint(config.GetOrDefault<string>("node.endpoint", "127.0.0.1"), Network.DefaultPort);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			StartHeight = config.GetOrDefault<int>("startheight", -1);
+			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 			return this;
 		}
 
@@ -143,6 +144,11 @@ namespace NBXplorer.Configuration
 			get; set;
 		}
 		public bool CacheChain
+		{
+			get;
+			set;
+		}
+		public bool NoAuthentication
 		{
 			get;
 			set;
@@ -224,6 +230,8 @@ namespace NBXplorer.Configuration
 				builder.AppendLine("#startheight=-1");
 				builder.AppendLine("## rescan forces a rescan from startheight");
 				builder.AppendLine("#rescan=0");
+				builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
+				builder.AppendLine("#noauth=0");
 
 				builder.AppendLine();
 				builder.AppendLine();

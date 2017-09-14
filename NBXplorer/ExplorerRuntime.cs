@@ -57,6 +57,7 @@ namespace NBXplorer
 					var cts = new CancellationTokenSource();
 					cts.CancelAfter(5000);
 					node.VersionHandshake(cts.Token);
+					Logs.Configuration.LogInformation("Handshaked");
 					node.SynchronizeChain(Chain);
 				}
 				Logs.Configuration.LogInformation("Node connection successfull");
@@ -85,16 +86,22 @@ namespace NBXplorer
 				Repository.SetIndexProgress(null);
 			}
 
+			var noAuth = configuration.NoAuthentication;
+
+
 			var cookieFile = Path.Combine(configuration.DataDir, ".cookie");
 			var cookieStr = "__cookie__:" + new uint256(RandomUtils.GetBytes(32));
 			File.WriteAllText(cookieFile, cookieStr);
 
-
 			RPCAuthorization auth = new RPCAuthorization();
-			auth.AllowIp.Add(IPAddress.Parse("127.0.0.1"));
-			auth.AllowIp.Add(IPAddress.Parse("::1"));
-			auth.Authorized.Add(cookieStr);
+			if(!noAuth)
+			{
+				auth.AllowIp.Add(IPAddress.Parse("127.0.0.1"));
+				auth.AllowIp.Add(IPAddress.Parse("::1"));
+				auth.Authorized.Add(cookieStr);
+			}
 			Authorizations = auth;
+
 
 			StartNodeListener(configuration.StartHeight);
 		}
