@@ -20,11 +20,11 @@ namespace NBXplorer.JsonConverters
 		{
 			if(reader.TokenType == JsonToken.Null)
 				return null;
-
-			var value = reader.ReadAsInt32();
-			if(value == null)
+			if(reader.TokenType != JsonToken.Integer)
 				return null;
-			return new FeeRate(Money.Satoshis(value.Value), 1);
+
+			var value = (int)reader.Value;
+			return new FeeRate(Money.Satoshis(value), 1);
 		}
 
 		public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
