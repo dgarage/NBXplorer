@@ -32,6 +32,7 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(settings));
 			NBitcoin.JsonConverters.Serializer.RegisterFrontConverters(settings, Network);
 			settings.Converters.Insert(0, new JsonConverters.DerivationStrategyJsonConverter(new DerivationStrategy.DerivationStrategyFactory(Network)));
+			settings.Converters.Insert(0, new JsonConverters.FeeRateJsonConverter());
 		}
 
 		public T ToObject<T>(string str)
