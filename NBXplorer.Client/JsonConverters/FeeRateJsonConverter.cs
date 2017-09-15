@@ -23,7 +23,7 @@ namespace NBXplorer.JsonConverters
 			if(reader.TokenType != JsonToken.Integer)
 				return null;
 
-			var value = (int)reader.Value;
+			var value = (long)reader.Value;
 			return new FeeRate(Money.Satoshis(value), 1);
 		}
 
