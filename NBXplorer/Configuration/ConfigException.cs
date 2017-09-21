@@ -5,9 +5,13 @@ using System.Threading.Tasks;
 
 namespace NBXplorer.Configuration
 {
-	public class ConfigurationException : Exception
+	public class ConfigException : Exception
 	{
-		public ConfigurationException(string msg) : base(msg)
+		public ConfigException() : base("")
+		{
+
+		}
+		public ConfigException(string message) : base(message)
 		{
 
 		}

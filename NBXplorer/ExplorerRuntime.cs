@@ -35,7 +35,6 @@ namespace NBXplorer
 			Chain = new ConcurrentChain(Network.GetGenesis().Header);
 			RPC = configuration.RPC.ConfigureRPCClient(configuration.Network.Network);
 			NodeEndpoint = configuration.NodeEndpoint;
-			ServerUrls = configuration.GetUrls();
 
 			var cachePath = Path.Combine(configuration.DataDir, "chain.dat");
 			if(configuration.CacheChain)
@@ -136,12 +135,7 @@ namespace NBXplorer
 		{
 			get; set;
 		}
-
-		public string[] ServerUrls
-		{
-			get; set;
-		}
-
+		
 		NodesGroup CreateNodeGroup(ConcurrentChain chain, int startHeight)
 		{
 			AddressManager manager = new AddressManager();

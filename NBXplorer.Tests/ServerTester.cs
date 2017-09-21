@@ -107,7 +107,7 @@ namespace NBXplorer.Tests
 
 				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
 				Host = new WebHostBuilder()
-					.UseConfiguration(Program.CreateConfiguration(args))
+					.UseConfiguration(DefaultConfiguration.CreateConfiguration(args))
 					.UseKestrel()
 					.UseStartup<Startup>()
 					.Build();
