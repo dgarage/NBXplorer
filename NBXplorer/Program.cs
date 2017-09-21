@@ -24,7 +24,8 @@ namespace NBXplorer
 	{
 		public static void Main(string[] args)
 		{
-			Logs.Configure(new FuncLoggerFactory(i => new CustomerConsoleLogger(i, (a, b) => true, false)));
+			var processor = new ConsoleLoggerProcessor();
+			Logs.Configure(new FuncLoggerFactory(i => new CustomerConsoleLogger(i, (a, b) => true, false, processor)));
 			IWebHost host = null;
 			try
 			{
