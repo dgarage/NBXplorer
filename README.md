@@ -23,7 +23,7 @@ cd NBXplorer/NBXplorer
 dotnet run
 ```
 The first run might take some time to start, where you see nothing appearing. No worries, it is just downloading dependencies and compiling.
-Else, you will have to configure manually.
+Please use `--network testnet` or `--network regtest` for targeting other network.
 
 ## How to develop on it?
 

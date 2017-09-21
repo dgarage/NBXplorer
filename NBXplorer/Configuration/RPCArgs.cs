@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using NBXplorer.Logging;
 using System.Net;
+using Microsoft.Extensions.Configuration;
 
 namespace NBXplorer.Configuration
 {
@@ -133,13 +134,13 @@ namespace NBXplorer.Configuration
 		}
 
 		const int MIN_CORE_VERSION = 140200;
-		public static RPCClient ConfigureRPCClient(TextFileConfiguration confArgs, Network network, string prefix = null)
+		public static RPCClient ConfigureRPCClient(IConfiguration confArgs, Network network, string prefix = null)
 		{
 			RPCArgs args = Parse(confArgs, network, prefix);
 			return args.ConfigureRPCClient(network);
 		}
 
-		public static RPCArgs Parse(TextFileConfiguration confArgs, Network network, string prefix = null)
+		public static RPCArgs Parse(IConfiguration confArgs, Network network, string prefix = null)
 		{
 			prefix = prefix ?? "";
 			if(prefix != "")
@@ -156,6 +157,7 @@ namespace NBXplorer.Configuration
 					Password = confArgs.GetOrDefault<string>(prefix + "rpc.password", null),
 					CookieFile = confArgs.GetOrDefault<string>(prefix + "rpc.cookiefile", null),
 					AuthenticationString = confArgs.GetOrDefault<string>(prefix + "rpc.auth", null),
+					NoTest = confArgs.GetOrDefault<bool>(prefix + "rpc.notest", false),
 					Url = url == null ? null : new Uri(url)
 				};
 			}

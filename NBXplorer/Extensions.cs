@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using NBitcoin;
 using NBXplorer.Configuration;
 using System;
@@ -8,40 +9,66 @@ using System.Text;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Mvc;
 using NBXplorer.Filters;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 
 namespace NBXplorer
 {
 	public static class Extensions
 	{
-		public static IWebHostBuilder UseNBXplorer(this IWebHostBuilder builder, ExplorerConfiguration config)
+		public static IServiceCollection AddNBXplorer(this IServiceCollection services)
 		{
-			if(builder == null)
-				throw new ArgumentNullException(nameof(builder));
-			if(config == null)
-				throw new ArgumentNullException(nameof(config));
+			services.AddSingleton<IObjectModelValidator, NoObjectModelValidator>();
+			services.Configure<MvcOptions>(mvc =>
+			{
+				mvc.Filters.Add(new NBXplorerExceptionFilter());
+			});
 
-			return 
-				builder
-				.ConfigureServices(services =>
-				 {
-					 services.AddSingleton(config);
-					 services.AddSingleton<ExplorerRuntime>(o =>
-					 {
-						 var c = o.GetRequiredService<ExplorerConfiguration>();
-						 return c.CreateRuntime();
-					 });
-					 services.AddSingleton<Network>(o =>
-					 {
-						 var c = o.GetRequiredService<ExplorerConfiguration>();
-						 return c.Network;
-					 });
-					 services.AddSingleton<RPCAuthorization>(o =>
-					 {
-						 var c = o.GetRequiredService<ExplorerRuntime>();
-						 return c.Authorizations;
-					 });
-				 })
-				 .UseStartup<Startup>();
+			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
+			services.AddSingleton<ExplorerRuntime>(o =>
+			{
+				var c = o.GetRequiredService<IOptions<ExplorerConfiguration>>();
+				return c.Value.CreateRuntime();
+			});
+
+			services.AddSingleton<Network>(o =>
+			{
+				var c = o.GetRequiredService<ExplorerConfiguration>();
+				return c.Network.Network;
+			});
+			services.AddSingleton<RPCAuthorization>(o =>
+			{
+				var c = o.GetRequiredService<ExplorerRuntime>();
+				return c.Authorizations;
+			});
+			return services;
+		}
+
+		public static IServiceCollection ConfigureNBxplorer(this IServiceCollection services, IConfiguration conf)
+		{
+			services.Configure<ExplorerConfiguration>(o =>
+			{
+				o.LoadArgs(conf);
+			});
+			return services;
+		}
+
+		public static IApplicationBuilder UseNBXplorer(this IApplicationBuilder app)
+		{
+			app.UseMiddleware<NBXplorerMiddleware>();
+			var mvcOptions = app.ApplicationServices.GetRequiredService<IOptions<MvcJsonOptions>>().Value;
+			var runtime = app.ApplicationServices.GetRequiredService<ExplorerRuntime>();
+			runtime.CreateSerializer().ConfigureSerializer(mvcOptions.SerializerSettings);
+			return app;
+		}
+
+		internal class NoObjectModelValidator : IObjectModelValidator
+		{
+			public void Validate(ActionContext actionContext, ValidationStateDictionary validationState, string prefix, object model)
+			{
+
+			}
 		}
 	}
 }

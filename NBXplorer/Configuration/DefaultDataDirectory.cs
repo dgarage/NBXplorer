@@ -17,7 +17,6 @@ namespace NBXplorer.Configuration
 			var home = Environment.GetEnvironmentVariable("HOME");
 			if(!string.IsNullOrEmpty(home))
 			{
-				Logs.Configuration.LogInformation("Using HOME environment variable for initializing application data");
 				directory = home;
 				directory = Path.Combine(directory, "." + appName.ToLowerInvariant());
 			}
@@ -26,7 +25,6 @@ namespace NBXplorer.Configuration
 				var localAppData = Environment.GetEnvironmentVariable("APPDATA");
 				if(!string.IsNullOrEmpty(localAppData))
 				{
-					Logs.Configuration.LogInformation("Using APPDATA environment variable for initializing application data");
 					directory = localAppData;
 					directory = Path.Combine(directory, appName);
 				}
@@ -42,7 +40,6 @@ namespace NBXplorer.Configuration
 			directory = Path.Combine(directory, network.Name);
 			if(!Directory.Exists(directory))
 			{
-				Logs.Configuration.LogInformation("Creating data directory");
 				Directory.CreateDirectory(directory);
 			}
 			return directory;

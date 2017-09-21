@@ -17,6 +17,8 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using NBitcoin.RPC;
 using System.Net;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Configuration;
 
 namespace NBXplorer.Tests
 {
@@ -91,25 +93,26 @@ namespace NBXplorer.Tests
 				NodeBuilder.StartAll();
 
 				var creds = ExtractCredentials(File.ReadAllText(Explorer.Config));
-				var conf = new ExplorerConfiguration();
-				conf.DataDir = Path.Combine(directory, "explorer");
-				conf.Network = Network.RegTest;
-				conf.RPC = new RPCArgs()
-				{
-					User = creds.UserName,
-					Password = creds.Password,
-					Url = Explorer.CreateRPCClient().Address,
-					NoTest = true
-				};
-				conf.NodeEndpoint = Explorer.Endpoint;
-				conf.StartHeight = new RPCClient(creds, conf.RPC.Url, conf.Network).GetBlockCount();
 
+				List<(string key, string value)> keyValues = new List<(string key, string value)>();
+				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
+				keyValues.Add(("datadir", Path.Combine(directory, "explorer")));
+				keyValues.Add(("network", "regtest"));
+				keyValues.Add(("rpcuser", creds.UserName));
+				keyValues.Add(("rpcpassword", creds.Password));
+				keyValues.Add(("rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
+				keyValues.Add(("rpcnotest", "1"));
+				keyValues.Add(("startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
+				keyValues.Add(("nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
+
+				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
 				Host = new WebHostBuilder()
-					.UseNBXplorer(conf)
-					.UseUrls(conf.GetUrls())
+					.UseConfiguration(Program.CreateConfiguration(args))
 					.UseKestrel()
+					.UseStartup<Startup>()
 					.Build();
 				Runtime = (ExplorerRuntime)Host.Services.GetService(typeof(ExplorerRuntime));
+				var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 				Host.Start();
 
 				_Client = new ExplorerClient(Runtime.Network, Address);

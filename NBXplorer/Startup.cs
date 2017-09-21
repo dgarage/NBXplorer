@@ -20,65 +20,29 @@ namespace NBXplorer
 {
 	public class Startup
 	{
-		public Startup(IHostingEnvironment env)
+		public Startup(IConfiguration conf)
 		{
-			var builder = new ConfigurationBuilder()
-				.SetBasePath(env.ContentRootPath)
-				.AddEnvironmentVariables();
-			Configuration = builder.Build();
+			Configuration = conf;
 		}
 
-		public IConfigurationRoot Configuration
+		public IConfiguration Configuration
 		{
 			get;
 		}
 
-		// This method gets called by the runtime. Use this method to add services to the container.
 		public void ConfigureServices(IServiceCollection services)
 		{
-			services.AddSingleton<IObjectModelValidator, NoObjectModelValidator>();
-			services.AddMvcCore(o =>
-			{
-				o.Filters.Add(new NBXplorerExceptionFilter());
-				o.OutputFormatters.Clear();
-				o.InputFormatters.Clear();
-			})
+			services.AddNBXplorer();
+			services.ConfigureNBxplorer(Configuration);
+			services.AddMvcCore()
 				.AddJsonFormatters()
 				.AddFormatterMappings();
 		}
 
-		internal class NoObjectModelValidator : IObjectModelValidator
-		{
-			public void Validate(ActionContext actionContext, ValidationStateDictionary validationState, string prefix, object model)
-			{
-
-			}
-		}
-
-		// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
 		public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
 		{
-			var logging = new FilterLoggerSettings();
-			logging.Add("Microsoft.AspNetCore.Hosting.Internal.WebHost", LogLevel.Error);
-			logging.Add("Microsoft.AspNetCore.Mvc", LogLevel.Error);
-			logging.Add("Microsoft.AspNetCore.Server.Kestrel", LogLevel.Error);
-			loggerFactory
-				.WithFilter(logging)
-				.AddConsole();
-
-			if(env.IsDevelopment())
-				app.UseDeveloperExceptionPage();
-
-			app.UseMiddleware<NBXplorerMiddleware>();
+			app.UseNBXplorer();
 			app.UseMvc();
-
-			var config = serviceProvider.GetService<ExplorerRuntime>();
-			var options = GetMVCOptions(serviceProvider);
-			config.CreateSerializer().ConfigureSerializer(options.SerializerSettings);
-		}
-		private static MvcJsonOptions GetMVCOptions(IServiceProvider serviceProvider)
-		{
-			return serviceProvider.GetRequiredService<IOptions<MvcJsonOptions>>().Value;
 		}
 	}
 }

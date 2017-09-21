@@ -10,6 +10,8 @@ using NBXplorer.Logging;
 using NBitcoin.Protocol;
 using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.Ini;
 
 namespace NBXplorer.Configuration
 {
@@ -26,7 +28,7 @@ namespace NBXplorer.Configuration
 			set;
 		}
 
-		public Network Network
+		public NetworkInformation Network
 		{
 			get; set;
 		}
@@ -46,61 +48,19 @@ namespace NBXplorer.Configuration
 			get; set;
 		}
 
-		public void LoadArgs(string[] args)
+		public ExplorerConfiguration LoadArgs(IConfiguration config)
 		{
-			LoadArgs(new TextFileConfiguration(args));
-		}
+			Network = NetworkInformation.GetNetworkByName(config.GetOrDefault<string>("network", NBitcoin.Network.Main.Name));
+			if(Network == null)
+				throw new ConfigurationException("Invalid network");
 
-		public ExplorerConfiguration LoadArgs(TextFileConfiguration consoleConfig)
-		{
-			ConfigurationFile = consoleConfig.GetOrDefault<string>("conf", null);
-			DataDir = consoleConfig.GetOrDefault<string>("datadir", null);
-			if(DataDir != null && ConfigurationFile != null)
-			{
-				var isRelativePath = Path.GetFullPath(ConfigurationFile).Length > ConfigurationFile.Length;
-				if(isRelativePath)
-				{
-					ConfigurationFile = Path.Combine(DataDir, ConfigurationFile);
-				}
-			}
+			DataDir = config.GetOrDefault<string>("datadir", Network.DefaultDataDirectory);
 
-			Network = consoleConfig.GetOrDefault<bool>("testnet", false) ? Network.TestNet :
-				consoleConfig.GetOrDefault<bool>("regtest", false) ? Network.RegTest :
-				null;
-
-			if(DataDir != null && ConfigurationFile == null)
-			{
-				ConfigurationFile = GetDefaultConfigurationFile(Network != null);
-			}
-
-			if(ConfigurationFile != null)
-			{
-				AssetConfigFileExists();
-				var configTemp = TextFileConfiguration.Parse(File.ReadAllText(ConfigurationFile));
-				Network = Network ?? (configTemp.GetOrDefault<bool>("testnet", false) ? Network.TestNet :
-						  configTemp.GetOrDefault<bool>("regtest", false) ? Network.RegTest :
-						  null);
-			}
-
-			Network = Network ?? Network.Main;
-			if(DataDir == null)
-			{
-				DataDir = DefaultDataDirectory.GetDefaultDirectory("NBXplorer", Network);
-				ConfigurationFile = GetDefaultConfigurationFile(true);
-			}
-
-			if(!Directory.Exists(DataDir))
-				throw new ConfigurationException("Data directory does not exists");
-
-			var config = TextFileConfiguration.Parse(File.ReadAllText(ConfigurationFile));
-			consoleConfig.MergeInto(config, true);
-
-			Logs.Configuration.LogInformation("Network: " + Network);
-			Logs.Configuration.LogInformation("Data directory set to " + DataDir);
-			Logs.Configuration.LogInformation("Configuration file set to " + ConfigurationFile);
+			Logs.Configuration.LogInformation("Network: " + Network.Network);
+			Logs.Configuration.LogInformation("Data directory set to " + Path.GetFullPath(DataDir));
 
 			Rescan = config.GetOrDefault<bool>("rescan", false);
-			var defaultPort = config.GetOrDefault<int>("port", GetDefaultPort(Network));
+			var defaultPort = config.GetOrDefault<int>("port", Network.DefaultExplorerPort);
 			Listen = config
 						.GetAll("bind")
 						.Select(p => ConvertToEndpoint(p, defaultPort))
@@ -110,23 +70,17 @@ namespace NBXplorer.Configuration
 				Listen.Add(new IPEndPoint(IPAddress.Parse("127.0.0.1"), defaultPort));
 			}
 
-			RPC = RPCArgs.Parse(config, Network);
-			NodeEndpoint = ConvertToEndpoint(config.GetOrDefault<string>("node.endpoint", "127.0.0.1"), Network.DefaultPort);
+			RPC = RPCArgs.Parse(config, Network.Network);
+			NodeEndpoint = ConvertToEndpoint(config.GetOrDefault<string>("node.endpoint", "127.0.0.1"), Network.Network.DefaultPort);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			StartHeight = config.GetOrDefault<int>("startheight", -1);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 			return this;
 		}
 
-		private int GetDefaultPort(Network network)
-		{
-			return network == Network.Main ? 24444 :
-				network == Network.TestNet ? 24445 : 24446;
-		}
-
 		public Serializer CreateSerializer()
 		{
-			return new Serializer(Network);
+			return new Serializer(Network.Network);
 		}
 
 		public int StartHeight
@@ -192,58 +146,6 @@ namespace NBXplorer.Configuration
 			}
 
 			return new IPEndPoint(ip, portOut);
-		}
-
-		private void AssetConfigFileExists()
-		{
-			if(!File.Exists(ConfigurationFile))
-				throw new ConfigurationException("Configuration file does not exists");
-		}
-
-		const string DefaultConfigFile = "settings.config";
-		private string GetDefaultConfigurationFile(bool createIfNotExist)
-		{
-			var config = Path.Combine(DataDir, DefaultConfigFile);
-			Logs.Configuration.LogInformation("Configuration file set to " + config);
-			if(createIfNotExist && !File.Exists(config))
-			{
-				Logs.Configuration.LogInformation("Creating configuration file");
-				StringBuilder builder = new StringBuilder();
-				builder.AppendLine("####Common Commands####");
-				builder.AppendLine("####If Bitcoin Core is running with default settings, you should not need to modify this file####");
-				builder.AppendLine("####All those options can be passed by through command like arguments (ie `-port=19382`)####");
-
-				builder.AppendLine("## This is the RPC Connection to your node");
-				builder.AppendLine("#rpc.url=http://localhost:" + Network.RPCPort + "/");
-				builder.AppendLine("#By user name and password");
-				builder.AppendLine("#rpc.user=bitcoinuser");
-				builder.AppendLine("#rpc.password=bitcoinpassword");
-				builder.AppendLine("#By cookie file");
-				builder.AppendLine("#rpc.cookiefile=yourbitcoinfolder/.cookie");
-				builder.AppendLine("#By raw authentication string");
-				builder.AppendLine("#rpc.auth=walletuser:password");
-				builder.AppendLine();
-				builder.AppendLine("## This is the connection to your node through P2P");
-				builder.AppendLine("#node.endpoint=127.0.0.1:" + Network.DefaultPort);
-				builder.AppendLine();
-				builder.AppendLine("## startheight defines from which block you will start scanning, if -1 is set, it will use current blockchain height");
-				builder.AppendLine("#startheight=-1");
-				builder.AppendLine("## rescan forces a rescan from startheight");
-				builder.AppendLine("#rescan=0");
-				builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
-				builder.AppendLine("#noauth=0");
-
-				builder.AppendLine();
-				builder.AppendLine();
-
-				builder.AppendLine("####Server Commands####");
-				builder.AppendLine("#port=" + GetDefaultPort(Network));
-				builder.AppendLine("#bind=127.0.0.1");
-				builder.AppendLine("#testnet=0");
-				builder.AppendLine("#regtest=0");
-				File.WriteAllText(config, builder.ToString());
-			}
-			return config;
 		}
 	}
 

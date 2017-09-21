@@ -110,9 +110,9 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("ping")]
-		public string Ping()
+		public IActionResult Ping()
 		{
-			return "pong";
+			return Json("pong");
 		}
 
 		[HttpGet]

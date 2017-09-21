@@ -31,9 +31,9 @@ namespace NBXplorer
 		{
 			if(configuration == null)
 				throw new ArgumentNullException("configuration");
-			Network = configuration.Network;
+			Network = configuration.Network.Network;
 			Chain = new ConcurrentChain(Network.GetGenesis().Header);
-			RPC = configuration.RPC.ConfigureRPCClient(configuration.Network);
+			RPC = configuration.RPC.ConfigureRPCClient(configuration.Network.Network);
 			NodeEndpoint = configuration.NodeEndpoint;
 			ServerUrls = configuration.GetUrls();
 

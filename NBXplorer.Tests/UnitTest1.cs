@@ -366,10 +366,6 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanTrack()
 		{
-			var dir = @"E:\Sources\btcpayserver\BTCPayServer.Tests\bin\Debug\netcoreapp2.0\CanCreateInvoiceAndReceiveNotification\explorer\nbxplorer-datadir\db";
-			var repo = new Repository(new Serializer(Network.RegTest), dir, false);
-			var txs = repo.GetSavedTransactions(new uint256("8e7ba5da5b45624b3239c8f47d31a4b30fd6496594638f5af2c38b23fcbb1b04"));
-
 			using(var tester = ServerTester.Create())
 			{
 				//WaitServerStarted not needed, just a sanity check
