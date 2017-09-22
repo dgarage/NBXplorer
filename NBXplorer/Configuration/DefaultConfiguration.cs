@@ -27,7 +27,8 @@ namespace NBXplorer.Configuration
 			app.Option("-n | --network", $"Set the network among ({NetworkInformation.ToStringAll()}) (default: {Network.Main.ToString()})", CommandOptionType.SingleValue);
 			app.Option("--testnet | -testnet", $"Use testnet", CommandOptionType.BoolValue);
 			app.Option("--regtest | -regtest", $"Use regtest", CommandOptionType.BoolValue);
-
+			app.Option("--rescan", $"Rescan from startheight", CommandOptionType.BoolValue);
+			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);
 			app.Option("--rpcuser", $"The RPC user (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 			app.Option("--rpcpassword", $"The RPC password (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 			app.Option("--rpccookiefile", $"The RPC cookiefile (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
