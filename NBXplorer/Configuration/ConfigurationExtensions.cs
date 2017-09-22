@@ -11,45 +11,6 @@ namespace NBXplorer.Configuration
 {
     public static class ConfigurationExtensions
     {
-		class FallbackConfiguration : IConfiguration
-		{
-			private IConfiguration _Configuration;
-			private IConfiguration _Fallback;
-
-			public FallbackConfiguration(IConfiguration configuration, IConfiguration fallback)
-			{
-				_Configuration = configuration;
-				_Fallback = fallback;
-			}
-			public string this[string key] { get => _Configuration[key] ?? _Fallback[key]; set => throw new NotSupportedException(); }
-
-			public IEnumerable<IConfigurationSection> GetChildren()
-			{
-				return _Configuration.GetChildren();
-			}
-
-			public IChangeToken GetReloadToken()
-			{
-				return _Configuration.GetReloadToken();
-			}
-
-			public IConfigurationSection GetSection(string key)
-			{
-				return _Configuration.GetSection(key);
-			}
-		}
-
-		public static string[] GetAll(this IConfiguration config, string key)
-		{
-			var data = config.GetOrDefault<string>(key, null);
-			if(data == null)
-				return new string[0];
-			return new string[] { data };
-		}
-		public static IConfiguration AddFallback(this IConfiguration configuration, IConfiguration fallback)
-		{
-			return new FallbackConfiguration(configuration, fallback);
-		}
 		public static T GetOrDefault<T>(this IConfiguration configuration, string key, T defaultValue)
 		{
 			var str = configuration[key] ?? configuration[key.Replace(".", string.Empty)];
