@@ -45,7 +45,12 @@ namespace NBXplorer.Configuration
 
 		protected override string GetDefaultConfigurationFile(IConfiguration conf)
 		{
-			return GetNetwork(conf).DefaultConfigurationFile;
+			var network = GetNetwork(conf);
+			var dataDir = conf["datadir"];
+			if(dataDir == null)
+				return network.DefaultConfigurationFile;
+			var fileName = Path.GetFileName(network.DefaultConfigurationFile);
+			return Path.Combine(dataDir, fileName);
 		}
 
 		public static NetworkInformation GetNetwork(IConfiguration conf)
