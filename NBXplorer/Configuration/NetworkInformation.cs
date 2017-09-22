@@ -17,7 +17,7 @@ namespace NBXplorer.Configuration
 			foreach(var network in Network.GetNetworks())
 			{
 				NetworkInformation info = new NetworkInformation();
-				info.DefaultDataDirectory = GetDefaultDirectory("NBXplorer", network.Name);
+				info.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", network.Name);
 				info.DefaultConfigurationFile = Path.Combine(info.DefaultDataDirectory, "settings.config");
 				info.Network = network;
 				info.DefaultExplorerPort = 24446;
@@ -75,40 +75,6 @@ namespace NBXplorer.Configuration
 		{
 			get;
 			internal set;
-		}
-
-		public static string GetDefaultDirectory(string appName, string subDirectory)
-		{
-			string directory = null;
-			var home = Environment.GetEnvironmentVariable("HOME");
-			if(!string.IsNullOrEmpty(home))
-			{
-				directory = home;
-				directory = Path.Combine(directory, "." + appName.ToLowerInvariant());
-			}
-			else
-			{
-				var localAppData = Environment.GetEnvironmentVariable("APPDATA");
-				if(!string.IsNullOrEmpty(localAppData))
-				{
-					directory = localAppData;
-					directory = Path.Combine(directory, appName);
-				}
-				else
-				{
-					throw new DirectoryNotFoundException("Could not find suitable datadir");
-				}
-			}
-			if(!Directory.Exists(directory))
-			{
-				Directory.CreateDirectory(directory);
-			}
-			directory = Path.Combine(directory, subDirectory);
-			if(!Directory.Exists(directory))
-			{
-				Directory.CreateDirectory(directory);
-			}
-			return directory;
 		}
 
 		public override string ToString()

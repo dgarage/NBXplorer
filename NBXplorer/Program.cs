@@ -15,8 +15,8 @@ using Microsoft.AspNetCore.Hosting.Internal;
 using Microsoft.AspNetCore;
 using NBitcoin;
 using System.Text;
-using Microsoft.Extensions.CommandLineUtils;
 using System.Net;
+using CommandLine;
 
 namespace NBXplorer
 {
@@ -29,11 +29,14 @@ namespace NBXplorer
 			IWebHost host = null;
 			try
 			{
+				var conf = new DefaultConfiguration() { Logger = Logs.Configuration }.CreateConfiguration(args);
+				if(conf == null)
+					return;
 				ConfigurationBuilder builder = new ConfigurationBuilder();
 				host = new WebHostBuilder()
 					.UseKestrel()
 					.UseIISIntegration()
-					.UseConfiguration(DefaultConfiguration.CreateConfiguration(args))
+					.UseConfiguration(conf)
 					.UseStartup<Startup>()
 					.Build();
 				host.Run();
@@ -43,6 +46,10 @@ namespace NBXplorer
 				if(!string.IsNullOrEmpty(ex.Message))
 					Logs.Configuration.LogError(ex.Message);
 			}
+			catch(CommandParsingException parsing)
+			{
+				Logs.Explorer.LogError(parsing.HelpText + "\r\n" + parsing.Message);
+			}
 			catch(Exception exception)
 			{
 				Logs.Explorer.LogError("Exception thrown while running the server");
@@ -50,6 +57,7 @@ namespace NBXplorer
 			}
 			finally
 			{
+				processor.Dispose();
 				if(host != null)
 					host.Dispose();
 			}

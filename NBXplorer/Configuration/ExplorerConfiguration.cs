@@ -45,14 +45,13 @@ namespace NBXplorer.Configuration
 
 		public ExplorerConfiguration LoadArgs(IConfiguration config)
 		{
-			Network = NetworkInformation.GetNetworkByName(config.GetOrDefault<string>("network", NBitcoin.Network.Main.Name));
+			Network = DefaultConfiguration.GetNetwork(config);
 			if(Network == null)
 				throw new ConfigException("Invalid network");
 
 			DataDir = config.GetOrDefault<string>("datadir", Network.DefaultDataDirectory);
 
 			Logs.Configuration.LogInformation("Network: " + Network.Network);
-			Logs.Configuration.LogInformation("Data directory set to " + Path.GetFullPath(DataDir));
 
 			Rescan = config.GetOrDefault<bool>("rescan", false);
 
