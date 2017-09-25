@@ -77,7 +77,8 @@ namespace NBXplorer.Controllers
 		public async Task<GetFeeRateResult> GetFeeRate(int blockCount)
 		{
 			var result = await Runtime.RPC.SendCommandAsync("estimatesmartfee", blockCount);
-			var rate = ((JObject)result.Result)["feerate"].Value<decimal>();
+			var feeRateProperty = ((JObject)result.Result).Property("feeRate");
+			var rate = feeRateProperty == null ? (decimal)-1 : ((JObject)result.Result)["feerate"].Value<decimal>();
 			if(rate == -1)
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
 			return new GetFeeRateResult()
