@@ -39,6 +39,8 @@ namespace NBXplorer.Configuration
 			return app;
 		}
 
+
+		public override string EnvironmentVariablePrefix => "NBXPLORER_";
 		protected override string GetDefaultDataDir(IConfiguration conf)
 		{
 			return GetNetwork(conf).DefaultDataDirectory;
