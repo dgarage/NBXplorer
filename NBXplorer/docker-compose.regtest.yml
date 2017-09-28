@@ -24,7 +24,7 @@ services:
       BITCOIN_RPC_USER: ceiwHEbqWI83
       BITCOIN_RPC_PASSWORD: DwubwWsoo3
     expose:
-      - "18332"
+      - "49372"
       - "8332"
     ports:
       - 49372:49372
