@@ -10,6 +10,7 @@ using Newtonsoft.Json.Linq;
 using NBXplorer.Logging;
 using System.Net;
 using Microsoft.Extensions.Configuration;
+using System.Threading;
 
 namespace NBXplorer.Configuration
 {
@@ -90,11 +91,26 @@ namespace NBXplorer.Configuration
 			try
 			{
 				var address = new Key().PubKey.GetAddress(network);
-				var isValid = ((JObject)rpcClient.SendCommand("validateaddress", address.ToString()).Result)["isvalid"].Value<bool>();
-				if(!isValid)
+				int time = 0;
+				while(true)
 				{
-					Logs.Configuration.LogError("The RPC Server is on a different blockchain than the one configured for tumbling");
-					throw new ConfigException();
+					time++;
+					try
+					{
+
+						var isValid = ((JObject)rpcClient.SendCommand("validateaddress", address.ToString()).Result)["isvalid"].Value<bool>();
+						if(!isValid)
+						{
+							Logs.Configuration.LogError("The RPC Server is on a different blockchain than the one configured for tumbling");
+							throw new ConfigException();
+						}
+						break;
+					}
+					catch(RPCException ex) when(IsTransient(ex))
+					{
+						Logs.Configuration.LogError($"Transient error '{ex.Message}', retrying soon...");
+						Thread.Sleep(Math.Min(1000 * time, 10000));
+					}
 				}
 			}
 			catch(ConfigException)
@@ -122,6 +138,11 @@ namespace NBXplorer.Configuration
 			}
 			Logs.Configuration.LogInformation($"Bitcoin version detected: {version}");
 			return rpcClient;
+		}
+
+		private bool IsTransient(RPCException ex)
+		{
+			return ex.Message.Contains("Loading wallet...") || ex.Message.Contains("Loading block index...");
 		}
 
 		public static void CheckNetwork(Network network, RPCClient rpcClient)

@@ -3,7 +3,9 @@ version: "3"
 services:
   nbxplorer:
     ports: 
-      - 23001:23001
+      - 80:32838
+    expose:
+      - 32838
     build:
       context: .
       dockerfile: DockerFile
@@ -13,6 +15,7 @@ services:
       NBXPLORER_RPCUSER: ceiwHEbqWI83
       NBXPLORER_RPCPASSWORD: DwubwWsoo3
       NBXPLORER_NODEENDPOINT: bitcoind:8332
+      NBXPLORER_BIND: 0.0.0.0:32838
       NBXPLORER_NOAUTH: 1
     links:
       - bitcoind

@@ -31,6 +31,10 @@ namespace NBXplorer.Configuration
 				{
 					info.DefaultExplorerPort = 24445;
 				}
+				if(network == Network.RegTest)
+				{
+					info.IsRegTest = true;
+				}
 			}
 		}
 
@@ -75,6 +79,11 @@ namespace NBXplorer.Configuration
 		{
 			get;
 			internal set;
+		}
+		public bool IsRegTest
+		{
+			get;
+			set;
 		}
 
 		public override string ToString()

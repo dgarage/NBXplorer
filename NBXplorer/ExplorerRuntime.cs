@@ -34,6 +34,24 @@ namespace NBXplorer
 			Network = configuration.Network.Network;
 			Chain = new ConcurrentChain(Network.GetGenesis().Header);
 			RPC = configuration.RPC.ConfigureRPCClient(configuration.Network.Network);
+			if(configuration.Network.IsRegTest)
+			{
+				if(RPC.GetBlockCount() < 100)
+				{
+					Logs.Configuration.LogInformation($"Less than 100 blocks, mining some block for regtest");
+					RPC.Generate(101);
+				}
+				else
+				{
+					var header = RPC.GetBlockHeader(RPC.GetBestBlockHash());
+					if((DateTimeOffset.UtcNow - header.BlockTime) > TimeSpan.FromSeconds(24 * 60 * 60))
+					{
+						Logs.Configuration.LogInformation($"It has been a while nothing got mined on regtest... mining 10 blocks");
+						RPC.Generate(10);
+					}
+				}
+			}
+
 			NodeEndpoint = configuration.NodeEndpoint;
 
 			var cachePath = Path.Combine(configuration.DataDir, "chain.dat");
@@ -135,7 +153,7 @@ namespace NBXplorer
 		{
 			get; set;
 		}
-		
+
 		NodesGroup CreateNodeGroup(ConcurrentChain chain, int startHeight)
 		{
 			AddressManager manager = new AddressManager();
