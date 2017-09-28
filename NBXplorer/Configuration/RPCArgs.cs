@@ -108,7 +108,7 @@ namespace NBXplorer.Configuration
 					}
 					catch(RPCException ex) when(IsTransient(ex))
 					{
-						Logs.Configuration.LogError($"Transient error '{ex.Message}', retrying soon...");
+						Logs.Configuration.LogInformation($"Transient error '{ex.Message}', retrying soon...");
 						Thread.Sleep(Math.Min(1000 * time, 10000));
 					}
 				}
