@@ -142,7 +142,9 @@ namespace NBXplorer.Configuration
 
 		private bool IsTransient(RPCException ex)
 		{
-			return ex.Message.Contains("Loading wallet...") || ex.Message.Contains("Loading block index...");
+			return ex.Message.Contains("Loading wallet...") || 
+				   ex.Message.Contains("Loading block index...") ||
+				   ex.Message.Contains("Loading P2P addresses...");
 		}
 
 		public static void CheckNetwork(Network network, RPCClient rpcClient)
