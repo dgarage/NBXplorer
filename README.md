@@ -1,4 +1,4 @@
-[![NuGet](https://img.shields.io/nuget/v/NBxplorer.Client.svg)](https://www.nuget.org/packages/NBxplorer.Client)
+[![NuGet](https://img.shields.io/nuget/v/NBxplorer.Client.svg)](https://www.nuget.org/packages/NBxplorer.Client) [![Docker Automated buil](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/nicolasdorier/nbxplorer/)
 
 # NBXplorer
 
@@ -25,6 +25,11 @@ dotnet run
 The first run might take some time to start, where you see nothing appearing. No worries, it is just downloading dependencies and compiling.
 Please use `--network testnet` or `--network regtest` for targeting other network.
 
+## With Docker
+
+Use [our image](https://hub.docker.com/r/nicolasdorier/nbxplorer/).
+You can check [the sample](docker-compose.regtest.yml) for configuring and composing it bitcoin core.
+
 ## How to develop on it?
 
 If you are on Windows, I recommand Visual Studio 2017 update 3 (15.3).
@@ -34,6 +39,10 @@ If you are hardcore, you can code on vim.
 I like Visual Studio Code and Visual Studio 2017 as it allows me to debug in step by step.
 
 ## How to configure?
+
+NBXplorer supports configuration through command line arguments, configuration file, or environment variables.
+
+### Configuration file
 
 If you are not using standard install for bitcoind, you will have to change the configuration file:
 In Windows it is located on 
@@ -77,6 +86,16 @@ The default config file is shows you all options, if you need to change, remove 
 #testnet=0
 #regtest=0
 ```
+
+You can change the location of the configuration file with the `--conf=pathToConf` command line argument.
+
+### Command line parameters
+
+The same settings as above, for example: `dotnet run NBXplorer.dll -- --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939`.
+
+### Environment variables
+
+The same settings as above, for example `export NBXPLORER_PORT=20300`. This is usefull for configuring docker.
 
 ## Important Note
 
