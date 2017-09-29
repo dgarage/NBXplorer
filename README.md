@@ -56,8 +56,7 @@ On linux or mac:
 ~/.nbxplorer/<network>/settings.config
 ```
 
-The configuration file allows to configure the connection to your Bitcoin RPC, and to choose a specific Bitcoin Cash node for broadcasting your transaciton.
-By default, the configuration file is using cookie authentication in default bitcoin core path, and connect to a random Bitcoin Cash node. So if you run bitcoin core with default settings, things will just work.
+By default, the configuration file is using cookie authentication in default bitcoin core path. So if you run bitcoin core with default settings, things will just work.
 
 The default config file is shows you all options, if you need to change, remove the sharp sign (#) and customize your settings:
 
