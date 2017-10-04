@@ -11,14 +11,14 @@ namespace NBXplorer.JsonConverters
 {
 	public class DerivationStrategyJsonConverter : JsonConverter
 	{
-		public DerivationStrategyJsonConverter(DerivationStrategyFactory factory)
+		public DerivationStrategyJsonConverter(DerivationStrategy.DerivationStrategyFactory factory)
 		{
 			Factory = factory;
 		}
 		public override bool CanConvert(Type objectType)
 		{
 			return
-				typeof(IDerivationStrategy).GetTypeInfo().IsAssignableFrom(objectType.GetTypeInfo());
+				typeof(DerivationStrategyBase).GetTypeInfo().IsAssignableFrom(objectType.GetTypeInfo());
 		}
 
 		public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
@@ -47,10 +47,10 @@ namespace NBXplorer.JsonConverters
 
 		public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
 		{
-			var base58 = value as IDerivationStrategy;
+			var base58 = value as DerivationStrategyBase;
 			if(base58 != null)
 			{
-				writer.WriteValue(Factory.Serialize(base58));
+				writer.WriteValue(base58.ToString());
 			}
 		}
 

@@ -14,6 +14,7 @@ using NBXplorer.DerivationStrategy;
 using System.Diagnostics;
 using NBXplorer.Models;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 namespace NBXplorer.Tests
 {
@@ -34,7 +35,7 @@ namespace NBXplorer.Tests
 				var keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(26).ScriptPubKey);
 				Assert.NotNull(keyInfo);
 				Assert.Equal(new KeyPath("1/26"), keyInfo.KeyPath);
-				Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+				Assert.Equal(keyInfo.RootKey.ToString(), pubKey.ToString());
 				keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(27).ScriptPubKey);
 				Assert.Null(keyInfo);
 
@@ -45,7 +46,14 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		static IDerivationStrategy pubKey = new DirectDerivationStrategy(new ExtKey().Neuter());
+		static DirectDerivationStrategy pubKey = CreateDerivationStrategy();
+
+		private static DirectDerivationStrategy CreateDerivationStrategy(ExtPubKey pubKey = null)
+		{
+			pubKey = pubKey ?? new ExtKey().Neuter();
+			return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[legacy]");
+		}
+
 		private static void RepositoryCanTrackAddresses(RepositoryTester tester)
 		{
 
@@ -53,23 +61,23 @@ namespace NBXplorer.Tests
 			var keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(0).First().Derive(0).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/0"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+			Assert.Equal(keyInfo.RootKey.ToString(), pubKey.ToString());
 
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(0).First().Derive(1).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/1"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+			Assert.Equal(keyInfo.RootKey.ToString(), pubKey.ToString());
 
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(0).First().Derive(19).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/19"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+			Assert.Equal(keyInfo.RootKey.ToString(), pubKey.ToString());
 
 
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(19).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/19"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+			Assert.Equal(keyInfo.RootKey.ToString(), pubKey.ToString());
 
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(0).First().Derive(20).ScriptPubKey);
 			Assert.Null(keyInfo);
@@ -80,7 +88,7 @@ namespace NBXplorer.Tests
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(25).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/25"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+			Assert.Equal(keyInfo.RootKey.ToString(), pubKey.ToString());
 
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(26).ScriptPubKey);
 			Assert.Null(keyInfo);
@@ -93,7 +101,7 @@ namespace NBXplorer.Tests
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(26).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/26"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+			Assert.Equal(keyInfo.RootKey.ToString(), pubKey.ToString());
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(27).ScriptPubKey);
 			Assert.Null(keyInfo);
 
@@ -102,7 +110,7 @@ namespace NBXplorer.Tests
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(26).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/26"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.RootKey.GetHash(), pubKey.GetHash());
+			Assert.Equal(keyInfo.RootKey.ToString(), pubKey.ToString());
 			keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLines().Skip(1).First().Derive(27).ScriptPubKey);
 			Assert.Null(keyInfo);
 		}
@@ -112,7 +120,7 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = ServerTester.Create())
 			{
-				var bob = new DirectDerivationStrategy(new ExtKey().Neuter());
+				var bob = pubKey;
 				var utxo = tester.Client.Sync(bob, null, true);
 				Stopwatch watch = new Stopwatch();
 				watch.Start();
@@ -128,7 +136,7 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = ServerTester.Create())
 			{
-				var bob = new DirectDerivationStrategy(new BitcoinExtKey(new ExtKey(), tester.Runtime.Network).Neuter());
+				var bob = pubKey;
 				var utxo = tester.Client.Sync(bob, null, null, true); //Track things do not wait
 
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
@@ -168,8 +176,8 @@ namespace NBXplorer.Tests
 				var bob = new BitcoinExtKey(new ExtKey(), tester.Runtime.Network);
 				var alice = new BitcoinExtKey(new ExtKey(), tester.Runtime.Network);
 
-				var bobPubKey = new DirectDerivationStrategy(bob.Neuter());
-				var alicePubKey = new DirectDerivationStrategy(alice.Neuter());
+				var bobPubKey = CreateDerivationStrategy(bob.Neuter());
+				var alicePubKey = CreateDerivationStrategy(alice.Neuter());
 
 				var utxoAlice = tester.Client.Sync(alicePubKey, uint256.Zero, uint256.Zero, true); //Track things do not wait
 				var utxoBob = tester.Client.Sync(bobPubKey, null, null, true); //Track things do not wait
@@ -219,7 +227,7 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Runtime.Network);
-				var pubkey = new DirectDerivationStrategy(key.Neuter());
+				var pubkey = CreateDerivationStrategy(key.Neuter());
 				tester.Client.Sync(pubkey, null, null, true); //Track things do not wait
 				var id = tester.Runtime.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				id = tester.Runtime.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(1.1m));
@@ -249,7 +257,7 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Runtime.Network);
-				var pubkey = new DirectDerivationStrategy(key.Neuter());
+				var pubkey = CreateDerivationStrategy(key.Neuter());
 				var utxo = tester.Client.Sync(pubkey, null, null, true); //Track things do not wait
 
 				var addresses = new HashSet<Script>();
@@ -300,7 +308,7 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Runtime.Network);
-				var pubkey = new DirectDerivationStrategy(key.Neuter());
+				var pubkey = CreateDerivationStrategy(key.Neuter());
 				var utxo = tester.Client.Sync(pubkey, null, null, true); //Track things do not wait
 				var tx1 = tester.Runtime.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = tester.Client.Sync(pubkey, utxo);
@@ -363,6 +371,60 @@ namespace NBXplorer.Tests
 			}
 		}
 
+
+		[Fact]
+		public void CanParseDerivationScheme()
+		{
+			var network = Network.Main;
+			var factory = new DerivationStrategy.DerivationStrategyFactory(network);
+			var tata = new BitcoinExtPubKey("xpub661MyMwAqRbcFiadHioAunPTeic3C17HKPABCBvURz3W2ivn63jzEYYXWpDePLGncjLuRvQKx7jrKweSkoEvgQTvAo5zw4z8HPGC8Y4E4Wr", network);
+			var toto = new BitcoinExtPubKey("xpub661MyMwAqRbcFqyJE6zy5jMF7bjUtvNHgHJPbENEZtEQKRrukKWJP5xLMKntBaNya7CLMLL6u1KEk8GnrEv8pur5DFSgEMf1hRGjsJrcQKS", network);
+
+			var direct = (DirectDerivationStrategy)factory.Parse($"{toto}-[legacy]");
+			var generated = Generate(direct);
+			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.Hash.ScriptPubKey, generated.ScriptPubKey);
+			Assert.Null(generated.Redeem);
+
+			var p2wpkh = (DirectDerivationStrategy)factory.Parse($"{toto}");
+			generated = Generate(p2wpkh);
+			Assert.Null(generated.Redeem);
+			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.WitHash.ScriptPubKey, generated.ScriptPubKey);
+
+			var p2shp2wpkh = (P2SHDerivationStrategy)factory.Parse($"{toto}-[p2sh]");
+			generated = Generate(p2shp2wpkh);
+			Assert.NotNull(generated.Redeem);
+			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.WitHash.ScriptPubKey.Hash.ScriptPubKey, generated.ScriptPubKey);
+			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.WitHash.ScriptPubKey, generated.Redeem);
+
+			//Same thing as above, reversed attribute
+			p2shp2wpkh = (P2SHDerivationStrategy)factory.Parse($"{toto}-[p2sh]");
+			Assert.NotNull(generated.Redeem);
+			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.WitHash.ScriptPubKey.Hash.ScriptPubKey, generated.ScriptPubKey);
+			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.WitHash.ScriptPubKey, generated.Redeem);
+
+			var multiSig = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-[legacy]");
+			generated = Generate(multiSig);
+			Assert.Equal(new Script("0 025ca59b2007a67f24fdd26acefbe8feb5e8849c207d504b16d4801a8290fe9409 03d15f88de692693e0c25cec27b68da49ae4c29805efbe08154c4acfdf951ccb54 2 OP_CHECKMULTISIG"), generated.Redeem);
+			multiSig = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-[legacy]-[keeporder]");
+			generated = Generate(multiSig);
+			Assert.Equal(new Script("0 03d15f88de692693e0c25cec27b68da49ae4c29805efbe08154c4acfdf951ccb54 025ca59b2007a67f24fdd26acefbe8feb5e8849c207d504b16d4801a8290fe9409 2 OP_CHECKMULTISIG"), generated.Redeem);
+
+			var multiP2SH = (P2WSHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}");
+			generated = Generate(multiP2SH);
+			Assert.IsType<WitScriptId>(generated.ScriptPubKey.GetDestination());
+			Assert.NotNull(PayToMultiSigTemplate.Instance.ExtractScriptPubKeyParameters(generated.Redeem));
+
+			var multiP2WSHP2SH = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-[p2sh]");
+			generated = Generate(multiP2WSHP2SH);
+			Assert.IsType<ScriptId>(generated.ScriptPubKey.GetDestination());
+			Assert.NotNull(PayToMultiSigTemplate.Instance.ExtractScriptPubKeyParameters(generated.Redeem));
+		}
+
+		private static Derivation Generate(DerivationStrategyBase strategy)
+		{
+			return strategy.GetLineFor(DerivationFeature.Deposit).Derive(1);
+		}
+
 		[Fact]
 		public void CanTrack()
 		{
@@ -371,13 +433,13 @@ namespace NBXplorer.Tests
 				//WaitServerStarted not needed, just a sanity check
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Runtime.Network);
-				var pubkey = new DirectDerivationStrategy(key.Neuter());
+				var pubkey = CreateDerivationStrategy(key.Neuter());
 
 				var utxo = tester.Client.Sync(pubkey, null, null, true); //Track things do not wait
 				var gettingUTXO = tester.Client.SyncAsync(pubkey, utxo);
 				var txId = tester.Runtime.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = gettingUTXO.GetAwaiter().GetResult();
-				Assert.Equal(103, utxo.CurrentHeight);
+				Assert.Equal(113, utxo.CurrentHeight);
 
 				Assert.False(utxo.Confirmed.Reset);
 				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
@@ -527,8 +589,8 @@ namespace NBXplorer.Tests
 				signed.Inputs[0].PrevOut.N = 999;
 				result = tester.Client.Broadcast(signed);
 				Assert.False(result.Success);
-				
-				var ex = Assert.Throws<NBXplorerException>(()=> tester.Client.GetFeeRate(5));
+
+				var ex = Assert.Throws<NBXplorerException>(() => tester.Client.GetFeeRate(5));
 				Assert.Equal("fee-estimation-unavailable", ex.Error.Code);
 			}
 		}

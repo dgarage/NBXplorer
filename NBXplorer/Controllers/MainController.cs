@@ -92,7 +92,7 @@ namespace NBXplorer.Controllers
 		[Route("addresses/{strategy}/unused")]
 		public KeyPathInformation GetUnusedAddress(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			IDerivationStrategy strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false)
+			DerivationStrategyBase strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false)
 		{
 			if(strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
@@ -143,7 +143,7 @@ namespace NBXplorer.Controllers
 		[Route("sync/{extPubKey}")]
 		public async Task<FileContentResult> Sync(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			IDerivationStrategy extPubKey,
+			DerivationStrategyBase extPubKey,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 confHash = null,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
@@ -244,7 +244,7 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private AnnotatedTransactionCollection GetAnnotatedTransactions(IDerivationStrategy extPubKey)
+		private AnnotatedTransactionCollection GetAnnotatedTransactions(DerivationStrategyBase extPubKey)
 		{
 			return new AnnotatedTransactionCollection(Runtime.Repository
 									.GetTransactions(extPubKey)
@@ -267,7 +267,7 @@ namespace NBXplorer.Controllers
 			};
 		}
 
-		private async Task<bool> WaitingTransaction(IDerivationStrategy extPubKey)
+		private async Task<bool> WaitingTransaction(DerivationStrategyBase extPubKey)
 		{
 			CancellationTokenSource cts = new CancellationTokenSource();
 			cts.CancelAfter(10000);
@@ -288,7 +288,7 @@ namespace NBXplorer.Controllers
 		{
 			return (script) => getKeyPath(script) != null;
 		}
-		private Func<Script, KeyPath> GetKeyPaths(IDerivationStrategy extPubKey)
+		private Func<Script, KeyPath> GetKeyPaths(DerivationStrategyBase extPubKey)
 		{
 			Dictionary<Script, KeyPath> cache = new Dictionary<Script, KeyPath>();
 			return (script) =>
@@ -317,7 +317,7 @@ namespace NBXplorer.Controllers
 		[Route("broadcast")]
 		public async Task<BroadcastResult> Broadcast(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			IDerivationStrategy extPubKey)
+			DerivationStrategyBase extPubKey)
 		{
 			var tx = new Transaction();
 			var stream = new BitcoinStream(Request.Body, false);

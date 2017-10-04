@@ -54,7 +54,6 @@ namespace NBXplorer.Tests
 		{
 			try
 			{
-
 				var rootTestData = "TestData";
 				var cachedNodes = Path.Combine(rootTestData, "CachedNodes");
 				directory = Path.Combine(rootTestData, directory);

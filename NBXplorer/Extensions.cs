@@ -12,11 +12,19 @@ using NBXplorer.Filters;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration;
+using NBXplorer.DerivationStrategy;
+using NBitcoin.Crypto;
 
 namespace NBXplorer
 {
 	public static class Extensions
 	{
+		internal static uint160 GetHash(this DerivationStrategyBase derivation)
+		{
+			var data = Encoding.UTF8.GetBytes(derivation.ToString());
+			return new uint160(Hashes.RIPEMD160(data, data.Length));
+		}
+
 		public static IServiceCollection AddNBXplorer(this IServiceCollection services)
 		{
 			services.AddSingleton<IObjectModelValidator, NoObjectModelValidator>();

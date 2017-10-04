@@ -71,7 +71,7 @@ namespace NBXplorer
 			_Address = serverAddress;
 			_Network = network;
 			_Serializer = new Serializer(network);
-			_Factory = new DerivationStrategyFactory(Network);
+			_Factory = new DerivationStrategy.DerivationStrategyFactory(Network);
 			var auth = new CookieAuthentication(NBXplorer.Client.Utils.GetDefaultCookieFilePath(network));
 			if(auth.RefreshCache())
 				_Auth = auth;
@@ -96,8 +96,8 @@ namespace NBXplorer
 		}
 
 		Serializer _Serializer;
-		DerivationStrategyFactory _Factory;
-		public UTXOChanges Sync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		DerivationStrategy.DerivationStrategyFactory _Factory;
+		public UTXOChanges Sync(DerivationStrategyBase extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			return SyncAsync(extKey, previousChange, noWait, cancellation).GetAwaiter().GetResult();
 		}
@@ -118,17 +118,17 @@ namespace NBXplorer
 			return GetTransactionAsync(txId, cancellation).GetAwaiter().GetResult();
 		}
 
-		public Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			return SyncAsync(extKey, previousChange?.Confirmed?.Hash, previousChange?.Unconfirmed?.Hash, noWait, cancellation);
 		}
 
-		public UTXOChanges Sync(IDerivationStrategy extKey, uint256 confHash, uint256 unconfirmedHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public UTXOChanges Sync(DerivationStrategyBase extKey, uint256 confHash, uint256 unconfirmedHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			return SyncAsync(extKey, confHash, unconfirmedHash, noWait, cancellation).GetAwaiter().GetResult();
 		}
 
-		public async Task<UTXOChanges> SyncAsync(IDerivationStrategy extKey, uint256 confHash, uint256 unconfHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public async Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, uint256 confHash, uint256 unconfHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			Dictionary<string, string> parameters = new Dictionary<string, string>();
 			if(confHash != null)
@@ -138,7 +138,7 @@ namespace NBXplorer
 			parameters.Add("noWait", noWait.ToString());
 
 			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
-			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?" + query, new object[] { _Factory.Serialize(extKey) }, cancellation).ConfigureAwait(false);
+			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?" + query, new object[] { extKey.ToString() }, cancellation).ConfigureAwait(false);
 			UTXOChanges changes = new UTXOChanges();
 			changes.FromBytes(bytes);
 			return changes;
@@ -165,16 +165,16 @@ namespace NBXplorer
 			}
 		}
 
-		public KeyPathInformation GetUnused(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))
+		public KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			return GetUnusedAsync(strategy, feature, skip, reserve, cancellation).GetAwaiter().GetResult();
 		}
 
-		public async Task<KeyPathInformation> GetUnusedAsync(IDerivationStrategy strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))
+		public async Task<KeyPathInformation> GetUnusedAsync(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			try
 			{
-				return await GetAsync<KeyPathInformation>("v1/addresses/{0}/unused?feature={1}&skip={2}&reserve={3}", new object[] { _Factory.Serialize(strategy), feature, skip, reserve }, cancellation).ConfigureAwait(false);
+				return await GetAsync<KeyPathInformation>("v1/addresses/{0}/unused?feature={1}&skip={2}&reserve={3}", new object[] { strategy.ToString(), feature, skip, reserve }, cancellation).ConfigureAwait(false);
 			}
 			catch(NBXplorerException ex)
 			{

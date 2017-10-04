@@ -140,7 +140,7 @@ namespace NBXplorer
 			get; set;
 		}
 
-		public async Task<bool> WaitFor(IDerivationStrategy extPubKey, CancellationToken token)
+		public async Task<bool> WaitFor(DerivationStrategyBase extPubKey, CancellationToken token)
 		{
 			var node = _Nodes.ConnectedNodes.FirstOrDefault();
 			if(node == null)

@@ -6,14 +6,15 @@ using NBitcoin.Crypto;
 
 namespace NBXplorer.DerivationStrategy
 {
-	public class DirectDerivationStrategy : IDerivationStrategy
+	public class DirectDerivationStrategy : DerivationStrategyBase
 	{
-		class LineStrategy : IDerivationStrategyLine
+		class LineStrategy : DerivationStrategyLine
 		{
 			private ExtPubKey rootDerivation;
-
-			public LineStrategy(ExtPubKey root, bool change)
+			private DirectDerivationStrategy up;
+			public LineStrategy(DirectDerivationStrategy up, ExtPubKey root, bool change)
 			{
+				this.up = up;
 				Path = new KeyPath(change ? "1" : "0");
 				rootDerivation = root.Derive(Path);
 			}
@@ -26,7 +27,7 @@ namespace NBXplorer.DerivationStrategy
 			public Derivation Derive(uint i)
 			{
 				var pubKey = rootDerivation.Derive(i).PubKey;
-				return new Derivation() { ScriptPubKey = pubKey.Hash.ScriptPubKey };
+				return new Derivation() { ScriptPubKey = up.Segwit ? pubKey.WitHash.ScriptPubKey : pubKey.Hash.ScriptPubKey };
 			}
 		}
 
@@ -39,29 +40,30 @@ namespace NBXplorer.DerivationStrategy
 				return _Root;
 			}
 		}
-		public DirectDerivationStrategy(ExtPubKey root)
+
+		public bool Segwit
+		{
+			get;
+			set;
+		}
+		internal DirectDerivationStrategy(ExtPubKey root)
 		{
 			if(root == null)
 				throw new ArgumentNullException(nameof(root));
 			_Root = root;
 		}
-		public IEnumerable<IDerivationStrategyLine> GetLines()
+		public override IEnumerable<DerivationStrategyLine> GetLines()
 		{
-			yield return new LineStrategy(_Root, false);
-			yield return new LineStrategy(_Root, true);
+			yield return new LineStrategy(this, _Root, false);
+			yield return new LineStrategy(this, _Root, true);
 		}
 
-		public uint160 GetHash()
-		{
-			return Hashes.Hash160(_Root.PubKey.ToBytes());
-		}
-
-		public IDerivationStrategyLine GetLineFor(DerivationFeature feature)
+		public override DerivationStrategyLine GetLineFor(DerivationFeature feature)
 		{
 			if(feature == DerivationFeature.Change)
-				return new LineStrategy(_Root, true);
+				return new LineStrategy(this, _Root, true);
 			if(feature == DerivationFeature.Deposit)
-				return new LineStrategy(_Root, false);
+				return new LineStrategy(this, _Root, false);
 			throw new NotSupportedException();
 		}
 	}

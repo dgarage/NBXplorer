@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using NBitcoin.Crypto;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -10,14 +11,27 @@ namespace NBXplorer.DerivationStrategy
 		Change,
 		Deposit
 	}
-	public interface IDerivationStrategy
+	public abstract class DerivationStrategyBase
 	{
-		IEnumerable<IDerivationStrategyLine> GetLines();
-		uint160 GetHash();
-		IDerivationStrategyLine GetLineFor(DerivationFeature feature);
+		internal DerivationStrategyBase()
+		{
+
+		}
+		public abstract IEnumerable<DerivationStrategyLine> GetLines();
+		public abstract DerivationStrategyLine GetLineFor(DerivationFeature feature);
+
+		internal string StringValue
+		{
+			get; set;
+		}
+
+		public override string ToString()
+		{
+			return StringValue;
+		}
 	}
 
-	public interface IDerivationStrategyLine
+	public interface DerivationStrategyLine
 	{
 		KeyPath Path
 		{

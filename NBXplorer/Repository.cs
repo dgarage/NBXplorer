@@ -35,7 +35,7 @@ namespace NBXplorer
 
 	public class InsertTransaction
 	{
-		public IDerivationStrategy PubKey
+		public DerivationStrategyBase PubKey
 		{
 			get; set;
 		}
@@ -51,16 +51,16 @@ namespace NBXplorer
 		{
 
 		}
-		public KeyInformation(IDerivationStrategy pubKey) : this(pubKey, null)
+		public KeyInformation(DerivationStrategyBase pubKey) : this(pubKey, null)
 		{
 
 		}
-		public KeyInformation(IDerivationStrategy pubKey, KeyPath keyPath)
+		public KeyInformation(DerivationStrategyBase pubKey, KeyPath keyPath)
 		{
 			KeyPath = keyPath;
 			RootKey = pubKey;
 		}
-		public IDerivationStrategy RootKey
+		public DerivationStrategyBase RootKey
 		{
 			get; set;
 		}
@@ -125,7 +125,7 @@ namespace NBXplorer
 			}
 		}
 
-		public KeyPathInformation GetUnused(IDerivationStrategy extPubKey, DerivationFeature derivationFeature, int n, bool reserve)
+		public KeyPathInformation GetUnused(DerivationStrategyBase extPubKey, DerivationFeature derivationFeature, int n, bool reserve)
 		{
 			var tableName = $"U-{extPubKey.GetHash()}";
 			var reservedTable = $"R-{extPubKey.GetHash()}";
@@ -238,7 +238,7 @@ namespace NBXplorer
 			return saved.ToArray();
 		}
 
-		public KeyInformation GetKeyInformation(IDerivationStrategy pubKey, Script script)
+		public KeyInformation GetKeyInformation(DerivationStrategyBase pubKey, Script script)
 		{
 			var info = GetKeyInformation(script);
 			if(info == null || pubKey.GetHash() != info.RootKey.GetHash())
@@ -357,7 +357,7 @@ namespace NBXplorer
 			}
 		}
 
-		public TrackedTransaction[] GetTransactions(IDerivationStrategy pubkey)
+		public TrackedTransaction[] GetTransactions(DerivationStrategyBase pubkey)
 		{
 			var tableName = $"T-{pubkey.GetHash()}";
 			var result = new List<TrackedTransaction>();
@@ -398,7 +398,7 @@ namespace NBXplorer
 			}
 		}
 
-		public void CleanTransactions(IDerivationStrategy pubkey, List<TrackedTransaction> cleanList)
+		public void CleanTransactions(DerivationStrategyBase pubkey, List<TrackedTransaction> cleanList)
 		{
 			if(cleanList == null || cleanList.Count == 0)
 				return;

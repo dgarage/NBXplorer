@@ -19,7 +19,7 @@ namespace NBXplorer.ModelBinders
 
 		public Task BindModelAsync(ModelBindingContext bindingContext)
 		{
-			if(!typeof(IDerivationStrategy).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType))
+			if(!typeof(DerivationStrategyBase).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType))
 			{
 				return Task.CompletedTask;
 			}

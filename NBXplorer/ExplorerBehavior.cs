@@ -18,49 +18,6 @@ namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
-		class DerivationStrategyWrapper
-		{
-			IDerivationStrategy _Strat;
-			public DerivationStrategyWrapper(IDerivationStrategy strat)
-			{
-				_Strat = strat;
-			}
-
-			public IDerivationStrategy Strat
-			{
-				get
-				{
-					return _Strat;
-				}
-			}
-
-			public override bool Equals(object obj)
-			{
-				DerivationStrategyWrapper item = obj as DerivationStrategyWrapper;
-				if(item == null)
-					return false;
-				return _Strat.GetHash().Equals(item._Strat.GetHash());
-			}
-			public static bool operator ==(DerivationStrategyWrapper a, DerivationStrategyWrapper b)
-			{
-				if(System.Object.ReferenceEquals(a, b))
-					return true;
-				if(((object)a == null) || ((object)b == null))
-					return false;
-				return a._Strat.GetHash() == b._Strat.GetHash();
-			}
-
-			public static bool operator !=(DerivationStrategyWrapper a, DerivationStrategyWrapper b)
-			{
-				return !(a == b);
-			}
-
-			public override int GetHashCode()
-			{
-				return _Strat.GetHash().GetHashCode();
-			}
-		}
-
 		public ExplorerBehavior(ExplorerRuntime runtime, ConcurrentChain chain)
 		{
 			if(runtime == null)
@@ -121,7 +78,7 @@ namespace NBXplorer
 				new BlockLocator() { Blocks = new List<uint256>() { Chain.GetBlock(StartHeight).HashBlock } };
 		}
 
-		public async Task WaitFor(IDerivationStrategy pubKey, CancellationToken cancellation = default(CancellationToken))
+		public async Task WaitFor(DerivationStrategyBase pubKey, CancellationToken cancellation = default(CancellationToken))
 		{
 			TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>();
 
@@ -254,7 +211,7 @@ namespace NBXplorer
 					_CurrentLocation = currentLocation;
 					if(_InFlights.TryRemove(block.Object.GetHash(), out o))
 					{
-						var pubKeys = new HashSet<DerivationStrategyWrapper>();
+						var pubKeys = new HashSet<DerivationStrategyBase>();
 						foreach(var tx in block.Object.Transactions)
 							tx.CacheHashes();
 
@@ -269,7 +226,7 @@ namespace NBXplorer
 								trackedTransactions.Add(
 									new InsertTransaction()
 									{
-										PubKey = pubkey.Strat,
+										PubKey = pubkey,
 										TrackedTransaction = new TrackedTransaction()
 										{
 											BlockHash = block.Object.GetHash(),
@@ -288,7 +245,7 @@ namespace NBXplorer
 
 						foreach(var pubkey in pubKeys)
 						{
-							Notify(pubkey.Strat, false);
+							Notify(pubkey, false);
 						}
 					}
 					if(_InFlights.Count == 0)
@@ -305,7 +262,7 @@ namespace NBXplorer
 					insertedTransactions.Add(
 						new InsertTransaction()
 						{
-							PubKey = pubkey.Strat,
+							PubKey = pubkey,
 							TrackedTransaction = new TrackedTransaction()
 							{
 								Transaction = txPayload.Object
@@ -317,7 +274,7 @@ namespace NBXplorer
 
 				foreach(var pubkey in pubKeys)
 				{
-					Notify(pubkey.Strat, true);
+					Notify(pubkey, true);
 				}
 			});
 
@@ -332,7 +289,7 @@ namespace NBXplorer
 			return Chain.Tip.Height - fork.Height > 10;
 		}
 
-		private void Notify(IDerivationStrategy pubkey, bool log)
+		private void Notify(DerivationStrategyBase pubkey, bool log)
 		{
 			if(log)
 				Logs.Explorer.LogInformation($"A wallet received money");
@@ -350,9 +307,9 @@ namespace NBXplorer
 			}
 		}
 
-		private HashSet<DerivationStrategyWrapper> GetInterestedWallets(Transaction tx)
+		private HashSet<DerivationStrategyBase> GetInterestedWallets(Transaction tx)
 		{
-			var pubKeys = new HashSet<DerivationStrategyWrapper>();
+			var pubKeys = new HashSet<DerivationStrategyBase>();
 			tx.CacheHashes();
 			foreach(var input in tx.Inputs)
 			{
@@ -362,7 +319,7 @@ namespace NBXplorer
 					var keyInfo = Runtime.Repository.GetKeyInformation(signer.ScriptPubKey);
 					if(keyInfo != null)
 					{
-						pubKeys.Add(new DerivationStrategyWrapper(keyInfo.RootKey));
+						pubKeys.Add(keyInfo.RootKey);
 						Runtime.Repository.MarkAsUsed(keyInfo);
 					}
 				}
@@ -373,7 +330,7 @@ namespace NBXplorer
 				var keyInfo = Runtime.Repository.GetKeyInformation(output.ScriptPubKey);
 				if(keyInfo != null)
 				{
-					pubKeys.Add(new DerivationStrategyWrapper(keyInfo.RootKey));
+					pubKeys.Add(keyInfo.RootKey);
 					Runtime.Repository.MarkAsUsed(keyInfo);
 				}
 			}
