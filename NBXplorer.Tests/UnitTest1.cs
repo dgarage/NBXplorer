@@ -363,6 +363,7 @@ namespace NBXplorer.Tests
 			{
 				//WaitServerStarted not needed, just a sanity check
 				tester.Client.WaitServerStarted();
+				tester.Client.Track(pubKey);
 				var utxo = tester.Client.Sync(pubKey, null, null, true); //Track things do not wait
 
 				var tasks = new List<Task<KeyPathInformation>>();
@@ -374,6 +375,9 @@ namespace NBXplorer.Tests
 
 				var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
 				Assert.Equal(99U, paths.Select(p => p.Key.Indexes.Last()).Max());
+
+				tester.Client.CancelReservation(pubKey, new[] { new KeyPath("0/0") });
+				Assert.Equal(new KeyPath("0/0"), tester.Client.GetUnused(pubKey, DerivationFeature.Deposit).KeyPath);
 			}
 		}
 

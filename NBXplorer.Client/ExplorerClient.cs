@@ -175,6 +175,16 @@ namespace NBXplorer
 			return SendAsync<string>(HttpMethod.Post, null, "v1/track/{0}", new[] { strategy.ToString() }, cancellation);
 		}
 
+		public void CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default(CancellationToken))
+		{
+			CancelReservationAsync(strategy, keyPaths, cancellation).GetAwaiter().GetResult();
+		}
+
+		public Task CancelReservationAsync(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default(CancellationToken))
+		{
+			return SendAsync<string>(HttpMethod.Post, keyPaths, "v1/addresses/{0}/cancelreservation", new[] { strategy.ToString() }, cancellation);
+		}
+
 		public KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			return GetUnusedAsync(strategy, feature, skip, reserve, cancellation).GetAwaiter().GetResult();

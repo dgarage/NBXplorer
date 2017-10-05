@@ -109,6 +109,15 @@ namespace NBXplorer.Controllers
 			}
 		}
 
+		[HttpPost]
+		[Route("addresses/{strategy}/cancelreservation")]
+		public Task CancelReservation([ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths)
+		{
+			return Runtime.Repository.CancelReservation(strategy, keyPaths);
+		}
+
+
 		[HttpGet]
 		[Route("ping")]
 		public IActionResult Ping()
