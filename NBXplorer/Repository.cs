@@ -12,6 +12,9 @@ using System.Text;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Client;
 using NBXplorer.Models;
+using System.Threading.Tasks;
+using System.Threading;
+using NBitcoin.DataEncoders;
 
 namespace NBXplorer
 {
@@ -45,36 +48,183 @@ namespace NBXplorer
 		}
 	}
 
-	public class KeyInformation
-	{
-		public KeyInformation()
-		{
-
-		}
-		public KeyInformation(DerivationStrategyBase pubKey) : this(pubKey, null)
-		{
-
-		}
-		public KeyInformation(DerivationStrategyBase pubKey, KeyPath keyPath)
-		{
-			KeyPath = keyPath;
-			RootKey = pubKey;
-		}
-		public DerivationStrategyBase RootKey
-		{
-			get; set;
-		}
-		public KeyPath KeyPath
-		{
-			get; set;
-		}
-	}
-
 	public class Repository : IDisposable
 	{
-		DBreezeEngine _Engine;
+		class CustomThreadPool : IDisposable
+		{
+			CancellationTokenSource _Cancel = new CancellationTokenSource();
+			TaskCompletionSource<bool> _Exited;
+			int _ExitedCount = 0;
+			Thread[] _Threads;
+			Exception _UnhandledException;
+			BlockingCollection<(Action, TaskCompletionSource<object>)> _Actions = new BlockingCollection<(Action, TaskCompletionSource<object>)>(new ConcurrentQueue<(Action, TaskCompletionSource<object>)>());
+
+			public CustomThreadPool(int threadCount, string threadName)
+			{
+				if(threadCount <= 0)
+					throw new ArgumentOutOfRangeException(nameof(threadCount));
+				_Exited = new TaskCompletionSource<bool>();
+				_Threads = Enumerable.Range(0, threadCount).Select(_ => new Thread(RunLoop) { Name = threadName }).ToArray();
+				foreach(var t in _Threads)
+					t.Start();
+			}
+
+			public void Do(Action act)
+			{
+				DoAsync(act).GetAwaiter().GetResult();
+			}
+
+			public T Do<T>(Func<T> act)
+			{
+				return DoAsync(act).GetAwaiter().GetResult();
+			}
+
+			public async Task<T> DoAsync<T>(Func<T> act)
+			{
+				TaskCompletionSource<object> done = new TaskCompletionSource<object>();
+				_Actions.Add((() =>
+				{
+					try
+					{
+						done.TrySetResult(act());
+					}
+					catch(Exception ex) { done.TrySetException(ex); }
+				}
+				, done));
+				return (T)(await done.Task.ConfigureAwait(false));
+			}
+
+			public Task DoAsync(Action act)
+			{
+				return DoAsync<object>(() =>
+				{
+					act();
+					return null;
+				});
+			}
+
+			void RunLoop()
+			{
+				try
+				{
+					foreach(var act in _Actions.GetConsumingEnumerable(_Cancel.Token))
+					{
+						act.Item1();
+					}
+				}
+				catch(OperationCanceledException) when(_Cancel.IsCancellationRequested) { }
+				catch(Exception ex) { _Cancel.Cancel(); _UnhandledException = ex; }
+				if(Interlocked.Increment(ref _ExitedCount) == _Threads.Length)
+				{
+					foreach(var action in _Actions)
+					{
+						try
+						{
+							action.Item2.TrySetCanceled();
+						}
+						catch { }
+					}
+					_Exited.TrySetResult(true);
+				}
+			}
+
+			public void Dispose()
+			{
+				_Cancel.Cancel();
+				_Exited.Task.GetAwaiter().GetResult();
+			}
+		}
+		class EngineAccessor : IDisposable
+		{
+			private DBreezeEngine engine;
+			private CustomThreadPool _Pool;
+			public EngineAccessor(DBreezeEngine engine)
+			{
+				this.engine = engine;
+				_Pool = new CustomThreadPool(1, "Repository");
+			}
+
+			public void Do(Action<DBreeze.Transactions.Transaction> act)
+			{
+				_Pool.Do(() =>
+				{
+					using(var tx = engine.GetTransaction())
+					{
+						act(tx);
+					}
+				});
+			}
+
+			public Task DoAsync(Action<DBreeze.Transactions.Transaction> act)
+			{
+				return _Pool.DoAsync(() =>
+				{
+					using(var tx = engine.GetTransaction())
+					{
+						act(tx);
+					}
+				});
+			}
+
+			public Task<T> DoAsync<T>(Func<DBreeze.Transactions.Transaction, T> act)
+			{
+				return _Pool.DoAsync(() =>
+				{
+					using(var tx = engine.GetTransaction())
+					{
+						return act(tx);
+					}
+				});
+			}
+
+			public T Do<T>(Func<DBreeze.Transactions.Transaction, T> act)
+			{
+				return _Pool.Do<T>(() =>
+				{
+					using(var tx = engine.GetTransaction())
+					{
+						return act(tx);
+					}
+				});
+			}
+
+			public void Dispose()
+			{
+				_Pool.Dispose();
+				engine.Dispose();
+			}
+		}
+
+		class Tables
+		{
+			public static string GetAvailableKeys(DerivationStrategyBase strategy, DerivationFeature feature)
+			{
+				return $"A-{strategy.GetHash()}-{feature}";
+			}
+
+			public static string GetScripts(Script scriptPubKey)
+			{
+				return $"S-{scriptPubKey.Hash.ToString()}";
+			}
+
+			public static string GetHighestPath(DerivationStrategyBase strategy, DerivationFeature feature)
+			{
+				return $"K-{strategy.GetHash()}-{feature}";
+			}
+
+			public static string GetReservedKeys(DerivationStrategyBase strategy, DerivationFeature feature)
+			{
+				return $"R-{strategy.GetHash()}-{feature}";
+			}
+
+			public static string GetUsedKeys(DerivationStrategyBase strategy, DerivationFeature feature)
+			{
+				return $"U-{strategy.GetHash()}-{feature}";
+			}
+		}
+		EngineAccessor _Engine;
 		Serializer Serializer;
-		public Repository(Serializer serializer, string directory, bool caching)
+		public Repository(Serializer serializer, string directory)
 		{
 			if(serializer == null)
 				throw new ArgumentNullException(nameof(serializer));
@@ -82,27 +232,11 @@ namespace NBXplorer
 				Directory.CreateDirectory(directory);
 
 			Serializer = serializer;
-			_Engine = new DBreezeEngine(directory);
-
-			Caching = caching;
-			if(caching)
-			{
-				using(var tx = _Engine.GetTransaction())
-				{
-					tx.ValuesLazyLoadingIsOn = false;
-					foreach(var existingRow in tx.SelectForward<string, byte[]>("KeysByScript"))
-					{
-						if(existingRow == null || !existingRow.Exists)
-							continue;
-						_Cache.TryAdd(new ScriptId(existingRow.Key), Serializer.ToObject<KeyInformation>(Unzip(existingRow.Value)));
-					}
-				}
-			}
+			_Engine = new EngineAccessor(new DBreezeEngine(directory));
 		}
-
 		public BlockLocator GetIndexProgress()
 		{
-			using(var tx = _Engine.GetTransaction())
+			return _Engine.Do<BlockLocator>(tx =>
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				var existingRow = tx.Select<string, byte[]>("IndexProgress", "");
@@ -111,87 +245,76 @@ namespace NBXplorer
 				BlockLocator locator = new BlockLocator();
 				locator.FromBytes(existingRow.Value);
 				return locator;
-			}
+			});
 		}
 		public void SetIndexProgress(BlockLocator locator)
 		{
-			using(var tx = _Engine.GetTransaction())
+			_Engine.Do(tx =>
 			{
 				if(locator == null)
 					tx.RemoveKey("IndexProgress", "");
 				else
 					tx.Insert("IndexProgress", "", locator.ToBytes());
 				tx.Commit();
-			}
+			});
 		}
 
-		public KeyPathInformation GetUnused(DerivationStrategyBase extPubKey, DerivationFeature derivationFeature, int n, bool reserve)
+		public Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
-			var tableName = $"U-{extPubKey.GetHash()}";
-			var reservedTable = $"R-{extPubKey.GetHash()}";
-			var readenTable = $"Read-{extPubKey.GetHash()}";
-
-			var line = extPubKey.GetLineFor(derivationFeature);
-			if(line == null)
-				return null;
-			List<KeyPath> possiblePaths = new List<KeyPath>();
-			KeyPath path = null;
-			using(var tx = _Engine.GetTransaction())
+			return _Engine.DoAsync<KeyPathInformation>((tx) =>
 			{
 				tx.ValuesLazyLoadingIsOn = false;
-				tx.SynchronizeTables(reservedTable, readenTable, tableName);
-
-				HashSet<KeyPath> reservedPaths = new HashSet<KeyPath>();
-				foreach(var row in tx.SelectForward<string, bool>(reservedTable))
-				{
-					reservedPaths.Add(new KeyPath(row.Key));
-				}
-
-				HashSet<KeyPath> readenPaths = new HashSet<KeyPath>();
-
+				RefillAvailable(tx, strategy, derivationFeature);
+				var availableTable = Tables.GetAvailableKeys(strategy, derivationFeature);
+				var reservedTable = Tables.GetReservedKeys(strategy, derivationFeature);
+				var bytes = tx.SelectForwardSkip<int, byte[]>(availableTable, (ulong)n).FirstOrDefault()?.Value;
+				if(bytes == null)
+					return null;
+				var keyInfo = ToObject<KeyPathInformation>(bytes);
 				if(reserve)
 				{
-					foreach(var row in tx.SelectForward<string, bool>(reservedTable))
-					{
-						readenPaths.Add(new KeyPath(row.Key));
-					}
+					tx.RemoveKey(availableTable, (int)keyInfo.KeyPath.Indexes.Last());
+					tx.Insert(reservedTable, (int)keyInfo.KeyPath.Indexes.Last(), ToBytes(keyInfo));
+					RefillAvailable(tx, strategy, derivationFeature);
 				}
+				tx.Commit();
+				return keyInfo;
+			});
+		}
 
-				foreach(var row in tx.SelectForward<string, bool>(tableName))
-				{
-					var keyPath = new KeyPath(row.Key);
-					if(!row.Value && keyPath.Parent == line.Path && !reservedPaths.Contains(keyPath))
-					{
-						if(!reserve || !readenPaths.Contains(keyPath))
-							possiblePaths.Add(keyPath);
-					}
-				}
-				path = possiblePaths.OrderBy(o => o.Indexes.Last()).Skip(n).FirstOrDefault();
-				if(path != null)
-				{
-					if(reserve)
-						tx.Insert(reservedTable, path.ToString(), true);
-					tx.Insert(readenTable, path.ToString(), true);
-					tx.Commit();
-				}
-			}
+		private void RefillAvailable(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
+		{
+			var availableTable = Tables.GetAvailableKeys(strategy, derivationFeature);
+			var highestTable = Tables.GetHighestPath(strategy, derivationFeature);
+			var currentlyAvailable = (int)tx.Count(availableTable);
+			if(currentlyAvailable >= MinPoolSize)
+				return;
 
-			if(path == null)
-				return null;
-
-			var derived = line.Derive(path.Indexes.Last());
-			var keyInfo = new KeyPathInformation()
+			int highestGenerated = -1;
+			int generatedCount = 0;
+			var row = tx.Select<string, int>(highestTable, "value");
+			if(row != null && row.Exists)
+				highestGenerated = row.Value;
+			var feature = strategy.GetLineFor(derivationFeature);
+			while(currentlyAvailable + generatedCount < MaxPoolSize)
 			{
-				KeyPath = path,
-				ScriptPubKey = derived.ScriptPubKey,
-				Redeem = derived.Redeem,
-				Address = derived.ScriptPubKey.GetDestinationAddress(Serializer.Network)
-			};
-			if(reserve)
-			{
-				MarkAsUsed(new KeyInformation(extPubKey, path));
+				generatedCount++;
+				var index = highestGenerated + generatedCount;
+				var derivation = feature.Derive((uint)index);
+				var info = new KeyPathInformation()
+				{
+					ScriptPubKey = derivation.ScriptPubKey,
+					Redeem = derivation.Redeem,
+					DerivationStrategy = strategy,
+					Feature = derivationFeature,
+					KeyPath = feature.Path.Derive(index, false)
+				};
+				var bytes = ToBytes(info);
+				tx.Insert(Tables.GetScripts(info.ScriptPubKey), Encoders.Hex.EncodeData(RandomUtils.GetBytes(20)), bytes);
+				tx.Insert(availableTable, index, bytes);
 			}
-			return keyInfo;
+			if(generatedCount != 0)
+				tx.Insert(highestTable, "value", highestGenerated + generatedCount);
 		}
 
 		public void SaveTransactions(Transaction[] transactions, uint256 blockHash)
@@ -199,14 +322,14 @@ namespace NBXplorer
 			transactions = transactions.Distinct().ToArray();
 			if(transactions.Length == 0)
 				return;
-			using(var tx = _Engine.GetTransaction())
+			_Engine.Do(tx =>
 			{
 				foreach(var btx in transactions)
 				{
 					tx.Insert("tx-" + btx.GetHash().ToString(), blockHash == null ? "0" : blockHash.ToString(), btx.ToBytes());
 				}
 				tx.Commit();
-			}
+			});
 		}
 
 		public class SavedTransaction
@@ -224,7 +347,7 @@ namespace NBXplorer
 		public SavedTransaction[] GetSavedTransactions(uint256 txid)
 		{
 			List<SavedTransaction> saved = new List<SavedTransaction>();
-			using(var tx = _Engine.GetTransaction())
+			_Engine.Do(tx =>
 			{
 				foreach(var row in tx.SelectForward<string, byte[]>("tx-" + txid.ToString()))
 				{
@@ -234,34 +357,27 @@ namespace NBXplorer
 					t.Transaction = new Transaction(row.Value);
 					saved.Add(t);
 				}
-			}
+			});
 			return saved.ToArray();
 		}
 
-		public KeyInformation GetKeyInformation(DerivationStrategyBase pubKey, Script script)
+		public Task<KeyPathInformation[]> GetKeyInformations(Script script)
 		{
-			var info = GetKeyInformation(script);
-			if(info == null || pubKey.GetHash() != info.RootKey.GetHash())
-				return null;
-			return info;
-		}
-		public KeyInformation GetKeyInformation(Script script)
-		{
-			if(Caching)
-			{
-				KeyInformation v;
-				_Cache.TryGetValue(script.Hash, out v);
-				return v;
-			}
-			using(var tx = _Engine.GetTransaction())
+			return _Engine.DoAsync(tx =>
 			{
 				tx.ValuesLazyLoadingIsOn = false;
-				var existingRow = tx.Select<string, byte[]>("KeysByScript", script.Hash.ToString());
-				if(existingRow == null || !existingRow.Exists)
-					return null;
-				var keyInfo = Serializer.ToObject<KeyInformation>(Unzip(existingRow.Value));
-				return keyInfo;
-			}
+				var table = Tables.GetScripts(script);
+				return tx.SelectForward<string, byte[]>(table).Select(r => ToObject<KeyPathInformation>(r.Value)).ToArray();
+			});
+		}
+
+		private T ToObject<T>(byte[] value)
+		{
+			return Serializer.ToObject<T>(Unzip(value));
+		}
+		private byte[] ToBytes<T>(T obj)
+		{
+			return Zip(Serializer.ToString<T>(obj));
 		}
 
 		private byte[] Zip(string unzipped)
@@ -286,83 +402,38 @@ namespace NBXplorer
 			}
 		}
 
-		public const int MinGap = 20;
-		readonly KeyPath[] TrackedPathes = new KeyPath[] { new KeyPath("0"), new KeyPath("1") };
-		public void MarkAsUsed(KeyInformation info)
+		public const int MinPoolSize = 20;
+		public const int MaxPoolSize = 30;
+
+		public Task MarkAsUsedAsync(KeyPathInformation info)
 		{
-			var tableName = $"U-{info.RootKey.GetHash()}";
-			var highestUsedIndexes = new Dictionary<KeyPath, long>();
-			var highestUnusedIndexes = new Dictionary<KeyPath, long>();
-			using(var tx = _Engine.GetTransaction())
+			return _Engine.DoAsync(tx =>
 			{
-				tx.ValuesLazyLoadingIsOn = false;
-				if(info.KeyPath != null)
-					tx.Insert(tableName, info.KeyPath.ToString(), true);
-
-				foreach(var row in tx.SelectForward<string, bool>(tableName))
+				var availableTable = Tables.GetAvailableKeys(info.DerivationStrategy, info.Feature);
+				var reservedTable = Tables.GetReservedKeys(info.DerivationStrategy, info.Feature);
+				var index = (int)info.KeyPath.Indexes.Last();
+				var row = tx.Select<int, byte[]>(availableTable, index);
+				if(row != null && row.Exists)
 				{
-					if(info.KeyPath == null)
-						return; //Early exit, no need to create the first keys, it has already been done
-					var highestIndexes = row.Value ? highestUsedIndexes : highestUnusedIndexes;
-					KeyPath k = new KeyPath(row.Key);
-					long highestKey;
-					if(!highestIndexes.TryGetValue(k.Parent, out highestKey))
-						highestKey = -1;
-					highestKey = Math.Max(highestKey, k.Indexes.Last());
-					highestIndexes.AddOrReplace(k.Parent, highestKey);
+					tx.RemoveKey(availableTable, index);
 				}
-
-				var derivationLines = info.RootKey.GetLines();
-				foreach(var derivationLine in derivationLines)
+				row = tx.Select<int, byte[]>(reservedTable, index);
+				if(row != null && row.Exists)
 				{
-					var trackedPath = derivationLine.Path;
-					long highestUnused;
-					if(!highestUnusedIndexes.TryGetValue(trackedPath, out highestUnused))
-						highestUnused = -1;
-
-					long highestUsed;
-					if(!highestUsedIndexes.TryGetValue(trackedPath, out highestUsed))
-						highestUsed = -1;
-
-					KeyPath highestUnusedPath = null;
-					while(highestUnused - highestUsed < MinGap)
-					{
-						if(highestUnused == uint.MaxValue)
-							break;
-						highestUnused++;
-
-						highestUnusedPath = trackedPath.Derive((uint)highestUnused);
-
-						var derivation = derivationLine.Derive((uint)highestUnused);
-
-						var keyInfo = new KeyInformation()
-						{
-							KeyPath = trackedPath.Derive((uint)highestUnused),
-							RootKey = info.RootKey
-						};
-						InsertKeyInformation(tx, derivation.ScriptPubKey, keyInfo);
-						byte[] inserted;
-						bool existed;
-						tx.Insert(tableName, keyInfo.KeyPath.ToString(), false, out inserted, out existed, dontUpdateIfExists: true);
-					}
-
-					if(highestUnusedPath != null)
-					{
-						byte[] inserted;
-						bool existed;
-						tx.Insert(tableName, highestUnusedPath.ToString(), false, out inserted, out existed, dontUpdateIfExists: true);
-					}
+					tx.RemoveKey(availableTable, index);
 				}
+				RefillAvailable(tx, info.DerivationStrategy, info.Feature);
 				tx.Commit();
-			}
+			});
 		}
 
 		public TrackedTransaction[] GetTransactions(DerivationStrategyBase pubkey)
 		{
 			var tableName = $"T-{pubkey.GetHash()}";
-			var result = new List<TrackedTransaction>();
-			using(var tx = _Engine.GetTransaction())
+
+			return _Engine.Do(tx =>
 			{
+				var result = new List<TrackedTransaction>();
 				foreach(var row in tx.SelectForward<string, byte[]>(tableName))
 				{
 					if(row == null || !row.Exists)
@@ -376,8 +447,8 @@ namespace NBXplorer
 					tracked.Transaction = transaction;
 					result.Add(tracked);
 				}
-			}
-			return result.ToArray();
+				return result.ToArray();
+			});
 		}
 
 
@@ -387,7 +458,7 @@ namespace NBXplorer
 				return;
 			var groups = transactions.GroupBy(i => $"T-{i.PubKey.GetHash()}");
 
-			using(var tx = _Engine.GetTransaction())
+			_Engine.Do(tx =>
 			{
 				foreach(var group in groups)
 				{
@@ -395,7 +466,7 @@ namespace NBXplorer
 						tx.Insert(group.Key, value.TrackedTransaction.GetRowKey(), value.TrackedTransaction.Transaction.ToBytes());
 				}
 				tx.Commit();
-			}
+			});
 		}
 
 		public void CleanTransactions(DerivationStrategyBase pubkey, List<TrackedTransaction> cleanList)
@@ -403,34 +474,31 @@ namespace NBXplorer
 			if(cleanList == null || cleanList.Count == 0)
 				return;
 			var tableName = $"T-{pubkey.GetHash()}";
-			using(var tx = _Engine.GetTransaction())
+			_Engine.Do(tx =>
 			{
 				foreach(var tracked in cleanList)
 				{
 					tx.RemoveKey(tableName, tracked.GetRowKey());
 				}
 				tx.Commit();
-			}
-		}
-
-		public bool Caching
-		{
-			get;
-			private set;
-		}
-
-		ConcurrentDictionary<ScriptId, KeyInformation> _Cache = new ConcurrentDictionary<ScriptId, KeyInformation>();
-
-		private void InsertKeyInformation(DBreeze.Transactions.Transaction tx, Script scriptPubKey, KeyInformation info)
-		{
-			if(Caching)
-				_Cache.TryAdd(scriptPubKey.Hash, info);
-			tx.Insert("KeysByScript", scriptPubKey.Hash.ToString(), Zip(Serializer.ToString(info)));
+			});
 		}
 
 		public void Dispose()
 		{
 			_Engine.Dispose();
+		}
+
+		public Task TrackAsync(DerivationStrategyBase strategy)
+		{
+			return _Engine.DoAsync(tx =>
+			{
+				foreach(var feature in new[] { DerivationFeature.Change, DerivationFeature.Deposit })
+				{
+					RefillAvailable(tx, strategy, feature);
+				}
+				tx.Commit();
+			});
 		}
 	}
 }

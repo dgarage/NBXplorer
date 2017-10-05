@@ -96,7 +96,7 @@ namespace NBXplorer
 			}
 
 			var dbPath = Path.Combine(configuration.DataDir, "db");
-			Repository = new Repository(configuration.CreateSerializer(), dbPath, true);
+			Repository = new Repository(configuration.CreateSerializer(), dbPath);
 			if(configuration.Rescan)
 			{
 				Logs.Configuration.LogInformation("Rescanning...");

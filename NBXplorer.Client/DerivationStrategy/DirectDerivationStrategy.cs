@@ -52,11 +52,6 @@ namespace NBXplorer.DerivationStrategy
 				throw new ArgumentNullException(nameof(root));
 			_Root = root;
 		}
-		public override IEnumerable<DerivationStrategyLine> GetLines()
-		{
-			yield return new LineStrategy(this, _Root, false);
-			yield return new LineStrategy(this, _Root, true);
-		}
 
 		public override DerivationStrategyLine GetLineFor(DerivationFeature feature)
 		{

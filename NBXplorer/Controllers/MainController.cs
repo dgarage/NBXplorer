@@ -90,7 +90,7 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("addresses/{strategy}/unused")]
-		public KeyPathInformation GetUnusedAddress(
+		public async Task<KeyPathInformation> GetUnusedAddress(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false)
 		{
@@ -98,7 +98,7 @@ namespace NBXplorer.Controllers
 				throw new ArgumentNullException(nameof(strategy));
 			try
 			{
-				var result = Runtime.Repository.GetUnused(strategy, feature, skip, reserve);
+				var result = await Runtime.Repository.GetUnused(strategy, feature, skip, reserve);
 				if(result == null)
 					throw new NBXplorerError(404, "strategy-not-found", $"This strategy is not tracked, or you tried to skip too much unused addresses").AsException();
 				return result;
@@ -139,6 +139,17 @@ namespace NBXplorer.Controllers
 			return new FileContentResult(new TransactionResult() { Confirmations = conf, Transaction = tx }.ToBytes(), "application/octet-stream");
 		}
 
+		[HttpPost]
+		[Route("track/{derivationStrategy}")]
+		public Task TrackWallet(
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase derivationStrategy)
+		{
+			if(derivationStrategy == null)
+				return Task.FromResult(NotFound());
+			return Runtime.Repository.TrackAsync(derivationStrategy);
+		}
+
 		[HttpGet]
 		[Route("sync/{extPubKey}")]
 		public async Task<FileContentResult> Sync(
@@ -154,8 +165,6 @@ namespace NBXplorer.Controllers
 				throw new ArgumentNullException(nameof(extPubKey));
 
 			var waitingTransaction = noWait ? Task.FromResult(false) : WaitingTransaction(extPubKey);
-
-			Runtime.Repository.MarkAsUsed(new KeyInformation(extPubKey));
 			UTXOChanges changes = null;
 			var getKeyPath = GetKeyPaths(extPubKey);
 			var matchScript = MatchKeyPaths(getKeyPath);
@@ -296,9 +305,15 @@ namespace NBXplorer.Controllers
 				KeyPath result;
 				if(cache.TryGetValue(script, out result))
 					return result;
-				result = Runtime.Repository.GetKeyInformation(extPubKey, script)?.KeyPath;
-				if(result != null)
-					cache.TryAdd(script, result);
+				foreach(var info in Runtime.Repository.GetKeyInformations(script).GetAwaiter().GetResult())
+				{
+					if(info.DerivationStrategy == extPubKey)
+					{
+						result = info.KeyPath;
+						cache.TryAdd(script, result);
+						break;
+					}
+				}
 				return result;
 			};
 		}

@@ -61,12 +61,6 @@ namespace NBXplorer.DerivationStrategy
 			LexicographicOrder = true;
 		}
 
-		public override IEnumerable<DerivationStrategyLine> GetLines()
-		{
-			yield return new LineStrategy(this, false);
-			yield return new LineStrategy(this, true);
-		}
-
 		private void WriteBytes(MemoryStream ms, byte[] v)
 		{
 			ms.Write(v, 0, v.Length);

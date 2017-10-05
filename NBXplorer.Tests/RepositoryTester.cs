@@ -18,19 +18,13 @@ namespace NBXplorer.Tests
 		{
 			_Name = name;
 			ServerTester.DeleteRecursivelyWithMagicDust(name);
-			_Repository = new Repository(new Serializer(Network.RegTest), name, caching);
+			_Repository = new Repository(new Serializer(Network.RegTest), name);
 		}
 
 		public void Dispose()
 		{
 			_Repository.Dispose();
 			ServerTester.DeleteRecursivelyWithMagicDust(_Name);
-		}
-
-		public void ReloadRepository(bool caching)
-		{
-			_Repository.Dispose();
-			_Repository = new Repository(new Serializer(Network.RegTest), _Name, caching);
 		}
 
 		private Repository _Repository;

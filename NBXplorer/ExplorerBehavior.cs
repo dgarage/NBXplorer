@@ -316,22 +316,20 @@ namespace NBXplorer
 				var signer = input.ScriptSig.GetSigner() ?? input.WitScript.ToScript().GetSigner();
 				if(signer != null)
 				{
-					var keyInfo = Runtime.Repository.GetKeyInformation(signer.ScriptPubKey);
-					if(keyInfo != null)
+					foreach(var keyInfo in Runtime.Repository.GetKeyInformations(signer.ScriptPubKey).GetAwaiter().GetResult())
 					{
-						pubKeys.Add(keyInfo.RootKey);
-						Runtime.Repository.MarkAsUsed(keyInfo);
+						pubKeys.Add(keyInfo.DerivationStrategy);
+						Runtime.Repository.MarkAsUsedAsync(keyInfo).GetAwaiter().GetResult();
 					}
 				}
 			}
 
 			foreach(var output in tx.Outputs)
 			{
-				var keyInfo = Runtime.Repository.GetKeyInformation(output.ScriptPubKey);
-				if(keyInfo != null)
+				foreach(var keyInfo in Runtime.Repository.GetKeyInformations(output.ScriptPubKey).GetAwaiter().GetResult())
 				{
-					pubKeys.Add(keyInfo.RootKey);
-					Runtime.Repository.MarkAsUsed(keyInfo);
+					pubKeys.Add(keyInfo.DerivationStrategy);
+					Runtime.Repository.MarkAsUsedAsync(keyInfo).GetAwaiter().GetResult();
 				}
 			}
 			return pubKeys;

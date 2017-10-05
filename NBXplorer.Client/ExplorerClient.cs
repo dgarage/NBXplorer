@@ -165,6 +165,16 @@ namespace NBXplorer
 			}
 		}
 
+
+		public void Track(DerivationStrategyBase strategy, CancellationToken cancellation = default(CancellationToken))
+		{
+			TrackAsync(strategy, cancellation).GetAwaiter().GetResult();
+		}
+		public Task TrackAsync(DerivationStrategyBase strategy, CancellationToken cancellation = default(CancellationToken))
+		{
+			return SendAsync<string>(HttpMethod.Post, null, "v1/track/{0}", new[] { strategy.ToString() }, cancellation);
+		}
+
 		public KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			return GetUnusedAsync(strategy, feature, skip, reserve, cancellation).GetAwaiter().GetResult();
@@ -279,7 +289,9 @@ namespace NBXplorer
 		private async Task<T> ParseResponse<T>(HttpResponseMessage response)
 		{
 			if(response.IsSuccessStatusCode)
-				if(response.Content.Headers.ContentType.MediaType.Equals("application/json", StringComparison.Ordinal))
+				if(response.Content.Headers.ContentLength == 0)
+					return default(T);
+				else if(response.Content.Headers.ContentType.MediaType.Equals("application/json", StringComparison.Ordinal))
 					return _Serializer.ToObject<T>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
 				else if(response.Content.Headers.ContentType.MediaType.Equals("application/octet-stream", StringComparison.Ordinal))
 				{

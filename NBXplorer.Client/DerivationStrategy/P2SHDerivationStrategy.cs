@@ -47,10 +47,5 @@ namespace NBXplorer.DerivationStrategy
 			var inner = Inner.GetLineFor(feature);
 			return new P2SHDerivationLine(inner);
 		}
-
-		public override IEnumerable<DerivationStrategyLine> GetLines()
-		{
-			return Inner.GetLines().Select(l => new P2SHDerivationLine(l));
-		}
 	}
 }
