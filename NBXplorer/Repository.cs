@@ -39,7 +39,7 @@ namespace NBXplorer
 
 	public class InsertTransaction
 	{
-		public DerivationStrategyBase PubKey
+		public DerivationStrategyBase DerivationStrategy
 		{
 			get; set;
 		}
@@ -242,7 +242,7 @@ namespace NBXplorer
 
 			public static Index GetAvailableKeys(DerivationStrategyBase strategy, DerivationFeature feature)
 			{
-				return new Index("AvailableKeys", $"{strategy}-{feature}");
+				return new Index("AvailableKeys", $"{strategy.GetHash()}-{feature}");
 			}
 
 			public static Index GetScripts(Script scriptPubKey)
@@ -260,6 +260,11 @@ namespace NBXplorer
 				return new Index("ReservedKeys", $"{strategy.GetHash()}-{feature}");
 			}
 
+			public static Index GetTransactions(DerivationStrategyBase derivation)
+			{
+				return new Index("Transactions", $"{derivation.GetHash()}");
+			}
+
 			public DBreeze.DataTypes.Row<string, T> Select<T>(DBreeze.Transactions.Transaction tx, int index)
 			{
 				return tx.Select<string, T>(TableName, $"{PrimaryKey}-{index:D10}");
@@ -268,6 +273,11 @@ namespace NBXplorer
 			public void RemoveKey(DBreeze.Transactions.Transaction tx, int index)
 			{
 				tx.RemoveKey(TableName, $"{PrimaryKey}-{index:D10}");
+			}
+
+			public void RemoveKey(DBreeze.Transactions.Transaction tx, string index)
+			{
+				tx.RemoveKey(TableName, $"{PrimaryKey}-{index}");
 			}
 
 			public IEnumerable<DBreeze.DataTypes.Row<string, T>> SelectForwardSkip<T>(DBreeze.Transactions.Transaction tx, int n)
@@ -503,12 +513,11 @@ namespace NBXplorer
 
 		public TrackedTransaction[] GetTransactions(DerivationStrategyBase pubkey)
 		{
-			var tableName = $"T-{pubkey.GetHash()}";
-
+			var table = Index.GetTransactions(pubkey);
 			return _Engine.Do(tx =>
 			{
 				var result = new List<TrackedTransaction>();
-				foreach(var row in tx.SelectForward<string, byte[]>(tableName))
+				foreach(var row in table.SelectForwardSkip<byte[]>(tx, 0))
 				{
 					if(row == null || !row.Exists)
 						continue;
@@ -530,14 +539,15 @@ namespace NBXplorer
 		{
 			if(transactions.Length == 0)
 				return;
-			var groups = transactions.GroupBy(i => $"T-{i.PubKey.GetHash()}");
+			var groups = transactions.GroupBy(i => i.DerivationStrategy);
 
 			_Engine.Do(tx =>
 			{
 				foreach(var group in groups)
 				{
+					var table = Index.GetTransactions(group.Key);
 					foreach(var value in group)
-						tx.Insert(group.Key, value.TrackedTransaction.GetRowKey(), value.TrackedTransaction.Transaction.ToBytes());
+						table.Insert(tx, value.TrackedTransaction.GetRowKey(), value.TrackedTransaction.Transaction.ToBytes());
 				}
 				tx.Commit();
 			});
@@ -547,12 +557,12 @@ namespace NBXplorer
 		{
 			if(cleanList == null || cleanList.Count == 0)
 				return;
-			var tableName = $"T-{pubkey.GetHash()}";
+			var table = Index.GetTransactions(pubkey);
 			_Engine.Do(tx =>
 			{
 				foreach(var tracked in cleanList)
 				{
-					tx.RemoveKey(tableName, tracked.GetRowKey());
+					table.RemoveKey(tx, tracked.GetRowKey());
 				}
 				tx.Commit();
 			});

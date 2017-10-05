@@ -226,7 +226,7 @@ namespace NBXplorer
 								trackedTransactions.Add(
 									new InsertTransaction()
 									{
-										PubKey = pubkey,
+										DerivationStrategy = pubkey,
 										TrackedTransaction = new TrackedTransaction()
 										{
 											BlockHash = block.Object.GetHash(),
@@ -262,7 +262,7 @@ namespace NBXplorer
 					insertedTransactions.Add(
 						new InsertTransaction()
 						{
-							PubKey = pubkey,
+							DerivationStrategy = pubkey,
 							TrackedTransaction = new TrackedTransaction()
 							{
 								Transaction = txPayload.Object

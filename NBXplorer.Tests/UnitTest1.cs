@@ -140,6 +140,9 @@ namespace NBXplorer.Tests
 				var utxo = tester.Client.Sync(bob, null, null, true); //Track things do not wait
 
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+				Assert.Null(a1);
+				tester.Client.Track(bob);
+				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 				Assert.NotNull(a1);
 				Assert.Equal(a1.ScriptPubKey, tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0).ScriptPubKey);
 				Assert.Equal(a1.ScriptPubKey, bob.Root.Derive(new KeyPath("0/0")).PubKey.Hash.ScriptPubKey);
