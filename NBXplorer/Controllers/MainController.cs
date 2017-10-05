@@ -166,8 +166,8 @@ namespace NBXplorer.Controllers
 
 			var waitingTransaction = noWait ? Task.FromResult(false) : WaitingTransaction(extPubKey);
 			UTXOChanges changes = null;
-			var getKeyPath = GetKeyPaths(extPubKey);
-			var matchScript = MatchKeyPaths(getKeyPath);
+			var getKeyPaths = GetKeyPaths(extPubKey);
+			var matchScript = MatchKeyPaths(getKeyPaths);
 
 			while(true)
 			{
@@ -202,8 +202,8 @@ namespace NBXplorer.Controllers
 
 
 
-				FillUTXOsInformation(changes.Confirmed.UTXOs, getKeyPath, transactions, changes.CurrentHeight);
-				FillUTXOsInformation(changes.Unconfirmed.UTXOs, getKeyPath, transactions, changes.CurrentHeight);
+				FillUTXOsInformation(changes.Confirmed.UTXOs, getKeyPaths, transactions, changes.CurrentHeight);
+				FillUTXOsInformation(changes.Unconfirmed.UTXOs, getKeyPaths, transactions, changes.CurrentHeight);
 
 				if(changes.HasChanges || !(await waitingTransaction))
 					break;
@@ -213,11 +213,13 @@ namespace NBXplorer.Controllers
 			return new FileContentResult(changes.ToBytes(), "application/octet-stream");
 		}
 
-		private void FillUTXOsInformation(List<UTXO> utxos, Func<Script, KeyPath> getKeyPath, AnnotatedTransactionCollection transactionsById, int currentHeight)
+		private void FillUTXOsInformation(List<UTXO> utxos, Func<Script[], KeyPath[]> getKeyPaths, AnnotatedTransactionCollection transactionsById, int currentHeight)
 		{
-			foreach(var utxo in utxos)
+			var keyPaths = getKeyPaths(utxos.Select(u => u.Output.ScriptPubKey).ToArray());
+			for(int i = 0; i < utxos.Count; i++)
 			{
-				utxo.KeyPath = getKeyPath(utxo.Output.ScriptPubKey);
+				var utxo = utxos[i];
+				utxo.KeyPath = keyPaths[i];
 				var txHeight = transactionsById.GetByTxId(utxo.Outpoint.Hash).Select(r => r.Height).Min();
 				txHeight = txHeight == MempoolHeight ? currentHeight + 1 : txHeight;
 				utxo.Confirmations = currentHeight - txHeight + 1;
@@ -293,27 +295,44 @@ namespace NBXplorer.Controllers
 		}
 
 
-		private Func<Script, bool> MatchKeyPaths(Func<Script, KeyPath> getKeyPath)
+		private Func<Script[], bool[]> MatchKeyPaths(Func<Script[], KeyPath[]> getKeyPaths)
 		{
-			return (script) => getKeyPath(script) != null;
+			return (scripts) => getKeyPaths(scripts).Select(c => c != null).ToArray();
 		}
-		private Func<Script, KeyPath> GetKeyPaths(DerivationStrategyBase extPubKey)
+		private Func<Script[], KeyPath[]> GetKeyPaths(DerivationStrategyBase extPubKey)
 		{
 			Dictionary<Script, KeyPath> cache = new Dictionary<Script, KeyPath>();
-			return (script) =>
+			return (scripts) =>
 			{
-				KeyPath result;
-				if(cache.TryGetValue(script, out result))
-					return result;
-				foreach(var info in Runtime.Repository.GetKeyInformations(script).GetAwaiter().GetResult())
+				KeyPath[] result = new KeyPath[scripts.Length];
+				for(int i = 0; i < result.Length; i++)
 				{
-					if(info.DerivationStrategy == extPubKey)
+					if(cache.TryGetValue(scripts[i], out KeyPath keypath))
+						result[i] = keypath;
+				}
+
+				var needFetch = scripts.Where((r, i) => result[i] == null).ToArray();
+				var fetched = Runtime.Repository.GetKeyInformations(needFetch).GetAwaiter().GetResult();
+				for(int i = 0; i < fetched.Length; i++)
+				{
+					var keyInfos = fetched[i];
+					var script = needFetch[i];
+					foreach(var keyInfo in keyInfos)
 					{
-						result = info.KeyPath;
-						cache.TryAdd(script, result);
-						break;
+						if(keyInfo.DerivationStrategy == extPubKey)
+						{
+							cache.TryAdd(script, keyInfo.KeyPath);
+							break;
+						}
 					}
 				}
+
+				for(int i = 0; i < result.Length; i++)
+				{
+					if(cache.TryGetValue(scripts[i], out KeyPath keypath))
+						result[i] = keypath;
+				}
+
 				return result;
 			};
 		}

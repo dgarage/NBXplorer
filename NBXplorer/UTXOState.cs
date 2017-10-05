@@ -45,7 +45,7 @@ namespace NBXplorer
 			get; set;
 		} = new Dictionary<OutPoint, Coin>();
 
-		public Func<Script, bool> MatchScript
+		public Func<Script[], bool[]> MatchScript
 		{
 			get; set;
 		}
@@ -88,10 +88,12 @@ namespace NBXplorer
 			if(result == ApplyTransactionResult.Conflict)
 				return result;
 
+			var matches = MatchScript(tx.Outputs.Select(o => o.ScriptPubKey).ToArray());
 			for(int i = 0; i < tx.Outputs.Count; i++)
 			{
 				var output = tx.Outputs[i];
-				if(MatchScript(output.ScriptPubKey))
+				var matched = matches[i];
+				if(matched)
 				{
 					var outpoint = new OutPoint(hash, i);
 					if(CoinsByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))

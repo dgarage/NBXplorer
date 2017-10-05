@@ -311,27 +311,28 @@ namespace NBXplorer
 		{
 			var pubKeys = new HashSet<DerivationStrategyBase>();
 			tx.CacheHashes();
+
+			HashSet<Script> scripts = new HashSet<Script>();
 			foreach(var input in tx.Inputs)
 			{
 				var signer = input.ScriptSig.GetSigner() ?? input.WitScript.ToScript().GetSigner();
 				if(signer != null)
 				{
-					foreach(var keyInfo in Runtime.Repository.GetKeyInformations(signer.ScriptPubKey).GetAwaiter().GetResult())
-					{
-						pubKeys.Add(keyInfo.DerivationStrategy);
-						Runtime.Repository.MarkAsUsedAsync(keyInfo).GetAwaiter().GetResult();
-					}
+					scripts.Add(signer.ScriptPubKey);
 				}
 			}
 
 			foreach(var output in tx.Outputs)
 			{
-				foreach(var keyInfo in Runtime.Repository.GetKeyInformations(output.ScriptPubKey).GetAwaiter().GetResult())
-				{
-					pubKeys.Add(keyInfo.DerivationStrategy);
-					Runtime.Repository.MarkAsUsedAsync(keyInfo).GetAwaiter().GetResult();
-				}
+				scripts.Add(output.ScriptPubKey);
 			}
+
+			var keyInformations = Runtime.Repository.GetKeyInformations(scripts.ToArray()).GetAwaiter().GetResult();
+			foreach(var keyInfo in keyInformations.SelectMany(k => k))
+			{
+				pubKeys.Add(keyInfo.DerivationStrategy);
+			}
+			Runtime.Repository.MarkAsUsedAsync(keyInformations.SelectMany(k => k).ToArray());
 			return pubKeys;
 		}
 

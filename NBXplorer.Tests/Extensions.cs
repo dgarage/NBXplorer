@@ -12,11 +12,11 @@ namespace NBXplorer.Tests
 	{
 		public static KeyPathInformation GetKeyInformation(this Repository repo, Script script)
 		{
-			return repo.GetKeyInformations(script).GetAwaiter().GetResult().SingleOrDefault();
+			return repo.GetKeyInformations(new Script[] { script }).GetAwaiter().GetResult()[0].SingleOrDefault();
 		}
 		public static void MarkAsUsed(this Repository repo, KeyPathInformation info)
 		{
-			repo.MarkAsUsedAsync(info).GetAwaiter().GetResult();
+			repo.MarkAsUsedAsync(new KeyPathInformation[] { info }).GetAwaiter().GetResult();
 		}
 
 		public static void Track(this Repository repo, DerivationStrategyBase derivation)

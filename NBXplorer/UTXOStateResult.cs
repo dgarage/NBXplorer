@@ -25,7 +25,7 @@ namespace NBXplorer
 	public class UTXOStateResult
 	{
 		public static UTXOStateResult CreateStates(
-			Func<Script, bool> matchScript,
+			Func<Script[], bool[]> matchScript,
 			uint256 knownUnconfHash, IEnumerable<Transaction> unconfirmed, 
 			uint256 knownConfHash, IEnumerable<Transaction> confirmed)
 		{

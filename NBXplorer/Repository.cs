@@ -142,16 +142,15 @@ namespace NBXplorer
 			{
 				this.engine = engine;
 				_Pool = new CustomThreadPool(1, "Repository");
+				_Pool.Do(() => _Tx = engine.GetTransaction());
 			}
 
+			DBreeze.Transactions.Transaction _Tx;
 			public void Do(Action<DBreeze.Transactions.Transaction> act)
 			{
 				_Pool.Do(() =>
 				{
-					using(var tx = engine.GetTransaction())
-					{
-						act(tx);
-					}
+					act(_Tx);
 				});
 			}
 
@@ -159,10 +158,7 @@ namespace NBXplorer
 			{
 				return _Pool.DoAsync(() =>
 				{
-					using(var tx = engine.GetTransaction())
-					{
-						act(tx);
-					}
+					act(_Tx);
 				});
 			}
 
@@ -170,10 +166,7 @@ namespace NBXplorer
 			{
 				return _Pool.DoAsync(() =>
 				{
-					using(var tx = engine.GetTransaction())
-					{
-						return act(tx);
-					}
+					return act(_Tx);
 				});
 			}
 
@@ -181,15 +174,13 @@ namespace NBXplorer
 			{
 				return _Pool.Do<T>(() =>
 				{
-					using(var tx = engine.GetTransaction())
-					{
-						return act(tx);
-					}
+					return act(_Tx);
 				});
 			}
 
 			public void Dispose()
 			{
+				var unused = _Pool.DoAsync(() => _Tx?.Dispose());
 				_Pool.Dispose();
 				engine.Dispose();
 			}
@@ -361,13 +352,20 @@ namespace NBXplorer
 			return saved.ToArray();
 		}
 
-		public Task<KeyPathInformation[]> GetKeyInformations(Script script)
+		public Task<KeyPathInformation[][]> GetKeyInformations(Script[] scripts)
 		{
+			if(scripts.Length == 0)
+				return Task.FromResult(new KeyPathInformation[0][]);
 			return _Engine.DoAsync(tx =>
 			{
+				List<KeyPathInformation[]> result = new List<KeyPathInformation[]>();
 				tx.ValuesLazyLoadingIsOn = false;
-				var table = Tables.GetScripts(script);
-				return tx.SelectForward<string, byte[]>(table).Select(r => ToObject<KeyPathInformation>(r.Value)).ToArray();
+				foreach(var script in scripts)
+				{
+					var table = Tables.GetScripts(script);
+					result.Add(tx.SelectForward<string, byte[]>(table).Select(r => ToObject<KeyPathInformation>(r.Value)).ToArray());
+				}
+				return result.ToArray();
 			});
 		}
 
@@ -405,24 +403,27 @@ namespace NBXplorer
 		public const int MinPoolSize = 20;
 		public const int MaxPoolSize = 30;
 
-		public Task MarkAsUsedAsync(KeyPathInformation info)
+		public Task MarkAsUsedAsync(KeyPathInformation[] infos)
 		{
 			return _Engine.DoAsync(tx =>
 			{
-				var availableTable = Tables.GetAvailableKeys(info.DerivationStrategy, info.Feature);
-				var reservedTable = Tables.GetReservedKeys(info.DerivationStrategy, info.Feature);
-				var index = (int)info.KeyPath.Indexes.Last();
-				var row = tx.Select<int, byte[]>(availableTable, index);
-				if(row != null && row.Exists)
+				foreach(var info in infos)
 				{
-					tx.RemoveKey(availableTable, index);
+					var availableTable = Tables.GetAvailableKeys(info.DerivationStrategy, info.Feature);
+					var reservedTable = Tables.GetReservedKeys(info.DerivationStrategy, info.Feature);
+					var index = (int)info.KeyPath.Indexes.Last();
+					var row = tx.Select<int, byte[]>(availableTable, index);
+					if(row != null && row.Exists)
+					{
+						tx.RemoveKey(availableTable, index);
+					}
+					row = tx.Select<int, byte[]>(reservedTable, index);
+					if(row != null && row.Exists)
+					{
+						tx.RemoveKey(availableTable, index);
+					}
+					RefillAvailable(tx, info.DerivationStrategy, info.Feature);
 				}
-				row = tx.Select<int, byte[]>(reservedTable, index);
-				if(row != null && row.Exists)
-				{
-					tx.RemoveKey(availableTable, index);
-				}
-				RefillAvailable(tx, info.DerivationStrategy, info.Feature);
 				tx.Commit();
 			});
 		}
