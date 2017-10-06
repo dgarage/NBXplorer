@@ -16,6 +16,8 @@ using System.Threading.Tasks;
 using System.Threading;
 using NBitcoin.DataEncoders;
 using DBreeze.Utils;
+using System.Runtime.Serialization;
+using Newtonsoft.Json;
 
 namespace NBXplorer
 {
@@ -265,6 +267,16 @@ namespace NBXplorer
 				return new Index("Transactions", $"{derivation.GetHash()}");
 			}
 
+			public static Index GetCallbacks(DerivationStrategyBase derivation)
+			{
+				return new Index("Callbacks", $"{derivation.GetHash()}");
+			}
+
+			public static Index GetBlockCallbacks()
+			{
+				return new Index("BlockCallbacks", "b");
+			}
+
 			public DBreeze.DataTypes.Row<string, T> Select<T>(DBreeze.Transactions.Transaction tx, int index)
 			{
 				return tx.Select<string, T>(TableName, $"{PrimaryKey}-{index:D10}");
@@ -282,7 +294,7 @@ namespace NBXplorer
 
 			public IEnumerable<DBreeze.DataTypes.Row<string, T>> SelectForwardSkip<T>(DBreeze.Transactions.Transaction tx, int n)
 			{
-				return tx.SelectForwardStartsWith<string,T>(TableName, PrimaryKey).Skip(n);
+				return tx.SelectForwardStartsWith<string, T>(TableName, PrimaryKey).Skip(n);
 			}
 
 			public void Insert<T>(DBreeze.Transactions.Transaction tx, int key, T value)
@@ -324,6 +336,51 @@ namespace NBXplorer
 				return locator;
 			});
 		}
+
+		public Task<Uri[]> GetBlockCallbacks()
+		{
+			return _Engine.DoAsync(tx =>
+			{
+				var index = Index.GetBlockCallbacks();
+				return index.SelectForwardSkip<string>(tx, 0)
+				.Where(r => r.Exists)
+				.Select(r => new Uri(r.Key.Substring(index.PrimaryKey.Length + 1), UriKind.Absolute))
+				.ToArray();
+			});
+		}
+		public Task<Uri[]> GetCallbacks(DerivationStrategyBase strategy)
+		{
+			return _Engine.DoAsync(tx =>
+			{
+				var index = Index.GetCallbacks(strategy);
+				return index.SelectForwardSkip<string>(tx, 0)
+				.Where(r => r.Exists)
+				.Select(r => new Uri(r.Key.Substring(index.PrimaryKey.Length + 1), UriKind.Absolute))
+				.ToArray();
+			});
+		}
+
+		public Task AddCallback(DerivationStrategyBase strategy, Uri callback)
+		{
+			return _Engine.DoAsync(tx =>
+			{
+				var index = Index.GetCallbacks(strategy);
+				index.Insert(tx, callback.AbsoluteUri, 0);
+				tx.Commit();
+			});
+		}
+
+		public Task AddBlockCallback(Uri callback)
+		{
+			return _Engine.DoAsync(tx =>
+			{
+				var index = Index.GetBlockCallbacks();
+				index.Insert(tx, callback.AbsoluteUri, 0);
+				tx.Commit();
+			});
+		}
+
+
 		public void SetIndexProgress(BlockLocator locator)
 		{
 			_Engine.Do(tx =>
@@ -352,8 +409,8 @@ namespace NBXplorer
 					availableTable.RemoveKey(tx, (int)keyInfo.KeyPath.Indexes.Last());
 					reservedTable.Insert<byte[]>(tx, (int)keyInfo.KeyPath.Indexes.Last(), bytes);
 					RefillAvailable(tx, strategy, derivationFeature);
+					tx.Commit();
 				}
-				tx.Commit();
 				return keyInfo;
 			});
 		}
@@ -490,6 +547,8 @@ namespace NBXplorer
 
 		public Task MarkAsUsedAsync(KeyPathInformation[] infos)
 		{
+			if(infos.Length == 0)
+				return Task.CompletedTask;
 			return _Engine.DoAsync(tx =>
 			{
 				foreach(var info in infos)
@@ -535,7 +594,7 @@ namespace NBXplorer
 		}
 
 
-		public void InsertTransactions(InsertTransaction[] transactions)
+		public void SaveMatches(InsertTransaction[] transactions)
 		{
 			if(transactions.Length == 0)
 				return;

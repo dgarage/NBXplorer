@@ -215,6 +215,26 @@ namespace NBXplorer
 			return GetAsync<GetFeeRateResult>("v1/fees/{0}", new object[] { blockCount }, cancellation);
 		}
 
+		public void SubscribeToWallet(Uri uri, DerivationStrategyBase strategy, CancellationToken cancellation = default(CancellationToken))
+		{
+			SubscribeToWalletAsync(uri, strategy, cancellation).GetAwaiter().GetResult();
+		}
+
+		public Task SubscribeToWalletAsync(Uri uri, DerivationStrategyBase strategy, CancellationToken cancellation = default(CancellationToken))
+		{
+			return SendAsync<string>(HttpMethod.Post, new SubscribeToBlockRequest() { Callback = uri }, "v1/addresses/{0}/subscriptions", new[] { strategy }, cancellation);
+		}
+
+		public void SubscribeToBlocks(Uri uri, CancellationToken cancellation = default(CancellationToken))
+		{
+			SubscribeToBlocksAsync(uri, cancellation).GetAwaiter().GetResult();
+		}
+
+		public Task SubscribeToBlocksAsync(Uri uri, CancellationToken cancellation = default(CancellationToken))
+		{
+			return SendAsync<string>(HttpMethod.Post, new SubscribeToBlockRequest() { Callback = uri }, "v1/subscriptions/blocks", null, cancellation);
+		}
+
 		public BroadcastResult Broadcast(Transaction tx, CancellationToken cancellation = default(CancellationToken))
 		{
 			return BroadcastAsync(tx, cancellation).GetAwaiter().GetResult();

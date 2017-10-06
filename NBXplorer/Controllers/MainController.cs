@@ -88,6 +88,23 @@ namespace NBXplorer.Controllers
 			};
 		}
 
+		[HttpPost]
+		[Route("subscriptions/blocks")]
+		public Task SubscribeToBlocks([FromBody]SubscribeToBlockRequest req)
+		{
+			return Runtime.Repository.AddBlockCallback(req.Callback);
+		}
+
+		[HttpPost]
+		[Route("addresses/{strategy}/subscriptions")]
+		public Task SubscribeToWallet(
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase strategy,
+			[FromBody]SubscribeToWalletRequest req)
+		{
+			return Runtime.Repository.AddCallback(strategy, req.Callback);
+		}
+
 		[HttpGet]
 		[Route("addresses/{strategy}/unused")]
 		public async Task<KeyPathInformation> GetUnusedAddress(

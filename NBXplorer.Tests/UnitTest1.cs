@@ -15,6 +15,7 @@ using System.Diagnostics;
 using NBXplorer.Models;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
+using System.IO;
 
 namespace NBXplorer.Tests
 {
@@ -33,6 +34,18 @@ namespace NBXplorer.Tests
 				tester.Repository.Track(pubKey);
 				RepositoryCanTrackAddresses(tester);
 
+			}
+		}
+
+		[Fact]
+		public void RepositoryCanTrackCallbacks()
+		{
+			using(var tester = RepositoryTester.Create(true))
+			{
+				tester.Repository.AddBlockCallback(new Uri("http://toto/")).GetAwaiter().GetResult();
+				tester.Repository.AddBlockCallback(new Uri("http://toto1/")).GetAwaiter().GetResult();
+				var uris = tester.Repository.GetBlockCallbacks().GetAwaiter().GetResult();
+				Assert.Equal(2, uris.Length);
 			}
 		}
 
@@ -168,6 +181,33 @@ namespace NBXplorer.Tests
 				Assert.Equal(a1.ScriptPubKey, bob.Root.Derive(new KeyPath("0/1")).PubKey.Hash.ScriptPubKey);
 				a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
 				Assert.Equal(a2.ScriptPubKey, bob.Root.Derive(new KeyPath("0/3")).PubKey.Hash.ScriptPubKey);
+			}
+		}
+
+		[Fact]
+		public void CanUseCallbacks()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				using(var server = new CustomServer())
+				{
+					tester.Client.Track(pubKey);
+					tester.Client.SubscribeToBlocks(server.GetUri());
+					tester.Explorer.CreateRPCClient().Generate(1);
+					server.ProcessNextRequest(ctx =>
+					{
+						//Just make sure it is called.
+					});
+
+					tester.Client.SubscribeToWallet(server.GetUri(), pubKey);
+					tester.Explorer.CreateRPCClient().SendToAddress(tester.Client.GetUnused(pubKey, DerivationFeature.Deposit).ScriptPubKey.GetDestinationAddress(Network.RegTest), Money.Coins(3));
+					server.ProcessNextRequest(ctx =>
+					{
+						var json = new StreamReader(ctx.Request.Body).ReadToEnd();
+						var match = new Serializer(Network.RegTest).ToObject<TransactionMatch>(json);
+						Assert.Equal(1, match.Outputs.Count);
+					});
+				}
 			}
 		}
 

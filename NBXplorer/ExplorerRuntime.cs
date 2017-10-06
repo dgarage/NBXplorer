@@ -119,7 +119,7 @@ namespace NBXplorer
 			}
 			Authorizations = auth;
 
-
+			CallbackInvoker = new CallbackInvoker(configuration.CreateSerializer(), Repository);
 			StartNodeListener(configuration.StartHeight);
 		}
 
@@ -169,7 +169,7 @@ namespace NBXplorer
 						PeersToDiscover = 1,
 						Mode = AddressManagerBehaviorMode.None
 					},
-					new ExplorerBehavior(this, chain) { StartHeight = startHeight },
+					new ExplorerBehavior(Repository, chain, CallbackInvoker) { StartHeight = startHeight },
 					new ChainBehavior(chain)
 					{
 						CanRespondToGetHeaders = false
@@ -198,6 +198,10 @@ namespace NBXplorer
 			set;
 		}
 		public RPCAuthorization Authorizations
+		{
+			get;
+		}
+		public CallbackInvoker CallbackInvoker
 		{
 			get;
 		}

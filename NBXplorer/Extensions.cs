@@ -14,11 +14,20 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Configuration;
 using NBXplorer.DerivationStrategy;
 using NBitcoin.Crypto;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
 	public static class Extensions
 	{
+		internal static InsertTransaction CreateInsertTransaction(this TransactionMatch match, uint256 blockHash)
+		{
+			return new InsertTransaction()
+			{
+				DerivationStrategy = match.DerivationStrategy,
+				TrackedTransaction = new TrackedTransaction() { Transaction = match.Transaction, BlockHash = blockHash }
+			};
+		}
 		internal static uint160 GetHash(this DerivationStrategyBase derivation)
 		{
 			var data = Encoding.UTF8.GetBytes(derivation.ToString());
@@ -33,6 +42,8 @@ namespace NBXplorer
 				mvc.Filters.Add(new NBXplorerExceptionFilter());
 			});
 
+			services.TryAddSingleton<CallbackInvoker>(o => o.GetRequiredService<ExplorerRuntime>().CallbackInvoker);
+			services.TryAddSingleton<Repository>(o => o.GetRequiredService<ExplorerRuntime>().Repository);
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 			services.AddSingleton<ExplorerRuntime>(o =>
 			{

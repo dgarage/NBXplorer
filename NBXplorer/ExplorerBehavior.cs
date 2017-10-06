@@ -13,23 +13,36 @@ using System.Threading.Tasks;
 using NBitcoin.Crypto;
 using Completion = System.Threading.Tasks.TaskCompletionSource<bool>;
 using NBXplorer.DerivationStrategy;
+using System.Net.Http;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
-		public ExplorerBehavior(ExplorerRuntime runtime, ConcurrentChain chain)
+		public ExplorerBehavior(Repository repo, ConcurrentChain chain, CallbackInvoker callbacks)
 		{
-			if(runtime == null)
-				throw new ArgumentNullException("runtime");
+			if(repo == null)
+				throw new ArgumentNullException(nameof(repo));
 			if(chain == null)
 				throw new ArgumentNullException(nameof(chain));
 			_Chain = chain;
-			_Runtime = runtime;
+			_Repository = repo;
+			_Callbacks = callbacks;
 		}
 
+		Repository Repository
+		{
+			get
+			{
+				return _Repository;
+			}
+		}
+		CallbackInvoker _Callbacks;
 
 		private readonly ConcurrentChain _Chain;
+		private readonly Repository _Repository;
+
 		public ConcurrentChain Chain
 		{
 			get
@@ -37,16 +50,6 @@ namespace NBXplorer
 				return _Chain;
 			}
 		}
-
-		private readonly ExplorerRuntime _Runtime;
-		public ExplorerRuntime Runtime
-		{
-			get
-			{
-				return _Runtime;
-			}
-		}
-
 		public int StartHeight
 		{
 			get;
@@ -55,7 +58,7 @@ namespace NBXplorer
 
 		public override object Clone()
 		{
-			return new ExplorerBehavior(Runtime, _Chain) { StartHeight = StartHeight };
+			return new ExplorerBehavior(_Repository, _Chain, _Callbacks) { StartHeight = StartHeight };
 		}
 
 		Timer _Timer;
@@ -64,7 +67,7 @@ namespace NBXplorer
 		{
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
-			_CurrentLocation = Runtime.Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
+			_CurrentLocation = Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
 			Logs.Explorer.LogInformation("Starting scan at block " + Chain.FindFork(_CurrentLocation).Height);
 			_Timer = new Timer(Tick, null, 0, 30);
 		}
@@ -204,49 +207,29 @@ namespace NBXplorer
 				Download o;
 				if(_InFlights.ContainsKey(block.Object.GetHash()))
 				{
-					var blockHeader = Runtime.Chain.GetBlock(block.Object.GetHash());
+					var blockHeader = Chain.GetBlock(block.Object.GetHash());
 					if(blockHeader == null)
 						return;
 					var currentLocation = blockHeader.GetLocator();
 					_CurrentLocation = currentLocation;
 					if(_InFlights.TryRemove(block.Object.GetHash(), out o))
 					{
-						var pubKeys = new HashSet<DerivationStrategyBase>();
 						foreach(var tx in block.Object.Transactions)
 							tx.CacheHashes();
 
+						var matches =
+							block.Object.Transactions
+							.SelectMany(tx => GetMatches(tx))
+							.ToArray();
 
-						List<InsertTransaction> trackedTransactions = new List<InsertTransaction>();
-						foreach(var tx in block.Object.Transactions)
-						{
-							var pubKeys2 = GetInterestedWallets(tx);
-							foreach(var pubkey in pubKeys2)
-							{
-								pubKeys.Add(pubkey);
-								trackedTransactions.Add(
-									new InsertTransaction()
-									{
-										DerivationStrategy = pubkey,
-										TrackedTransaction = new TrackedTransaction()
-										{
-											BlockHash = block.Object.GetHash(),
-											Transaction = tx
-										}
-									});
-							}
-						}
-						Runtime.Repository.InsertTransactions(trackedTransactions.ToArray());
-						Runtime.Repository.SaveTransactions(trackedTransactions.Select(t => t.TrackedTransaction.Transaction).ToArray(), block.Object.GetHash());
-
+						var blockHash = block.Object.GetHash();
+						SaveMatches(matches, blockHash);
+						if(!IsSynching())
+							_Callbacks.SendCallbacks(blockHash);
 						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
-						if(!IsSynching() || block.Object.GetHash().GetLow32() % 100 == 0)
-							Runtime.Repository.SetIndexProgress(currentLocation);
-						Logs.Explorer.LogInformation($"Processed block {block.Object.GetHash()}");
-
-						foreach(var pubkey in pubKeys)
-						{
-							Notify(pubkey, false);
-						}
+						if(!IsSynching() || blockHash.GetLow32() % 100 == 0)
+							Repository.SetIndexProgress(currentLocation);
+						Logs.Explorer.LogInformation($"Processed block {blockHash}");
 					}
 					if(_InFlights.Count == 0)
 						AskBlocks();
@@ -255,29 +238,29 @@ namespace NBXplorer
 
 			message.Message.IfPayloadIs<TxPayload>(txPayload =>
 			{
-				var pubKeys = GetInterestedWallets(txPayload.Object);
-				var insertedTransactions = new List<InsertTransaction>();
-				foreach(var pubkey in pubKeys)
-				{
-					insertedTransactions.Add(
-						new InsertTransaction()
-						{
-							DerivationStrategy = pubkey,
-							TrackedTransaction = new TrackedTransaction()
-							{
-								Transaction = txPayload.Object
-							}
-						});
-				}
-				Runtime.Repository.InsertTransactions(insertedTransactions.ToArray());
-				Runtime.Repository.SaveTransactions(insertedTransactions.Select(t => t.TrackedTransaction.Transaction).ToArray(), null);
-
-				foreach(var pubkey in pubKeys)
-				{
-					Notify(pubkey, true);
-				}
+				var matches = GetMatches(txPayload.Object).ToArray();
+				SaveMatches(matches, null);
 			});
 
+		}
+
+		private void SaveMatches(TransactionMatch[] matches, uint256 h)
+		{
+			MarkAsUsed(matches);
+			Repository.SaveMatches(matches.Select(m => m.CreateInsertTransaction(h)).ToArray());
+			Repository.SaveTransactions(matches.Select(m => m.Transaction).Distinct().ToArray(), h);
+
+			foreach(var match in matches)
+			{
+				Notify(match, false);
+			}
+			if(!IsSynching())
+				_Callbacks.SendCallbacks(matches);
+		}
+
+		private void MarkAsUsed(TransactionMatch[] matches)
+		{
+			Repository.MarkAsUsedAsync(matches.SelectMany(m => m.Outputs).ToArray()).GetAwaiter().GetResult();
 		}
 
 		private bool IsSynching()
@@ -289,11 +272,11 @@ namespace NBXplorer
 			return Chain.Tip.Height - fork.Height > 10;
 		}
 
-		private void Notify(DerivationStrategyBase pubkey, bool log)
+		private void Notify(TransactionMatch match, bool log)
 		{
 			if(log)
 				Logs.Explorer.LogInformation($"A wallet received money");
-			var key = pubkey.GetHash();
+			var key = match.DerivationStrategy.GetHash();
 			lock(_WaitFor)
 			{
 				IReadOnlyCollection<Completion> completions;
@@ -307,11 +290,11 @@ namespace NBXplorer
 			}
 		}
 
-		private HashSet<DerivationStrategyBase> GetInterestedWallets(Transaction tx)
-		{
-			var pubKeys = new HashSet<DerivationStrategyBase>();
-			tx.CacheHashes();
 
+
+		private IEnumerable<TransactionMatch> GetMatches(Transaction tx)
+		{
+			var matches = new Dictionary<DerivationStrategyBase, TransactionMatch>();
 			HashSet<Script> scripts = new HashSet<Script>();
 			foreach(var input in tx.Inputs)
 			{
@@ -322,18 +305,33 @@ namespace NBXplorer
 				}
 			}
 
+			int scriptPubKeyIndex = scripts.Count;
 			foreach(var output in tx.Outputs)
 			{
 				scripts.Add(output.ScriptPubKey);
 			}
 
-			var keyInformations = Runtime.Repository.GetKeyInformations(scripts.ToArray()).GetAwaiter().GetResult();
-			foreach(var keyInfo in keyInformations.SelectMany(k => k))
+			var keyInformations = Repository.GetKeyInformations(scripts.ToArray()).GetAwaiter().GetResult();
+			for(int scriptIndex = 0; scriptIndex < keyInformations.Length; scriptIndex++)
 			{
-				pubKeys.Add(keyInfo.DerivationStrategy);
+				for(int i = 0; i < keyInformations[scriptIndex].Length; i++)
+				{
+					var keyInfo = keyInformations[scriptIndex][i];
+					if(!matches.TryGetValue(keyInfo.DerivationStrategy, out TransactionMatch match))
+					{
+						match = new TransactionMatch();
+						matches.Add(keyInfo.DerivationStrategy, match);
+						match.DerivationStrategy = keyInfo.DerivationStrategy;
+						match.Transaction = tx;
+					}
+					var isOutput = scriptIndex >= scriptPubKeyIndex;
+					if(isOutput)
+						match.Outputs.Add(keyInfo);
+					else
+						match.Inputs.Add(keyInfo);
+				}
 			}
-			Runtime.Repository.MarkAsUsedAsync(keyInformations.SelectMany(k => k).ToArray());
-			return pubKeys;
+			return matches.Values;
 		}
 
 		private void AttachedNode_StateChanged(Node node, NodeState oldState)
