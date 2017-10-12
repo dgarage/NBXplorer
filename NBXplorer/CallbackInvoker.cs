@@ -62,12 +62,13 @@ namespace NBXplorer
 			}
 		}
 
+		static Encoding Encoding = new UTF8Encoding(false);
 		HttpRequestMessage PrepareRequest(TransactionMatch match, Uri callback)
 		{
 			HttpRequestMessage message = new HttpRequestMessage();
 			message.Method = HttpMethod.Post;
 			message.RequestUri = callback;
-			message.Content = new StringContent(_Serializer.ToString(match), Encoding.UTF8, "application/json");
+			message.Content = new StringContent(_Serializer.ToString(match), Encoding, "application/json");
 			return message;
 		}
 
