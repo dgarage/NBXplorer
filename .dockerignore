@@ -122,3 +122,4 @@ output
 
 .vs
 NBXplorer.Tests/
+**/launchSettings.json
