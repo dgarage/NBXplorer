@@ -20,13 +20,13 @@ If you are using Bitcoin core default settings:
 ```
 git clone https://github.com/dgarage/NBXplorer
 cd NBXplorer/NBXplorer
-dotnet run --no-launch-profile
+dotnet run
 ```
 The first run might take some time to start, where you see nothing appearing. No worries, it is just downloading dependencies and compiling.
 For more options, run the following command:
 
 ```
-dotnet run --no-launch-profile -- --help
+dotnet run -- --help
 ```
 
 ## With Docker
