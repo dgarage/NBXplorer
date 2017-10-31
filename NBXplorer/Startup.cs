@@ -15,16 +15,18 @@ using Microsoft.Net.Http.Headers;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Http.Features;
 using NBXplorer.Filters;
+using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 
 namespace NBXplorer
 {
 	public class Startup
 	{
-		public Startup(IConfiguration conf)
+		public Startup(IConfiguration conf, IHostingEnvironment env)
 		{
 			Configuration = conf;
+			_Env = env;
 		}
-
+		IHostingEnvironment _Env;
 		public IConfiguration Configuration
 		{
 			get;
@@ -37,10 +39,19 @@ namespace NBXplorer
 			services.AddMvcCore()
 				.AddJsonFormatters()
 				.AddFormatterMappings();
+			services.Configure<IOptions<ApplicationInsightsServiceOptions>>(o =>
+			{
+				o.Value.DeveloperMode = _Env.IsDevelopment();
+			});
 		}
 
-		public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
+		public void Configure(IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
 		{
+			if(env.IsDevelopment())
+			{
+				app.UseDeveloperExceptionPage();
+			}
+			loggerFactory.AddApplicationInsights(prov, LogLevel.Information);
 			app.UseNBXplorer();
 			app.UseMvc();
 		}
