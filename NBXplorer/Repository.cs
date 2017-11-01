@@ -1,4 +1,5 @@
 ﻿using DBreeze;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using NBitcoin.Crypto;
@@ -18,6 +19,8 @@ using NBitcoin.DataEncoders;
 using DBreeze.Utils;
 using System.Runtime.Serialization;
 using Newtonsoft.Json;
+using DBreeze.Exceptions;
+using NBXplorer.Logging;
 
 namespace NBXplorer
 {
@@ -116,7 +119,12 @@ namespace NBXplorer
 					}
 				}
 				catch(OperationCanceledException) when(_Cancel.IsCancellationRequested) { }
-				catch(Exception ex) { _Cancel.Cancel(); _UnhandledException = ex; }
+				catch(Exception ex)
+				{
+					_Cancel.Cancel();
+					_UnhandledException = ex;
+					Logs.Explorer.LogError(ex, "Unexpected exception thrown by Repository");
+				}
 				if(Interlocked.Increment(ref _ExitedCount) == _Threads.Length)
 				{
 					foreach(var action in _Actions)
@@ -139,53 +147,139 @@ namespace NBXplorer
 		}
 		class EngineAccessor : IDisposable
 		{
-			private DBreezeEngine engine;
+			private DBreezeEngine _Engine;
 			private CustomThreadPool _Pool;
-			public EngineAccessor(DBreezeEngine engine)
+			string directory;
+			public EngineAccessor(string directory)
 			{
-				this.engine = engine;
+				this.directory = directory;
 				_Pool = new CustomThreadPool(1, "Repository");
-				_Pool.Do(() => _Tx = engine.GetTransaction());
+				RenewEngine();
+			}
+
+			private void RenewEngine()
+			{
+				_Pool.Do(() =>
+				{
+					DisposeEngine();
+					_Engine = new DBreezeEngine(directory);
+					_Tx = _Engine.GetTransaction();
+				});
+			}
+
+			private void DisposeEngine()
+			{
+				if(_Tx != null)
+				{
+					try
+					{
+						_Tx.Dispose();
+					}
+					catch { }
+					_Tx = null;
+				}
+				if(_Engine != null)
+				{
+					try
+					{
+						_Engine.Dispose();
+					}
+					catch { }
+					_Engine = null;
+				}
 			}
 
 			DBreeze.Transactions.Transaction _Tx;
 			public void Do(Action<DBreeze.Transactions.Transaction> act)
 			{
+				AssertNotDisposed();
 				_Pool.Do(() =>
 				{
-					act(_Tx);
+					AssertNotDisposed();
+					RetryIfFailed(() =>
+					{
+						act(_Tx);
+					});
 				});
+			}
+
+			void RetryIfFailed(Action act)
+			{
+				try
+				{
+					act();
+				}
+				catch(DBreezeException ex)
+				{
+					Logs.Explorer.LogError(ex, "Unexpected DBreeze error");
+					RenewEngine();
+					act();
+				}
+			}
+
+			T RetryIfFailed<T>(Func<T> act)
+			{
+				try
+				{
+					return act();
+				}
+				catch(DBreezeException)
+				{
+					RenewEngine();
+					return act();
+				}
 			}
 
 			public Task DoAsync(Action<DBreeze.Transactions.Transaction> act)
 			{
+				AssertNotDisposed();
 				return _Pool.DoAsync(() =>
 				{
-					act(_Tx);
+					AssertNotDisposed();
+					RetryIfFailed(() =>
+					{
+						act(_Tx);
+					});
 				});
 			}
 
 			public Task<T> DoAsync<T>(Func<DBreeze.Transactions.Transaction, T> act)
 			{
+				AssertNotDisposed();
 				return _Pool.DoAsync(() =>
 				{
-					return act(_Tx);
+					AssertNotDisposed();
+					return RetryIfFailed(() =>
+					{
+						return act(_Tx);
+					});
 				});
 			}
 
 			public T Do<T>(Func<DBreeze.Transactions.Transaction, T> act)
 			{
+				AssertNotDisposed();
 				return _Pool.Do<T>(() =>
 				{
-					return act(_Tx);
+					AssertNotDisposed();
+					return RetryIfFailed(() =>
+					{
+						return act(_Tx);
+					});
 				});
 			}
 
+			void AssertNotDisposed()
+			{
+				if(_Disposed)
+					throw new ObjectDisposedException("EngineAccessor");
+			}
+			bool _Disposed;
 			public void Dispose()
 			{
-				var unused = _Pool.DoAsync(() => _Tx?.Dispose());
+				_Disposed = true;
+				var unused = _Pool.DoAsync(() => DisposeEngine());
 				_Pool.Dispose();
-				engine.Dispose();
 			}
 		}
 
@@ -321,7 +415,7 @@ namespace NBXplorer
 				Directory.CreateDirectory(directory);
 
 			Serializer = serializer;
-			_Engine = new EngineAccessor(new DBreezeEngine(directory));
+			_Engine = new EngineAccessor(directory);
 		}
 		public BlockLocator GetIndexProgress()
 		{
