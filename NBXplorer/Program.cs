@@ -37,6 +37,12 @@ namespace NBXplorer
 					.UseKestrel()
 					.UseIISIntegration()
 					.UseConfiguration(conf)
+					.UseApplicationInsights()
+					.ConfigureLogging(l =>
+					{
+						l.AddFilter("Microsoft", LogLevel.Error);
+						l.AddProvider(new CustomConsoleLogProvider());
+					})
 					.UseStartup<Startup>()
 					.Build();
 				host.Run();

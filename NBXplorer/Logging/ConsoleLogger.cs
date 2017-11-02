@@ -10,6 +10,20 @@ using System.Threading.Tasks;
 
 namespace NBXplorer.Logging
 {
+	public class CustomConsoleLogProvider : ILoggerProvider
+	{
+		ConsoleLoggerProcessor _Processor = new ConsoleLoggerProcessor();
+		public ILogger CreateLogger(string categoryName)
+		{
+			return new CustomConsoleLogger(categoryName, (a, b) => true, false, _Processor);
+		}
+
+		public void Dispose()
+		{
+
+		}
+	}
+
 	/// <summary>
 	/// A variant of ASP.NET Core ConsoleLogger which does not make new line for the category
 	/// </summary>
