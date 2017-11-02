@@ -209,7 +209,7 @@ namespace NBXplorer
 				{
 					act();
 				}
-				catch(DBreezeException ex)
+				catch(Exception ex)
 				{
 					Logs.Explorer.LogError(ex, "Unexpected DBreeze error");
 					RenewEngine();
