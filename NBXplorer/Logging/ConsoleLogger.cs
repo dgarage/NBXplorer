@@ -15,7 +15,7 @@ namespace NBXplorer.Logging
 		ConsoleLoggerProcessor _Processor = new ConsoleLoggerProcessor();
 		public ILogger CreateLogger(string categoryName)
 		{
-			return new CustomConsoleLogger(categoryName, (a, b) => true, false, _Processor);
+			return new CustomerConsoleLogger(categoryName, (a, b) => true, false, _Processor);
 		}
 
 		public void Dispose()
