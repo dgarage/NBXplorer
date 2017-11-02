@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     
-    <PackageReference Include="NBitcoin" Version="4.0.0.38" />
+    <PackageReference Include="NBitcoin" Version="4.0.0.40" />
     <PackageReference Include="NBitcoin.TestFramework" Version="1.4.4" />
 	  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.3.0-preview-20170628-02" />
 	  <PackageReference Include="xunit" Version="2.2.0" />

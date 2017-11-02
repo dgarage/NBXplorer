@@ -5,7 +5,7 @@
     <Version>1.0.0.20</Version>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NBitcoin" Version="4.0.0.38" />
+    <PackageReference Include="NBitcoin" Version="4.0.0.40" />
 	<PackageReference Include="DBreeze" Version="1.87.0" />
 	<PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.0" />
 	<PackageReference Include="NicolasDorier.CommandLine" Version="1.0.0.1" />
