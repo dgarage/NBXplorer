@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Microsoft.Extensions.Logging;
 using NBXplorer.Configuration;
 using Microsoft.AspNetCore.Hosting;
 using NBitcoin;
@@ -37,11 +38,6 @@ namespace NBXplorer.Tests
 			{
 				Host.Dispose();
 				Host = null;
-			}
-			if(Runtime != null)
-			{
-				Runtime.Dispose();
-				Runtime = null;
 			}
 			if(NodeBuilder != null)
 			{
@@ -110,11 +106,12 @@ namespace NBXplorer.Tests
 					.UseKestrel()
 					.UseStartup<Startup>()
 					.Build();
-				Runtime = (ExplorerRuntime)Host.Services.GetService(typeof(ExplorerRuntime));
+				RPC = (RPCClient)Host.Services.GetService(typeof(RPCClient));
+				Network = (Network)Host.Services.GetService(typeof(Network));
 				var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 				Host.Start();
 
-				_Client = new ExplorerClient(Runtime.Network, Address);
+				_Client = new ExplorerClient(Network, Address);
 				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
 			}
 			catch
@@ -199,11 +196,7 @@ namespace NBXplorer.Tests
 			get; set;
 		}
 
-		public ExplorerRuntime Runtime
-		{
-			get; set;
-		}
-
+		
 		public IWebHost Host
 		{
 			get; set;
@@ -215,6 +208,17 @@ namespace NBXplorer.Tests
 			{
 				return _Directory;
 			}
+		}
+
+		public RPCClient RPC
+		{
+			get; set;
+		}
+
+		public Network Network
+		{
+			get;
+			internal set;
 		}
 
 		private static bool TryDelete(string directory, bool throws)
@@ -258,7 +262,7 @@ namespace NBXplorer.Tests
 					System.Diagnostics.Debug.WriteLine("Gnomes prevent deletion of {0}! Applying magic dust, attempt #{1}.", destinationDir, gnomes);
 
 					// see http://stackoverflow.com/questions/329355/cannot-delete-directory-with-directory-deletepath-true for more magic
-					Thread.Sleep(100);
+					Thread.Sleep(100 * gnomes);
 					continue;
 				}
 				catch(UnauthorizedAccessException)

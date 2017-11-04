@@ -87,6 +87,12 @@ namespace NBXplorer.Configuration
 			if(NoTest)
 				return rpcClient;
 
+			TestRPCAsync(network, rpcClient).GetAwaiter().GetResult();
+			return rpcClient;
+		}
+
+		public static async Task TestRPCAsync(Network network, RPCClient rpcClient)
+		{
 			Logs.Configuration.LogInformation("Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
 			try
 			{
@@ -98,7 +104,7 @@ namespace NBXplorer.Configuration
 					try
 					{
 
-						var isValid = ((JObject)rpcClient.SendCommand("validateaddress", address.ToString()).Result)["isvalid"].Value<bool>();
+						var isValid = ((JObject)(await rpcClient.SendCommandAsync("validateaddress", address.ToString())).Result)["isvalid"].Value<bool>();
 						if(!isValid)
 						{
 							Logs.Configuration.LogError("The RPC Server is on a different blockchain than the one configured for tumbling");
@@ -129,7 +135,7 @@ namespace NBXplorer.Configuration
 			}
 			Logs.Configuration.LogInformation("RPC connection successfull");
 
-			var getInfo = rpcClient.SendCommand(RPCOperations.getinfo);
+			var getInfo = await rpcClient.SendCommandAsync(RPCOperations.getinfo);
 			var version = ((JObject)getInfo.Result)["version"].Value<int>();
 			if(version < MIN_CORE_VERSION)
 			{
@@ -137,10 +143,9 @@ namespace NBXplorer.Configuration
 				throw new ConfigException();
 			}
 			Logs.Configuration.LogInformation($"Bitcoin version detected: {version}");
-			return rpcClient;
 		}
 
-		private bool IsTransient(RPCException ex)
+		private static bool IsTransient(RPCException ex)
 		{
 			return ex.Message.Contains("Loading wallet...") || 
 				   ex.Message.Contains("Loading block index...") ||

@@ -277,10 +277,20 @@ namespace NBXplorer
 			bool _Disposed;
 			public void Dispose()
 			{
-				_Disposed = true;
-				var unused = _Pool.DoAsync(() => DisposeEngine());
-				_Pool.Dispose();
+				if(!_Disposed)
+				{
+					_Disposed = true;
+					_Pool.DoAsync(() => DisposeEngine()).GetAwaiter().GetResult();
+					_Pool.Dispose();
+				}
 			}
+		}
+
+		public Task PingAsync()
+		{
+			return _Engine.DoAsync((tx) =>
+			{
+			});
 		}
 
 		public Task CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)

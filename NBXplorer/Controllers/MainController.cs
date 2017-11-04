@@ -61,13 +61,38 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		public MainController(ExplorerRuntime runtime)
+		public MainController(RPCClient rpcClient, Repository repository, ConcurrentChain chain, ChainEvents events, NBxplorerInitializer initializer)
 		{
-			if(runtime == null)
-				throw new ArgumentNullException("runtime");
-			Runtime = runtime;
+			if(rpcClient == null)
+				throw new ArgumentNullException("rpcClient");
+			RPC = rpcClient;
+			Repository = repository;
+			Chain = chain;
+			Events = events;
+			Initializer = initializer;
 		}
-		public ExplorerRuntime Runtime
+
+		public NBxplorerInitializer Initializer
+		{
+			get; set;
+		}
+
+		public ChainEvents Events
+		{
+			get; set;
+		}
+
+		public ConcurrentChain Chain
+		{
+			get; set;
+		}
+
+		public Repository Repository
+		{
+			get; set;
+		}
+
+		public RPCClient RPC
 		{
 			get; set;
 		}
@@ -76,7 +101,7 @@ namespace NBXplorer.Controllers
 		[Route("fees/{blockCount}")]
 		public async Task<GetFeeRateResult> GetFeeRate(int blockCount)
 		{
-			var result = await Runtime.RPC.SendCommandAsync("estimatesmartfee", blockCount);
+			var result = await RPC.SendCommandAsync("estimatesmartfee", blockCount);
 			var feeRateProperty = ((JObject)result.Result).Property("feeRate");
 			var rate = feeRateProperty == null ? (decimal)-1 : ((JObject)result.Result)["feerate"].Value<decimal>();
 			if(rate == -1)
@@ -92,7 +117,7 @@ namespace NBXplorer.Controllers
 		[Route("subscriptions/blocks")]
 		public Task SubscribeToBlocks([FromBody]SubscribeToBlockRequest req)
 		{
-			return Runtime.Repository.AddBlockCallback(req.Callback);
+			return Repository.AddBlockCallback(req.Callback);
 		}
 
 		[HttpPost]
@@ -102,7 +127,7 @@ namespace NBXplorer.Controllers
 			DerivationStrategyBase strategy,
 			[FromBody]SubscribeToWalletRequest req)
 		{
-			return Runtime.Repository.AddCallback(strategy, req.Callback);
+			return Repository.AddCallback(strategy, req.Callback);
 		}
 
 		[HttpGet]
@@ -115,7 +140,7 @@ namespace NBXplorer.Controllers
 				throw new ArgumentNullException(nameof(strategy));
 			try
 			{
-				var result = await Runtime.Repository.GetUnused(strategy, feature, skip, reserve);
+				var result = await Repository.GetUnused(strategy, feature, skip, reserve);
 				if(result == null)
 					throw new NBXplorerError(404, "strategy-not-found", $"This strategy is not tracked, or you tried to skip too much unused addresses").AsException();
 				return result;
@@ -131,15 +156,21 @@ namespace NBXplorer.Controllers
 		public Task CancelReservation([ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths)
 		{
-			return Runtime.Repository.CancelReservation(strategy, keyPaths);
+			return Repository.CancelReservation(strategy, keyPaths);
 		}
 
-
 		[HttpGet]
-		[Route("ping")]
-		public IActionResult Ping()
+		[Route("status")]
+		public async Task<IActionResult> Status()
 		{
-			return Json("pong");
+			var now = DateTimeOffset.UtcNow;
+			await Repository.PingAsync();
+			return Json(new StatusResult()
+			{
+				ChainHeight = Chain.Height,
+				Connected = Initializer.Connected,
+				RepositoryPingTime = (DateTimeOffset.UtcNow - now).TotalSeconds
+			});
 		}
 
 		[HttpGet]
@@ -148,7 +179,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId)
 		{
-			var result = Runtime.Repository.GetSavedTransactions(txId);
+			var result = Repository.GetSavedTransactions(txId);
 			if(result.Length == 0)
 				return NotFound();
 
@@ -156,11 +187,11 @@ namespace NBXplorer.Controllers
 
 			var confBlock = result
 						.Where(r => r.BlockHash != null)
-						.Select(r => Runtime.Chain.GetBlock(r.BlockHash))
+						.Select(r => Chain.GetBlock(r.BlockHash))
 						.Where(r => r != null)
 						.FirstOrDefault();
 
-			var conf = confBlock == null ? 0 : Runtime.Chain.Tip.Height - confBlock.Height + 1;
+			var conf = confBlock == null ? 0 : Chain.Tip.Height - confBlock.Height + 1;
 
 			return new FileContentResult(new TransactionResult() { Confirmations = conf, Transaction = tx }.ToBytes(), "application/octet-stream");
 		}
@@ -173,7 +204,7 @@ namespace NBXplorer.Controllers
 		{
 			if(derivationStrategy == null)
 				return Task.FromResult(NotFound());
-			return Runtime.Repository.TrackAsync(derivationStrategy);
+			return Repository.TrackAsync(derivationStrategy);
 		}
 
 		[HttpGet]
@@ -198,7 +229,7 @@ namespace NBXplorer.Controllers
 			while(true)
 			{
 				changes = new UTXOChanges();
-				changes.CurrentHeight = Runtime.Chain.Height;
+				changes.CurrentHeight = Chain.Height;
 				var transactions = GetAnnotatedTransactions(extPubKey);
 
 				var unconf = transactions.Where(tx => tx.Height == MempoolHeight);
@@ -220,7 +251,7 @@ namespace NBXplorer.Controllers
 				if(conflicted.Count != 0)
 				{
 					Logs.Explorer.LogInformation($"Clean {conflicted.Count} conflicted transactions");
-					Runtime.Repository.CleanTransactions(extPubKey, conflicted);
+					Repository.CleanTransactions(extPubKey, conflicted);
 				}
 
 				changes.Confirmed = SetUTXOChange(states.Confirmed);
@@ -283,7 +314,7 @@ namespace NBXplorer.Controllers
 
 		private AnnotatedTransactionCollection GetAnnotatedTransactions(DerivationStrategyBase extPubKey)
 		{
-			return new AnnotatedTransactionCollection(Runtime.Repository
+			return new AnnotatedTransactionCollection(Repository
 									.GetTransactions(extPubKey)
 									.Select(t =>
 									new AnnotatedTransaction
@@ -311,15 +342,11 @@ namespace NBXplorer.Controllers
 
 			try
 			{
-				if(!await Runtime.WaitFor(extPubKey, cts.Token))
-				{
-					return false;
-				}
+				await Events.WaitFor(extPubKey, cts.Token);
+				return true;
 			}
 			catch(OperationCanceledException) { return false; }
-			return true;
 		}
-
 
 		private Func<Script[], bool[]> MatchKeyPaths(Func<Script[], KeyPath[]> getKeyPaths)
 		{
@@ -338,7 +365,7 @@ namespace NBXplorer.Controllers
 				}
 
 				var needFetch = scripts.Where((r, i) => result[i] == null).ToArray();
-				var fetched = Runtime.Repository.GetKeyInformations(needFetch).GetAwaiter().GetResult();
+				var fetched = Repository.GetKeyInformations(needFetch).GetAwaiter().GetResult();
 				for(int i = 0; i < fetched.Length; i++)
 				{
 					var keyInfos = fetched[i];
@@ -369,7 +396,7 @@ namespace NBXplorer.Controllers
 		{
 			if(blockHash == null)
 				return MempoolHeight;
-			var header = Runtime.Chain.GetBlock(blockHash);
+			var header = Chain.GetBlock(blockHash);
 			return header == null ? OrphanHeight : header.Height;
 		}
 
@@ -385,7 +412,7 @@ namespace NBXplorer.Controllers
 			RPCException rpcEx = null;
 			try
 			{
-				await Runtime.RPC.SendRawTransactionAsync(tx);
+				await RPC.SendRawTransactionAsync(tx);
 				return new BroadcastResult(true);
 			}
 			catch(RPCException ex)
@@ -401,7 +428,7 @@ namespace NBXplorer.Controllers
 					{
 						try
 						{
-							await Runtime.RPC.SendRawTransactionAsync(existing.Record.Transaction);
+							await RPC.SendRawTransactionAsync(existing.Record.Transaction);
 						}
 						catch { }
 					}
@@ -409,7 +436,7 @@ namespace NBXplorer.Controllers
 					try
 					{
 
-						await Runtime.RPC.SendRawTransactionAsync(tx);
+						await RPC.SendRawTransactionAsync(tx);
 						Logs.Explorer.LogInformation($"Broadcast success");
 						return new BroadcastResult(true);
 					}

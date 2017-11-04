@@ -11,7 +11,6 @@ using System.Threading;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using NBitcoin.Crypto;
-using Completion = System.Threading.Tasks.TaskCompletionSource<bool>;
 using NBXplorer.DerivationStrategy;
 using System.Net.Http;
 using NBXplorer.Models;
@@ -20,7 +19,7 @@ namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
-		public ExplorerBehavior(Repository repo, ConcurrentChain chain, CallbackInvoker callbacks)
+		public ExplorerBehavior(Repository repo, ConcurrentChain chain, CallbackInvoker callbacks, ChainEvents events)
 		{
 			if(repo == null)
 				throw new ArgumentNullException(nameof(repo));
@@ -29,7 +28,10 @@ namespace NBXplorer
 			_Chain = chain;
 			_Repository = repo;
 			_Callbacks = callbacks;
+			_Events = events;
 		}
+
+		ChainEvents _Events;
 
 		Repository Repository
 		{
@@ -58,7 +60,7 @@ namespace NBXplorer
 
 		public override object Clone()
 		{
-			return new ExplorerBehavior(_Repository, _Chain, _Callbacks) { StartHeight = StartHeight };
+			return new ExplorerBehavior(_Repository, _Chain, _Callbacks, _Events) { StartHeight = StartHeight };
 		}
 
 		Timer _Timer;
@@ -81,36 +83,7 @@ namespace NBXplorer
 				new BlockLocator() { Blocks = new List<uint256>() { Chain.GetBlock(StartHeight).HashBlock } };
 		}
 
-		public async Task WaitFor(DerivationStrategyBase pubKey, CancellationToken cancellation = default(CancellationToken))
-		{
-			TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>();
 
-			var key = pubKey.GetHash();
-
-			lock(_WaitFor)
-			{
-				_WaitFor.Add(key, completion);
-			}
-
-			cancellation.Register(() =>
-			{
-				completion.TrySetCanceled();
-			});
-
-			try
-			{
-				await completion.Task;
-			}
-			finally
-			{
-				lock(_WaitFor)
-				{
-					_WaitFor.Remove(key, completion);
-				}
-			}
-		}
-
-		MultiValueDictionary<uint160, Completion> _WaitFor = new MultiValueDictionary<uint160, Completion>();
 
 		public void AskBlocks()
 		{
@@ -214,6 +187,10 @@ namespace NBXplorer
 					_CurrentLocation = currentLocation;
 					if(_InFlights.TryRemove(block.Object.GetHash(), out o))
 					{
+						if(!IsSynching())
+						{
+							var unused = _Callbacks.SendCallbacks(block.Object.GetHash());
+						}
 						foreach(var tx in block.Object.Transactions)
 							tx.CacheHashes();
 
@@ -225,7 +202,9 @@ namespace NBXplorer
 						var blockHash = block.Object.GetHash();
 						SaveMatches(matches, blockHash);
 						if(!IsSynching())
-							_Callbacks.SendCallbacks(blockHash);
+						{
+							var unused = _Callbacks.SendCallbacks(matches);
+						}
 						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 						if(!IsSynching() || blockHash.GetLow32() % 100 == 0)
 							Repository.SetIndexProgress(currentLocation);
@@ -252,10 +231,12 @@ namespace NBXplorer
 
 			foreach(var match in matches)
 			{
-				Notify(match, false);
+				_Events.Notify(match, false);
 			}
 			if(!IsSynching())
-				_Callbacks.SendCallbacks(matches);
+			{
+				var unused = _Callbacks.SendCallbacks(matches);
+			}
 		}
 
 		private void MarkAsUsed(TransactionMatch[] matches)
@@ -271,26 +252,6 @@ namespace NBXplorer
 			var fork = Chain.FindFork(location);
 			return Chain.Tip.Height - fork.Height > 10;
 		}
-
-		private void Notify(TransactionMatch match, bool log)
-		{
-			if(log)
-				Logs.Explorer.LogInformation($"A wallet received money");
-			var key = match.DerivationStrategy.GetHash();
-			lock(_WaitFor)
-			{
-				IReadOnlyCollection<Completion> completions;
-				if(_WaitFor.TryGetValue(key, out completions))
-				{
-					foreach(var completion in completions.ToList())
-					{
-						completion.TrySetResult(true);
-					}
-				}
-			}
-		}
-
-
 
 		private IEnumerable<TransactionMatch> GetMatches(Transaction tx)
 		{

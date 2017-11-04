@@ -155,8 +155,8 @@ namespace NBXplorer
 				try
 				{
 
-					var pong = await SendAsync<string>(HttpMethod.Get, null, "v1/ping", null, cancellation).ConfigureAwait(false);
-					if(pong.Equals("pong", StringComparison.Ordinal))
+					var status = await GetStatusAsync().ConfigureAwait(false);
+					if(status.Connected)
 						break;
 				}
 				catch(OperationCanceledException) { throw; }
@@ -183,6 +183,16 @@ namespace NBXplorer
 		public Task CancelReservationAsync(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default(CancellationToken))
 		{
 			return SendAsync<string>(HttpMethod.Post, keyPaths, "v1/addresses/{0}/cancelreservation", new[] { strategy.ToString() }, cancellation);
+		}
+
+		public StatusResult GetStatus(CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetStatusAsync(cancellation).GetAwaiter().GetResult();
+		}
+
+		public Task<StatusResult> GetStatusAsync(CancellationToken cancellation = default(CancellationToken))
+		{
+			return SendAsync<StatusResult>(HttpMethod.Get, null, "v1/status", null, cancellation);
 		}
 
 		public KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))

@@ -87,10 +87,5 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
-
-		public ExplorerRuntime CreateRuntime()
-		{
-			return new ExplorerRuntime(this);
-		}
 	}
 }

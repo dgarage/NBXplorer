@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NBitcoin;
@@ -15,6 +16,10 @@ using Microsoft.Extensions.Configuration;
 using NBXplorer.DerivationStrategy;
 using NBitcoin.Crypto;
 using NBXplorer.Models;
+using System.IO;
+using NBXplorer.Logging;
+using System.Net;
+using NBitcoin.RPC;
 
 namespace NBXplorer
 {
@@ -34,6 +39,19 @@ namespace NBXplorer
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
 		}
 
+
+		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
+		{
+			Serializer _Serializer;
+			public MVCConfigureOptions(Serializer serializer)
+			{
+				_Serializer = serializer;
+			}
+			public void Configure(MvcJsonOptions options)
+			{
+				_Serializer.ConfigureSerializer(options.SerializerSettings);
+			}
+		}
 		public static IServiceCollection AddNBXplorer(this IServiceCollection services)
 		{
 			services.AddSingleton<IObjectModelValidator, NoObjectModelValidator>();
@@ -42,24 +60,55 @@ namespace NBXplorer
 				mvc.Filters.Add(new NBXplorerExceptionFilter());
 			});
 
-			services.TryAddSingleton<CallbackInvoker>(o => o.GetRequiredService<ExplorerRuntime>().CallbackInvoker);
-			services.TryAddSingleton<Repository>(o => o.GetRequiredService<ExplorerRuntime>().Repository);
-			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
-			services.AddSingleton<ExplorerRuntime>(o =>
+			services.AddSingleton<IConfigureOptions<MvcJsonOptions>, MVCConfigureOptions>();
+			services.TryAddSingleton<ConcurrentChain>(o => new ConcurrentChain(o.GetRequiredService<Network>()));
+			services.TryAddSingleton<NetworkInformation>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value.Network);
+			services.TryAddSingleton<Network>(o => o.GetRequiredService<IOptions<NetworkInformation>>().Value.Network);
+
+			services.TryAddSingleton<CallbackInvoker>();
+			services.TryAddSingleton<Repository>(o =>
 			{
-				var c = o.GetRequiredService<IOptions<ExplorerConfiguration>>();
-				return c.Value.CreateRuntime();
+				var configuration = o.GetRequiredService<ExplorerConfiguration>();
+				var dbPath = Path.Combine(configuration.DataDir, "db");
+				var repo = new Repository(configuration.CreateSerializer(), dbPath);
+				if(configuration.Rescan)
+				{
+					Logs.Configuration.LogInformation("Rescanning...");
+					repo.SetIndexProgress(null);
+				}
+				return repo;
 			});
+			services.TryAddSingleton<Serializer>();
+			services.TryAddSingleton<ChainEvents>();
+			services.TryAddSingleton<NBxplorerInitializer>();
+
+			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 
 			services.AddSingleton<Network>(o =>
 			{
 				var c = o.GetRequiredService<ExplorerConfiguration>();
 				return c.Network.Network;
 			});
-			services.AddSingleton<RPCAuthorization>(o =>
+			services.TryAddSingleton<RPCClient>(o =>
 			{
-				var c = o.GetRequiredService<ExplorerRuntime>();
-				return c.Authorizations;
+				var configuration = o.GetRequiredService<ExplorerConfiguration>();
+				configuration.RPC.NoTest = true;
+				return configuration.RPC.ConfigureRPCClient(configuration.Network.Network);
+			});
+			services.TryAddSingleton<RPCAuthorization>(o =>
+			{
+				var configuration = o.GetRequiredService<ExplorerConfiguration>();
+				var cookieFile = Path.Combine(configuration.DataDir, ".cookie");
+				var cookieStr = "__cookie__:" + new uint256(RandomUtils.GetBytes(32));
+				File.WriteAllText(cookieFile, cookieStr);
+				RPCAuthorization auth = new RPCAuthorization();
+				if(!configuration.NoAuthentication)
+				{
+					auth.AllowIp.Add(IPAddress.Parse("127.0.0.1"));
+					auth.AllowIp.Add(IPAddress.Parse("::1"));
+					auth.Authorized.Add(cookieStr);
+				}
+				return auth;
 			});
 			return services;
 		}
@@ -76,9 +125,33 @@ namespace NBXplorer
 		public static IApplicationBuilder UseNBXplorer(this IApplicationBuilder app)
 		{
 			app.UseMiddleware<NBXplorerMiddleware>();
-			var mvcOptions = app.ApplicationServices.GetRequiredService<IOptions<MvcJsonOptions>>().Value;
-			var runtime = app.ApplicationServices.GetRequiredService<ExplorerRuntime>();
-			runtime.CreateSerializer().ConfigureSerializer(mvcOptions.SerializerSettings);
+			var initializer = app.ApplicationServices.GetRequiredService<NBxplorerInitializer>();
+			var webHost = app.ApplicationServices.GetRequiredService<IApplicationLifetime>();
+			var unused = initializer.TestAsync().ContinueWith(_ =>
+			{
+				if(_.Status == System.Threading.Tasks.TaskStatus.Faulted)
+				{
+					Logs.Configuration.LogError(_.Exception, "Connectivity test failed");
+					webHost.StopApplication();
+				}
+				else if(!_.Result)
+				{
+					Logs.Configuration.LogError("Connectivity test failed");
+					webHost.StopApplication();
+				}
+				else
+				{
+					try
+					{
+						initializer.StartAsync().GetAwaiter().GetResult();
+					}
+					catch(Exception ex)
+					{
+						Logs.Configuration.LogError(ex, "Error while starting the initializer");
+						webHost.StopApplication();
+					}
+				}
+			});
 			return app;
 		}
 
