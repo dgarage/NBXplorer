@@ -252,6 +252,13 @@ namespace NBXplorer.Controllers
 				if(conflicted.Count != 0)
 				{
 					Logs.Explorer.LogInformation($"Clean {conflicted.Count} conflicted transactions");
+					if(Logs.Explorer.IsEnabled(LogLevel.Debug))
+					{
+						foreach(var conflict in conflicted)
+						{
+							Logs.Explorer.LogDebug($"Transaction {conflict.Transaction.GetHash()} is conflicted");
+						}
+					}
 					Repository.CleanTransactions(extPubKey, conflicted);
 				}
 

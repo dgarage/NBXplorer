@@ -36,6 +36,7 @@ namespace NBXplorer.Configuration
 			app.Option("--rpcnotest", $"Faster start because RPC connection testing skipped (default: false)", CommandOptionType.SingleValue);
 			app.Option("--startheight", $"The height where starting the scan (default: where your rpc server was synched when you first started this program)", CommandOptionType.SingleValue);
 			app.Option("--nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
+			app.Option("-v | --verbose", $"Verbose logs (default: true)", CommandOptionType.SingleValue);
 			return app;
 		}
 
@@ -100,6 +101,8 @@ namespace NBXplorer.Configuration
 			builder.AppendLine("#rescan=0");
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");
+			builder.AppendLine("## Activate or disable verbose logs");
+			builder.AppendLine("#verbose=0");
 
 			builder.AppendLine();
 			builder.AppendLine();

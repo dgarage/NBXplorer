@@ -93,6 +93,7 @@ namespace NBXplorer.Tests
 				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
 				keyValues.Add(("datadir", Path.Combine(directory, "explorer")));
 				keyValues.Add(("network", "regtest"));
+				keyValues.Add(("verbose", "1"));
 				keyValues.Add(("rpcuser", creds.UserName));
 				keyValues.Add(("rpcpassword", creds.Password));
 				keyValues.Add(("rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));

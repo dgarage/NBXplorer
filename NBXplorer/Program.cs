@@ -41,6 +41,10 @@ namespace NBXplorer
 					.ConfigureLogging(l =>
 					{
 						l.AddFilter("Microsoft", LogLevel.Error);
+						if(conf.GetOrDefault<bool>("verbose", false))
+						{
+							l.SetMinimumLevel(LogLevel.Debug);
+						}
 						l.AddProvider(new CustomConsoleLogProvider());
 					})
 					.UseStartup<Startup>()
@@ -69,6 +73,6 @@ namespace NBXplorer
 			}
 		}
 
-		
+
 	}
 }
