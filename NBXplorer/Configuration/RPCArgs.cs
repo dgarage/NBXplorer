@@ -161,7 +161,7 @@ namespace NBXplorer.Configuration
 			}
 		}
 
-		const int MIN_CORE_VERSION = 140200;
+		const int MIN_CORE_VERSION = 150000;
 		public static RPCClient ConfigureRPCClient(IConfiguration confArgs, Network network, string prefix = null)
 		{
 			RPCArgs args = Parse(confArgs, network, prefix);

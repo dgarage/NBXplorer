@@ -36,6 +36,11 @@ namespace NBXplorer
 			get; set;
 		}
 
+		public DateTimeOffset Inserted
+		{
+			get; set;
+		}
+
 		internal string GetRowKey()
 		{
 			return $"{Transaction.GetHash()}:{BlockHash}";
@@ -684,13 +689,19 @@ namespace NBXplorer
 				{
 					if(row == null || !row.Exists)
 						continue;
-					var transaction = new NBitcoin.Transaction(row.Value);
+					MemoryStream ms = new MemoryStream(row.Value);
+					BitcoinStream bs = new BitcoinStream(ms, false);
+					Transaction transaction = null;
+					bs.ReadWrite<Transaction>(ref transaction);
+					ulong ticksCount = 0;
+					bs.ReadWrite(ref ticksCount);
 					transaction.CacheHashes();
 					var blockHash = row.Key.Split(':')[1];
 					var tracked = new TrackedTransaction();
 					if(blockHash.Length != 0)
 						tracked.BlockHash = new uint256(blockHash);
 					tracked.Transaction = transaction;
+					tracked.Inserted = new DateTimeOffset((long)ticksCount, TimeSpan.Zero);
 					result.Add(tracked);
 				}
 				return result.ToArray();
@@ -710,7 +721,14 @@ namespace NBXplorer
 				{
 					var table = Index.GetTransactions(group.Key);
 					foreach(var value in group)
-						table.Insert(tx, value.TrackedTransaction.GetRowKey(), value.TrackedTransaction.Transaction.ToBytes());
+					{
+						var ticksCount = DateTimeOffset.UtcNow.UtcTicks;
+						var ms = new MemoryStream();
+						BitcoinStream bs = new BitcoinStream(ms, true);
+						bs.ReadWrite(value.TrackedTransaction.Transaction);
+						bs.ReadWrite(ticksCount);
+						table.Insert(tx, value.TrackedTransaction.GetRowKey(), ms.ToArrayEfficient());
+					}
 				}
 				tx.Commit();
 			});

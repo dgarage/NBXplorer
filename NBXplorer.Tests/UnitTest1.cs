@@ -145,6 +145,53 @@ namespace NBXplorer.Tests
 
 
 		[Fact]
+		public void ShowRBFedTransaction()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				var bob = pubKey;
+				tester.Client.Track(bob);
+				var utxo = tester.Client.Sync(bob, null, null, true); //Track things do not wait
+				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+
+				var payment1 = Money.Coins(0.04m);
+				var payment2 = Money.Coins(0.08m);
+
+				var tx1 = new uint256(tester.RPC.SendCommand("sendtoaddress", new object[]
+				{
+					a1.ScriptPubKey.GetDestinationAddress(tester.Network).ToString(),
+					payment1.ToString(),
+					null, //comment
+                    null, //comment_to
+                    false, //subtractfeefromamount
+                    true, //replaceable
+				}).ResultString);
+
+				utxo = tester.Client.Sync(bob, utxo); //Wait tx received
+				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+
+				var tx = tester.RPC.GetRawTransaction(new uint256(tx1));
+				foreach(var input in tx.Inputs)
+				{
+					input.ScriptSig = Script.Empty; //Strip signatures
+				}
+				var output = tx.Outputs.First(o => o.Value == payment1);
+				output.Value = payment2;
+				var change = tx.Outputs.First(o => o.Value != payment1);
+				change.Value -= (payment2 - payment1) * 2; //Add more fees
+				var replaced = tester.RPC.SignRawTransaction(tx);
+
+				tester.RPC.SendRawTransaction(replaced);
+
+				var prevUtxo = utxo;
+				utxo = tester.Client.Sync(bob, prevUtxo); //Wait tx received
+				Assert.True(utxo.Unconfirmed.Reset);
+				Assert.Equal(replaced.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
+			}
+		}
+
+		[Fact]
 		public void CanGetUnusedAddresses()
 		{
 			using(var tester = ServerTester.Create())

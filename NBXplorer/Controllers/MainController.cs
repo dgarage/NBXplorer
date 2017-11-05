@@ -235,7 +235,8 @@ namespace NBXplorer.Controllers
 				var unconf = transactions.Where(tx => tx.Height == MempoolHeight);
 				var conf = transactions.Where(tx => tx.Height != MempoolHeight);
 				conf = conf.TopologicalSort(DependsOn(conf.ToList())).ToList();
-				unconf = unconf.TopologicalSort(DependsOn(unconf.ToList())).ToList();
+				unconf = unconf.OrderByDescending(t => t.Record.Inserted)
+								.TopologicalSort(DependsOn(unconf.ToList())).ToList();
 
 
 				var states = UTXOStateResult.CreateStates(matchScript, unconfHash, unconf.Select(c => c.Record.Transaction), confHash, conf.Select(c => c.Record.Transaction));

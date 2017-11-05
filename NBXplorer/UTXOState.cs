@@ -79,7 +79,8 @@ namespace NBXplorer
 			for(int i = 0; i < tx.Inputs.Count; i++)
 			{
 				var input = tx.Inputs[i];
-				if(!CoinsByOutpoint.ContainsKey(input.PrevOut) && SpentOutpoints.Contains(input.PrevOut))
+				if(_KnownInputs.Contains(input.PrevOut) || 
+					(!CoinsByOutpoint.ContainsKey(input.PrevOut) && SpentOutpoints.Contains(input.PrevOut)))
 				{
 					result = ApplyTransactionResult.Conflict;
 					Conflicts.Add(input.PrevOut, hash);
@@ -111,9 +112,12 @@ namespace NBXplorer
 					AddEvent(new UTXOEvent() { Received = false, Outpoint = input.PrevOut, TxId = hash });
 					SpentOutpoints.Add(input.PrevOut);
 				}
+				_KnownInputs.Add(input.PrevOut);
 			}
 			return result;
 		}
+
+		HashSet<OutPoint> _KnownInputs = new HashSet<OutPoint>();
 
 		public MultiValueDictionary<OutPoint, uint256> Conflicts
 		{
