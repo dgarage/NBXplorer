@@ -694,7 +694,8 @@ namespace NBXplorer
 					Transaction transaction = null;
 					bs.ReadWrite<Transaction>(ref transaction);
 					ulong ticksCount = 0;
-					bs.ReadWrite(ref ticksCount);
+					if(ms.Position < ms.Length)
+						bs.ReadWrite(ref ticksCount);
 					transaction.CacheHashes();
 					var blockHash = row.Key.Split(':')[1];
 					var tracked = new TrackedTransaction();
