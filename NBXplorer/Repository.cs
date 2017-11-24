@@ -154,12 +154,22 @@ namespace NBXplorer
 		{
 			private DBreezeEngine _Engine;
 			private CustomThreadPool _Pool;
+			Timer _Renew;
 			string directory;
 			public EngineAccessor(string directory)
 			{
 				this.directory = directory;
 				_Pool = new CustomThreadPool(1, "Repository");
 				RenewEngine();
+				_Renew = new Timer((o) =>
+				{
+					try
+					{
+						RenewEngine();
+					}
+					catch { }
+				});
+				_Renew.Change(0, (int)TimeSpan.FromSeconds(60).TotalMilliseconds);
 			}
 
 			private void RenewEngine()
@@ -167,7 +177,20 @@ namespace NBXplorer
 				_Pool.Do(() =>
 				{
 					DisposeEngine();
-					_Engine = new DBreezeEngine(directory);
+					int tried = 0;
+					while(true)
+					{
+						try
+						{
+							_Engine = new DBreezeEngine(directory);
+							break;
+						}
+						catch when (tried < 5)
+						{
+							tried++;
+							Thread.Sleep(5000);
+						}
+					}
 					_Tx = _Engine.GetTransaction();
 				});
 			}
@@ -285,6 +308,7 @@ namespace NBXplorer
 				if(!_Disposed)
 				{
 					_Disposed = true;
+					_Renew.Dispose();
 					_Pool.DoAsync(() => DisposeEngine()).GetAwaiter().GetResult();
 					_Pool.Dispose();
 				}
