@@ -20,6 +20,7 @@ using System.IO;
 using NBXplorer.Logging;
 using System.Net;
 using NBitcoin.RPC;
+using Microsoft.Extensions.Hosting;
 
 namespace NBXplorer
 {
@@ -52,6 +53,7 @@ namespace NBXplorer
 				_Serializer.ConfigureSerializer(options.SerializerSettings);
 			}
 		}
+
 		public static IServiceCollection AddNBXplorer(this IServiceCollection services)
 		{
 			services.AddSingleton<IObjectModelValidator, NoObjectModelValidator>();
@@ -80,7 +82,8 @@ namespace NBXplorer
 			});
 			services.TryAddSingleton<Serializer>();
 			services.TryAddSingleton<ChainEvents>();
-			services.TryAddSingleton<NBxplorerInitializer>();
+			services.TryAddSingleton<BitcoinDWaiterAccessor>();
+			services.TryAddSingleton<IHostedService, BitcoinDWaiter>();
 
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 
@@ -125,33 +128,6 @@ namespace NBXplorer
 		public static IApplicationBuilder UseNBXplorer(this IApplicationBuilder app)
 		{
 			app.UseMiddleware<NBXplorerMiddleware>();
-			var initializer = app.ApplicationServices.GetRequiredService<NBxplorerInitializer>();
-			var webHost = app.ApplicationServices.GetRequiredService<IApplicationLifetime>();
-			var unused = initializer.TestAsync().ContinueWith(_ =>
-			{
-				if(_.Status == System.Threading.Tasks.TaskStatus.Faulted)
-				{
-					Logs.Configuration.LogError(_.Exception, "Connectivity test failed");
-					webHost.StopApplication();
-				}
-				else if(!_.Result)
-				{
-					Logs.Configuration.LogError("Connectivity test failed");
-					webHost.StopApplication();
-				}
-				else
-				{
-					try
-					{
-						initializer.StartAsync().GetAwaiter().GetResult();
-					}
-					catch(Exception ex)
-					{
-						Logs.Configuration.LogError(ex, "Error while starting the initializer");
-						webHost.StopApplication();
-					}
-				}
-			});
 			return app;
 		}
 

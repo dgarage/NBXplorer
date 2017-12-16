@@ -526,6 +526,21 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanGetStatus()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var status = tester.Client.GetStatus();
+				Assert.True(status.Connected);
+				Assert.False(status.IsSynching);
+				Assert.Equal(status.NodeBlocks, status.NodeHeaders);
+				Assert.Equal(status.NodeBlocks.Value, status.ChainHeight);
+				Assert.Equal(status.VerificationProgress.Value, 1.0);
+			}
+		}
+
+		[Fact]
 		public void CanTrack()
 		{
 			using(var tester = ServerTester.Create())

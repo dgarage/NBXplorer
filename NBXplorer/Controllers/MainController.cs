@@ -61,7 +61,7 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		public MainController(RPCClient rpcClient, Repository repository, ConcurrentChain chain, ChainEvents events, NBxplorerInitializer initializer)
+		public MainController(RPCClient rpcClient, Repository repository, ConcurrentChain chain, ChainEvents events, BitcoinDWaiterAccessor initializer)
 		{
 			if(rpcClient == null)
 				throw new ArgumentNullException("rpcClient");
@@ -69,10 +69,10 @@ namespace NBXplorer.Controllers
 			Repository = repository;
 			Chain = chain;
 			Events = events;
-			Initializer = initializer;
+			Initializer = initializer.Instance;
 		}
 
-		public NBxplorerInitializer Initializer
+		public BitcoinDWaiter Initializer
 		{
 			get; set;
 		}
@@ -164,13 +164,26 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> Status()
 		{
 			var now = DateTimeOffset.UtcNow;
+
+			var blockchainInfoAsync = Initializer.NodeStarted ? RPC.GetBlockchainInfoAsync() : null;
 			await Repository.PingAsync();
-			return Json(new StatusResult()
+			var pingAfter = DateTimeOffset.UtcNow;
+			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
+			var status = new StatusResult()
 			{
 				ChainHeight = Chain.Height,
 				Connected = Initializer.Connected,
 				RepositoryPingTime = (DateTimeOffset.UtcNow - now).TotalSeconds
-			});
+			};
+
+			if(blockchainInfo != null)
+			{
+				status.IsSynching = BitcoinDWaiter.IsSynchingCore(blockchainInfo);
+				status.NodeBlocks = blockchainInfo.Blocks;
+				status.NodeHeaders = blockchainInfo.Headers;
+				status.VerificationProgress = blockchainInfo.VerificationProgress;
+			}
+			return Json(status);
 		}
 
 		[HttpGet]
