@@ -83,7 +83,7 @@ namespace NBXplorer
 			services.TryAddSingleton<Serializer>();
 			services.TryAddSingleton<ChainEvents>();
 			services.TryAddSingleton<BitcoinDWaiterAccessor>();
-			services.TryAddSingleton<IHostedService, BitcoinDWaiter>();
+			services.AddSingleton<IHostedService, BitcoinDWaiter>();
 
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 

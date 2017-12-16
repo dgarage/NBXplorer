@@ -32,7 +32,7 @@ namespace NBXplorer.Tests
 			using(var tester = RepositoryTester.Create(true))
 			{
 				tester.Repository.Track(pubKey);
-				RepositoryCanTrackAddresses(tester);
+				RepositoryCanTrackAddressesCore(tester);
 
 			}
 		}
@@ -57,7 +57,7 @@ namespace NBXplorer.Tests
 			return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[legacy]");
 		}
 
-		private static void RepositoryCanTrackAddresses(RepositoryTester tester)
+		private static void RepositoryCanTrackAddressesCore(RepositoryTester tester)
 		{
 			var keyInfo = tester.Repository.GetKeyInformation(pubKey.GetLineFor(DerivationFeature.Deposit).Derive(0).ScriptPubKey);
 			Assert.NotNull(keyInfo);

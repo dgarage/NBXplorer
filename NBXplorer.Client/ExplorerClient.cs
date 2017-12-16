@@ -154,7 +154,7 @@ namespace NBXplorer
 			{
 				try
 				{
-					var status = await GetStatusAsync().ConfigureAwait(false);
+					var status = await GetStatusAsync(cancellation).ConfigureAwait(false);
 					if(status.IsFullySynched())
 						break;
 				}
