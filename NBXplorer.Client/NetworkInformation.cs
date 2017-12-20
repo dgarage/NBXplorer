@@ -22,6 +22,7 @@ namespace NBXplorer.Configuration
 				info.DefaultConfigurationFile = Path.Combine(info.DefaultDataDirectory, "settings.config");
 				info.Network = network;
 				info.DefaultExplorerPort = 24444;
+				info.MinRPCVersion = 150000;
 				_Networks.Add(network.Name, info);
 			}
 
@@ -34,6 +35,7 @@ namespace NBXplorer.Configuration
 				info.DefaultConfigurationFile = Path.Combine(info.DefaultDataDirectory, "settings.config");
 				info.Network = network;
 				info.DefaultExplorerPort = 24445;
+				info.MinRPCVersion = 150000;
 				_Networks.Add(network.Name, info);
 			}
 
@@ -46,8 +48,11 @@ namespace NBXplorer.Configuration
 				info.Network = network;
 				info.DefaultExplorerPort = 24446;
 				info.IsRegTest = true;
+				info.MinRPCVersion = 150000;
 				_Networks.Add(network.Name, info);
 			}
+
+			Altcoins.Litecoin.NetworkInformations.Register(_Networks);
 		}
 
 		static Dictionary<string, NetworkInformation> _Networks;
@@ -84,6 +89,11 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public int DefaultExplorerPort
+		{
+			get;
+			internal set;
+		}
+		public int MinRPCVersion
 		{
 			get;
 			internal set;

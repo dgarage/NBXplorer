@@ -70,7 +70,18 @@ namespace NBXplorer
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
 			_CurrentLocation = Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
-			Logs.Explorer.LogInformation("Starting scan at block " + Chain.FindFork(_CurrentLocation).Height);
+
+			var savedProgress = Repository.GetIndexProgress();
+			ChainedBlock fork = null;
+			if(savedProgress != null)
+			{
+				fork = Chain.FindFork(savedProgress);
+				if(fork == null)
+					_CurrentLocation = GetDefaultCurrentLocation();
+			}
+
+			fork = Chain.FindFork(_CurrentLocation);
+			Logs.Explorer.LogInformation("Starting scan at block " + fork.Height);
 			_Timer = new Timer(Tick, null, 0, 30);
 		}
 

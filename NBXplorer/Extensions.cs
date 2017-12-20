@@ -96,7 +96,7 @@ namespace NBXplorer
 			{
 				var configuration = o.GetRequiredService<ExplorerConfiguration>();
 				configuration.RPC.NoTest = true;
-				return configuration.RPC.ConfigureRPCClient(configuration.Network.Network);
+				return configuration.RPC.ConfigureRPCClient(configuration.Network);
 			});
 			services.TryAddSingleton<RPCAuthorization>(o =>
 			{

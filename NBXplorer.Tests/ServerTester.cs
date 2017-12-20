@@ -46,38 +46,67 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		NodeDownloadData nodeDownloadData;
+		NodeDownloadData litecoinDownloadData = new NodeDownloadData()
+		{
+			Version = "0.14.2",
+			Windows = new NodeOSDownloadData()
+			{
+				DownloadLink = "https://download.litecoin.org/litecoin-{0}/win/litecoin-{0}-win64.zip",
+				Archive = "litecoin-{0}-win32.zip",
+				Executable = "litecoin-{0}/bin/litecoind.exe"
+			},
+			Linux = new NodeOSDownloadData()
+			{
+				DownloadLink = "https://download.litecoin.org/litecoin-{0}/linux/litecoin-{0}-x86_64-linux-gnu.tar.gz",
+				Archive = "litecoin-{0}-x86_64-linux-gnu.tar.gz",
+				Executable = "litecoin-{0}/bin/litecoind"
+			},
+			Mac = new NodeOSDownloadData()
+			{
+				DownloadLink = "https://download.litecoin.org/litecoin-{0}/osx/litecoin-{0}-osx64.tar.gz",
+				Archive = "litecoin-{0}-osx64.tar.gz",
+				Executable = "litecoin-{0}/bin/litecoind"
+			}
+		};
+
+		NodeDownloadData bitcoinDownloadData = new NodeDownloadData()
+		{
+			Version = "0.15.0",
+			Linux = new NodeOSDownloadData()
+			{
+				Archive = "bitcoin-{0}-x86_64-linux-gnu.tar.gz",
+				DownloadLink = "https://bitcoin.org/bin/bitcoin-core-{0}/bitcoin-{0}-x86_64-linux-gnu.tar.gz",
+				Executable = "bitcoin-{0}/bin/bitcoind"
+			},
+			Mac = new NodeOSDownloadData()
+			{
+				Archive = "bitcoin-{0}-osx64.tar.gz",
+				DownloadLink = "https://bitcoin.org/bin/bitcoin-core-{0}/bitcoin-{0}-osx64.tar.gz",
+				Executable = "bitcoin-{0}/bin/bitcoind"
+			},
+			Windows = new NodeOSDownloadData()
+			{
+				Executable = "bitcoin-{0}/bin/bitcoind.exe",
+				DownloadLink = "https://bitcoin.org/bin/bitcoin-core-{0}/bitcoin-{0}-win32.zip",
+				Archive = "bitcoin-{0}-win32.zip"
+			}
+		};
+
 		public ServerTester(string directory)
 		{
+			nodeDownloadData = bitcoinDownloadData;
+			var networkString = "regtest";
 			try
 			{
 				var rootTestData = "TestData";
-				var cachedNodes = Path.Combine(rootTestData, "CachedNodes");
 				directory = Path.Combine(rootTestData, directory);
 				_Directory = directory;
 				if(!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
-				if(!Directory.Exists(cachedNodes))
-				{
-					Directory.CreateDirectory(cachedNodes);
-					RunScenario(cachedNodes);
-				}
 
-				if(!TryDelete(directory, false))
-				{
-					foreach(var process in Process.GetProcessesByName("bitcoind"))
-					{
-						if(process.MainModule.FileName.Replace("\\", "/").StartsWith(Path.GetFullPath(rootTestData).Replace("\\", "/"), StringComparison.Ordinal))
-						{
-							process.Kill();
-							process.WaitForExit();
-						}
-					}
-					TryDelete(directory, true);
-				}
+				NodeBuilder = CreateNodeBuilder(directory);
 
-				NodeBuilder = NodeBuilder.Create(directory, "0.15.0");
-				NodeBuilder.CleanBeforeStartingNode = false;
-				Copy(cachedNodes, directory);
 
 
 				User1 = NodeBuilder.CreateNode();
@@ -87,17 +116,25 @@ namespace NBXplorer.Tests
 					node.WhiteBind = true;
 				NodeBuilder.StartAll();
 
-				var creds = ExtractCredentials(File.ReadAllText(Explorer.Config));
+				User1.CreateRPCClient().Generate(1);
+				User1.Sync(Explorer, true);
+				Explorer.CreateRPCClient().Generate(1);
+				Explorer.Sync(User2, true);
+				User2.CreateRPCClient().Generate(101);
+				User1.Sync(User2, true);
+
+				var creds = RPCCredentialString.Parse(Explorer.AuthenticationString).UserPassword;
 
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
 				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
 				keyValues.Add(("datadir", Path.Combine(directory, "explorer")));
-				keyValues.Add(("network", "regtest"));
+				keyValues.Add(("network", networkString));
 				keyValues.Add(("verbose", "1"));
 				keyValues.Add(("rpcuser", creds.UserName));
 				keyValues.Add(("rpcpassword", creds.Password));
 				keyValues.Add(("rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 				keyValues.Add(("rpcnotest", "1"));
+				keyValues.Add(("cachechain", "0"));
 				keyValues.Add(("startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
 				keyValues.Add(("nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 
@@ -122,33 +159,9 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		private void RunScenario(string directory)
+		private NodeBuilder CreateNodeBuilder(string directory)
 		{
-			NodeBuilder = NodeBuilder.Create(directory);
-			User1 = NodeBuilder.CreateNode();
-			User2 = NodeBuilder.CreateNode();
-			Explorer = NodeBuilder.CreateNode();
-			NodeBuilder.StartAll();
-			User1.CreateRPCClient().Generate(1);
-			User1.Sync(Explorer, true);
-			Explorer.CreateRPCClient().Generate(1);
-			Explorer.Sync(User2, true);
-			User2.CreateRPCClient().Generate(101);
-			User1.Sync(User2, true);
-			var a = User1.CreateRPCClient().GetBlockCount();
-			var b = User1.CreateRPCClient().GetBlockCount();
-			var c = User1.CreateRPCClient().GetBlockCount();
-			Task.WaitAll(new Task[]
-			{
-				User1.CreateRPCClient().SendCommandAsync("stop"),
-				User2.CreateRPCClient().SendCommandAsync("stop"),
-				Explorer.CreateRPCClient().SendCommandAsync("stop")
-			}.ToArray());
-
-			User1.WaitForExit();
-			User2.WaitForExit();
-			Explorer.WaitForExit();
-			NodeBuilder = null;
+			return NodeBuilder.Create(nodeDownloadData, directory);
 		}
 
 		private NetworkCredential ExtractCredentials(string config)

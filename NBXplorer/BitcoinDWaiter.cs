@@ -151,7 +151,7 @@ namespace NBXplorer
 					State = BitcoinDWaiterState.NotStarted;
 					break;
 				case BitcoinDWaiterState.NotStarted:
-					await RPCArgs.TestRPCAsync(_Network.Network, _RPC);
+					await RPCArgs.TestRPCAsync(_Network, _RPC);
 					var blockchainInfo = await _RPC.GetBlockchainInfoAsync();
 					if(IsSynchingCore(blockchainInfo))
 					{
@@ -190,7 +190,8 @@ namespace NBXplorer
 			{
 				await WarmupBlockchain();
 			}
-			LoadChainFromCache();
+			if(_Configuration.CacheChain)
+				LoadChainFromCache();
 			var heightBefore = _Chain.Height;
 			LoadChainFromNode();
 			if(_Configuration.CacheChain && heightBefore != _Chain.Height)

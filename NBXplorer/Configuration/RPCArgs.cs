@@ -43,8 +43,9 @@ namespace NBXplorer.Configuration
 			set;
 		}
 
-		public RPCClient ConfigureRPCClient(Network network)
+		public RPCClient ConfigureRPCClient(NetworkInformation networkInformation)
 		{
+			var network = networkInformation.Network;
 			RPCClient rpcClient = null;
 			var url = Url;
 			var usr = User;
@@ -87,12 +88,13 @@ namespace NBXplorer.Configuration
 			if(NoTest)
 				return rpcClient;
 
-			TestRPCAsync(network, rpcClient).GetAwaiter().GetResult();
+			TestRPCAsync(networkInformation, rpcClient).GetAwaiter().GetResult();
 			return rpcClient;
 		}
 
-		public static async Task TestRPCAsync(Network network, RPCClient rpcClient)
+		public static async Task TestRPCAsync(NetworkInformation networkInfo, RPCClient rpcClient)
 		{
+			var network = networkInfo.Network;
 			Logs.Configuration.LogInformation("Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
 			try
 			{
@@ -137,9 +139,9 @@ namespace NBXplorer.Configuration
 
 			var getInfo = await rpcClient.SendCommandAsync(RPCOperations.getinfo);
 			var version = ((JObject)getInfo.Result)["version"].Value<int>();
-			if(version < MIN_CORE_VERSION)
+			if(version < networkInfo.MinRPCVersion)
 			{
-				Logs.Configuration.LogError($"The minimum Bitcoin version required is {MIN_CORE_VERSION} (detected: {version})");
+				Logs.Configuration.LogError($"The minimum Bitcoin version required is {networkInfo.MinRPCVersion} (detected: {version})");
 				throw new ConfigException();
 			}
 			Logs.Configuration.LogInformation($"Bitcoin version detected: {version}");
@@ -159,13 +161,6 @@ namespace NBXplorer.Configuration
 				Logs.Configuration.LogError("The RPC server is not using the chain " + network.Name);
 				throw new ConfigException();
 			}
-		}
-
-		const int MIN_CORE_VERSION = 150000;
-		public static RPCClient ConfigureRPCClient(IConfiguration confArgs, Network network, string prefix = null)
-		{
-			RPCArgs args = Parse(confArgs, network, prefix);
-			return args.ConfigureRPCClient(network);
 		}
 
 		public static RPCArgs Parse(IConfiguration confArgs, Network network, string prefix = null)

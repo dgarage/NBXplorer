@@ -16,6 +16,8 @@ using NBXplorer.Models;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using System.IO;
+using NBitcoin.Protocol;
+using NBXplorer.Configuration;
 
 namespace NBXplorer.Tests
 {
@@ -540,13 +542,15 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		public CancellationToken Timeout => new CancellationTokenSource(10000).Token;
+
 		[Fact]
 		public void CanTrack()
 		{
 			using(var tester = ServerTester.Create())
 			{
 				//WaitServerStarted not needed, just a sanity check
-				tester.Client.WaitServerStarted();
+				tester.Client.WaitServerStarted(Timeout);
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = CreateDerivationStrategy(key.Neuter());
 
@@ -555,7 +559,7 @@ namespace NBXplorer.Tests
 				var gettingUTXO = tester.Client.SyncAsync(pubkey, utxo);
 				var txId = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = gettingUTXO.GetAwaiter().GetResult();
-				Assert.Equal(113, utxo.CurrentHeight);
+				Assert.Equal(103, utxo.CurrentHeight);
 
 				Assert.False(utxo.Confirmed.Reset);
 				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
