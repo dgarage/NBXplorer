@@ -13,6 +13,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NBXplorer.Configuration;
 
 namespace NBXplorer
 {
@@ -63,16 +64,20 @@ namespace NBXplorer
 		}
 
 		public ExplorerClient(Network network, Uri serverAddress)
+			: this(NetworkInformation.GetNetworkByName(network?.Name) ?? throw new ArgumentException("unsupported network", "network"), serverAddress)
+		{
+		}
+		public ExplorerClient(NetworkInformation network, Uri serverAddress)
 		{
 			if(serverAddress == null)
 				throw new ArgumentNullException(nameof(serverAddress));
 			if(network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Address = serverAddress;
-			_Network = network;
-			_Serializer = new Serializer(network);
+			_NetworkInformation = network;
+			_Serializer = new Serializer(network.Network);
 			_Factory = new DerivationStrategy.DerivationStrategyFactory(Network);
-			var auth = new CookieAuthentication(NBXplorer.Client.Utils.GetDefaultCookieFilePath(network));
+			var auth = new CookieAuthentication(Path.Combine(network.DefaultDataDirectory, ".cookie"));
 			if(auth.RefreshCache())
 				_Auth = auth;
 		}
@@ -255,12 +260,12 @@ namespace NBXplorer
 		private static readonly HttpClient SharedClient = new HttpClient();
 		internal HttpClient Client = SharedClient;
 
-		private readonly Network _Network;
+		private readonly NetworkInformation _NetworkInformation;
 		public Network Network
 		{
 			get
 			{
-				return _Network;
+				return _NetworkInformation.Network;
 			}
 		}
 

@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
-using NBitcoin;
+﻿using NBitcoin;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,33 +13,48 @@ namespace NBXplorer.Configuration
 		static NetworkInformation()
 		{
 			_Networks = new Dictionary<string, NetworkInformation>();
-			foreach(var network in Network.GetNetworks())
+
 			{
+				// mainnet
 				NetworkInformation info = new NetworkInformation();
+				var network = Network.Main;
+				info.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", network.Name);
+				info.DefaultConfigurationFile = Path.Combine(info.DefaultDataDirectory, "settings.config");
+				info.Network = network;
+				info.DefaultExplorerPort = 24444;
+				_Networks.Add(network.Name, info);
+			}
+
+
+			{
+				// testnet
+				NetworkInformation info = new NetworkInformation();
+				var network = Network.TestNet;
+				info.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", network.Name);
+				info.DefaultConfigurationFile = Path.Combine(info.DefaultDataDirectory, "settings.config");
+				info.Network = network;
+				info.DefaultExplorerPort = 24445;
+				_Networks.Add(network.Name, info);
+			}
+
+			{
+				// regtest
+				NetworkInformation info = new NetworkInformation();
+				var network = Network.RegTest;
 				info.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", network.Name);
 				info.DefaultConfigurationFile = Path.Combine(info.DefaultDataDirectory, "settings.config");
 				info.Network = network;
 				info.DefaultExplorerPort = 24446;
+				info.IsRegTest = true;
 				_Networks.Add(network.Name, info);
-				if(network == Network.Main)
-				{
-					info.DefaultExplorerPort = 24444;
-					Main = info;
-				}
-				if(network == Network.TestNet)
-				{
-					info.DefaultExplorerPort = 24445;
-				}
-				if(network == Network.RegTest)
-				{
-					info.IsRegTest = true;
-				}
 			}
 		}
 
 		static Dictionary<string, NetworkInformation> _Networks;
 		public static NetworkInformation GetNetworkByName(string name)
 		{
+			if(name == null)
+				return null;
 			var value = _Networks.TryGet(name);
 			if(value != null)
 				return value;
@@ -54,12 +68,6 @@ namespace NBXplorer.Configuration
 					return value;
 			}
 			return null;
-		}
-
-		public static NetworkInformation Main
-		{
-			get;
-			set;
 		}
 		public Network Network
 		{

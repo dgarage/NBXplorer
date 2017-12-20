@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc.Filters;
-using NBXplorer.Client;
 using System;
 using System.Collections.Generic;
 using System.Text;

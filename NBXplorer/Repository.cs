@@ -11,7 +11,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using NBXplorer.DerivationStrategy;
-using NBXplorer.Client;
 using NBXplorer.Models;
 using System.Threading.Tasks;
 using System.Threading;

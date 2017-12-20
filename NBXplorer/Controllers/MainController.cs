@@ -15,7 +15,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
-using NBXplorer.Client;
 using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json.Linq;
 

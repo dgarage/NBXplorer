@@ -5,7 +5,7 @@
   <ItemGroup>
     
     <PackageReference Include="NBitcoin" Version="4.0.0.50" />
-    <PackageReference Include="NBitcoin.TestFramework" Version="1.4.4" />
+    <PackageReference Include="NBitcoin.TestFramework" Version="1.4.6" />
 	  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.5.0" />
 	  <PackageReference Include="xunit" Version="2.3.1" />
 	  <PackageReference Include="xunit.runner.visualstudio" Version="2.3.1" />

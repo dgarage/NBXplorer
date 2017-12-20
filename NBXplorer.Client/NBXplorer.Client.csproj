@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>netstandard1.3</TargetFramework>
+		<TargetFramework>netstandard2.0</TargetFramework>
 		<Company>Digital Garage</Company>
 		<Version>1.0.0.20</Version>
 		<Copyright>Copyright © Digital Garage 2017</Copyright>
@@ -16,6 +16,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="NBitcoin" Version="4.0.0.50" />
+		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.13" />
 	</ItemGroup>
 
 </Project>
