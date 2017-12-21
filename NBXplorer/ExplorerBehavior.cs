@@ -14,12 +14,13 @@ using NBitcoin.Crypto;
 using NBXplorer.DerivationStrategy;
 using System.Net.Http;
 using NBXplorer.Models;
+using NBXplorer.Events;
 
 namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
-		public ExplorerBehavior(Repository repo, ConcurrentChain chain, CallbackInvoker callbacks, ChainEvents events)
+		public ExplorerBehavior(Repository repo, ConcurrentChain chain, CallbackInvoker callbacks, EventAggregator eventAggregator)
 		{
 			if(repo == null)
 				throw new ArgumentNullException(nameof(repo));
@@ -28,10 +29,10 @@ namespace NBXplorer
 			_Chain = chain;
 			_Repository = repo;
 			_Callbacks = callbacks;
-			_Events = events;
+			_EventAggregator = eventAggregator;
 		}
 
-		ChainEvents _Events;
+		EventAggregator _EventAggregator;
 
 		Repository Repository
 		{
@@ -60,7 +61,7 @@ namespace NBXplorer
 
 		public override object Clone()
 		{
-			return new ExplorerBehavior(_Repository, _Chain, _Callbacks, _Events) { StartHeight = StartHeight };
+			return new ExplorerBehavior(_Repository, _Chain, _Callbacks, _EventAggregator) { StartHeight = StartHeight };
 		}
 
 		Timer _Timer;
@@ -219,7 +220,7 @@ namespace NBXplorer
 						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 						if(!IsSynching() || blockHash.GetLow32() % 100 == 0)
 							Repository.SetIndexProgress(currentLocation);
-						Logs.Explorer.LogInformation($"Processed block {blockHash}");
+						_EventAggregator.Publish(new NewBlockEvent(blockHash));
 					}
 					if(_InFlights.Count == 0)
 						AskBlocks();
@@ -242,7 +243,7 @@ namespace NBXplorer
 
 			foreach(var match in matches)
 			{
-				_Events.Notify(match, false);
+				_EventAggregator.Publish(new NewTransactionMatchEvent(h, match));
 			}
 			if(!IsSynching())
 			{
@@ -255,7 +256,7 @@ namespace NBXplorer
 			Repository.MarkAsUsedAsync(matches.SelectMany(m => m.Outputs).ToArray()).GetAwaiter().GetResult();
 		}
 
-		private bool IsSynching()
+		public bool IsSynching()
 		{
 			var location = _CurrentLocation;
 			if(location == null)

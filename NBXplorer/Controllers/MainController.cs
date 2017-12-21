@@ -17,6 +17,7 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json.Linq;
+using NBXplorer.Events;
 
 namespace NBXplorer.Controllers
 {
@@ -60,27 +61,23 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		public MainController(RPCClient rpcClient, Repository repository, ConcurrentChain chain, ChainEvents events, BitcoinDWaiterAccessor initializer)
+		public MainController(RPCClient rpcClient, Repository repository, ConcurrentChain chain, EventAggregator eventAggregator, BitcoinDWaiterAccessor initializer)
 		{
 			if(rpcClient == null)
 				throw new ArgumentNullException("rpcClient");
 			RPC = rpcClient;
 			Repository = repository;
 			Chain = chain;
-			Events = events;
+			_EventAggregator = eventAggregator;
 			Initializer = initializer.Instance;
 		}
+
+		EventAggregator _EventAggregator;
 
 		public BitcoinDWaiter Initializer
 		{
 			get; set;
 		}
-
-		public ChainEvents Events
-		{
-			get; set;
-		}
-
 		public ConcurrentChain Chain
 		{
 			get; set;
@@ -164,7 +161,7 @@ namespace NBXplorer.Controllers
 		{
 			var now = DateTimeOffset.UtcNow;
 
-			var blockchainInfoAsync = Initializer.NodeStarted ? RPC.GetBlockchainInfoAsync() : null;
+			var blockchainInfoAsync = Initializer.RPCAvailable ? RPC.GetBlockchainInfoAsync() : null;
 			await Repository.PingAsync();
 			var pingAfter = DateTimeOffset.UtcNow;
 			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
@@ -362,7 +359,7 @@ namespace NBXplorer.Controllers
 
 			try
 			{
-				await Events.WaitFor(extPubKey, cts.Token);
+				await _EventAggregator.WaitNext<NewTransactionMatchEvent>(e=> e.Match.DerivationStrategy.ToString() == extPubKey.ToString() , cts.Token);
 				return true;
 			}
 			catch(OperationCanceledException) { return false; }

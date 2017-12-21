@@ -13,14 +13,15 @@ using NBitcoin;
 using System.Net;
 using NBitcoin.Protocol.Behaviors;
 using Microsoft.Extensions.Hosting;
+using NBXplorer.Events;
 
 namespace NBXplorer
 {
 	public enum BitcoinDWaiterState
 	{
-		Unknown,
 		NotStarted,
-		Synching,
+		CoreSynching,
+		NBXplorerSynching,
 		Ready
 	}
 
@@ -41,8 +42,8 @@ namespace NBXplorer
 		NetworkInformation _Network;
 		ExplorerConfiguration _Configuration;
 		ConcurrentChain _Chain;
-		ChainEvents _Events;
 		private Repository _Repository;
+		EventAggregator _EventAggregator;
 
 		public BitcoinDWaiter(
 			RPCClient rpc,
@@ -50,20 +51,20 @@ namespace NBXplorer
 			ConcurrentChain chain,
 			Repository repository,
 			CallbackInvoker invoker,
-			ChainEvents events,
+			EventAggregator eventAggregator,
 			BitcoinDWaiterAccessor accessor)
 		{
 			_RPC = rpc;
 			_Configuration = configuration;
 			_Network = _Configuration.Network;
-			_Events = events;
 			_Chain = chain;
 			_Repository = repository;
 			_Invoker = invoker;
-			State = BitcoinDWaiterState.Unknown;
+			State = BitcoinDWaiterState.NotStarted;
+			_EventAggregator = eventAggregator;
 			accessor.Instance = this;
 		}
-
+		CancellationTokenSource _Stop = new CancellationTokenSource();
 		public NodeState NodeState
 		{
 			get;
@@ -82,19 +83,22 @@ namespace NBXplorer
 
 
 
-		public bool NodeStarted
+		public bool RPCAvailable
 		{
 			get
 			{
-				return State == BitcoinDWaiterState.Ready || State == BitcoinDWaiterState.Synching;
+				return State == BitcoinDWaiterState.Ready ||
+					State == BitcoinDWaiterState.CoreSynching ||
+					State == BitcoinDWaiterState.NBXplorerSynching;
 			}
 		}
-
+		IDisposable _Subscription;
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
 			if(_Disposed)
 				throw new ObjectDisposedException(nameof(BitcoinDWaiter));
 			_Timer = new Timer(Callback, null, 0, (int)TimeSpan.FromMinutes(1.0).TotalMilliseconds);
+			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(async s => await RunStepsAsync());
 			return Task.CompletedTask;
 		}
 
@@ -103,17 +107,26 @@ namespace NBXplorer
 			RunStepsAsync().GetAwaiter().GetResult();
 		}
 
+		private async void ConnectedNodes_Changed(object sender, NodeEventArgs e)
+		{
+			await RunStepsAsync();
+		}
+
 		public Task StopAsync(CancellationToken cancellationToken)
 		{
 			_Disposed = true;
 			_Timer.Dispose();
+			_Subscription.Dispose();
+			_Stop.Cancel();
 			_Idle.Wait();
 			if(_Group != null)
 			{
+				_Group.ConnectedNodes.Added -= ConnectedNodes_Changed;
+				_Group.ConnectedNodes.Removed -= ConnectedNodes_Changed;
 				_Group.Disconnect();
 				_Group = null;
 			}
-			State = BitcoinDWaiterState.Unknown;
+			State = BitcoinDWaiterState.NotStarted;
 			_Chain = null;
 			return Task.CompletedTask;
 		}
@@ -129,12 +142,12 @@ namespace NBXplorer
 				_Idle.Reset();
 				while(await StepAsync())
 				{
-
 				}
 			}
 			catch(Exception ex)
 			{
-				Logs.Configuration.LogError(ex, "Error while synching with the node");
+				if(!_Stop.IsCancellationRequested)
+					Logs.Configuration.LogError(ex, "Error while synching with the node");
 			}
 			finally
 			{
@@ -142,33 +155,94 @@ namespace NBXplorer
 			}
 		}
 
+		private void SetInterval(TimeSpan interval)
+		{
+			try
+			{
+				_Timer.Change(0, (int)interval.TotalMilliseconds);
+			}
+			catch { }
+		}
+
 		async Task<bool> StepAsync()
 		{
+			if(_Disposed)
+				return false;
 			var oldState = State;
 			switch(State)
 			{
-				case BitcoinDWaiterState.Unknown:
-					State = BitcoinDWaiterState.NotStarted;
-					break;
 				case BitcoinDWaiterState.NotStarted:
 					await RPCArgs.TestRPCAsync(_Network, _RPC);
-					var blockchainInfo = await _RPC.GetBlockchainInfoAsync();
+					GetBlockchainInfoResponse blockchainInfo = null;
+					try
+					{
+						blockchainInfo = await _RPC.GetBlockchainInfoAsync();
+					}
+					catch(Exception ex)
+					{
+						Logs.Configuration.LogError(ex, "Failed to connect to RPC");
+						break;
+					}
 					if(IsSynchingCore(blockchainInfo))
 					{
-						State = BitcoinDWaiterState.Synching;
+						State = BitcoinDWaiterState.CoreSynching;
 					}
 					else
 					{
 						await ConnectToBitcoinD();
-						State = BitcoinDWaiterState.Ready;
+						State = BitcoinDWaiterState.NBXplorerSynching;
 					}
 					break;
-				case BitcoinDWaiterState.Synching:
-					var blockchainInfo2 = await _RPC.GetBlockchainInfoAsync();
+				case BitcoinDWaiterState.CoreSynching:
+					GetBlockchainInfoResponse blockchainInfo2 = null;
+					try
+					{
+						blockchainInfo2 = await _RPC.GetBlockchainInfoAsync();
+					}
+					catch(Exception ex)
+					{
+						Logs.Configuration.LogError(ex, "Failed to connect to RPC");
+						State = BitcoinDWaiterState.NotStarted;
+						break;
+					}
 					if(!IsSynchingCore(blockchainInfo2))
 					{
 						await ConnectToBitcoinD();
+						State = BitcoinDWaiterState.NBXplorerSynching;
+					}
+					break;
+				case BitcoinDWaiterState.NBXplorerSynching:
+					var explorer = _Group?.ConnectedNodes.SelectMany(n => n.Behaviors.OfType<ExplorerBehavior>()).FirstOrDefault();
+					if(explorer == null)
+					{
+						GetBlockchainInfoResponse blockchainInfo3 = null;
+						try
+						{
+							blockchainInfo3 = await _RPC.GetBlockchainInfoAsync();
+						}
+						catch(Exception ex)
+						{
+							Logs.Configuration.LogError(ex, "Failed to connect to RPC");
+							State = BitcoinDWaiterState.NotStarted;
+							break;
+						}
+						if(IsSynchingCore(blockchainInfo3))
+							State = BitcoinDWaiterState.CoreSynching;
+					}
+					else if(!explorer.IsSynching())
+					{
 						State = BitcoinDWaiterState.Ready;
+					}
+					break;
+				case BitcoinDWaiterState.Ready:
+					var explorer2 = _Group?.ConnectedNodes.SelectMany(n => n.Behaviors.OfType<ExplorerBehavior>()).FirstOrDefault();
+					if(explorer2 == null)
+					{
+						State = BitcoinDWaiterState.NotStarted;
+					}
+					else if(explorer2.IsSynching())
+					{
+						State = BitcoinDWaiterState.NBXplorerSynching;
 					}
 					break;
 				default:
@@ -178,7 +252,7 @@ namespace NBXplorer
 
 			if(changed)
 			{
-				Logs.Configuration.LogInformation($"BitcoinDWaiter state changed: {oldState} => {State}");
+				_EventAggregator.Publish(new BitcoinDStateChangedEvent(oldState, State));
 			}
 
 			return changed;
@@ -190,6 +264,8 @@ namespace NBXplorer
 			{
 				await WarmupBlockchain();
 			}
+			if(_Group != null)
+				return;
 			if(_Configuration.CacheChain)
 				LoadChainFromCache();
 			var heightBefore = _Chain.Height;
@@ -198,10 +274,10 @@ namespace NBXplorer
 			{
 				SaveChainInCache();
 			}
-			LoadGroup();
+			await LoadGroup();
 		}
 
-		private void LoadGroup()
+		private async Task LoadGroup()
 		{
 			AddressManager manager = new AddressManager();
 			manager.Add(new NetworkAddress(_Configuration.NodeEndpoint), IPAddress.Loopback);
@@ -216,7 +292,7 @@ namespace NBXplorer
 						PeersToDiscover = 1,
 						Mode = AddressManagerBehaviorMode.None
 					},
-					new ExplorerBehavior(_Repository, _Chain, _Invoker, _Events) { StartHeight = _Configuration.StartHeight },
+					new ExplorerBehavior(_Repository, _Chain, _Invoker, _EventAggregator) { StartHeight = _Configuration.StartHeight },
 					new ChainBehavior(_Chain)
 					{
 						CanRespondToGetHeaders = false
@@ -226,10 +302,42 @@ namespace NBXplorer
 			});
 			group.AllowSameGroup = true;
 			group.MaximumNodeConnection = 1;
+
+			var task = WaitConnected(group);
+
 			group.Connect();
-			if(_Group != null)
-				_Group.Dispose();
+
+			try
+			{
+
+				await task;
+			}
+			catch(Exception ex)
+			{
+				Logs.Configuration.LogError(ex, "Failure to connect to the bitcoin node (P2P)");
+				throw;
+			}
 			_Group = group;
+
+			group.ConnectedNodes.Added += ConnectedNodes_Changed;
+			group.ConnectedNodes.Removed += ConnectedNodes_Changed;
+		}
+
+		private static async Task WaitConnected(NodesGroup group)
+		{
+			TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+			EventHandler<NodeEventArgs> waitingConnected = null;
+			waitingConnected = (a, b) =>
+			{
+				tcs.TrySetResult(true);
+				group.ConnectedNodes.Added -= waitingConnected;
+			};
+			group.ConnectedNodes.Added += waitingConnected;
+			CancellationTokenSource cts = new CancellationTokenSource(5000);
+			using(cts.Token.Register(() => tcs.TrySetCanceled()))
+			{
+				await tcs.Task;
+			}
 		}
 
 		private void SaveChainInCache()
@@ -247,10 +355,14 @@ namespace NBXplorer
 			Logs.Configuration.LogInformation($"Loading chain from node...");
 			using(var node = Node.Connect(_Network.Network, _Configuration.NodeEndpoint))
 			{
-				var cts = new CancellationTokenSource();
-				cts.CancelAfter(5000);
-				node.VersionHandshake(cts.Token);
-				node.SynchronizeChain(_Chain);
+				using(var cts = new CancellationTokenSource(5000))
+				{
+					using(var cts2 = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, _Stop.Token))
+					{
+						node.VersionHandshake(cts2.Token);
+					}
+					node.SynchronizeChain(_Chain, cancellationToken: _Stop.Token);
+				}
 			}
 			Logs.Configuration.LogInformation("Height: " + _Chain.Height);
 		}
@@ -284,7 +396,7 @@ namespace NBXplorer
 				}
 			}
 		}
-		
+
 		public static bool IsSynchingCore(GetBlockchainInfoResponse blockchainInfo)
 		{
 			if(blockchainInfo.InitialBlockDownload.HasValue)

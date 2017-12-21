@@ -81,7 +81,7 @@ namespace NBXplorer
 				return repo;
 			});
 			services.TryAddSingleton<Serializer>();
-			services.TryAddSingleton<ChainEvents>();
+			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<BitcoinDWaiterAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiter>();
 
