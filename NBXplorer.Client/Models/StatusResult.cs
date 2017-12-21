@@ -4,26 +4,34 @@ using System.Text;
 
 namespace NBXplorer.Models
 {
+	public class BitcoinStatus
+	{
+		public int Blocks
+		{
+			get; set;
+		}
+		public int Headers
+		{
+			get; set;
+		}
+		public double VerificationProgress
+		{
+			get; set;
+		}
+		public bool IsSynched
+		{
+			get;
+			set;
+		}
+	}
     public class StatusResult
     {
-		public int? NodeBlocks
+		public string Network
 		{
-			get; set;
+			get;
+			set;
 		}
-		public int? NodeHeaders
-		{
-			get; set;
-		}
-		public bool? IsSynching
-		{
-			get; set;
-		}
-		public int ChainHeight
-		{
-			get; set;
-		}
-
-		public bool Connected
+		public BitcoinStatus BitcoinStatus
 		{
 			get; set;
 		}
@@ -32,15 +40,14 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
-		public double? VerificationProgress
+		public bool IsFullySynched
+		{
+			get; set;
+		}
+		public int ChainHeight
 		{
 			get;
 			set;
-		}
-
-		public bool IsFullySynched()
-		{
-			return Connected && IsSynching.HasValue && !IsSynching.Value;
 		}
 	}
 }

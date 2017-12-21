@@ -534,11 +534,11 @@ namespace NBXplorer.Tests
 			{
 				tester.Client.WaitServerStarted();
 				var status = tester.Client.GetStatus();
-				Assert.True(status.Connected);
-				Assert.False(status.IsSynching);
-				Assert.Equal(status.NodeBlocks, status.NodeHeaders);
-				Assert.Equal(status.NodeBlocks.Value, status.ChainHeight);
-				Assert.Equal(status.VerificationProgress.Value, 1.0);
+				Assert.NotNull(status.BitcoinStatus);
+				Assert.True(status.IsFullySynched);
+				Assert.Equal(status.BitcoinStatus.Blocks, status.BitcoinStatus.Headers);
+				Assert.Equal(status.BitcoinStatus.Blocks, status.ChainHeight);
+				Assert.Equal(1.0, status.BitcoinStatus.VerificationProgress);
 			}
 		}
 

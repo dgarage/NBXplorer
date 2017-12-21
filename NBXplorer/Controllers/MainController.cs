@@ -18,6 +18,7 @@ using NBXplorer.Models;
 using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json.Linq;
 using NBXplorer.Events;
+using NBXplorer.Configuration;
 
 namespace NBXplorer.Controllers
 {
@@ -61,7 +62,12 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		public MainController(RPCClient rpcClient, Repository repository, ConcurrentChain chain, EventAggregator eventAggregator, BitcoinDWaiterAccessor initializer)
+		public MainController(RPCClient rpcClient, 
+			Repository repository, 
+			ConcurrentChain chain, 
+			EventAggregator eventAggregator, 
+			BitcoinDWaiterAccessor initializer,
+			NetworkInformation network)
 		{
 			if(rpcClient == null)
 				throw new ArgumentNullException("rpcClient");
@@ -70,6 +76,7 @@ namespace NBXplorer.Controllers
 			Chain = chain;
 			_EventAggregator = eventAggregator;
 			Initializer = initializer.Instance;
+			_Network = network;
 		}
 
 		EventAggregator _EventAggregator;
@@ -78,6 +85,9 @@ namespace NBXplorer.Controllers
 		{
 			get; set;
 		}
+
+		private NetworkInformation _Network;
+
 		public ConcurrentChain Chain
 		{
 			get; set;
@@ -167,18 +177,26 @@ namespace NBXplorer.Controllers
 			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
 			var status = new StatusResult()
 			{
-				ChainHeight = Chain.Height,
-				Connected = Initializer.Connected,
-				RepositoryPingTime = (DateTimeOffset.UtcNow - now).TotalSeconds
+				Network = _Network.Network.Name,
+				RepositoryPingTime = (DateTimeOffset.UtcNow - now).TotalSeconds,
+				IsFullySynched = true
 			};
-
+			
 			if(blockchainInfo != null)
 			{
-				status.IsSynching = BitcoinDWaiter.IsSynchingCore(blockchainInfo);
-				status.NodeBlocks = blockchainInfo.Blocks;
-				status.NodeHeaders = blockchainInfo.Headers;
-				status.VerificationProgress = blockchainInfo.VerificationProgress;
+				status.BitcoinStatus = new BitcoinStatus()
+				{
+					IsSynched = !BitcoinDWaiter.IsSynchingCore(blockchainInfo),
+					Blocks = blockchainInfo.Blocks,
+					Headers = blockchainInfo.Headers,
+					VerificationProgress = blockchainInfo.VerificationProgress
+				};
+				status.IsFullySynched &= status.BitcoinStatus.IsSynched;
 			}
+			status.ChainHeight = Chain.Height;
+			status.IsFullySynched &= blockchainInfo != null
+									&& Initializer.State == BitcoinDWaiterState.Ready
+									&& blockchainInfo.Headers - Chain.Height < 3;
 			return Json(status);
 		}
 

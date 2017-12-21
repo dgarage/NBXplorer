@@ -309,7 +309,6 @@ namespace NBXplorer
 
 			try
 			{
-
 				await task;
 			}
 			catch(Exception ex)
