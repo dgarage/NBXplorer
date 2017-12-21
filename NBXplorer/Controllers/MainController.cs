@@ -221,7 +221,7 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("sync/{extPubKey}")]
-		public async Task<FileContentResult> Sync(
+		public async Task<UTXOChanges> Sync(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase extPubKey,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
@@ -287,12 +287,12 @@ namespace NBXplorer.Controllers
 				waitingTransaction = Task.FromResult(false); //next time, will not wait
 			}
 
-			return new FileContentResult(changes.ToBytes(), "application/octet-stream");
+			return changes;
 		}
 
 		private void FillUTXOsInformation(List<UTXO> utxos, Func<Script[], KeyPath[]> getKeyPaths, AnnotatedTransactionCollection transactionsById, int currentHeight)
 		{
-			var keyPaths = getKeyPaths(utxos.Select(u => u.Output.ScriptPubKey).ToArray());
+			var keyPaths = getKeyPaths(utxos.Select(u => u.ScriptPubKey).ToArray());
 			for(int i = 0; i < utxos.Count; i++)
 			{
 				var utxo = utxos[i];
@@ -319,7 +319,7 @@ namespace NBXplorer.Controllers
 			{
 				if(!states.Known.CoinsByOutpoint.ContainsKey(coin.Key) &&
 					!substractedReceived.Contains(coin.Key))
-					change.UTXOs.Add(new UTXO() { Outpoint = coin.Key, Output = coin.Value.TxOut });
+					change.UTXOs.Add(new UTXO(coin.Value));
 			}
 
 			foreach(var outpoint in states.Actual.SpentOutpoints)

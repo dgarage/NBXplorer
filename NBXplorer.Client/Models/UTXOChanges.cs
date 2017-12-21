@@ -9,15 +9,8 @@ using System.IO;
 
 namespace NBXplorer.Models
 {
-	public class UTXOChanges : IBitcoinSerializable
+	public class UTXOChanges
 	{
-		public void ReadWrite(BitcoinStream stream)
-		{
-			stream.ReadWriteAsVarInt(ref _CurrentHeight);
-			stream.ReadWrite(ref _Confirmed);
-			stream.ReadWrite(ref _Unconfirmed);
-		}
-
 
 		uint _CurrentHeight;
 		public int CurrentHeight
@@ -67,7 +60,7 @@ namespace NBXplorer.Models
 			}
 		}
 	}
-	public class UTXOChange : IBitcoinSerializable
+	public class UTXOChange
 	{
 		byte _Reset;
 		public bool Reset
@@ -129,22 +122,27 @@ namespace NBXplorer.Models
 				return Reset || UTXOs.Count != 0 || SpentOutpoints.Count != 0;
 			}
 		}
-
-		public void ReadWrite(BitcoinStream stream)
-		{
-			stream.ReadWrite(ref _Reset);
-			stream.ReadWrite(ref _Hash);
-			stream.ReadWrite(ref _UTXOs);
-			stream.ReadWrite(ref _SpentOutpoints);
-		}
 	}
 
-	public class UTXO : IBitcoinSerializable
+	public class UTXO
 	{
 		public UTXO()
 		{
 
 		}
+
+		public UTXO(Coin coin)
+		{
+			Outpoint = coin.Outpoint;
+			Value = coin.TxOut.Value;
+			ScriptPubKey = coin.TxOut.ScriptPubKey;
+		}
+
+		public Coin AsCoin()
+		{
+			return new Coin(Outpoint, new TxOut(Value, ScriptPubKey));
+		}
+
 		OutPoint _Outpoint = new OutPoint();
 		public OutPoint Outpoint
 		{
@@ -160,25 +158,41 @@ namespace NBXplorer.Models
 
 
 
-		TxOut _Output;
-		public TxOut Output
+		Script _ScriptPubKey;
+		public Script ScriptPubKey
 		{
 			get
 			{
-				return _Output;
+				return _ScriptPubKey;
 			}
 			set
 			{
-				_Output = value;
+				_ScriptPubKey = value;
+			}
+		}
+
+
+		Money _Value;
+		public Money Value
+		{
+			get
+			{
+				return _Value;
+			}
+			set
+			{
+				_Value = value;
 			}
 		}
 
 		KeyPath _KeyPath;
+		
 
 		public UTXO(OutPoint outPoint, TxOut output, KeyPath keyPath, int confirmations)
 		{
 			Outpoint = outPoint;
-			Output = output;
+			Value = output.Value;
+			ScriptPubKey = output.ScriptPubKey;
 			KeyPath = keyPath;
 			Confirmations = confirmations;
 		}
@@ -207,18 +221,6 @@ namespace NBXplorer.Models
 			{
 				_Confirmations = checked((uint)value);
 			}
-		}
-
-		public void ReadWrite(BitcoinStream stream)
-		{
-			stream.ReadWrite(ref _Outpoint);
-			stream.ReadWrite(ref _Output);
-			stream.ReadWriteAsVarInt(ref _Confirmations);
-
-			uint[] indexes = _KeyPath?.Indexes ?? new uint[0];
-			stream.ReadWrite(ref indexes);
-			if(!stream.Serializing)
-				_KeyPath = new KeyPath(indexes);
 		}
 	}
 }

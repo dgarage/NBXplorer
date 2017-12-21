@@ -424,7 +424,7 @@ namespace NBXplorer.Tests
 				Assert.False(utxo.Unconfirmed.Reset);
 				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
 				Assert.Equal(tx2, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash); //got the 0.6m
-				Assert.Equal(Money.Coins(0.6m), utxo.Unconfirmed.UTXOs[0].Output.Value); //got the 0.6m
+				Assert.Equal(Money.Coins(0.6m), utxo.Unconfirmed.UTXOs[0].Value); //got the 0.6m
 
 				Assert.Equal(1, utxo.Unconfirmed.SpentOutpoints.Count);
 				Assert.Equal(tx1, utxo.Unconfirmed.SpentOutpoints[0].Hash); //previous coin is spent
@@ -438,12 +438,12 @@ namespace NBXplorer.Tests
 
 				utxo = tester.Client.Sync(pubkey, utxo);
 				Assert.Equal(1, utxo.Unconfirmed.UTXOs.Count);
-				Assert.Equal(Money.Coins(0.15m), utxo.Unconfirmed.UTXOs[0].Output.Value);
+				Assert.Equal(Money.Coins(0.15m), utxo.Unconfirmed.UTXOs[0].Value);
 				Assert.Equal(0, utxo.Unconfirmed.SpentOutpoints.Count);
 
 				utxo = tester.Client.Sync(pubkey, null);
 				Assert.Equal(2, utxo.Unconfirmed.UTXOs.Count); //Should have 0.15 and 0.6
-				Assert.Equal(Money.Coins(0.75m), utxo.Unconfirmed.UTXOs.Select(c => c.Output.Value).Sum());
+				Assert.Equal(Money.Coins(0.75m), utxo.Unconfirmed.UTXOs.Select(c => c.Value).Sum());
 				Assert.Equal(0, utxo.Unconfirmed.SpentOutpoints.Count);
 			}
 		}

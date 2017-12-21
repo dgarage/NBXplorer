@@ -143,10 +143,7 @@ namespace NBXplorer
 			parameters.Add("noWait", noWait.ToString());
 
 			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
-			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/sync/{0}?" + query, new object[] { extKey.ToString() }, cancellation).ConfigureAwait(false);
-			UTXOChanges changes = new UTXOChanges();
-			changes.FromBytes(bytes);
-			return changes;
+			return await SendAsync<UTXOChanges>(HttpMethod.Get, null, "v1/sync/{0}?" + query, new object[] { extKey.ToString() }, cancellation).ConfigureAwait(false);
 		}
 
 		public void WaitServerStarted(CancellationToken cancellation = default(CancellationToken))
