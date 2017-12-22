@@ -71,17 +71,12 @@ namespace NBXplorer
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
 			_CurrentLocation = Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
-
-			var savedProgress = Repository.GetIndexProgress();
-			ChainedBlock fork = null;
-			if(savedProgress != null)
+			var fork = Chain.FindFork(_CurrentLocation);
+			if(fork == null)
 			{
-				fork = Chain.FindFork(savedProgress);
-				if(fork == null)
-					_CurrentLocation = GetDefaultCurrentLocation();
+				_CurrentLocation = GetDefaultCurrentLocation();
+				fork = Chain.FindFork(_CurrentLocation);
 			}
-
-			fork = Chain.FindFork(_CurrentLocation);
 			Logs.Explorer.LogInformation("Starting scan at block " + fork.Height);
 			_Timer = new Timer(Tick, null, 0, 30);
 		}
@@ -107,7 +102,7 @@ namespace NBXplorer
 				return;
 			if(_InFlights.Count != 0)
 				return;
-			var currentLocation = _CurrentLocation ?? GetDefaultCurrentLocation();
+			var currentLocation = _CurrentLocation;
 			var currentBlock = Chain.FindFork(currentLocation);
 			if(currentBlock.Height < StartHeight)
 				currentBlock = Chain.GetBlock(StartHeight) ?? pendingTip;

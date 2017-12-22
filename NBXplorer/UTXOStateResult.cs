@@ -8,25 +8,40 @@ using Microsoft.Extensions.Logging;
 
 namespace NBXplorer
 {
+	/// <summary>
+	/// This class represents a set of two UTXOState, the Known set, which can be deduced by the UTXO hash set by the client. And the actual UTXOState.
+	/// </summary>
 	public class UTXOStates
 	{
 		public UTXOStates()
 		{
 		}
+
+		/// <summary>
+		/// UTXOState that is already known
+		/// </summary>
 		public UTXOState Known
 		{
 			get; set;
 		}
+
+		/// <summary>
+		/// Actual UTXOState
+		/// </summary>
 		public UTXOState Actual
 		{
 			get; set;
 		}
 	}
+
+	/// <summary>
+	/// UTXOStateResult represents the state of UTXOs after a set on confirmed transaction has been applied to it and after a set of unconfirmed has been apply
+	/// </summary>
 	public class UTXOStateResult
 	{
 		public static UTXOStateResult CreateStates(
 			Func<Script[], bool[]> matchScript,
-			uint256 knownUnconfHash, IEnumerable<Transaction> unconfirmed, 
+			uint256 knownUnconfHash, IEnumerable<Transaction> unconfirmed,
 			uint256 knownConfHash, IEnumerable<Transaction> confirmed)
 		{
 			var utxoState = new UTXOState();
@@ -35,18 +50,10 @@ namespace NBXplorer
 			var knownConf = knownConfHash == uint256.Zero ? new UTXOState() : null;
 			foreach(var tx in confirmed)
 			{
-				var applyResult = utxoState.Apply(tx);
-				if(applyResult == ApplyTransactionResult.Conflict)
-				{
-					Logs.Explorer.LogError("A conflict among confirmed transaction happened, this should be impossible");
-					throw new InvalidOperationException("The impossible happened");
-				}
-
-				if(applyResult == ApplyTransactionResult.Passed)
-				{
-					if(utxoState.CurrentHash == knownConfHash)
-						knownConf = utxoState.Snapshot();
-				}
+				if(utxoState.Apply(tx) == ApplyTransactionResult.Conflict)
+					throw new InvalidOperationException("Conflict in UTXOStateResult.CreateStates should never happen");
+				if(utxoState.CurrentHash == knownConfHash)
+					knownConf = utxoState.Snapshot();
 			}
 
 
@@ -57,11 +64,11 @@ namespace NBXplorer
 			foreach(var tx in unconfirmed)
 			{
 				var txid = tx.GetHash();
-				if(utxoState.Apply(tx) == ApplyTransactionResult.Passed)
-				{
-					if(utxoState.CurrentHash == knownUnconfHash)
-						knownUnconf = utxoState.Snapshot();
-				}
+				if(utxoState.Apply(tx) == ApplyTransactionResult.Conflict)
+					throw new InvalidOperationException("Conflict in UTXOStateResult.CreateStates should never happen");
+
+				if(utxoState.CurrentHash == knownUnconfHash)
+					knownUnconf = utxoState.Snapshot();
 			}
 
 			var actualUnconf = utxoState;
@@ -81,11 +88,17 @@ namespace NBXplorer
 			};
 		}
 
+		/// <summary>
+		/// State of the UTXO after confirmed transaction applied
+		/// </summary>
 		public UTXOStates Confirmed
 		{
 			get; set;
 		}
 
+		/// <summary>
+		/// State of the UTXO after unconfirmed and confirmed transaction applied
+		/// </summary>
 		public UTXOStates Unconfirmed
 		{
 			get; set;

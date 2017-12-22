@@ -620,6 +620,7 @@ namespace NBXplorer
 					if(row.Key.Length != 1)
 						t.BlockHash = new uint256(row.Key);
 					t.Transaction = new Transaction(row.Value);
+					t.Transaction.CacheHashes();
 					saved.Add(t);
 				}
 			});

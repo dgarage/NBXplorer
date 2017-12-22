@@ -124,10 +124,11 @@ namespace NBXplorer.Tests
 				User1.Sync(User2, true);
 
 				var creds = RPCCredentialString.Parse(Explorer.AuthenticationString).UserPassword;
-
+				var datadir = Path.Combine(directory, "explorer");
+				DeleteRecursivelyWithMagicDust(datadir);
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
 				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
-				keyValues.Add(("datadir", Path.Combine(directory, "explorer")));
+				keyValues.Add(("datadir", datadir));
 				keyValues.Add(("network", networkString));
 				keyValues.Add(("verbose", "1"));
 				keyValues.Add(("rpcuser", creds.UserName));

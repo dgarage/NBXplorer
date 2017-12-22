@@ -696,6 +696,29 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanTopologicalSort()
+		{
+			var arr = Enumerable.Range(0, 100).ToArray();
+			var expected = arr.ToArray();
+			NBitcoin.Utils.Shuffle(arr);
+			var actual = arr.TopologicalSort(o => arr.Where(a => a < o)).ToArray();
+			Assert.True(expected.SequenceEqual(actual));
+		}
+
+		[Fact]
+		public void CanTopologicalSortTx()
+		{
+			var tx1 = new Transaction() { Outputs = { new TxOut(Money.Zero, new Key()) } };
+			var tx2 = new Transaction() { Inputs = { new TxIn(new OutPoint(tx1, 0)) } };
+			var tx3 = new Transaction() { Inputs = { new TxIn(new OutPoint(tx2, 0)) } };
+
+			var arr = new[] { tx2, tx1, tx3 };
+			var expected = new[] { tx1, tx2, tx3 };
+			var actual = arr.TopologicalSort().ToArray();
+			Assert.True(expected.SequenceEqual(actual));
+		}
+
+		[Fact]
 		public void CanBroadcast()
 		{
 			using(var tester = ServerTester.Create())

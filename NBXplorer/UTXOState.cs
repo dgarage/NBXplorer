@@ -27,8 +27,7 @@ namespace NBXplorer
 	public enum ApplyTransactionResult
 	{
 		Passed,
-		Conflict,
-		Success
+		Conflict
 	}
 
 	public class UTXOState
@@ -40,7 +39,7 @@ namespace NBXplorer
 			_Hasher = new MemoryStream(_Buffer);
 		}
 
-		public Dictionary<OutPoint, Coin> CoinsByOutpoint
+		public Dictionary<OutPoint, Coin> UTXOByOutpoint
 		{
 			get; set;
 		} = new Dictionary<OutPoint, Coin>();
@@ -55,7 +54,7 @@ namespace NBXplorer
 			get; set;
 		} = new List<UTXOEvent>();
 
-		public HashSet<OutPoint> SpentOutpoints
+		public HashSet<OutPoint> SpentUTXOs
 		{
 			get; set;
 		} = new HashSet<OutPoint>();
@@ -69,7 +68,7 @@ namespace NBXplorer
 			{
 				var output = tx.Outputs[i];
 				var outpoint = new OutPoint(hash, i);
-				if(CoinsByOutpoint.ContainsKey(outpoint))
+				if(UTXOByOutpoint.ContainsKey(outpoint))
 				{
 					result = ApplyTransactionResult.Conflict;
 					Conflicts.Add(outpoint, hash);
@@ -80,7 +79,7 @@ namespace NBXplorer
 			{
 				var input = tx.Inputs[i];
 				if(_KnownInputs.Contains(input.PrevOut) || 
-					(!CoinsByOutpoint.ContainsKey(input.PrevOut) && SpentOutpoints.Contains(input.PrevOut)))
+					(!UTXOByOutpoint.ContainsKey(input.PrevOut) && SpentUTXOs.Contains(input.PrevOut)))
 				{
 					result = ApplyTransactionResult.Conflict;
 					Conflicts.Add(input.PrevOut, hash);
@@ -89,15 +88,15 @@ namespace NBXplorer
 			if(result == ApplyTransactionResult.Conflict)
 				return result;
 
-			var matches = MatchScript(tx.Outputs.Select(o => o.ScriptPubKey).ToArray());
+			var matches = MatchScript == null ? null : MatchScript(tx.Outputs.Select(o => o.ScriptPubKey).ToArray());
 			for(int i = 0; i < tx.Outputs.Count; i++)
 			{
 				var output = tx.Outputs[i];
-				var matched = matches[i];
+				var matched = matches == null ? true : matches[i];
 				if(matched)
 				{
 					var outpoint = new OutPoint(hash, i);
-					if(CoinsByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
+					if(UTXOByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
 					{
 						AddEvent(new UTXOEvent() { Received = true, Outpoint = outpoint, TxId = hash });
 					}
@@ -107,10 +106,10 @@ namespace NBXplorer
 			for(int i = 0; i < tx.Inputs.Count; i++)
 			{
 				var input = tx.Inputs[i];
-				if(CoinsByOutpoint.Remove(input.PrevOut))
+				if(UTXOByOutpoint.Remove(input.PrevOut))
 				{
 					AddEvent(new UTXOEvent() { Received = false, Outpoint = input.PrevOut, TxId = hash });
-					SpentOutpoints.Add(input.PrevOut);
+					SpentUTXOs.Add(input.PrevOut);
 				}
 				_KnownInputs.Add(input.PrevOut);
 			}
@@ -155,11 +154,11 @@ namespace NBXplorer
 			var buffer = _Buffer.ToArray();
 			return new UTXOState()
 			{
-				CoinsByOutpoint = new Dictionary<OutPoint, Coin>(CoinsByOutpoint),
+				UTXOByOutpoint = new Dictionary<OutPoint, Coin>(UTXOByOutpoint),
 				Conflicts = new MultiValueDictionary<OutPoint, uint256>(Conflicts),
 				Events = new List<UTXOEvent>(Events),
 				MatchScript = MatchScript,
-				SpentOutpoints = new HashSet<OutPoint>(SpentOutpoints),
+				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
 				_Buffer = buffer.ToArray(),
 				_CurrentHash = _CurrentHash.ToArray(),
 				_Hasher = new MemoryStream(buffer)
