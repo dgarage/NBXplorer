@@ -5,7 +5,7 @@ using System.Text;
 
 namespace NBXplorer.Models
 {
-	public class TransactionResult : IBitcoinSerializable
+	public class TransactionResult
 	{
 		uint _Confirmations;
 		public int Confirmations
@@ -32,12 +32,6 @@ namespace NBXplorer.Models
 			{
 				_Transaction = value;
 			}
-		}
-
-		public void ReadWrite(BitcoinStream stream)
-		{
-			stream.ReadWriteAsVarInt(ref _Confirmations);
-			stream.ReadWrite(ref _Transaction);
 		}
 	}
 }

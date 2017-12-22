@@ -109,13 +109,7 @@ namespace NBXplorer
 
 		public async Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default(CancellationToken))
 		{
-			var bytes = await SendAsync<byte[]>(HttpMethod.Get, null, "v1/tx/" + txId, null, cancellation).ConfigureAwait(false);
-			if(bytes == null)
-				return null;
-			BitcoinStream bs = new BitcoinStream(bytes);
-			TransactionResult result = null;
-			bs.ReadWrite(ref result);
-			return result;
+			return await SendAsync<TransactionResult>(HttpMethod.Get, null, "v1/tx/" + txId, null, cancellation).ConfigureAwait(false);
 		}
 
 		public TransactionResult GetTransaction(uint256 txId, CancellationToken cancellation = default(CancellationToken))

@@ -184,7 +184,7 @@ namespace NBXplorer.Controllers
 
 			var conf = confBlock == null ? 0 : Chain.Tip.Height - confBlock.Height + 1;
 
-			return new FileContentResult(new TransactionResult() { Confirmations = conf, Transaction = tx }.ToBytes(), "application/octet-stream");
+			return Json(new TransactionResult() { Confirmations = conf, Transaction = tx });
 		}
 
 		[HttpPost]
@@ -196,18 +196,6 @@ namespace NBXplorer.Controllers
 			if(derivationStrategy == null)
 				return Task.FromResult(NotFound());
 			return Repository.TrackAsync(derivationStrategy);
-		}
-
-		[HttpGet]
-		[Route("txs/{extPubKey}")]
-		public async Task<GetTransactionsResponse> GetTransactions
-			([ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			DerivationStrategyBase extPubKey,
-			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
-			uint256 hash = null)
-		{
-			//var transactions = await GetAnnotatedTransactions(extPubKey);
-			return null;
 		}
 
 		[HttpGet]
