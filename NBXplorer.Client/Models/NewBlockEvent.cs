@@ -5,14 +5,14 @@ using System.Text;
 
 namespace NBXplorer.Models
 {
-    public class GetFeeRateResult
+    public class NewBlockEvent
     {
-		public FeeRate FeeRate
+		public int Height
 		{
 			get; set;
 		}
 
-		public int BlockCount
+		public uint256 Hash
 		{
 			get; set;
 		}

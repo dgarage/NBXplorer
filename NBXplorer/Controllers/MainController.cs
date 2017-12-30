@@ -165,6 +165,15 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
+		[Route("connect")]
+		public async Task<IActionResult> ConnectWebSocket()
+		{
+			if(!HttpContext.WebSockets.IsWebSocketRequest)
+				return NotFound();
+			return new EmptyResult();
+		}
+
+		[HttpGet]
 		[Route("tx/{txId}")]
 		public IActionResult GetTransaction(
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
@@ -184,7 +193,7 @@ namespace NBXplorer.Controllers
 
 			var conf = confBlock == null ? 0 : Chain.Tip.Height - confBlock.Height + 1;
 
-			return Json(new TransactionResult() { Confirmations = conf, Transaction = tx });
+			return Json(new TransactionResult() { Confirmations = conf, Transaction = tx, Height = confBlock?.Height});
 		}
 
 		[HttpPost]

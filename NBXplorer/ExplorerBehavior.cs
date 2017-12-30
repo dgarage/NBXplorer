@@ -215,7 +215,7 @@ namespace NBXplorer
 						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 						if(!IsSynching() || blockHash.GetLow32() % 100 == 0)
 							Repository.SetIndexProgress(currentLocation);
-						_EventAggregator.Publish(new NewBlockEvent(blockHash));
+						_EventAggregator.Publish(new Events.NewBlockEvent(blockHash));
 					}
 					if(_InFlights.Count == 0)
 						AskBlocks();

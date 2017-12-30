@@ -53,6 +53,7 @@ namespace NBXplorer
 			}
 			loggerFactory.AddApplicationInsights(prov, LogLevel.Information);
 			app.UseNBXplorer();
+			app.UseWebSockets();
 			app.UseMvc();
 		}
 	}

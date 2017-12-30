@@ -33,5 +33,11 @@ namespace NBXplorer.Models
 				_Transaction = value;
 			}
 		}
+
+		public int? Height
+		{
+			get;
+			set;
+		}
 	}
 }

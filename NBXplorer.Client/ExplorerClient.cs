@@ -271,7 +271,7 @@ namespace NBXplorer
 		}
 
 
-		private string GetFullUri(string relativePath, params object[] parameters)
+		internal string GetFullUri(string relativePath, params object[] parameters)
 		{
 			relativePath = String.Format(relativePath, parameters ?? new object[0]);
 			var uri = Address.AbsoluteUri;
@@ -286,8 +286,7 @@ namespace NBXplorer
 		}
 		private async Task<T> SendAsync<T>(HttpMethod method, object body, string relativePath, object[] parameters, CancellationToken cancellation)
 		{
-			var uri = GetFullUri(relativePath, parameters);
-			HttpRequestMessage message = CreateMessage(method, body, uri);
+			HttpRequestMessage message = CreateMessage(method, body, relativePath, parameters);
 			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
 			if((int)result.StatusCode == 404)
 			{
@@ -297,15 +296,16 @@ namespace NBXplorer
 			{
 				if(_Auth.RefreshCache())
 				{
-					message = CreateMessage(method, body, uri);
+					message = CreateMessage(method, body, relativePath, parameters);
 					result = await Client.SendAsync(message).ConfigureAwait(false);
 				}
 			}
 			return await ParseResponse<T>(result).ConfigureAwait(false);
 		}
 
-		private HttpRequestMessage CreateMessage(HttpMethod method, object body, string uri)
+		internal HttpRequestMessage CreateMessage(HttpMethod method, object body, string relativePath, object[] parameters)
 		{
+			var uri = GetFullUri(relativePath, parameters);
 			var message = new HttpRequestMessage(method, uri);
 			_Auth.SetAuthorization(message);
 			if(body != null)
