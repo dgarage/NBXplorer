@@ -22,6 +22,7 @@ using NBXplorer.Configuration;
 using System.Net.WebSockets;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using System.Collections.Concurrent;
 
 namespace NBXplorer.Controllers
 {
@@ -178,6 +179,7 @@ namespace NBXplorer.Controllers
 				return NotFound();
 
 			bool listenBlocks = false;
+			var listenedDerivations = new ConcurrentDictionary<DerivationStrategyBase, DerivationStrategyBase>();
 
 			WebsocketMessageListener server = new WebsocketMessageListener(await HttpContext.WebSockets.AcceptWebSocketAsync(), _SerializerSettings);
 			CompositeDisposable subscriptions = new CompositeDisposable();
@@ -192,6 +194,13 @@ namespace NBXplorer.Controllers
 					}
 				}
 			}));
+			subscriptions.Add(_EventAggregator.Subscribe<Events.NewTransactionMatchEvent>(async o =>
+			{
+				if(listenedDerivations.ContainsKey(o.Match.DerivationStrategy))
+				{
+					await server.Send(new Models.NewTransactionEvent() { DerivationScheme = o.Match.DerivationStrategy });
+				}
+			}));
 			try
 			{
 				while(server.Socket.State == WebSocketState.Open)
@@ -201,6 +210,12 @@ namespace NBXplorer.Controllers
 					{
 						case Models.NewBlockEventRequest r:
 							listenBlocks = true;
+							break;
+						case Models.NewTransactionEventRequest r:
+							foreach(var derivation in r.DerivationSchemes)
+							{
+								listenedDerivations.TryAdd(derivation, derivation);
+							}
 							break;
 						default:
 							break;
@@ -231,7 +246,7 @@ namespace NBXplorer.Controllers
 
 			var conf = confBlock == null ? 0 : Chain.Tip.Height - confBlock.Height + 1;
 
-			return Json(new TransactionResult() { Confirmations = conf, Transaction = tx, Height = confBlock?.Height});
+			return Json(new TransactionResult() { Confirmations = conf, Transaction = tx, Height = confBlock?.Height });
 		}
 
 		[HttpPost]
@@ -359,112 +374,112 @@ namespace NBXplorer.Controllers
 			return annotatedTransactions;
 		}
 
-	private async Task<bool> WaitingTransaction(DerivationStrategyBase extPubKey)
-	{
-		CancellationTokenSource cts = new CancellationTokenSource();
-		cts.CancelAfter(10000);
-
-		try
+		private async Task<bool> WaitingTransaction(DerivationStrategyBase extPubKey)
 		{
-			await _EventAggregator.WaitNext<NewTransactionMatchEvent>(e => e.Match.DerivationStrategy.ToString() == extPubKey.ToString(), cts.Token);
-			return true;
-		}
-		catch(OperationCanceledException) { return false; }
-	}
+			CancellationTokenSource cts = new CancellationTokenSource();
+			cts.CancelAfter(10000);
 
-	private Func<Script[], bool[]> MatchKeyPaths(Func<Script[], KeyPath[]> getKeyPaths)
-	{
-		return (scripts) => getKeyPaths(scripts).Select(c => c != null).ToArray();
-	}
-	private Func<Script[], KeyPath[]> GetKeyPaths(DerivationStrategyBase extPubKey)
-	{
-		Dictionary<Script, KeyPath> cache = new Dictionary<Script, KeyPath>();
-		return (scripts) =>
-		{
-			KeyPath[] result = new KeyPath[scripts.Length];
-			for(int i = 0; i < result.Length; i++)
+			try
 			{
-				if(cache.TryGetValue(scripts[i], out KeyPath keypath))
-					result[i] = keypath;
+				await _EventAggregator.WaitNext<NewTransactionMatchEvent>(e => e.Match.DerivationStrategy.ToString() == extPubKey.ToString(), cts.Token);
+				return true;
 			}
+			catch(OperationCanceledException) { return false; }
+		}
 
-			var needFetch = scripts.Where((r, i) => result[i] == null).ToArray();
-			var fetched = Repository.GetKeyInformations(needFetch).GetAwaiter().GetResult();
-			for(int i = 0; i < fetched.Length; i++)
+		private Func<Script[], bool[]> MatchKeyPaths(Func<Script[], KeyPath[]> getKeyPaths)
+		{
+			return (scripts) => getKeyPaths(scripts).Select(c => c != null).ToArray();
+		}
+		private Func<Script[], KeyPath[]> GetKeyPaths(DerivationStrategyBase extPubKey)
+		{
+			Dictionary<Script, KeyPath> cache = new Dictionary<Script, KeyPath>();
+			return (scripts) =>
 			{
-				var keyInfos = fetched[i];
-				var script = needFetch[i];
-				foreach(var keyInfo in keyInfos)
+				KeyPath[] result = new KeyPath[scripts.Length];
+				for(int i = 0; i < result.Length; i++)
 				{
-					if(keyInfo.DerivationStrategy == extPubKey)
+					if(cache.TryGetValue(scripts[i], out KeyPath keypath))
+						result[i] = keypath;
+				}
+
+				var needFetch = scripts.Where((r, i) => result[i] == null).ToArray();
+				var fetched = Repository.GetKeyInformations(needFetch).GetAwaiter().GetResult();
+				for(int i = 0; i < fetched.Length; i++)
+				{
+					var keyInfos = fetched[i];
+					var script = needFetch[i];
+					foreach(var keyInfo in keyInfos)
 					{
-						cache.TryAdd(script, keyInfo.KeyPath);
-						break;
+						if(keyInfo.DerivationStrategy == extPubKey)
+						{
+							cache.TryAdd(script, keyInfo.KeyPath);
+							break;
+						}
 					}
 				}
-			}
 
-			for(int i = 0; i < result.Length; i++)
-			{
-				if(cache.TryGetValue(scripts[i], out KeyPath keypath))
-					result[i] = keypath;
-			}
-
-			return result;
-		};
-	}
-
-	[HttpPost]
-	[Route("broadcast")]
-	public async Task<BroadcastResult> Broadcast(
-		[ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			DerivationStrategyBase extPubKey)
-	{
-		var tx = new Transaction();
-		var stream = new BitcoinStream(Request.Body, false);
-		tx.ReadWrite(stream);
-		RPCException rpcEx = null;
-		try
-		{
-			await RPC.SendRawTransactionAsync(tx);
-			return new BroadcastResult(true);
-		}
-		catch(RPCException ex)
-		{
-			rpcEx = ex;
-			Logs.Explorer.LogInformation($"Transaction {tx.GetHash()} failed to broadcast (Code: {ex.RPCCode}, Message: {ex.RPCCodeMessage}, Details: {ex.Message} )");
-			if(extPubKey != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
-			{
-				Logs.Explorer.LogInformation("Trying to broadcast unconfirmed of the wallet");
-				var transactions = GetAnnotatedTransactions(extPubKey);
-				foreach(var existing in transactions.UnconfirmedTransactions)
+				for(int i = 0; i < result.Length; i++)
 				{
-					try
-					{
-						await RPC.SendRawTransactionAsync(existing.Record.Transaction);
-					}
-					catch { }
+					if(cache.TryGetValue(scripts[i], out KeyPath keypath))
+						result[i] = keypath;
 				}
 
-				try
-				{
-
-					await RPC.SendRawTransactionAsync(tx);
-					Logs.Explorer.LogInformation($"Broadcast success");
-					return new BroadcastResult(true);
-				}
-				catch(RPCException)
-				{
-					Logs.Explorer.LogInformation($"Transaction {tx.GetHash()} failed to broadcast (Code: {ex.RPCCode}, Message: {ex.RPCCodeMessage}, Details: {ex.Message} )");
-				}
-			}
-			return new BroadcastResult(false)
-			{
-				RPCCode = rpcEx.RPCCode,
-				RPCCodeMessage = rpcEx.RPCCodeMessage,
-				RPCMessage = rpcEx.Message
+				return result;
 			};
 		}
+
+		[HttpPost]
+		[Route("broadcast")]
+		public async Task<BroadcastResult> Broadcast(
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase extPubKey)
+		{
+			var tx = new Transaction();
+			var stream = new BitcoinStream(Request.Body, false);
+			tx.ReadWrite(stream);
+			RPCException rpcEx = null;
+			try
+			{
+				await RPC.SendRawTransactionAsync(tx);
+				return new BroadcastResult(true);
+			}
+			catch(RPCException ex)
+			{
+				rpcEx = ex;
+				Logs.Explorer.LogInformation($"Transaction {tx.GetHash()} failed to broadcast (Code: {ex.RPCCode}, Message: {ex.RPCCodeMessage}, Details: {ex.Message} )");
+				if(extPubKey != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
+				{
+					Logs.Explorer.LogInformation("Trying to broadcast unconfirmed of the wallet");
+					var transactions = GetAnnotatedTransactions(extPubKey);
+					foreach(var existing in transactions.UnconfirmedTransactions)
+					{
+						try
+						{
+							await RPC.SendRawTransactionAsync(existing.Record.Transaction);
+						}
+						catch { }
+					}
+
+					try
+					{
+
+						await RPC.SendRawTransactionAsync(tx);
+						Logs.Explorer.LogInformation($"Broadcast success");
+						return new BroadcastResult(true);
+					}
+					catch(RPCException)
+					{
+						Logs.Explorer.LogInformation($"Transaction {tx.GetHash()} failed to broadcast (Code: {ex.RPCCode}, Message: {ex.RPCCodeMessage}, Details: {ex.Message} )");
+					}
+				}
+				return new BroadcastResult(false)
+				{
+					RPCCode = rpcEx.RPCCode,
+					RPCCodeMessage = rpcEx.RPCCodeMessage,
+					RPCMessage = rpcEx.Message
+				};
+			}
+		}
 	}
-}
 }

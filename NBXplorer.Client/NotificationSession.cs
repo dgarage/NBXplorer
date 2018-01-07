@@ -83,6 +83,16 @@ namespace NBXplorer
 			return _MessageListener.Send(new Models.NewBlockEventRequest(), cancellation);
 		}
 
+		public void ListenDerivationSchemes(DerivationStrategyBase[] derivationSchemes, CancellationToken cancellation = default(CancellationToken))
+		{
+			ListenDerivationSchemesAsync(derivationSchemes, cancellation).GetAwaiter().GetResult();
+		}
+
+		public Task ListenDerivationSchemesAsync(DerivationStrategyBase[] derivationSchemes, CancellationToken cancellation = default(CancellationToken))
+		{
+			return _MessageListener.Send(new Models.NewTransactionEventRequest() { DerivationSchemes = derivationSchemes }, cancellation);
+		}
+
 		public object NextEvent(CancellationToken cancellation = default(CancellationToken))
 		{
 			return NextEventAsync(cancellation).GetAwaiter().GetResult();

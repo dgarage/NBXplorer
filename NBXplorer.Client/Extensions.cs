@@ -18,6 +18,8 @@ namespace NBXplorer
 			_NameByType = new Dictionary<Type, string>();
 			Add("newblock", typeof(Models.NewBlockEvent));
 			Add("subscribeblock", typeof(Models.NewBlockEventRequest));
+			Add("subscribetransaction", typeof(Models.NewTransactionEventRequest));
+			Add("newtransaction", typeof(Models.NewTransactionEvent));
 		}
 
 		static Dictionary<string, Type> _TypeByName;
