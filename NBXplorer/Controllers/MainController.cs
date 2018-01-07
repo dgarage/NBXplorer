@@ -198,7 +198,7 @@ namespace NBXplorer.Controllers
 			{
 				if(listenedDerivations.ContainsKey(o.Match.DerivationStrategy))
 				{
-					await server.Send(new Models.NewTransactionEvent() { DerivationScheme = o.Match.DerivationStrategy });
+					await server.Send(new Models.NewTransactionEvent() { BlockId = o.BlockId, Match = o.Match });
 				}
 			}));
 			try

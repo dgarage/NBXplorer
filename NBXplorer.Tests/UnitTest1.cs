@@ -283,7 +283,7 @@ namespace NBXplorer.Tests
 					tester.Explorer.CreateRPCClient().SendToAddress(AddressOf(key, "0/1"), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
-					Assert.Equal(txEvent.DerivationScheme, pubkey);
+					Assert.Equal(txEvent.Match.DerivationStrategy, pubkey);
 				}
 			}
 		}
