@@ -1,6 +1,7 @@
 ﻿using NBitcoin;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Net.WebSockets;
@@ -8,9 +9,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace NBXplorer.Client
+namespace NBXplorer
 {
-	public class NotificationSession
+	public class NotificationSession : IDisposable
 	{
 
 		private readonly ExplorerClient _Client;
@@ -32,52 +33,73 @@ namespace NBXplorer.Client
 		{
 			Dictionary<string, string> parameters = new Dictionary<string, string>();
 			var uri = _Client.GetFullUri("v1/connect", parameters);
+			uri = ToWebsocketUri(uri);
+			WebSocket socket = null;
+			try
+			{
+				socket = await ConnectAsyncCore(uri, cancellation);
+			}
+			catch(WebSocketException) // For some reason the ErrorCode is not properly set, so we can check for error 401
+			{
+				if(!_Client._Auth.RefreshCache())
+					throw;
+				socket = await ConnectAsyncCore(uri, cancellation);
+			}
+			JsonSerializerSettings settings = new JsonSerializerSettings();
+			new Serializer(_Client.Network).ConfigureSerializer(settings);
+			_MessageListener = new WebsocketMessageListener(socket, settings);
+		}
+
+		private async Task<ClientWebSocket> ConnectAsyncCore(string uri, CancellationToken cancellation)
+		{
+			var socket = new ClientWebSocket();
+			_Client._Auth.SetWebSocketAuth(socket);
+			try
+			{
+				await socket.ConnectAsync(new Uri(uri, UriKind.Absolute), cancellation).ConfigureAwait(false);
+			}
+			catch { socket.Dispose(); throw; }
+			return socket;
+		}
+
+		private static string ToWebsocketUri(string uri)
+		{
 			if(uri.StartsWith("https://"))
 				uri = uri.Replace("https://", "wss://");
 			if(uri.StartsWith("http://"))
 				uri = uri.Replace("http://", "ws://");
-			_Socket = new ClientWebSocket();
-			await _Socket.ConnectAsync(new Uri(uri), cancellation).ConfigureAwait(false);
-			//socket.
+			return uri;
 		}
 
+		WebsocketMessageListener _MessageListener;
 		UTF8Encoding UTF8 = new UTF8Encoding(false, true);
-		public async Task ListenNewBlock(NewBlockEventRequest newBlockRequest, CancellationToken cancellation = default(CancellationToken))
+
+		public void ListenNewBlock(CancellationToken cancellation = default(CancellationToken))
 		{
-			var serializer = new Serializer(_Client.Network);
-			var request = serializer.ToString(new NBXplorerEventRequest(newBlockRequest));
-			var bytes = UTF8.GetBytes(request);
-			await _Socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellation);
+			ListenNewBlockAsync(cancellation).GetAwaiter().GetResult();
+		}
+		public Task ListenNewBlockAsync(CancellationToken cancellation = default(CancellationToken))
+		{
+			return _MessageListener.Send(new Models.NewBlockEventRequest(), cancellation);
 		}
 
-		public async Task<NBXplorerEvent> NextEventAsync(CancellationToken cancellation = default(CancellationToken))
+		public object NextEvent(CancellationToken cancellation = default(CancellationToken))
 		{
-			byte[] buffer = new byte[1024];
-			while(true)
-			{
-				var result = await _Socket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellation);
-				if(result.MessageType == WebSocketMessageType.Text)
-				{
-					var serializer = new Serializer(_Client.Network);
-					return serializer.ToObject<NBXplorerEvent>(UTF8.GetString(buffer, 0, result.Count));
-				}
-			}
+			return NextEventAsync(cancellation).GetAwaiter().GetResult();
+		}
+		public Task<object> NextEventAsync(CancellationToken cancellation = default(CancellationToken))
+		{
+			return _MessageListener.NextMessageAsync(cancellation);
 		}
 
-		ClientWebSocket _Socket;
-		private async Task CloseSocket(CancellationToken cancellation)
+		public Task DisposeAsync(CancellationToken cancellation = default(CancellationToken))
 		{
-			try
-			{
-				if(_Socket.State == WebSocketState.Open)
-				{
-					CancellationTokenSource cts = new CancellationTokenSource();
-					cts.CancelAfter(5000);
-					await _Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", cts.Token);
-				}
-			}
-			catch { }
-			finally { _Socket.Dispose(); }
+			return _MessageListener.DisposeAsync(cancellation);
+		}
+
+		public void Dispose()
+		{
+			DisposeAsync().GetAwaiter().GetResult();
 		}
 	}
 }

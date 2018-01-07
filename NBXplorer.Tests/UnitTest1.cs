@@ -260,6 +260,27 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		CancellationToken Cancel => new CancellationTokenSource(5000).Token;
+
+		[Fact]
+		public void CanUseWebSockets()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				tester.Client.Track(pubKey);
+				using(var connected = tester.Client.CreateNotificationSession())
+				{
+					connected.ListenNewBlock();
+					var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
+					var blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
+					Assert.Equal(expectedBlockId, blockEvent.Hash);
+					Assert.NotEqual(0, blockEvent.Height);
+				}
+			}
+		}
+
+
 		[Fact]
 		public void CanTrack4()
 		{

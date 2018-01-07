@@ -14,15 +14,17 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NBXplorer.Configuration;
+using System.Net.WebSockets;
 
 namespace NBXplorer
 {
 	public class ExplorerClient
 	{
-		interface IAuth
+		internal interface IAuth
 		{
 			bool RefreshCache();
 			void SetAuthorization(HttpRequestMessage message);
+			void SetWebSocketAuth(ClientWebSocket socket);
 		}
 
 		class CookieAuthentication : IAuth
@@ -50,6 +52,11 @@ namespace NBXplorer
 			{
 				message.Headers.Authorization = _CachedAuth;
 			}
+
+			public void SetWebSocketAuth(ClientWebSocket socket)
+			{
+				socket.Options.SetRequestHeader("Authorization", $"{_CachedAuth.Scheme} {_CachedAuth.Parameter}");
+			}
 		}
 		class NullAuthentication : IAuth
 		{
@@ -59,6 +66,10 @@ namespace NBXplorer
 			}
 
 			public void SetAuthorization(HttpRequestMessage message)
+			{
+			}
+
+			public void SetWebSocketAuth(ClientWebSocket socket)
 			{
 			}
 		}
@@ -82,7 +93,7 @@ namespace NBXplorer
 				_Auth = auth;
 		}
 
-		IAuth _Auth = new NullAuthentication();
+		internal IAuth _Auth = new NullAuthentication();
 
 		public bool SetCookieAuth(string path)
 		{
@@ -125,6 +136,18 @@ namespace NBXplorer
 		public UTXOChanges Sync(DerivationStrategyBase extKey, uint256 confHash, uint256 unconfirmedHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			return SyncAsync(extKey, confHash, unconfirmedHash, noWait, cancellation).GetAwaiter().GetResult();
+		}
+
+		public NotificationSession CreateNotificationSession(CancellationToken cancellation = default(CancellationToken))
+		{
+			return CreateNotificationSessionAsync(cancellation).GetAwaiter().GetResult();
+		}
+
+		public async Task<NotificationSession> CreateNotificationSessionAsync(CancellationToken cancellation = default(CancellationToken))
+		{
+			var session = new NotificationSession(this);
+			await session.ConnectAsync(cancellation).ConfigureAwait(false);
+			return session;
 		}
 
 		public async Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, uint256 confHash, uint256 unconfHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))

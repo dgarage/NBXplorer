@@ -11,14 +11,5 @@ namespace NBXplorer.Models
 		{
 
 		}
-		public NewBlockEventRequest(BlockLocator blockLocator)
-		{
-			BlockLocator = blockLocator;
-
-		}
-		public BlockLocator BlockLocator
-		{
-			get; set;
-		}
 	}
 }

@@ -8,6 +8,10 @@ namespace NBXplorer.Events
 {
     public class NewBlockEvent
     {
+		public NewBlockEvent()
+		{
+
+		}
 		public NewBlockEvent(uint256 block)
 		{
 			BlockId = block;

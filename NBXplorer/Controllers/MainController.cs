@@ -19,6 +19,9 @@ using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json.Linq;
 using NBXplorer.Events;
 using NBXplorer.Configuration;
+using System.Net.WebSockets;
+using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 
 namespace NBXplorer.Controllers
 {
@@ -26,18 +29,21 @@ namespace NBXplorer.Controllers
 	[Authorize]
 	public class MainController : Controller
 	{
+		JsonSerializerSettings _SerializerSettings;
 		public MainController(RPCClient rpcClient,
 			Repository repository,
 			ConcurrentChain chain,
 			EventAggregator eventAggregator,
 			BitcoinDWaiterAccessor initializer,
-			NetworkInformation network)
+			NetworkInformation network,
+			IOptions<MvcJsonOptions> jsonOptions)
 		{
 			if(rpcClient == null)
 				throw new ArgumentNullException("rpcClient");
 			RPC = rpcClient;
 			Repository = repository;
 			Chain = chain;
+			_SerializerSettings = jsonOptions.Value.SerializerSettings;
 			_EventAggregator = eventAggregator;
 			Initializer = initializer.Instance;
 			_Network = network;
@@ -166,10 +172,42 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("connect")]
-		public async Task<IActionResult> ConnectWebSocket()
+		public async Task<IActionResult> ConnectWebSocket(CancellationToken cancellation)
 		{
 			if(!HttpContext.WebSockets.IsWebSocketRequest)
 				return NotFound();
+
+			bool listenBlocks = false;
+
+			WebsocketMessageListener server = new WebsocketMessageListener(await HttpContext.WebSockets.AcceptWebSocketAsync(), _SerializerSettings);
+			CompositeDisposable subscriptions = new CompositeDisposable();
+			subscriptions.Add(_EventAggregator.Subscribe<Events.NewBlockEvent>(async o =>
+			{
+				if(listenBlocks)
+				{
+					var block = Chain.GetBlock(o.BlockId);
+					if(block != null)
+					{
+						await server.Send(new Models.NewBlockEvent() { Hash = block.HashBlock, Height = block.Height });
+					}
+				}
+			}));
+			try
+			{
+				while(server.Socket.State == WebSocketState.Open)
+				{
+					object message = await server.NextMessageAsync(cancellation);
+					switch(message)
+					{
+						case Models.NewBlockEventRequest r:
+							listenBlocks = true;
+							break;
+						default:
+							break;
+					}
+				}
+			}
+			finally { subscriptions.Dispose(); await server.DisposeAsync(cancellation); }
 			return new EmptyResult();
 		}
 
