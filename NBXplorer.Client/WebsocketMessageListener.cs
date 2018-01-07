@@ -26,9 +26,12 @@ namespace NBXplorer
 		{
 			_Socket = socket;
 			_SerializerSettings = serializerSettings;
-			var buffer = new byte[1024 * 4];
-			_Buffer = new ArraySegment<byte>(buffer, 0, 1024);
+			var buffer = new byte[ORIGINAL_BUFFER_SIZE];
+			_Buffer = new ArraySegment<byte>(buffer, 0, buffer.Length);
 		}
+
+		const int ORIGINAL_BUFFER_SIZE = 1024 * 5;
+		const int MAX_BUFFER_SIZE = 1024 * 1024 * 5;
 
 		ArraySegment<byte> _Buffer;
 
@@ -36,46 +39,61 @@ namespace NBXplorer
 		public async Task<object> NextMessageAsync(CancellationToken cancellation)
 		{
 			var buffer = _Buffer;
+			var array = _Buffer.Array;
+			var originalSize = _Buffer.Array.Length;
+			var newSize = _Buffer.Array.Length;
 			while(true)
 			{
 				var message = await Socket.ReceiveAsync(buffer, cancellation);
 				if(message.MessageType == WebSocketMessageType.Close)
 				{
-					await CloseSocket(WebSocketCloseStatus.NormalClosure, "Close message received from the peer", cancellation);
+					await CloseSocketAndThrow(WebSocketCloseStatus.NormalClosure, "Close message received from the peer", cancellation);
 					break;
 				}
 				if(message.MessageType != WebSocketMessageType.Text)
 				{
-					await CloseSocket(WebSocketCloseStatus.InvalidMessageType, "Only Text is supported", cancellation);
+					await CloseSocketAndThrow(WebSocketCloseStatus.InvalidMessageType, "Only Text is supported", cancellation);
 					break;
 				}
 				if(message.EndOfMessage)
 				{
-					buffer = _Buffer.Slice(0, buffer.Offset + message.Count);
+					buffer = new ArraySegment<byte>(array, 0, buffer.Offset + message.Count);
 					try
 					{
-						return ParseMessage(buffer);
+						var o = ParseMessage(buffer);
+						if(newSize != originalSize)
+						{
+							Array.Resize(ref array, originalSize);
+						}
+						return o;
 					}
 					catch(Exception ex)
 					{
-						await CloseSocket(WebSocketCloseStatus.InvalidPayloadData, $"Invalid payload: {ex.Message}", cancellation);
+						await CloseSocketAndThrow(WebSocketCloseStatus.InvalidPayloadData, $"Invalid payload: {ex.Message}", cancellation);
 					}
 				}
 				else
 				{
 					if(buffer.Count - message.Count <= 0)
 					{
-						await CloseSocket(WebSocketCloseStatus.MessageTooBig, "Message is too big", cancellation);
-						break;
+						newSize *= 2;
+						if(newSize > MAX_BUFFER_SIZE)
+							await CloseSocketAndThrow(WebSocketCloseStatus.MessageTooBig, "Message is too big", cancellation);
+						Array.Resize(ref array, newSize);
+						buffer = new ArraySegment<byte>(array, buffer.Offset, newSize - buffer.Offset);
 					}
-					buffer = _Buffer.Slice(message.Count, buffer.Count - message.Count);
+					
+					buffer = buffer.Slice(message.Count, buffer.Count - message.Count);
 				}
 			}
 			throw new InvalidOperationException("Should never happen");
 		}
 
-		private async Task CloseSocket(WebSocketCloseStatus status, string description, CancellationToken cancellation)
+		private async Task CloseSocketAndThrow(WebSocketCloseStatus status, string description, CancellationToken cancellation)
 		{
+			var array = _Buffer.Array;
+			if(array.Length != ORIGINAL_BUFFER_SIZE)
+				Array.Resize(ref array, ORIGINAL_BUFFER_SIZE);
 			await Socket.CloseSocket(status, description, cancellation);
 			throw new WebSocketException($"The socket has been closed ({status}: {description})");
 		}
