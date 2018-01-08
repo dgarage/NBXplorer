@@ -330,8 +330,9 @@ namespace NBXplorer.Controllers
 									.Select(t => t.Value)
 									.Concat(MaxValue)
 									.Min();
-				txHeight = txHeight == MaxValue[0] ? currentHeight + 1 : txHeight;
-				utxo.Confirmations = currentHeight - txHeight + 1;
+
+				var isUnconf = txHeight == MaxValue[0];
+				utxo.Confirmations = isUnconf ? 0 : currentHeight - txHeight + 1;
 			}
 		}
 
