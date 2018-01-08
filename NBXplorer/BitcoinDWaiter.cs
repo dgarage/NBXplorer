@@ -342,10 +342,18 @@ namespace NBXplorer
 		private void SaveChainInCache()
 		{
 			var cachePath = Path.Combine(_Configuration.DataDir, "chain.dat");
+			var cachePathTemp = Path.Combine(_Configuration.DataDir, "chain.dat.temp");
+
 			Logs.Configuration.LogInformation($"Saving chain to cache...");
-			var ms = new MemoryStream();
-			_Chain.WriteTo(ms);
-			File.WriteAllBytes(cachePath, ms.ToArray());
+			using(var fs = new FileStream(cachePathTemp, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024))
+			{
+				_Chain.WriteTo(fs);
+				fs.Flush();
+			}
+
+			if(File.Exists(cachePath))
+				File.Delete(cachePath);
+			File.Move(cachePathTemp, cachePath);
 			Logs.Configuration.LogInformation($"Saved");
 		}
 
