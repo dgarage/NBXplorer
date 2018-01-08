@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.AspNetCore.Http.Features;
 using NBXplorer.Filters;
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
+using NBXplorer.Logging;
 
 namespace NBXplorer
 {
@@ -51,6 +52,9 @@ namespace NBXplorer
 			{
 				app.UseDeveloperExceptionPage();
 			}
+
+			Logs.Configure(loggerFactory);
+
 			loggerFactory.AddApplicationInsights(prov, LogLevel.Information);
 			app.UseNBXplorer();
 			app.UseWebSockets();
