@@ -222,6 +222,9 @@ namespace NBXplorer.Controllers
 					}
 				}
 			}
+			catch when(server.Socket.State != WebSocketState.Open)
+			{
+			}
 			finally { subscriptions.Dispose(); await server.DisposeAsync(cancellation); }
 			return new EmptyResult();
 		}
