@@ -85,14 +85,10 @@ namespace NBXplorer.Configuration
 					}
 				}
 			}
-			if(NoTest)
-				return rpcClient;
-
-			TestRPCAsync(networkInformation, rpcClient).GetAwaiter().GetResult();
 			return rpcClient;
 		}
 
-		public static async Task TestRPCAsync(NetworkInformation networkInfo, RPCClient rpcClient)
+		public static async Task TestRPCAsync(NetworkInformation networkInfo, RPCClient rpcClient, CancellationToken cancellation)
 		{
 			var network = networkInfo.Network;
 			Logs.Configuration.LogInformation("Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
@@ -117,7 +113,7 @@ namespace NBXplorer.Configuration
 					catch(RPCException ex) when(IsTransient(ex))
 					{
 						Logs.Configuration.LogInformation($"Transient error '{ex.Message}', retrying soon...");
-						Thread.Sleep(Math.Min(1000 * time, 10000));
+						await Task.Delay(Math.Min(1000 * time, 10000), cancellation);
 					}
 				}
 			}
@@ -180,7 +176,6 @@ namespace NBXplorer.Configuration
 					Password = confArgs.GetOrDefault<string>(prefix + "rpc.password", null),
 					CookieFile = confArgs.GetOrDefault<string>(prefix + "rpc.cookiefile", null),
 					AuthenticationString = confArgs.GetOrDefault<string>(prefix + "rpc.auth", null),
-					NoTest = confArgs.GetOrDefault<bool>(prefix + "rpc.notest", false),
 					Url = url == null ? null : new Uri(url)
 				};
 			}

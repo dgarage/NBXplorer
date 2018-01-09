@@ -64,7 +64,6 @@ namespace NBXplorer
 			_EventAggregator = eventAggregator;
 			accessor.Instance = this;
 		}
-		CancellationTokenSource _Stop = new CancellationTokenSource();
 		public NodeState NodeState
 		{
 			get;
@@ -93,32 +92,60 @@ namespace NBXplorer
 			}
 		}
 		IDisposable _Subscription;
+		Task _Loop;
+		CancellationTokenSource _Cts;
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
 			if(_Disposed)
 				throw new ObjectDisposedException(nameof(BitcoinDWaiter));
-			_Timer = new Timer(Callback, null, 0, (int)TimeSpan.FromMinutes(1.0).TotalMilliseconds);
-			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(async s => await RunStepsAsync());
+
+			_Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+			_Loop = StartLoop(_Cts.Token);
+			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(s => _Tick.Set());
 			return Task.CompletedTask;
 		}
+		AutoResetEvent _Tick = new AutoResetEvent(false);
 
-		void Callback(object state)
+		private async Task StartLoop(CancellationToken token)
 		{
-			RunStepsAsync().GetAwaiter().GetResult();
+			try
+			{
+				while(!token.IsCancellationRequested)
+				{
+					try
+					{
+						while(await StepAsync(token))
+						{
+						}
+						await Task.WhenAny(_Tick.WaitOneAsync(), Task.Delay(PollingInterval, token));
+					}
+					catch(Exception ex) when(!token.IsCancellationRequested)
+					{
+						Logs.Configuration.LogError(ex, "Unhandled exception in BitcoinDWaiter");
+						await Task.WhenAny(_Tick.WaitOneAsync(), Task.Delay(TimeSpan.FromSeconds(5.0), token));
+					}
+				}
+			}
+			catch when(token.IsCancellationRequested)
+			{
+			}
 		}
 
-		private async void ConnectedNodes_Changed(object sender, NodeEventArgs e)
+		public TimeSpan PollingInterval
 		{
-			await RunStepsAsync();
+			get; set;
+		} = TimeSpan.FromMinutes(1.0);
+
+		private void ConnectedNodes_Changed(object sender, NodeEventArgs e)
+		{
+			_Tick.Set();
 		}
 
 		public Task StopAsync(CancellationToken cancellationToken)
 		{
 			_Disposed = true;
-			_Timer.Dispose();
+			_Cts.Cancel();
 			_Subscription.Dispose();
-			_Stop.Cancel();
-			_Idle.Wait();
 			if(_Group != null)
 			{
 				_Group.ConnectedNodes.Added -= ConnectedNodes_Changed;
@@ -128,51 +155,17 @@ namespace NBXplorer
 			}
 			State = BitcoinDWaiterState.NotStarted;
 			_Chain = null;
-			return Task.CompletedTask;
+			_Tick.Set();
+			return _Loop;
 		}
 
-
-		ManualResetEventSlim _Idle = new ManualResetEventSlim(true);
-		async Task RunStepsAsync()
+		async Task<bool> StepAsync(CancellationToken token)
 		{
-			if(!_Idle.IsSet)
-				return;
-			try
-			{
-				_Idle.Reset();
-				while(await StepAsync())
-				{
-				}
-			}
-			catch(Exception ex)
-			{
-				if(!_Stop.IsCancellationRequested)
-					Logs.Configuration.LogError(ex, "Error while synching with the node");
-			}
-			finally
-			{
-				_Idle.Set();
-			}
-		}
-
-		private void SetInterval(TimeSpan interval)
-		{
-			try
-			{
-				_Timer.Change(0, (int)interval.TotalMilliseconds);
-			}
-			catch { }
-		}
-
-		async Task<bool> StepAsync()
-		{
-			if(_Disposed)
-				return false;
 			var oldState = State;
 			switch(State)
 			{
 				case BitcoinDWaiterState.NotStarted:
-					await RPCArgs.TestRPCAsync(_Network, _RPC);
+					await RPCArgs.TestRPCAsync(_Network, _RPC, token);
 					GetBlockchainInfoResponse blockchainInfo = null;
 					try
 					{
@@ -189,7 +182,7 @@ namespace NBXplorer
 					}
 					else
 					{
-						await ConnectToBitcoinD();
+						await ConnectToBitcoinD(token);
 						State = BitcoinDWaiterState.NBXplorerSynching;
 					}
 					break;
@@ -207,7 +200,7 @@ namespace NBXplorer
 					}
 					if(!IsSynchingCore(blockchainInfo2))
 					{
-						await ConnectToBitcoinD();
+						await ConnectToBitcoinD(token);
 						State = BitcoinDWaiterState.NBXplorerSynching;
 					}
 					break;
@@ -258,7 +251,7 @@ namespace NBXplorer
 			return changed;
 		}
 
-		private async Task ConnectToBitcoinD()
+		private async Task ConnectToBitcoinD(CancellationToken cancellation)
 		{
 			if(_Network.IsRegTest)
 			{
@@ -269,7 +262,7 @@ namespace NBXplorer
 			if(_Configuration.CacheChain)
 				LoadChainFromCache();
 			var heightBefore = _Chain.Height;
-			LoadChainFromNode();
+			LoadChainFromNode(cancellation);
 			if(_Configuration.CacheChain && heightBefore != _Chain.Height)
 			{
 				SaveChainInCache();
@@ -357,18 +350,18 @@ namespace NBXplorer
 			Logs.Configuration.LogInformation($"Saved");
 		}
 
-		private void LoadChainFromNode()
+		private void LoadChainFromNode(CancellationToken cancellation)
 		{
 			Logs.Configuration.LogInformation($"Loading chain from node...");
 			using(var node = Node.Connect(_Network.Network, _Configuration.NodeEndpoint))
 			{
 				using(var cts = new CancellationTokenSource(5000))
 				{
-					using(var cts2 = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, _Stop.Token))
+					using(var cts2 = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, cancellation))
 					{
 						node.VersionHandshake(cts2.Token);
 					}
-					node.SynchronizeChain(_Chain, cancellationToken: _Stop.Token);
+					node.SynchronizeChain(_Chain, cancellationToken: cancellation);
 				}
 			}
 			Logs.Configuration.LogInformation("Height: " + _Chain.Height);
@@ -412,7 +405,6 @@ namespace NBXplorer
 		}
 
 		bool _Disposed = false;
-		private Timer _Timer;
 
 		public bool Connected
 		{
