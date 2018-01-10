@@ -39,5 +39,10 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
+		public DateTimeOffset Timestamp
+		{
+			get;
+			set;
+		}
 	}
 }

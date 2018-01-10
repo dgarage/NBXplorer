@@ -582,16 +582,70 @@ namespace NBXplorer
 				highestTable.Insert(tx, 0, highestGenerated + generatedCount);
 		}
 
-		public void SaveTransactions(Transaction[] transactions, uint256 blockHash)
+		class TimeStampedTransaction : IBitcoinSerializable
+		{
+
+			public TimeStampedTransaction()
+			{
+
+			}
+			public TimeStampedTransaction(byte[] hex)
+			{
+				this.ReadWrite(hex);
+			}
+
+			public TimeStampedTransaction(Transaction tx, ulong timestamp)
+			{
+				_TimeStamp = timestamp;
+				_Transaction = tx;
+			}
+			Transaction _Transaction;
+			public Transaction Transaction
+			{
+				get
+				{
+					return _Transaction;
+				}
+				set
+				{
+					_Transaction = value;
+				}
+			}
+
+
+			ulong _TimeStamp = 0;
+			public ulong TimeStamp
+			{
+				get
+				{
+					return _TimeStamp;
+				}
+				set
+				{
+					_TimeStamp = value;
+				}
+			}
+
+			public void ReadWrite(BitcoinStream stream)
+			{
+				stream.ReadWrite(ref _Transaction);
+
+				// So we don't crash on transactions indexed on old versions
+				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
+					stream.ReadWrite(ref _TimeStamp);
+			}
+		}
+		public void SaveTransactions(NBitcoin.Transaction[] transactions, uint256 blockHash)
 		{
 			transactions = transactions.Distinct().ToArray();
 			if(transactions.Length == 0)
 				return;
 			_Engine.Do(tx =>
 			{
+				var date = NBitcoin.Utils.DateTimeToUnixTime(DateTimeOffset.UtcNow);
 				foreach(var btx in transactions)
 				{
-					tx.Insert("tx-" + btx.GetHash().ToString(), blockHash == null ? "0" : blockHash.ToString(), btx.ToBytes());
+					tx.Insert("tx-" + btx.GetHash().ToString(), blockHash == null ? "0" : blockHash.ToString(), new TimeStampedTransaction(btx, date).ToBytes());
 				}
 				tx.Commit();
 			});
@@ -599,13 +653,18 @@ namespace NBXplorer
 
 		public class SavedTransaction
 		{
-			public Transaction Transaction
+			public NBitcoin.Transaction Transaction
 			{
 				get; set;
 			}
 			public uint256 BlockHash
 			{
 				get; set;
+			}
+			public DateTimeOffset Timestamp
+			{
+				get;
+				set;
 			}
 		}
 
@@ -619,7 +678,9 @@ namespace NBXplorer
 					SavedTransaction t = new SavedTransaction();
 					if(row.Key.Length != 1)
 						t.BlockHash = new uint256(row.Key);
-					t.Transaction = new Transaction(row.Value);
+					var timeStamped = new TimeStampedTransaction(row.Value);
+					t.Transaction = timeStamped.Transaction;
+					t.Timestamp = NBitcoin.Utils.UnixTimeToDateTime(timeStamped.TimeStamp);
 					t.Transaction.CacheHashes();
 					saved.Add(t);
 				}

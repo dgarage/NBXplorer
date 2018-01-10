@@ -238,8 +238,10 @@ namespace NBXplorer.Controllers
 			var result = Repository.GetSavedTransactions(txId);
 			if(result.Length == 0)
 				return NotFound();
-
-			var tx = result.First().Transaction;
+			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
+			var oldest = result
+							.Where(o => o.Timestamp != noDate)
+							.OrderBy(o => o.Timestamp).FirstOrDefault() ?? result.First();
 
 			var confBlock = result
 						.Where(r => r.BlockHash != null)
@@ -249,7 +251,7 @@ namespace NBXplorer.Controllers
 
 			var conf = confBlock == null ? 0 : Chain.Tip.Height - confBlock.Height + 1;
 
-			return Json(new TransactionResult() { Confirmations = conf, Transaction = tx, Height = confBlock?.Height });
+			return Json(new TransactionResult() { Confirmations = conf, Transaction = oldest.Transaction, Height = confBlock?.Height, Timestamp = oldest.Timestamp });
 		}
 
 		[HttpPost]
