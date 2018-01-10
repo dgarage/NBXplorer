@@ -185,17 +185,7 @@ namespace NBXplorer.Models
 			}
 		}
 
-		KeyPath _KeyPath;
-		
-
-		public UTXO(OutPoint outPoint, TxOut output, KeyPath keyPath, int confirmations)
-		{
-			Outpoint = outPoint;
-			Value = output.Value;
-			ScriptPubKey = output.ScriptPubKey;
-			KeyPath = keyPath;
-			Confirmations = confirmations;
-		}
+		KeyPath _KeyPath;		
 
 		public KeyPath KeyPath
 		{
@@ -206,6 +196,20 @@ namespace NBXplorer.Models
 			set
 			{
 				_KeyPath = value;
+			}
+		}
+
+
+		DateTimeOffset _Timestamp;
+		public DateTimeOffset Timestamp
+		{
+			get
+			{
+				return _Timestamp;
+			}
+			set
+			{
+				_Timestamp = value;
 			}
 		}
 

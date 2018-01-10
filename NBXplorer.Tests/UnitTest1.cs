@@ -593,15 +593,15 @@ namespace NBXplorer.Tests
 				Assert.False(utxo.Confirmed.Reset);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Equal(txId, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+				var unconfTimestamp = utxo.Unconfirmed.UTXOs[0].Timestamp;
 				Assert.Equal(0, utxo.Unconfirmed.UTXOs[0].Confirmations);
 				Assert.Empty(utxo.Confirmed.UTXOs);
 				Assert.Equal(uint256.Zero, utxo.Confirmed.Hash);
 				Assert.NotEqual(uint256.Zero, utxo.Unconfirmed.Hash);
 
 				var tx = tester.Client.GetTransaction(utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
-				var unconfTimestamp = tx.Timestamp;
 				Assert.NotNull(tx);
-				Assert.NotEqual(NBitcoin.Utils.UnixTimeToDateTime(0), tx.Timestamp);
+				Assert.Equal(unconfTimestamp, tx.Timestamp);
 				Assert.Equal(0, tx.Confirmations);
 				Assert.Equal(utxo.Unconfirmed.UTXOs[0].Outpoint.Hash, tx.Transaction.GetHash());
 
@@ -613,6 +613,7 @@ namespace NBXplorer.Tests
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Equal(1, utxo.Confirmed.UTXOs[0].Confirmations);
+				Assert.Equal(unconfTimestamp, utxo.Confirmed.UTXOs[0].Timestamp);
 				Assert.NotEqual(uint256.Zero, utxo.Confirmed.Hash);
 				var prevConfHash = utxo.Confirmed.Hash;
 

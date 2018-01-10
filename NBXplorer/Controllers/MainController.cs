@@ -335,9 +335,13 @@ namespace NBXplorer.Controllers
 									.Select(t => t.Value)
 									.Concat(MaxValue)
 									.Min();
-
+				var oldest = transactionsById
+					.GetByTxId(utxo.Outpoint.Hash)
+					.OrderBy(o => o.Record.Inserted)
+					.FirstOrDefault();
 				var isUnconf = txHeight == MaxValue[0];
 				utxo.Confirmations = isUnconf ? 0 : currentHeight - txHeight + 1;
+				utxo.Timestamp = oldest.Record.Inserted;
 			}
 		}
 
