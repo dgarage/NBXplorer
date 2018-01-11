@@ -37,8 +37,10 @@ namespace NBXplorer.ModelBinders
 				return Task.CompletedTask;
 			}
 
-			var network = (Network)bindingContext.HttpContext.RequestServices.GetService(typeof(Network));
-			var data = new DerivationStrategy.DerivationStrategyFactory(network).Parse(key);
+			var networkProvider = (NBXplorer.NBXplorerNetworkProvider)bindingContext.HttpContext.RequestServices.GetService(typeof(NBXplorer.NBXplorerNetworkProvider));
+			var cryptoCode = bindingContext.ValueProvider.GetValue("cryptoCode").FirstValue;
+			var network = networkProvider.GetFromCryptoCode(cryptoCode ?? "BTC");
+			var data = new DerivationStrategy.DerivationStrategyFactory(network.NBitcoinNetwork).Parse(key);
 			if(!bindingContext.ModelType.IsInstanceOfType(data))
 			{
 				throw new FormatException("Invalid destination type");

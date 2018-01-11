@@ -23,9 +23,10 @@ namespace NBXplorer.Tests
 {
 	public class UnitTest1
 	{
-		public UnitTest1(ITestOutputHelper output)
+		public UnitTest1(ITestOutputHelper helper)
 		{
-			Logs.Configure(new TestOutputHelperFactory(output));
+			Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
+			Logs.LogProvider = new XUnitLogProvider(helper);
 		}
 
 		[Fact]
@@ -36,18 +37,6 @@ namespace NBXplorer.Tests
 				tester.Repository.Track(DummyPubKey);
 				RepositoryCanTrackAddressesCore(tester);
 
-			}
-		}
-
-		[Fact]
-		public void RepositoryCanTrackCallbacks()
-		{
-			using(var tester = RepositoryTester.Create(true))
-			{
-				tester.Repository.AddBlockCallback(new Uri("http://toto/")).GetAwaiter().GetResult();
-				tester.Repository.AddBlockCallback(new Uri("http://toto1/")).GetAwaiter().GetResult();
-				var uris = tester.Repository.GetBlockCallbacks().GetAwaiter().GetResult();
-				Assert.Equal(2, uris.Length);
 			}
 		}
 
@@ -125,9 +114,9 @@ namespace NBXplorer.Tests
 			Assert.Null(keyInfo);
 		}
 
-		private static KeyPathInformation CreateKeyPathInformation(DirectDerivationStrategy pubKey, KeyPath keyPath)
+		private static KeyPathInformation[] CreateKeyPathInformation(DirectDerivationStrategy pubKey, KeyPath keyPath)
 		{
-			return new KeyPathInformation() { Feature = DerivationFeature.Deposit, DerivationStrategy = pubKey, KeyPath = keyPath };
+			return new[] { new KeyPathInformation() { Feature = DerivationFeature.Deposit, DerivationStrategy = pubKey, KeyPath = keyPath } };
 		}
 
 		[Fact]
@@ -230,33 +219,6 @@ namespace NBXplorer.Tests
 				Assert.Equal(a1.ScriptPubKey, bob.Root.Derive(new KeyPath("0/1")).PubKey.Hash.ScriptPubKey);
 				a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
 				Assert.Equal(a2.ScriptPubKey, bob.Root.Derive(new KeyPath("0/3")).PubKey.Hash.ScriptPubKey);
-			}
-		}
-
-		[Fact]
-		public void CanUseCallbacks()
-		{
-			using(var tester = ServerTester.Create())
-			{
-				using(var server = new CustomServer())
-				{
-					tester.Client.Track(DummyPubKey);
-					tester.Client.SubscribeToBlocks(server.GetUri());
-					tester.Explorer.CreateRPCClient().Generate(1);
-					server.ProcessNextRequest(ctx =>
-					{
-						//Just make sure it is called.
-					});
-
-					tester.Client.SubscribeToWallet(server.GetUri(), DummyPubKey);
-					tester.Explorer.CreateRPCClient().SendToAddress(tester.Client.GetUnused(DummyPubKey, DerivationFeature.Deposit).ScriptPubKey.GetDestinationAddress(Network.RegTest), Money.Coins(3));
-					server.ProcessNextRequest(ctx =>
-					{
-						var json = new StreamReader(ctx.Request.Body).ReadToEnd();
-						var match = new Serializer(Network.RegTest).ToObject<TransactionMatch>(json);
-						Assert.Single(match.Outputs);
-					});
-				}
 			}
 		}
 
@@ -757,6 +719,7 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = ServerTester.Create())
 			{
+				tester.Client.WaitServerStarted();
 				var tx = new Transaction();
 				tx.Outputs.Add(new TxOut(Money.Coins(1.0m), new Key()));
 				var funded = tester.User1.CreateRPCClient().FundRawTransaction(tx);

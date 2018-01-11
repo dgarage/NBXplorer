@@ -20,5 +20,10 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
+		public string CryptoCode
+		{
+			get;
+			set;
+		}
 	}
 }

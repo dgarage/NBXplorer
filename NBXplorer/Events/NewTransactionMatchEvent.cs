@@ -9,11 +9,17 @@ namespace NBXplorer.Events
 {
     public class NewTransactionMatchEvent
     {
-		public NewTransactionMatchEvent(uint256 blockId, TransactionMatch match, Repository.SavedTransaction savedTransaction)
+		public NewTransactionMatchEvent(string cryptoCode, uint256 blockId, TransactionMatch match, Repository.SavedTransaction savedTransaction)
 		{
 			Match = match;
 			BlockId = blockId;
 			SavedTransaction = savedTransaction;
+			CryptoCode = cryptoCode;
+		}
+
+		public string CryptoCode
+		{
+			get; set;
 		}
 
 		public uint256 BlockId
@@ -42,7 +48,7 @@ namespace NBXplorer.Events
 			}
 			var txId = Match.Transaction.GetHash().ToString();
 			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
-			return $"Money received in {strategy} in transaction {txId} ({conf})";
+			return $"{CryptoCode}: Money received in {strategy} in transaction {txId} ({conf})";
 		}
 	}
 }

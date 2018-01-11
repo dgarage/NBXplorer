@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using System.Linq;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using Newtonsoft.Json;
@@ -31,8 +32,7 @@ namespace NBXplorer
 
 		internal async Task ConnectAsync(CancellationToken cancellation)
 		{
-			Dictionary<string, string> parameters = new Dictionary<string, string>();
-			var uri = _Client.GetFullUri("v1/connect", parameters);
+			var uri = _Client.GetFullUri("v1/connect", null);
 			uri = ToWebsocketUri(uri);
 			WebSocket socket = null;
 			try
@@ -46,7 +46,7 @@ namespace NBXplorer
 				socket = await ConnectAsyncCore(uri, cancellation);
 			}
 			JsonSerializerSettings settings = new JsonSerializerSettings();
-			new Serializer(_Client.Network).ConfigureSerializer(settings);
+			new Serializer(_Client.Network.NBitcoinNetwork).ConfigureSerializer(settings);
 			_MessageListener = new WebsocketMessageListener(socket, settings);
 		}
 
@@ -80,7 +80,7 @@ namespace NBXplorer
 		}
 		public Task ListenNewBlockAsync(CancellationToken cancellation = default(CancellationToken))
 		{
-			return _MessageListener.Send(new Models.NewBlockEventRequest(), cancellation);
+			return _MessageListener.Send(new Models.NewBlockEventRequest() { CryptoCode = _Client.CryptoCode }, cancellation);
 		}
 
 		public void ListenDerivationSchemes(DerivationStrategyBase[] derivationSchemes, CancellationToken cancellation = default(CancellationToken))
@@ -90,7 +90,7 @@ namespace NBXplorer
 
 		public Task ListenDerivationSchemesAsync(DerivationStrategyBase[] derivationSchemes, CancellationToken cancellation = default(CancellationToken))
 		{
-			return _MessageListener.Send(new Models.NewTransactionEventRequest() { DerivationSchemes = derivationSchemes }, cancellation);
+			return _MessageListener.Send(new Models.NewTransactionEventRequest() { DerivationSchemes = derivationSchemes.Select(d=>d.ToString()).ToArray(), CryptoCode = _Client.CryptoCode }, cancellation);
 		}
 
 		public object NextEvent(CancellationToken cancellation = default(CancellationToken))

@@ -12,50 +12,6 @@ using System.Threading.Tasks;
 
 namespace NBXplorer.Altcoins.Litecoin
 {
-	public class NetworkInformations
-	{
-		internal static void Register(Dictionary<string, NetworkInformation> networks)
-		{
-			Networks.EnsureRegistered();
-
-			{
-				// mainnet
-				NetworkInformation info = new NetworkInformation();
-				var network = Networks.Mainnet;
-				info.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", network.Name);
-				info.DefaultConfigurationFile = Path.Combine(info.DefaultDataDirectory, "settings.config");
-				info.Network = network;
-				info.DefaultExplorerPort = 24447;
-				info.MinRPCVersion = 140200;
-				networks.Add(network.Name, info);
-			}
-
-			{
-				// testnet
-				NetworkInformation info = new NetworkInformation();
-				var network = Networks.Testnet;
-				info.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", network.Name);
-				info.DefaultConfigurationFile = Path.Combine(info.DefaultDataDirectory, "settings.config");
-				info.Network = network;
-				info.DefaultExplorerPort = 24448;
-				info.MinRPCVersion = 140200;
-				networks.Add(network.Name, info);
-			}
-
-			{
-				// regtest
-				NetworkInformation info = new NetworkInformation();
-				var network = Networks.Regtest;
-				info.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", network.Name);
-				info.DefaultConfigurationFile = Path.Combine(info.DefaultDataDirectory, "settings.config");
-				info.Network = network;
-				info.DefaultExplorerPort = 24449;
-				info.MinRPCVersion = 140200;
-				info.IsRegTest = true;
-				networks.Add(network.Name, info);
-			}
-		}
-	}
 	public class Networks
 	{
 		//Format visual studio

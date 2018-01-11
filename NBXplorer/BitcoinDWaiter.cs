@@ -28,18 +28,67 @@ namespace NBXplorer
 	/// <summary>
 	/// Hack, ASP.NET core DI does not support having one singleton for multiple interfaces
 	/// </summary>
-	public class BitcoinDWaiterAccessor
+	public class BitcoinDWaitersAccessor
 	{
-		public BitcoinDWaiter Instance
+		public BitcoinDWaiters Instance
 		{
 			get; set;
+		}
+	}
+
+	public class BitcoinDWaiters : IHostedService
+	{
+		Dictionary<string, BitcoinDWaiter> _Waiters;
+		public BitcoinDWaiters(
+							BitcoinDWaitersAccessor accessor,
+								NBXplorerNetworkProvider networkProvider,
+							  ChainProvider chains,
+							  RepositoryProvider repositoryProvider,
+							  ExplorerConfiguration config,
+							  RPCClientProvider rpcProvider,
+							  EventAggregator eventAggregator)
+		{
+			accessor.Instance = this;
+			_Waiters = networkProvider
+				.GetAll()
+				.Select(s => (Repository: repositoryProvider.GetRepository(s),
+							  RPCClient: rpcProvider.GetRPCClient(s),
+							  Chain: chains.GetChain(s),
+							  Network: s))
+				.Where(s => s.Repository != null && s.RPCClient != null && s.Chain != null)
+				.Select(s => new BitcoinDWaiter(s.RPCClient,
+												config,
+												networkProvider.GetFromCryptoCode(s.Network.CryptoCode),
+												s.Chain,
+												s.Repository,
+												eventAggregator))
+				.ToDictionary(s => s.Network.CryptoCode, s => s);
+		}
+		public Task StartAsync(CancellationToken cancellationToken)
+		{
+			return Task.WhenAll(_Waiters.Select(s => s.Value.StartAsync(cancellationToken)).ToArray());
+		}
+
+		public Task StopAsync(CancellationToken cancellationToken)
+		{
+			return Task.WhenAll(_Waiters.Select(s => s.Value.StopAsync(cancellationToken)).ToArray());
+		}
+
+		public BitcoinDWaiter GetWaiter(NBXplorerNetwork network)
+		{
+			return GetWaiter(network.CryptoCode);
+		}
+		public BitcoinDWaiter GetWaiter(string cryptoCode)
+		{
+			_Waiters.TryGetValue(cryptoCode, out BitcoinDWaiter waiter);
+			return waiter;
 		}
 	}
 
 	public class BitcoinDWaiter : IHostedService
 	{
 		RPCClient _RPC;
-		NetworkInformation _Network;
+		NBXplorerNetwork _Network;
 		ExplorerConfiguration _Configuration;
 		ConcurrentChain _Chain;
 		private Repository _Repository;
@@ -48,21 +97,18 @@ namespace NBXplorer
 		public BitcoinDWaiter(
 			RPCClient rpc,
 			ExplorerConfiguration configuration,
+			NBXplorerNetwork network,
 			ConcurrentChain chain,
 			Repository repository,
-			CallbackInvoker invoker,
-			EventAggregator eventAggregator,
-			BitcoinDWaiterAccessor accessor)
+			EventAggregator eventAggregator)
 		{
 			_RPC = rpc;
 			_Configuration = configuration;
-			_Network = _Configuration.Network;
+			_Network = network;
 			_Chain = chain;
 			_Repository = repository;
-			_Invoker = invoker;
 			State = BitcoinDWaiterState.NotStarted;
 			_EventAggregator = eventAggregator;
-			accessor.Instance = this;
 		}
 		public NodeState NodeState
 		{
@@ -70,9 +116,24 @@ namespace NBXplorer
 			private set;
 		}
 
-		private CallbackInvoker _Invoker;
 		private NodesGroup _Group;
 
+
+		public NBXplorerNetwork Network
+		{
+			get
+			{
+				return _Network;
+			}
+		}
+
+		public RPCClient RPC
+		{
+			get
+			{
+				return _RPC;
+			}
+		}
 
 		public BitcoinDWaiterState State
 		{
@@ -121,7 +182,7 @@ namespace NBXplorer
 					}
 					catch(Exception ex) when(!token.IsCancellationRequested)
 					{
-						Logs.Configuration.LogError(ex, "Unhandled exception in BitcoinDWaiter");
+						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled exception in BitcoinDWaiter");
 						await Task.WhenAny(_Tick.WaitOneAsync(), Task.Delay(TimeSpan.FromSeconds(5.0), token));
 					}
 				}
@@ -129,6 +190,11 @@ namespace NBXplorer
 			catch when(token.IsCancellationRequested)
 			{
 			}
+		}
+
+		public BlockLocator GetLocation()
+		{
+			return _Group?.ConnectedNodes?.FirstOrDefault()?.Behaviors?.Find<ExplorerBehavior>()?.CurrentLocation;
 		}
 
 		public TimeSpan PollingInterval
@@ -173,7 +239,7 @@ namespace NBXplorer
 					}
 					catch(Exception ex)
 					{
-						Logs.Configuration.LogError(ex, "Failed to connect to RPC");
+						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Failed to connect to RPC");
 						break;
 					}
 					if(IsSynchingCore(blockchainInfo))
@@ -194,7 +260,7 @@ namespace NBXplorer
 					}
 					catch(Exception ex)
 					{
-						Logs.Configuration.LogError(ex, "Failed to connect to RPC");
+						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Failed to connect to RPC");
 						State = BitcoinDWaiterState.NotStarted;
 						break;
 					}
@@ -215,7 +281,7 @@ namespace NBXplorer
 						}
 						catch(Exception ex)
 						{
-							Logs.Configuration.LogError(ex, "Failed to connect to RPC");
+							Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Failed to connect to RPC");
 							State = BitcoinDWaiterState.NotStarted;
 							break;
 						}
@@ -253,7 +319,7 @@ namespace NBXplorer
 
 		private async Task ConnectToBitcoinD(CancellationToken cancellation)
 		{
-			if(_Network.IsRegTest)
+			if(_Network.DefaultSettings.ChainType == ChainType.Regtest)
 			{
 				await WarmupBlockchain();
 			}
@@ -273,8 +339,8 @@ namespace NBXplorer
 		private async Task LoadGroup()
 		{
 			AddressManager manager = new AddressManager();
-			manager.Add(new NetworkAddress(_Configuration.NodeEndpoint), IPAddress.Loopback);
-			NodesGroup group = new NodesGroup(_Network.Network, new NodeConnectionParameters()
+			manager.Add(new NetworkAddress(GetEndpoint()), IPAddress.Loopback);
+			NodesGroup group = new NodesGroup(_Network.NBitcoinNetwork, new NodeConnectionParameters()
 			{
 				Services = NodeServices.Nothing,
 				IsRelay = true,
@@ -285,7 +351,7 @@ namespace NBXplorer
 						PeersToDiscover = 1,
 						Mode = AddressManagerBehaviorMode.None
 					},
-					new ExplorerBehavior(_Repository, _Chain, _Invoker, _EventAggregator) { StartHeight = _Configuration.StartHeight },
+					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = _Configuration.StartHeight },
 					new ChainBehavior(_Chain)
 					{
 						CanRespondToGetHeaders = false
@@ -306,13 +372,18 @@ namespace NBXplorer
 			}
 			catch(Exception ex)
 			{
-				Logs.Configuration.LogError(ex, "Failure to connect to the bitcoin node (P2P)");
+				Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Failure to connect to the bitcoin node (P2P)");
 				throw;
 			}
 			_Group = group;
 
 			group.ConnectedNodes.Added += ConnectedNodes_Changed;
 			group.ConnectedNodes.Removed += ConnectedNodes_Changed;
+		}
+
+		private IPEndPoint GetEndpoint()
+		{
+			return _Configuration.ChainConfigurations.Where(c => c.CryptoCode == Network.CryptoCode).Select(c => c.NodeEndpoint).FirstOrDefault();
 		}
 
 		private static async Task WaitConnected(NodesGroup group)
@@ -334,10 +405,11 @@ namespace NBXplorer
 
 		private void SaveChainInCache()
 		{
-			var cachePath = Path.Combine(_Configuration.DataDir, "chain.dat");
-			var cachePathTemp = Path.Combine(_Configuration.DataDir, "chain.dat.temp");
+			var suffix = _Network.CryptoCode == "BTC" ? "" : _Network.CryptoCode;
+			var cachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain.dat");
+			var cachePathTemp = Path.Combine(_Configuration.DataDir, $"{suffix}chain.dat.temp");
 
-			Logs.Configuration.LogInformation($"Saving chain to cache...");
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Saving chain to cache...");
 			using(var fs = new FileStream(cachePathTemp, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024))
 			{
 				_Chain.WriteTo(fs);
@@ -347,13 +419,13 @@ namespace NBXplorer
 			if(File.Exists(cachePath))
 				File.Delete(cachePath);
 			File.Move(cachePathTemp, cachePath);
-			Logs.Configuration.LogInformation($"Saved");
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Chain cached");
 		}
 
 		private void LoadChainFromNode(CancellationToken cancellation)
 		{
-			Logs.Configuration.LogInformation($"Loading chain from node...");
-			using(var node = Node.Connect(_Network.Network, _Configuration.NodeEndpoint))
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from node...");
+			using(var node = Node.Connect(_Network.NBitcoinNetwork, GetEndpoint()))
 			{
 				using(var cts = new CancellationTokenSource(5000))
 				{
@@ -361,7 +433,7 @@ namespace NBXplorer
 					{
 						node.VersionHandshake(cts2.Token);
 					}
-					if(!_Network.IsRegTest)
+					if(_Network.DefaultSettings.ChainType != ChainType.Regtest)
 						node.SynchronizeChain(_Chain, cancellationToken: cancellation);
 					else
 					{
@@ -372,23 +444,24 @@ namespace NBXplorer
 						}
 						catch
 						{
-							_Chain = new ConcurrentChain(_Network.Network);
+							_Chain = new ConcurrentChain(_Network.NBitcoinNetwork);
 							node.SynchronizeChain(_Chain, cancellationToken: cancellation);
 						}
 					}
 				}
 			}
-			Logs.Configuration.LogInformation("Height: " + _Chain.Height);
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
 		}
 
 		private void LoadChainFromCache()
 		{
-			var cachePath = Path.Combine(_Configuration.DataDir, "chain.dat");
+			var suffix = _Network.CryptoCode == "BTC" ? "" : _Network.CryptoCode;
+			var cachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain.dat");
 			if(_Configuration.CacheChain && File.Exists(cachePath))
 			{
-				Logs.Configuration.LogInformation($"Loading chain from cache...");
+				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
 				_Chain.Load(File.ReadAllBytes(cachePath));
-				Logs.Configuration.LogInformation($"Height: " + _Chain.Height);
+				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
 			}
 		}
 
@@ -397,7 +470,7 @@ namespace NBXplorer
 			if(await _RPC.GetBlockCountAsync() < 100)
 			{
 
-				Logs.Configuration.LogInformation($"Less than 100 blocks, mining some block for regtest");
+				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Less than 100 blocks, mining some block for regtest");
 				await _RPC.GenerateAsync(101);
 			}
 			else
@@ -405,7 +478,7 @@ namespace NBXplorer
 				var header = await _RPC.GetBlockHeaderAsync(await _RPC.GetBestBlockHashAsync());
 				if((DateTimeOffset.UtcNow - header.BlockTime) > TimeSpan.FromSeconds(24 * 60 * 60))
 				{
-					Logs.Configuration.LogInformation($"It has been a while nothing got mined on regtest... mining 10 blocks");
+					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: It has been a while nothing got mined on regtest... mining 10 blocks");
 					await _RPC.GenerateAsync(10);
 				}
 			}

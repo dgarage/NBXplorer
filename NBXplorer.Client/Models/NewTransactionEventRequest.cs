@@ -11,7 +11,11 @@ namespace NBXplorer.Models
 		{
 
 		}
-		public DerivationStrategyBase[] DerivationSchemes
+		public string CryptoCode
+		{
+			get; set;
+		}
+		public string[] DerivationSchemes
 		{
 			get; set;
 		}

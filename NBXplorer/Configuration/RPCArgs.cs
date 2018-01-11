@@ -43,9 +43,9 @@ namespace NBXplorer.Configuration
 			set;
 		}
 
-		public RPCClient ConfigureRPCClient(NetworkInformation networkInformation)
+		public RPCClient ConfigureRPCClient(NBXplorerNetwork networkInformation)
 		{
-			var network = networkInformation.Network;
+			var network = networkInformation.NBitcoinNetwork;
 			RPCClient rpcClient = null;
 			var url = Url;
 			var usr = User;
@@ -88,9 +88,9 @@ namespace NBXplorer.Configuration
 			return rpcClient;
 		}
 
-		public static async Task TestRPCAsync(NetworkInformation networkInfo, RPCClient rpcClient, CancellationToken cancellation)
+		public static async Task TestRPCAsync(NBXplorerNetwork networkInfo, RPCClient rpcClient, CancellationToken cancellation)
 		{
-			var network = networkInfo.Network;
+			var network = networkInfo.NBitcoinNetwork;
 			Logs.Configuration.LogInformation("Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
 			try
 			{

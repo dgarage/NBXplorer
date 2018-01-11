@@ -74,23 +74,17 @@ namespace NBXplorer
 			}
 		}
 
-		public ExplorerClient(Network network, Uri serverAddress)
-			: this(NetworkInformation.GetNetworkByName(network?.Name) ?? throw new ArgumentException("unsupported network", "network"), serverAddress)
-		{
-		}
-		public ExplorerClient(NetworkInformation network, Uri serverAddress)
+		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress)
 		{
 			if(serverAddress == null)
 				throw new ArgumentNullException(nameof(serverAddress));
 			if(network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Address = serverAddress;
-			_NetworkInformation = network;
-			_Serializer = new Serializer(network.Network);
-			_Factory = new DerivationStrategy.DerivationStrategyFactory(Network);
-			var auth = new CookieAuthentication(Path.Combine(network.DefaultDataDirectory, ".cookie"));
-			if(auth.RefreshCache())
-				_Auth = auth;
+			_Network = network;
+			_Serializer = new Serializer(network.NBitcoinNetwork);
+			_CryptoCode = _Network.CryptoCode;
+			_Factory = new DerivationStrategy.DerivationStrategyFactory(Network.NBitcoinNetwork);
 		}
 
 		internal IAuth _Auth = new NullAuthentication();
@@ -109,6 +103,15 @@ namespace NBXplorer
 		public void SetNoAuth()
 		{
 			_Auth = new NullAuthentication();
+		}
+
+		private readonly string _CryptoCode;
+		public string CryptoCode
+		{
+			get
+			{
+				return _CryptoCode;
+			}
 		}
 
 		Serializer _Serializer;
@@ -241,26 +244,6 @@ namespace NBXplorer
 			return GetAsync<GetFeeRateResult>("v1/fees/{0}", new object[] { blockCount }, cancellation);
 		}
 
-		public void SubscribeToWallet(Uri uri, DerivationStrategyBase strategy, CancellationToken cancellation = default(CancellationToken))
-		{
-			SubscribeToWalletAsync(uri, strategy, cancellation).GetAwaiter().GetResult();
-		}
-
-		public Task SubscribeToWalletAsync(Uri uri, DerivationStrategyBase strategy, CancellationToken cancellation = default(CancellationToken))
-		{
-			return SendAsync<string>(HttpMethod.Post, new SubscribeToBlockRequest() { Callback = uri }, "v1/addresses/{0}/subscriptions", new[] { strategy }, cancellation);
-		}
-
-		public void SubscribeToBlocks(Uri uri, CancellationToken cancellation = default(CancellationToken))
-		{
-			SubscribeToBlocksAsync(uri, cancellation).GetAwaiter().GetResult();
-		}
-
-		public Task SubscribeToBlocksAsync(Uri uri, CancellationToken cancellation = default(CancellationToken))
-		{
-			return SendAsync<string>(HttpMethod.Post, new SubscribeToBlockRequest() { Callback = uri }, "v1/subscriptions/blocks", null, cancellation);
-		}
-
 		public BroadcastResult Broadcast(Transaction tx, CancellationToken cancellation = default(CancellationToken))
 		{
 			return BroadcastAsync(tx, cancellation).GetAwaiter().GetResult();
@@ -274,12 +257,12 @@ namespace NBXplorer
 		private static readonly HttpClient SharedClient = new HttpClient();
 		internal HttpClient Client = SharedClient;
 
-		private readonly NetworkInformation _NetworkInformation;
-		public Network Network
+		private readonly NBXplorerNetwork _Network;
+		public NBXplorerNetwork Network
 		{
 			get
 			{
-				return _NetworkInformation.Network;
+				return _Network;
 			}
 		}
 
@@ -301,6 +284,13 @@ namespace NBXplorer
 			if(!uri.EndsWith("/", StringComparison.Ordinal))
 				uri += "/";
 			uri += relativePath;
+			if(!string.IsNullOrEmpty(CryptoCode))
+			{
+				if(uri.IndexOf('?') == -1)
+					uri += $"?cryptoCode={CryptoCode}";
+				else
+					uri += $"&cryptoCode={CryptoCode}";
+			}
 			return uri;
 		}
 		private Task<T> GetAsync<T>(string relativePath, object[] parameters, CancellationToken cancellation)

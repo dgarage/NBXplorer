@@ -12,9 +12,15 @@ namespace NBXplorer.Events
 		{
 
 		}
-		public NewBlockEvent(uint256 block)
+		public NewBlockEvent(string cryptoCode, uint256 block)
 		{
 			BlockId = block;
+			CryptoCode = cryptoCode;
+		}
+
+		public string CryptoCode
+		{
+			get; set;
 		}
 
 		public uint256 BlockId
@@ -24,7 +30,7 @@ namespace NBXplorer.Events
 
 		public override string ToString()
 		{
-			return "New block " + BlockId;
+			return $"{CryptoCode}: New block " + BlockId;
 		}
 	}
 }

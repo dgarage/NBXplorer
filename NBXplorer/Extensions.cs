@@ -59,14 +59,9 @@ namespace NBXplorer
 
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
 		{
-			Serializer _Serializer;
-			public MVCConfigureOptions(Serializer serializer)
-			{
-				_Serializer = serializer;
-			}
 			public void Configure(MvcJsonOptions options)
 			{
-				_Serializer.ConfigureSerializer(options.SerializerSettings);
+				new Serializer(null).ConfigureSerializer(options.SerializerSettings);
 			}
 		}
 
@@ -79,40 +74,21 @@ namespace NBXplorer
 			});
 
 			services.AddSingleton<IConfigureOptions<MvcJsonOptions>, MVCConfigureOptions>();
-			services.TryAddSingleton<ConcurrentChain>(o => new ConcurrentChain(o.GetRequiredService<Network>()));
-			services.TryAddSingleton<NetworkInformation>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value.Network);
-			services.TryAddSingleton<Network>(o => o.GetRequiredService<IOptions<NetworkInformation>>().Value.Network);
+			services.TryAddSingleton<ChainProvider>();
 
-			services.TryAddSingleton<CallbackInvoker>();
-			services.TryAddSingleton<Repository>(o =>
-			{
-				var configuration = o.GetRequiredService<ExplorerConfiguration>();
-				var dbPath = Path.Combine(configuration.DataDir, "db");
-				var repo = new Repository(configuration.CreateSerializer(), dbPath);
-				if(configuration.Rescan)
-				{
-					Logs.Configuration.LogInformation("Rescanning...");
-					repo.SetIndexProgress(null);
-				}
-				return repo;
-			});
-			services.TryAddSingleton<Serializer>();
+			services.TryAddSingleton<RepositoryProvider>();
 			services.TryAddSingleton<EventAggregator>();
-			services.TryAddSingleton<BitcoinDWaiterAccessor>();
-			services.AddSingleton<IHostedService, BitcoinDWaiter>();
+			services.TryAddSingleton<BitcoinDWaitersAccessor>();
+			services.AddSingleton<IHostedService, BitcoinDWaiters>();
 
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 
-			services.AddSingleton<Network>(o =>
+			services.AddSingleton<NBXplorerNetworkProvider>(o =>
 			{
 				var c = o.GetRequiredService<ExplorerConfiguration>();
-				return c.Network.Network;
+				return c.NetworkProvider;
 			});
-			services.TryAddSingleton<RPCClient>(o =>
-			{
-				var configuration = o.GetRequiredService<ExplorerConfiguration>();
-				return configuration.RPC.ConfigureRPCClient(configuration.Network);
-			});
+			services.TryAddSingleton<RPCClientProvider>();
 			services.TryAddSingleton<RPCAuthorization>(o =>
 			{
 				var configuration = o.GetRequiredService<ExplorerConfiguration>();

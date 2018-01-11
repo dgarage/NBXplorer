@@ -20,8 +20,6 @@ namespace NBXplorer
 		JsonSerializerSettings _Settings = new JsonSerializerSettings();
 		public Serializer(Network network)
 		{
-			if(network == null)
-				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			ConfigureSerializer(_Settings);
 		}
@@ -31,7 +29,7 @@ namespace NBXplorer
 			if(settings == null)
 				throw new ArgumentNullException(nameof(settings));
 			NBitcoin.JsonConverters.Serializer.RegisterFrontConverters(settings, Network);
-			settings.Converters.Insert(0, new JsonConverters.DerivationStrategyJsonConverter(new DerivationStrategy.DerivationStrategyFactory(Network)));
+			settings.Converters.Insert(0, new JsonConverters.DerivationStrategyJsonConverter(Network == null ? null : new DerivationStrategy.DerivationStrategyFactory(Network)));
 			settings.Converters.Insert(0, new JsonConverters.FeeRateJsonConverter());
 		}
 

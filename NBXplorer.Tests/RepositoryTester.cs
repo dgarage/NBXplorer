@@ -14,16 +14,31 @@ namespace NBXplorer.Tests
 		}
 
 		string _Name;
+		private RepositoryProvider _Provider;
+
 		RepositoryTester(string name, bool caching)
 		{
 			_Name = name;
 			ServerTester.DeleteRecursivelyWithMagicDust(name);
-			_Repository = new Repository(new Serializer(Network.RegTest), name);
+			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(ChainType.Regtest), 
+											   new Configuration.ExplorerConfiguration()
+											   {
+												   DataDir = name,
+												   ChainConfigurations = new List<Configuration.ChainConfiguration>()
+												   {
+													   new Configuration.ChainConfiguration()
+													   {
+														   CryptoCode = "BTC",
+														   Rescan = false
+													   }
+												   }
+											   });
+			_Repository = _Provider.GetRepository(new NBXplorerNetworkProvider(ChainType.Regtest).GetFromCryptoCode("BTC"));
 		}
 
 		public void Dispose()
 		{
-			_Repository.Dispose();
+			_Provider.Dispose();
 			ServerTester.DeleteRecursivelyWithMagicDust(_Name);
 		}
 

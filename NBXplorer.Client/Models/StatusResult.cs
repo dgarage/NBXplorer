@@ -49,5 +49,10 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
+		public int? SyncHeight
+		{
+			get;
+			set;
+		}
 	}
 }

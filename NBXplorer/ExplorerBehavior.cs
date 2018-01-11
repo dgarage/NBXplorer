@@ -15,12 +15,13 @@ using NBXplorer.DerivationStrategy;
 using System.Net.Http;
 using NBXplorer.Models;
 using NBXplorer.Events;
+using NBXplorer.Configuration;
 
 namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
-		public ExplorerBehavior(Repository repo, ConcurrentChain chain, CallbackInvoker callbacks, EventAggregator eventAggregator)
+		public ExplorerBehavior(Repository repo, ConcurrentChain chain, EventAggregator eventAggregator)
 		{
 			if(repo == null)
 				throw new ArgumentNullException(nameof(repo));
@@ -28,7 +29,6 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(chain));
 			_Chain = chain;
 			_Repository = repo;
-			_Callbacks = callbacks;
 			_EventAggregator = eventAggregator;
 		}
 
@@ -41,7 +41,6 @@ namespace NBXplorer
 				return _Repository;
 			}
 		}
-		CallbackInvoker _Callbacks;
 
 		private readonly ConcurrentChain _Chain;
 		private readonly Repository _Repository;
@@ -61,10 +60,18 @@ namespace NBXplorer
 
 		public override object Clone()
 		{
-			return new ExplorerBehavior(_Repository, _Chain, _Callbacks, _EventAggregator) { StartHeight = StartHeight };
+			return new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = StartHeight };
 		}
 
 		Timer _Timer;
+
+		public BlockLocator CurrentLocation
+		{
+			get
+			{
+				return _CurrentLocation;
+			}
+		}
 
 		protected override void AttachCore()
 		{
@@ -77,14 +84,14 @@ namespace NBXplorer
 				_CurrentLocation = GetDefaultCurrentLocation();
 				fork = Chain.FindFork(_CurrentLocation);
 			}
-			Logs.Explorer.LogInformation("Starting scan at block " + fork.Height);
+			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting scan at block " + fork.Height);
 			_Timer = new Timer(Tick, null, 0, 30);
 		}
 
 		private BlockLocator GetDefaultCurrentLocation()
 		{
 			if(StartHeight > Chain.Height)
-				throw new InvalidOperationException("StartHeight should not be above the current tip");
+				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight should not be above the current tip");
 			return StartHeight == -1 ?
 				new BlockLocator() { Blocks = new List<uint256>() { Chain.Tip.HashBlock } } :
 				new BlockLocator() { Blocks = new List<uint256>() { Chain.GetBlock(StartHeight).HashBlock } };
@@ -141,11 +148,18 @@ namespace NBXplorer
 			{
 				if(AttachedNode == null)
 					return;
-				Logs.Explorer.LogError("Exception in ExplorerBehavior tick loop");
+				Logs.Explorer.LogError($"{Network.CryptoCode}: Exception in ExplorerBehavior tick loop");
 				Logs.Explorer.LogError(ex.ToString());
 			}
 		}
 
+		public NBXplorerNetwork Network
+		{
+			get
+			{
+				return _Repository.Network;
+			}
+		}
 
 
 		BlockLocator _CurrentLocation;
@@ -194,10 +208,6 @@ namespace NBXplorer
 					_CurrentLocation = currentLocation;
 					if(_InFlights.TryRemove(block.Object.GetHash(), out o))
 					{
-						if(!IsSynching())
-						{
-							var unused = _Callbacks.SendCallbacks(block.Object.GetHash());
-						}
 						foreach(var tx in block.Object.Transactions)
 							tx.CacheHashes();
 
@@ -208,14 +218,10 @@ namespace NBXplorer
 
 						var blockHash = block.Object.GetHash();
 						SaveMatches(matches, blockHash);
-						if(!IsSynching())
-						{
-							var unused = _Callbacks.SendCallbacks(matches);
-						}
 						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 						if(!IsSynching() || blockHash.GetLow32() % 100 == 0)
 							Repository.SetIndexProgress(currentLocation);
-						_EventAggregator.Publish(new Events.NewBlockEvent(blockHash));
+						_EventAggregator.Publish(new Events.NewBlockEvent(this._Repository.Network.CryptoCode, blockHash));
 					}
 					if(_InFlights.Count == 0)
 						AskBlocks();
@@ -232,23 +238,13 @@ namespace NBXplorer
 
 		private void SaveMatches(TransactionMatch[] matches, uint256 h)
 		{
-			MarkAsUsed(matches);
+			Repository.MarkAsUsed(matches.SelectMany(m => m.Outputs).ToArray());
 			Repository.SaveMatches(matches.Select(m => m.CreateInsertTransaction(h)).ToArray());
 			var saved = Repository.SaveTransactions(matches.Select(m => m.Transaction).Distinct().ToArray(), h);
 			for(int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new NewTransactionMatchEvent(h, matches[i], saved[i]));
-
+				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode,h, matches[i], saved[i]));
 			}
-			if(!IsSynching())
-			{
-				var unused = _Callbacks.SendCallbacks(matches);
-			}
-		}
-
-		private void MarkAsUsed(TransactionMatch[] matches)
-		{
-			Repository.MarkAsUsedAsync(matches.SelectMany(m => m.Outputs).ToArray()).GetAwaiter().GetResult();
 		}
 
 		public bool IsSynching()
@@ -279,7 +275,7 @@ namespace NBXplorer
 				scripts.Add(output.ScriptPubKey);
 			}
 
-			var keyInformations = Repository.GetKeyInformations(scripts.ToArray()).GetAwaiter().GetResult();
+			var keyInformations = Repository.GetKeyInformations(scripts.ToArray());
 			for(int scriptIndex = 0; scriptIndex < keyInformations.Length; scriptIndex++)
 			{
 				for(int i = 0; i < keyInformations[scriptIndex].Length; i++)

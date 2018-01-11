@@ -28,7 +28,7 @@ namespace NBXplorer.JsonConverters
 
 			try
 			{
-				var result = Factory.Parse(reader.Value.ToString());
+				var result = Factory?.Parse(reader.Value.ToString());
 				if(result == null)
 				{
 					throw new JsonObjectException("Invalid derivation strategy", reader);

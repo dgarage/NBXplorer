@@ -20,6 +20,7 @@ using NBitcoin.RPC;
 using System.Net;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
+using NBXplorer.Logging;
 
 namespace NBXplorer.Tests
 {
@@ -131,26 +132,36 @@ namespace NBXplorer.Tests
 				keyValues.Add(("datadir", datadir));
 				keyValues.Add(("network", networkString));
 				keyValues.Add(("verbose", "1"));
-				keyValues.Add(("rpcuser", creds.UserName));
-				keyValues.Add(("rpcpassword", creds.Password));
-				keyValues.Add(("rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
-				keyValues.Add(("rpcnotest", "1"));
+				keyValues.Add(("btcrpcuser", creds.UserName));
+				keyValues.Add(("btcrpcpassword", creds.Password));
+				keyValues.Add(("btcrpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 				keyValues.Add(("cachechain", "0"));
-				keyValues.Add(("startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
-				keyValues.Add(("nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
+				keyValues.Add(("rpcnotest", "1"));
+				keyValues.Add(("btcstartheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
+				keyValues.Add(("btcnodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 
 				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
 				Host = new WebHostBuilder()
 					.UseConfiguration(new DefaultConfiguration().CreateConfiguration(args))
 					.UseKestrel()
+					.ConfigureLogging(l =>
+					{
+						l.SetMinimumLevel(LogLevel.Information)
+							.AddFilter("Microsoft", LogLevel.Error)
+							.AddFilter("Hangfire", LogLevel.Error)
+							.AddProvider(Logs.LogProvider);
+					})
 					.UseStartup<Startup>()
 					.Build();
-				RPC = (RPCClient)Host.Services.GetService(typeof(RPCClient));
-				Network = (Network)Host.Services.GetService(typeof(Network));
+
+				string cryptoCode = "BTC";
+				RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(cryptoCode);
+				var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(cryptoCode);
+				Network = nbxnetwork.NBitcoinNetwork;
 				var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 				Host.Start();
 
-				_Client = new ExplorerClient(Network, Address);
+				_Client = new ExplorerClient(nbxnetwork, Address);
 				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
 			}
 			catch

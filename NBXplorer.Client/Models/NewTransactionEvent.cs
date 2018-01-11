@@ -32,6 +32,11 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		} = new List<KeyPathInformation>();
+		public string CryptoCode
+		{
+			get;
+			set;
+		}
 
 		public TransactionMatch AsMatch()
 		{
