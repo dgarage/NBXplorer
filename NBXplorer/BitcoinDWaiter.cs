@@ -361,7 +361,21 @@ namespace NBXplorer
 					{
 						node.VersionHandshake(cts2.Token);
 					}
-					node.SynchronizeChain(_Chain, cancellationToken: cancellation);
+					if(!_Network.IsRegTest)
+						node.SynchronizeChain(_Chain, cancellationToken: cancellation);
+					else
+					{
+						// Regtest get stucks sometimes, so we need to start fresh...
+						try
+						{
+							node.SynchronizeChain(_Chain, cancellationToken: new CancellationTokenSource(10000).Token);
+						}
+						catch
+						{
+							_Chain = new ConcurrentChain(_Network.Network);
+							node.SynchronizeChain(_Chain, cancellationToken: cancellation);
+						}
+					}
 				}
 			}
 			Logs.Configuration.LogInformation("Height: " + _Chain.Height);
