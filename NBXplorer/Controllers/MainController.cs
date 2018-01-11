@@ -198,9 +198,10 @@ namespace NBXplorer.Controllers
 			{
 				if(listenedDerivations.ContainsKey(o.Match.DerivationStrategy))
 				{
-					var blockHeader = Chain.GetBlock(o.BlockId);
+					var blockHeader = o.BlockId == null ? null : Chain.GetBlock(o.BlockId);
 					await server.Send(new Models.NewTransactionEvent()
 					{
+						DerivationStrategy = o.Match.DerivationStrategy,
 						BlockId = blockHeader?.HashBlock,
 						TransactionData = ToTransactionResult(new[] { o.SavedTransaction }),
 						Inputs = o.Match.Inputs,
