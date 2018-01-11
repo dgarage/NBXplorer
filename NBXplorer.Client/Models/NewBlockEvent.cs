@@ -16,5 +16,9 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
+		public uint256 PreviousBlockHash
+		{
+			get; set;
+		}
 	}
 }

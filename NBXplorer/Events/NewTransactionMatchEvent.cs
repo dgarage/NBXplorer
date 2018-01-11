@@ -9,10 +9,11 @@ namespace NBXplorer.Events
 {
     public class NewTransactionMatchEvent
     {
-		public NewTransactionMatchEvent(uint256 blockId, TransactionMatch match)
+		public NewTransactionMatchEvent(uint256 blockId, TransactionMatch match, Repository.SavedTransaction savedTransaction)
 		{
 			Match = match;
 			BlockId = blockId;
+			SavedTransaction = savedTransaction;
 		}
 
 		public uint256 BlockId
@@ -21,6 +22,11 @@ namespace NBXplorer.Events
 		}
 
 		public TransactionMatch Match
+		{
+			get; set;
+		}
+
+		public Repository.SavedTransaction SavedTransaction
 		{
 			get; set;
 		}

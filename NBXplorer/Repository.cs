@@ -635,20 +635,26 @@ namespace NBXplorer
 					stream.ReadWrite(ref _TimeStamp);
 			}
 		}
-		public void SaveTransactions(NBitcoin.Transaction[] transactions, uint256 blockHash)
+		public List<SavedTransaction> SaveTransactions(NBitcoin.Transaction[] transactions, uint256 blockHash)
 		{
+			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
 			if(transactions.Length == 0)
-				return;
+				return result;
 			_Engine.Do(tx =>
 			{
 				var date = NBitcoin.Utils.DateTimeToUnixTime(DateTimeOffset.UtcNow);
 				foreach(var btx in transactions)
 				{
-					tx.Insert("tx-" + btx.GetHash().ToString(), blockHash == null ? "0" : blockHash.ToString(), new TimeStampedTransaction(btx, date).ToBytes());
+					var timestamped = new TimeStampedTransaction(btx, date);
+					var key = blockHash == null ? "0" : blockHash.ToString();
+					var value = timestamped.ToBytes();
+					tx.Insert("tx-" + btx.GetHash().ToString(), key, value);
+					result.Add(ToSavedTransaction(key, value));
 				}
 				tx.Commit();
 			});
+			return result;
 		}
 
 		public class SavedTransaction
@@ -675,17 +681,23 @@ namespace NBXplorer
 			{
 				foreach(var row in tx.SelectForward<string, byte[]>("tx-" + txid.ToString()))
 				{
-					SavedTransaction t = new SavedTransaction();
-					if(row.Key.Length != 1)
-						t.BlockHash = new uint256(row.Key);
-					var timeStamped = new TimeStampedTransaction(row.Value);
-					t.Transaction = timeStamped.Transaction;
-					t.Timestamp = NBitcoin.Utils.UnixTimeToDateTime(timeStamped.TimeStamp);
-					t.Transaction.CacheHashes();
+					SavedTransaction t = ToSavedTransaction(row.Key, row.Value);
 					saved.Add(t);
 				}
 			});
 			return saved.ToArray();
+		}
+
+		private static SavedTransaction ToSavedTransaction(string key, byte[] value)
+		{
+			SavedTransaction t = new SavedTransaction();
+			if(key.Length != 1)
+				t.BlockHash = new uint256(key);
+			var timeStamped = new TimeStampedTransaction(value);
+			t.Transaction = timeStamped.Transaction;
+			t.Timestamp = NBitcoin.Utils.UnixTimeToDateTime(timeStamped.TimeStamp);
+			t.Transaction.CacheHashes();
+			return t;
 		}
 
 		public Task<KeyPathInformation[][]> GetKeyInformations(Script[] scripts)

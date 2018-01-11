@@ -234,11 +234,11 @@ namespace NBXplorer
 		{
 			MarkAsUsed(matches);
 			Repository.SaveMatches(matches.Select(m => m.CreateInsertTransaction(h)).ToArray());
-			Repository.SaveTransactions(matches.Select(m => m.Transaction).Distinct().ToArray(), h);
-
-			foreach(var match in matches)
+			var saved = Repository.SaveTransactions(matches.Select(m => m.Transaction).Distinct().ToArray(), h);
+			for(int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new NewTransactionMatchEvent(h, match));
+				_EventAggregator.Publish(new NewTransactionMatchEvent(h, matches[i], saved[i]));
+
 			}
 			if(!IsSynching())
 			{

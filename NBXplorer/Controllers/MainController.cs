@@ -190,7 +190,7 @@ namespace NBXplorer.Controllers
 					var block = Chain.GetBlock(o.BlockId);
 					if(block != null)
 					{
-						await server.Send(new Models.NewBlockEvent() { Hash = block.HashBlock, Height = block.Height });
+						await server.Send(new Models.NewBlockEvent() { Hash = block.HashBlock, Height = block.Height, PreviousBlockHash = block?.Previous.HashBlock });
 					}
 				}
 			}));
@@ -198,7 +198,14 @@ namespace NBXplorer.Controllers
 			{
 				if(listenedDerivations.ContainsKey(o.Match.DerivationStrategy))
 				{
-					await server.Send(new Models.NewTransactionEvent() { BlockId = o.BlockId, Match = o.Match });
+					var blockHeader = Chain.GetBlock(o.BlockId);
+					await server.Send(new Models.NewTransactionEvent()
+					{
+						BlockId = blockHeader?.HashBlock,
+						TransactionData = ToTransactionResult(new[] { o.SavedTransaction }),
+						Inputs = o.Match.Inputs,
+						Outputs = o.Match.Outputs
+					});
 				}
 			}));
 			try
@@ -238,6 +245,11 @@ namespace NBXplorer.Controllers
 			var result = Repository.GetSavedTransactions(txId);
 			if(result.Length == 0)
 				return NotFound();
+			return Json(ToTransactionResult(result));
+		}
+
+		private TransactionResult ToTransactionResult(Repository.SavedTransaction[] result)
+		{
 			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
 			var oldest = result
 							.Where(o => o.Timestamp != noDate)
@@ -251,7 +263,7 @@ namespace NBXplorer.Controllers
 
 			var conf = confBlock == null ? 0 : Chain.Tip.Height - confBlock.Height + 1;
 
-			return Json(new TransactionResult() { Confirmations = conf, Transaction = oldest.Transaction, Height = confBlock?.Height, Timestamp = oldest.Timestamp });
+			return new TransactionResult() { Confirmations = conf, Transaction = oldest.Transaction, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
 		}
 
 		[HttpPost]

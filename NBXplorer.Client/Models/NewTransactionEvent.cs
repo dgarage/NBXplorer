@@ -13,9 +13,29 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
-		public TransactionMatch Match
+		public DerivationStrategyBase DerivationStrategy
 		{
 			get; set;
+		}
+
+		public TransactionResult TransactionData
+		{
+			get; set;
+		}
+
+		public List<KeyPathInformation> Outputs
+		{
+			get; set;
+		} = new List<KeyPathInformation>();
+
+		public List<KeyPathInformation> Inputs
+		{
+			get; set;
+		} = new List<KeyPathInformation>();
+
+		public TransactionMatch AsMatch()
+		{
+			return new TransactionMatch() { DerivationStrategy = DerivationStrategy, Inputs = Inputs, Outputs = Outputs, Transaction = TransactionData.Transaction };
 		}
 	}
 }
