@@ -64,7 +64,8 @@ namespace NBXplorer.Configuration
 			if(dataDir == null)
 				return network.DefaultConfigurationFile;
 			var fileName = Path.GetFileName(network.DefaultConfigurationFile);
-			return Path.Combine(dataDir, fileName);
+			var chainDir = Path.GetDirectoryName(network.DefaultConfigurationFile);
+			return Path.Combine(dataDir, chainDir, fileName);
 		}
 
 		public static ChainType GetChainType(IConfiguration conf)
@@ -92,23 +93,24 @@ namespace NBXplorer.Configuration
 			
 			foreach(var network in new NBXplorerNetworkProvider(settings.ChainType).GetAll())
 			{
+				var cryptoCode = network.CryptoCode.ToLowerInvariant();
 				builder.AppendLine("## This is the RPC Connection to your node");
-				builder.AppendLine($"#{network.CryptoCode}.rpc.url=http://127.0.0.1:" + network.NBitcoinNetwork.RPCPort + "/");
+				builder.AppendLine($"#{cryptoCode}.rpc.url=http://127.0.0.1:" + network.NBitcoinNetwork.RPCPort + "/");
 				builder.AppendLine("#By user name and password");
-				builder.AppendLine($"#{network.CryptoCode}.rpc.user=bitcoinuser");
-				builder.AppendLine($"#{network.CryptoCode}.rpc.password=bitcoinpassword");
+				builder.AppendLine($"#{cryptoCode}.rpc.user=bitcoinuser");
+				builder.AppendLine($"#{cryptoCode}.rpc.password=bitcoinpassword");
 				builder.AppendLine("#By cookie file");
-				builder.AppendLine($"#{network.CryptoCode}.rpc.cookiefile=yourbitcoinfolder/.cookie");
+				builder.AppendLine($"#{cryptoCode}.rpc.cookiefile=yourbitcoinfolder/.cookie");
 				builder.AppendLine("#By raw authentication string");
-				builder.AppendLine($"#{network.CryptoCode}.rpc.auth=walletuser:password");
+				builder.AppendLine($"#{cryptoCode}.rpc.auth=walletuser:password");
 				builder.AppendLine();
 				builder.AppendLine("## This is the connection to your node through P2P");
-				builder.AppendLine($"#{network.CryptoCode}.node.endpoint=127.0.0.1:" + network);
+				builder.AppendLine($"#{cryptoCode}.node.endpoint=127.0.0.1:" + network);
 				builder.AppendLine();
 				builder.AppendLine("## startheight defines from which block you will start scanning, if -1 is set, it will use current blockchain height");
-				builder.AppendLine($"#{network.CryptoCode}.startheight=-1");
+				builder.AppendLine($"#{cryptoCode}.startheight=-1");
 				builder.AppendLine("## rescan forces a rescan from startheight");
-				builder.AppendLine($"#{network.CryptoCode}.rescan=0");
+				builder.AppendLine($"#{cryptoCode}.rescan=0");
 			}
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");
@@ -123,8 +125,7 @@ namespace NBXplorer.Configuration
 			builder.AppendLine("####Server Commands####");
 			builder.AppendLine("#port=" + settings.DefaultPort);
 			builder.AppendLine("#bind=127.0.0.1");
-			builder.AppendLine("#testnet=0");
-			builder.AppendLine("#regtest=0");
+			builder.AppendLine($"#{settings.ChainType.ToNetwork().Name.ToLowerInvariant()}=1");
 			return builder.ToString();
 		}
 
