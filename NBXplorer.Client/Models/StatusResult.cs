@@ -27,11 +27,6 @@ namespace NBXplorer.Models
 	}
     public class StatusResult
     {
-		public string Network
-		{
-			get;
-			set;
-		}
 		public BitcoinStatus BitcoinStatus
 		{
 			get; set;

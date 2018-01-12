@@ -432,29 +432,31 @@ namespace NBXplorer
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from node...");
 			using(var node = Node.Connect(_Network.NBitcoinNetwork, GetEndpoint()))
 			{
-				using(var cts = new CancellationTokenSource(5000))
+				using(var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 				{
-					using(var cts2 = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, cancellation))
+					cts.CancelAfter(TimeSpan.FromSeconds(5));
+					node.VersionHandshake(cts.Token);
+				}
+
+				var loadChainTimeout = _Network.DefaultSettings.ChainType == ChainType.Regtest ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(15);
+				if(_Chain.Height < 5)
+					loadChainTimeout = TimeSpan.FromDays(7); // unlimited
+				try
+				{
+					using(var cts1 = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 					{
-						node.VersionHandshake(cts2.Token);
-					}
-					if(_Network.DefaultSettings.ChainType != ChainType.Regtest)
-						node.SynchronizeChain(_Chain, cancellationToken: cancellation);
-					else
-					{
-						// Regtest get stucks sometimes, so we need to start fresh...
-						try
-						{
-							node.SynchronizeChain(_Chain, cancellationToken: new CancellationTokenSource(10000).Token);
-						}
-						catch
-						{
-							_Chain = new ConcurrentChain(_Network.NBitcoinNetwork);
-							node.SynchronizeChain(_Chain, cancellationToken: cancellation);
-						}
+						cts1.CancelAfter(loadChainTimeout);
+						node.SynchronizeChain(_Chain, cancellationToken: cts1.Token);
 					}
 				}
+				catch // Timeout happens with SynchronizeChain, if so, throw away the cached chain
+				{
+					_Chain = new ConcurrentChain(_Network.NBitcoinNetwork);
+					node.SynchronizeChain(_Chain, cancellationToken: cancellation);
+				}
+
 			}
+
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
 		}
 
