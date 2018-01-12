@@ -12,12 +12,10 @@ namespace NBXplorer
 			_Settings = new Dictionary<ChainType, NBXplorerDefaultSettings>();
 			foreach(var chainType in new[] { ChainType.Main, ChainType.Test, ChainType.Regtest })
 			{
-				var btcNetwork = chainType.ToNetwork();
-
 				var settings = new NBXplorerDefaultSettings();
 				_Settings.Add(chainType, settings);
 				settings.ChainType = chainType;
-				settings.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", btcNetwork.Name);
+				settings.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", chainType.ToNetwork().Name);
 				settings.DefaultConfigurationFile = Path.Combine(settings.DefaultDataDirectory, "settings.config");
 				settings.DefaultCookieFile = Path.Combine(settings.DefaultDataDirectory, ".cookie");
 				settings.DefaultPort = (chainType == ChainType.Main ? 24444 :

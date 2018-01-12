@@ -73,13 +73,7 @@ namespace NBXplorer.Configuration
 			if(network != null)
 			{
 				var n = Network.GetNetwork(network);
-				if(n == Network.Main)
-					return ChainType.Main;
-				if(n == Network.TestNet)
-					return ChainType.Test;
-				if(n == Network.RegTest)
-					return ChainType.Regtest;
-				throw new ConfigException("invalid network " + network);
+				return n.ToChainType();
 			}
 			var net = conf.GetOrDefault<bool>("regtest", false) ? ChainType.Regtest :
 						conf.GetOrDefault<bool>("testnet", false) ? ChainType.Test : ChainType.Main;

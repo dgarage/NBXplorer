@@ -50,10 +50,15 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
-		public string DataDir
+		public string BaseDataDir
 		{
 			get;
 			set;
+		}
+
+		public string DataDir
+		{
+			get; set;
 		}
 
 		public NBXplorerNetworkProvider NetworkProvider
@@ -107,7 +112,12 @@ namespace NBXplorer.Configuration
 				throw new ConfigException($"Invalid chains {invalidChains}");
 
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
-			DataDir = config.GetOrDefault<string>("datadir", defaultSettings.DefaultDataDirectory);
+			BaseDataDir = config.GetOrDefault<string>("datadir", Path.GetDirectoryName(defaultSettings.DefaultDataDirectory));
+			if(!Directory.Exists(BaseDataDir))
+				Directory.CreateDirectory(BaseDataDir);
+			DataDir = Path.Combine(BaseDataDir, NetworkProvider.ChainType.ToNetwork().Name);
+			if(!Directory.Exists(DataDir))
+				Directory.CreateDirectory(DataDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 			return this;
