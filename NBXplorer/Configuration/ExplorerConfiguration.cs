@@ -127,11 +127,6 @@ namespace NBXplorer.Configuration
 		{
 			return ChainConfigurations.Any(c => network.CryptoCode == c.CryptoCode);
 		}
-
-		public int StartHeight
-		{
-			get; set;
-		}
 		
 		public bool CacheChain
 		{

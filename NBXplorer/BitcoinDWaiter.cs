@@ -356,7 +356,7 @@ namespace NBXplorer
 						PeersToDiscover = 1,
 						Mode = AddressManagerBehaviorMode.None
 					},
-					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = _Configuration.StartHeight },
+					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode).StartHeight },
 					new ChainBehavior(_Chain)
 					{
 						CanRespondToGetHeaders = false
