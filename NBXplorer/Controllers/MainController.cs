@@ -186,11 +186,12 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("connect")]
-		public async Task<IActionResult> ConnectWebSocket(CancellationToken cancellation = default(CancellationToken))
+		public async Task<IActionResult> ConnectWebSocket(string cryptoCode = null, CancellationToken cancellation = default(CancellationToken))
 		{
 			if(!HttpContext.WebSockets.IsWebSocketRequest)
 				return NotFound();
 
+			cryptoCode = cryptoCode ?? "BTC";
 			var listenedBlocks = new ConcurrentDictionary<string, string>();
 			var listenedDerivations = new ConcurrentDictionary<(Network, DerivationStrategyBase), DerivationStrategyBase>();
 
@@ -246,11 +247,11 @@ namespace NBXplorer.Controllers
 					switch(message)
 					{
 						case Models.NewBlockEventRequest r:
-							r.CryptoCode = r.CryptoCode ?? "BTC";
+							r.CryptoCode = r.CryptoCode ?? cryptoCode;
 							listenedBlocks.TryAdd(r.CryptoCode, r.CryptoCode);
 							break;
 						case Models.NewTransactionEventRequest r:
-							r.CryptoCode = r.CryptoCode ?? "BTC";
+							r.CryptoCode = r.CryptoCode ?? cryptoCode;
 							var network = Waiters.GetWaiter(r.CryptoCode)?.Network;
 							if(network == null)
 								break;
