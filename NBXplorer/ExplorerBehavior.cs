@@ -118,9 +118,11 @@ namespace NBXplorer
 			if(pendingTip.HashBlock == currentBlock.HashBlock)
 				return;
 
-			var toDownload = pendingTip.EnumerateToGenesis().TakeWhile(b => b.HashBlock != currentBlock.HashBlock).ToArray();
-			Array.Reverse(toDownload);
-			var invs = toDownload.Take(10)
+			
+			var invs = Enumerable.Range(0, 50)
+				.Select(i => Chain.GetBlock(i + currentBlock.Height + 1))
+				.Where(_ => _ != null)
+				.Take(40)
 				.Select(b => new InventoryVector(node.AddSupportedOptions(InventoryType.MSG_BLOCK), b.HashBlock))
 				.Where(b => _InFlights.TryAdd(b.Hash, new Download()))
 				.ToArray();
@@ -243,7 +245,7 @@ namespace NBXplorer
 			var saved = Repository.SaveTransactions(matches.Select(m => m.Transaction).Distinct().ToArray(), h);
 			for(int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode,h, matches[i], saved[i]));
+				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, h, matches[i], saved[i]));
 			}
 		}
 

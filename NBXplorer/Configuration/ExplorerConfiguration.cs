@@ -71,11 +71,6 @@ namespace NBXplorer.Configuration
 			set;
 		}
 
-		public bool Rescan
-		{
-			get; set;
-		}
-
 		public List<ChainConfiguration> ChainConfigurations
 		{
 			get; set;
