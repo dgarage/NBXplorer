@@ -25,6 +25,12 @@ namespace NBXplorer
 			get; set;
 		}
 
+		[JsonProperty("mediantime")]
+		public long? MedianTime
+		{
+			get; set;
+		}
+
 		[JsonProperty("initialblockdownload")]
 		public bool? InitialBlockDownload
 		{

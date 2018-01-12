@@ -495,6 +495,14 @@ namespace NBXplorer
 		{
 			if(blockchainInfo.InitialBlockDownload.HasValue)
 				return blockchainInfo.InitialBlockDownload.Value;
+			if(blockchainInfo.MedianTime.HasValue)
+			{
+				var time = NBitcoin.Utils.UnixTimeToDateTime(blockchainInfo.MedianTime.Value);
+				// 5 month diff? probably synching...
+				if(DateTimeOffset.UtcNow - time > TimeSpan.FromDays(30 * 5))
+					return true;
+			}
+
 			return blockchainInfo.Headers - blockchainInfo.Blocks > 6;
 		}
 
