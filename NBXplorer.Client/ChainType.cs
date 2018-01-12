@@ -21,7 +21,7 @@ namespace NBXplorer
 			if(network == Network.RegTest)
 				return ChainType.Regtest;
 			if(network == Network.TestNet)
-				return ChainType.Regtest;
+				return ChainType.Test;
 			throw new NotSupportedException(network.Name);
 		}
 		public static Network ToNetwork(this ChainType chainType)
