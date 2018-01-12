@@ -2,7 +2,7 @@
 
 # NBXplorer
 
-A minimalist UTXO tracker for HD Wallets
+A minimalist UTXO tracker for HD Wallets, currently supporting btc and ltc.
 The goal is to have a flexible, .NET based UTXO tracker for HD wallets.
 The explorer supports only P2PKH derivation for now but will be able to support more complex generation in near future. (m-n, segwit, p2sh)
 
@@ -13,20 +13,31 @@ This explorer is not meant to be exposed on internet, but should be used as an i
 * Install [.NET Core 2.0](https://www.microsoft.com/net/core)
 * Bitcoin Core instance synched and running, at least 0.13.1. (0.14.1 if you want the segwit goodness coming)
 
-## How to run?
+## How to build and run?
 
 If you are using Bitcoin core default settings:
 
 ```
 git clone https://github.com/dgarage/NBXplorer
 cd NBXplorer/NBXplorer
-dotnet run
+dotnet build -c Release
 ```
-The first run might take some time to start, where you see nothing appearing. No worries, it is just downloading dependencies and compiling.
-For more options, run the following command:
+Then to run:
 
 ```
-dotnet run -- --help
+dotnet run --no-build -c Release
+```
+
+For help, or passing arguments to the program, pass them after `--`:
+
+```
+dotnet run --no-build -c Release -- --help
+```
+
+Example, if you have ltc node and btc node on regtest (default configuration), and want to connect to them:
+
+```
+dotnet run --no-build -c Release -- --chains=btc,ltc --network=regtest
 ```
 
 ## With Docker
@@ -60,35 +71,7 @@ On linux or mac:
 ~/.nbxplorer/<network>/settings.config
 ```
 
-By default, the configuration file is using cookie authentication in default bitcoin core path. So if you run bitcoin core with default settings, things will just work.
-
-The default config file is shows you all options, if you need to change, remove the sharp sign (#) and customize your settings:
-
-```
-####Common Commands####
-####If Bitcoin Core is running with default settings, you should not need to modify this file####
-####All those options can be passed by through command like arguments (ie `-port=19382`)####
-## This is the RPC Connection to your node
-#rpc.url=http://localhost:18332/
-#rpc.user=bitcoinuser
-#rpc.password=bitcoinpassword
-#rpc.cookiefile=yourbitcoinfolder/.cookie
-
-## This is the connection to your node through P2P
-#node.endpoint=localhost:18444
-
-## startheight defines from which block you will start scanning, if -1 is set, it will use current blockchain height
-#startheight=-1
-## rescan forces a rescan from startheight
-#rescan=0
-
-
-####Server Commands####
-#port=24446
-#bind=127.0.0.1
-#testnet=0
-#regtest=0
-```
+The default configuration assume `mainnet` with only `btc` chain supported, and use default settings of bitcoind.
 
 You can change the location of the configuration file with the `--conf=pathToConf` command line argument.
 

@@ -311,7 +311,7 @@ namespace NBXplorer
 
 			if(changed)
 			{
-				_EventAggregator.Publish(new BitcoinDStateChangedEvent(oldState, State));
+				_EventAggregator.Publish(new BitcoinDStateChangedEvent(_Network, oldState, State));
 			}
 
 			return changed;

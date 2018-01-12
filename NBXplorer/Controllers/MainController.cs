@@ -186,7 +186,6 @@ namespace NBXplorer.Controllers
 			if(!HttpContext.WebSockets.IsWebSocketRequest)
 				return NotFound();
 
-			Logs.Explorer.LogInformation("HEY");
 			var listenedBlocks = new ConcurrentDictionary<string, string>();
 			var listenedDerivations = new ConcurrentDictionary<(Network, DerivationStrategyBase), DerivationStrategyBase>();
 

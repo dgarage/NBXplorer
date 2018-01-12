@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NBXplorer.Configuration;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -7,10 +8,16 @@ namespace NBXplorer.Events
 {
     public class BitcoinDStateChangedEvent
 	{
-		public BitcoinDStateChangedEvent(BitcoinDWaiterState oldState, BitcoinDWaiterState newState)
+		public BitcoinDStateChangedEvent(NBXplorerNetwork network, BitcoinDWaiterState oldState, BitcoinDWaiterState newState)
 		{
 			OldState = oldState;
 			NewState = newState;
+			Network = network;
+		}
+
+		public NBXplorerNetwork Network
+		{
+			get; set;
 		}
 
 		public BitcoinDWaiterState OldState
@@ -24,7 +31,7 @@ namespace NBXplorer.Events
 
 		public override string ToString()
 		{
-			return ($"BitcoinDWaiter state changed: {OldState} => {NewState}");
+			return ($"{Network.CryptoCode}: Node state changed: {OldState} => {NewState}");
 		}
 	}
 }
