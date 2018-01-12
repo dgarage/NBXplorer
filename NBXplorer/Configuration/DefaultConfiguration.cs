@@ -42,7 +42,7 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}startheight", $"The height where starting the scan (default: where your rpc server was synched when you first started this program)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
 			}
-				
+
 			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);
 			app.Option("--cachechain", $"Whether the chain of header is locally cached for faster startup (default: true)", CommandOptionType.SingleValue);
 			app.Option("--rpcnotest", $"Faster start because RPC connection testing skipped (default: false)", CommandOptionType.SingleValue);
@@ -64,8 +64,15 @@ namespace NBXplorer.Configuration
 			if(dataDir == null)
 				return network.DefaultConfigurationFile;
 			var fileName = Path.GetFileName(network.DefaultConfigurationFile);
-			var chainDir = Path.GetDirectoryName(network.DefaultConfigurationFile);
-			return Path.Combine(dataDir, chainDir, fileName);
+			var chainDir = Path.GetFileName(Path.GetDirectoryName(network.DefaultConfigurationFile));
+			chainDir = Path.Combine(dataDir, chainDir);
+			try
+			{
+				if(!Directory.Exists(chainDir))
+					Directory.CreateDirectory(chainDir);
+			}
+			catch { }
+			return Path.Combine(chainDir, fileName);
 		}
 
 		public static ChainType GetChainType(IConfiguration conf)
@@ -90,7 +97,7 @@ namespace NBXplorer.Configuration
 			builder.AppendLine("####If Bitcoin Core is running with default settings, you should not need to modify this file####");
 			builder.AppendLine("####All those options can be passed by through command like arguments (ie `-port=19382`)####");
 
-			
+
 			foreach(var network in new NBXplorerNetworkProvider(settings.ChainType).GetAll())
 			{
 				var cryptoCode = network.CryptoCode.ToLowerInvariant();
