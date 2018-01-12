@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -50,6 +51,27 @@ namespace NBXplorer.Models
 			set;
 		}
 		public int? SyncHeight
+		{
+			get;
+			set;
+		}
+		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+		public ChainType ChainType
+		{
+			get;
+			set;
+		}
+		public string CryptoCode
+		{
+			get;
+			set;
+		}
+
+		public string[] SupportedCryptoCodes
+		{
+			get; set;
+		}
+		public string Version
 		{
 			get;
 			set;

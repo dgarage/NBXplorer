@@ -4,9 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using NBXplorer.Configuration;
 
-namespace NBXplorer.Configuration
+namespace NBXplorer
 {
 	public class NBXplorerNetwork
 	{

@@ -530,6 +530,11 @@ namespace NBXplorer.Tests
 				Assert.Equal(status.BitcoinStatus.Blocks, status.BitcoinStatus.Headers);
 				Assert.Equal(status.BitcoinStatus.Blocks, status.ChainHeight);
 				Assert.Equal(1.0, status.BitcoinStatus.VerificationProgress);
+				Assert.NotNull(status.Version);
+				Assert.Equal("BTC", status.CryptoCode);
+				Assert.Equal(ChainType.Regtest, status.ChainType);
+				Assert.Equal("BTC", status.SupportedCryptoCodes[0]);
+				Assert.Single(status.SupportedCryptoCodes);
 			}
 		}
 

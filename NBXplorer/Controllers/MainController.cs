@@ -23,6 +23,7 @@ using System.Net.WebSockets;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
+using System.Reflection;
 
 namespace NBXplorer.Controllers
 {
@@ -31,7 +32,8 @@ namespace NBXplorer.Controllers
 	public class MainController : Controller
 	{
 		JsonSerializerSettings _SerializerSettings;
-		public MainController(RepositoryProvider repositoryProvider,
+		public MainController(
+			RepositoryProvider repositoryProvider,
 			ChainProvider chainProvider,
 			EventAggregator eventAggregator,
 			BitcoinDWaitersAccessor waiters,
@@ -144,7 +146,10 @@ namespace NBXplorer.Controllers
 			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
 			var status = new StatusResult()
 			{
-				Network = network.NBitcoinNetwork.Name,
+				ChainType = network.DefaultSettings.ChainType,
+				CryptoCode = network.CryptoCode,
+				Version = typeof(MainController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version,
+			SupportedCryptoCodes = Waiters.All().Select(w => w.Network.CryptoCode).ToArray(),
 				RepositoryPingTime = (DateTimeOffset.UtcNow - now).TotalSeconds,
 				IsFullySynched = true
 			};

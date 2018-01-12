@@ -83,6 +83,11 @@ namespace NBXplorer
 			_Waiters.TryGetValue(cryptoCode, out BitcoinDWaiter waiter);
 			return waiter;
 		}
+
+		public IEnumerable<BitcoinDWaiter> All()
+		{
+			return _Waiters.Values;
+		}
 	}
 
 	public class BitcoinDWaiter : IHostedService

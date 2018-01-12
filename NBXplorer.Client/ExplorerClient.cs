@@ -13,7 +13,6 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using NBXplorer.Configuration;
 using System.Net.WebSockets;
 
 namespace NBXplorer
@@ -74,10 +73,9 @@ namespace NBXplorer
 			}
 		}
 
-		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress)
+		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress = null)
 		{
-			if(serverAddress == null)
-				throw new ArgumentNullException(nameof(serverAddress));
+			serverAddress = serverAddress ?? network.DefaultSettings.DefaultUrl;
 			if(network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Address = serverAddress;

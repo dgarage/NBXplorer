@@ -9,7 +9,7 @@ namespace NBXplorer
     {
 		private void InitBitcoin(ChainType chainType)
 		{
-			Add(new Configuration.NBXplorerNetwork()
+			Add(new NBXplorerNetwork()
 			{
 				CryptoCode = "BTC",
 				MinRPCVersion = 150000,

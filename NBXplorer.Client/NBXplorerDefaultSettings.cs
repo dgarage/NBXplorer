@@ -23,6 +23,7 @@ namespace NBXplorer
 				settings.DefaultPort = (chainType == ChainType.Main ? 24444 :
 													  chainType == ChainType.Regtest ? 24446 :
 													  chainType == ChainType.Test ? 24445 : throw new NotSupportedException(chainType.ToString()));
+				settings.DefaultUrl = new Uri($"http://127.0.0.1:{settings.DefaultPort}/", UriKind.Absolute);
 			}
 		}
 
@@ -49,6 +50,11 @@ namespace NBXplorer
 			private set;
 		}
 		public int DefaultPort
+		{
+			get;
+			set;
+		}
+		public Uri DefaultUrl
 		{
 			get;
 			set;
