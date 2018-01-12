@@ -98,8 +98,6 @@ namespace NBXplorer
 				RPCAuthorization auth = new RPCAuthorization();
 				if(!configuration.NoAuthentication)
 				{
-					auth.AllowIp.Add(IPAddress.Parse("127.0.0.1"));
-					auth.AllowIp.Add(IPAddress.Parse("::1"));
 					auth.Authorized.Add(cookieStr);
 				}
 				return auth;
