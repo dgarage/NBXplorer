@@ -81,6 +81,10 @@ namespace NBXplorer.Configuration
 			if(network != null)
 			{
 				var n = Network.GetNetwork(network);
+				if(n == null)
+				{
+					throw new ConfigException($"Invalid network parameter '{network}'");
+				}
 				return n.ToChainType();
 			}
 			var net = conf.GetOrDefault<bool>("regtest", false) ? ChainType.Regtest :
