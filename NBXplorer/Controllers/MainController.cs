@@ -129,10 +129,10 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("status")]
-		public async Task<IActionResult> Status(string cryptoCode = null)
+		public async Task<IActionResult> GetStatus(string cryptoCode = null)
 		{
 			var network = GetNetwork(cryptoCode);
-			var waiter = GetWaiter(network);
+			var waiter = Waiters.GetWaiter(network);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
 			var now = DateTimeOffset.UtcNow;
