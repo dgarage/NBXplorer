@@ -148,7 +148,9 @@ namespace NBXplorer.Configuration
 			return ex.Message.Contains("Loading wallet...") || 
 				   ex.Message.Contains("Loading block index...") ||
 				   ex.Message.Contains("Loading P2P addresses...") ||
-				   ex.Message.Contains("Rewinding blocks...");
+				   ex.Message.Contains("Rewinding blocks...") ||
+				   ex.Message.Contains("Verifying blocks...") ||
+				   ex.Message.Contains("Loading addresses...");
 		}
 
 		public static void CheckNetwork(Network network, RPCClient rpcClient)

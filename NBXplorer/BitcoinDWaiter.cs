@@ -333,7 +333,18 @@ namespace NBXplorer
 			if(_Configuration.CacheChain)
 				LoadChainFromCache();
 			var heightBefore = _Chain.Height;
-			LoadChainFromNode(cancellation);
+			using(var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
+			{
+				timeout.CancelAfter(TimeSpan.FromMinutes(15));
+				try
+				{
+					LoadChainFromNode(timeout.Token);
+				}
+				catch when(!cancellation.IsCancellationRequested)
+				{
+					throw new OperationCanceledException("Loading the chain from the node timed out" , timeout.Token);
+				}
+			}
 			if(_Configuration.CacheChain && heightBefore != _Chain.Height)
 			{
 				SaveChainInCache();
