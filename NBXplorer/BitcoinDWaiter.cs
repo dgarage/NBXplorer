@@ -502,16 +502,18 @@ namespace NBXplorer
 			}
 		}
 
-		public static bool IsSynchingCore(GetBlockchainInfoResponse blockchainInfo)
+		public bool IsSynchingCore(GetBlockchainInfoResponse blockchainInfo)
 		{
 			if(blockchainInfo.InitialBlockDownload.HasValue)
 				return blockchainInfo.InitialBlockDownload.Value;
-			if(blockchainInfo.MedianTime.HasValue)
+			if(blockchainInfo.MedianTime.HasValue && _Network.DefaultSettings.ChainType != ChainType.Regtest)
 			{
 				var time = NBitcoin.Utils.UnixTimeToDateTime(blockchainInfo.MedianTime.Value);
 				// 5 month diff? probably synching...
 				if(DateTimeOffset.UtcNow - time > TimeSpan.FromDays(30 * 5))
+				{
 					return true;
+				}
 			}
 
 			return blockchainInfo.Headers - blockchainInfo.Blocks > 6;

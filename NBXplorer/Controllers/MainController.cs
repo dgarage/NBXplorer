@@ -158,7 +158,7 @@ namespace NBXplorer.Controllers
 			{
 				status.BitcoinStatus = new BitcoinStatus()
 				{
-					IsSynched = !BitcoinDWaiter.IsSynchingCore(blockchainInfo),
+					IsSynched = !waiter.IsSynchingCore(blockchainInfo),
 					Blocks = blockchainInfo.Blocks,
 					Headers = blockchainInfo.Headers,
 					VerificationProgress = blockchainInfo.VerificationProgress
