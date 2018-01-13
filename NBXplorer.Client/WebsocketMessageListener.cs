@@ -128,7 +128,12 @@ namespace NBXplorer
 
 		public async Task DisposeAsync(CancellationToken cancellation)
 		{
-			await Socket.CloseSocket(WebSocketCloseStatus.NormalClosure, "Disposing NotificationServer", cancellation);
+			try
+			{
+				await Socket.CloseSocket(WebSocketCloseStatus.NormalClosure, "Disposing NotificationServer", cancellation);
+			}
+			catch { }
+			finally { try { Socket.Dispose(); } catch { } }
 		}
 	}
 }
