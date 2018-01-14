@@ -441,7 +441,7 @@ namespace NBXplorer
 		private void LoadChainFromNode(CancellationToken cancellation)
 		{
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from node...");
-			using(var node = Node.Connect(_Network.NBitcoinNetwork, GetEndpoint()))
+			using(var node = Node.Connect(_Network.NBitcoinNetwork, GetEndpoint(), cancellation: cancellation))
 			{
 				using(var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 				{

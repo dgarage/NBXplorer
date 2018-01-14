@@ -54,7 +54,7 @@ namespace NBXplorer.Configuration
 				rpcClient = new RPCClient(new System.Net.NetworkCredential(usr, pass), url, network);
 			if(rpcClient == null)
 			{
-				if(url != null && CookieFile != null)
+				if(CookieFile != null)
 				{
 					try
 					{
@@ -62,7 +62,7 @@ namespace NBXplorer.Configuration
 					}
 					catch(IOException)
 					{
-						Logs.Configuration.LogWarning("RPC Cookie file not found at " + CookieFile);
+						Logs.Configuration.LogWarning($"{networkInformation.CryptoCode}: RPC Cookie file not found at " + (CookieFile ?? RPCClient.GetDefaultCookieFilePath(network)));
 					}
 				}
 
@@ -80,7 +80,7 @@ namespace NBXplorer.Configuration
 					catch { }
 					if(rpcClient == null)
 					{
-						Logs.Configuration.LogError("RPC connection settings not configured");
+						Logs.Configuration.LogError($"{networkInformation.CryptoCode}: RPC connection settings not configured");
 						throw new ConfigException();
 					}
 				}
