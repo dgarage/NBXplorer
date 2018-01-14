@@ -85,7 +85,7 @@ namespace NBXplorer
 				fork = Chain.FindFork(_CurrentLocation);
 			}
 			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting scan at block " + fork.Height);
-			_Timer = new Timer(Tick, null, 0, (int)30);
+			_Timer = new Timer(Tick, null, 0, (int)TimeSpan.FromSeconds(30).TotalMilliseconds);
 		}
 
 		private BlockLocator GetDefaultCurrentLocation()
