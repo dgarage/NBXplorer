@@ -462,7 +462,7 @@ namespace NBXplorer
 				}
 				catch // Timeout happens with SynchronizeChain, if so, throw away the cached chain
 				{
-					_Chain = new ConcurrentChain(_Network.NBitcoinNetwork);
+					_Chain.SetTip(_Chain.Genesis);
 					node.SynchronizeChain(_Chain, cancellationToken: cancellation);
 				}
 

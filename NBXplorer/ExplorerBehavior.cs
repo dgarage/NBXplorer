@@ -85,7 +85,7 @@ namespace NBXplorer
 				fork = Chain.FindFork(_CurrentLocation);
 			}
 			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting scan at block " + fork.Height);
-			_Timer = new Timer(Tick, null, 0, 30);
+			_Timer = new Timer(Tick, null, 0, (int)30);
 		}
 
 		private BlockLocator GetDefaultCurrentLocation()
@@ -93,8 +93,8 @@ namespace NBXplorer
 			if(StartHeight > Chain.Height)
 				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight should not be above the current tip");
 			return StartHeight == -1 ?
-				new BlockLocator() { Blocks = new List<uint256>() { Chain.Tip.HashBlock } } :
-				new BlockLocator() { Blocks = new List<uint256>() { Chain.GetBlock(StartHeight).HashBlock } };
+				Chain.Tip.GetLocator() :
+				Chain.GetBlock(StartHeight).GetLocator();
 		}
 
 
