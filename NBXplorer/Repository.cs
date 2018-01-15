@@ -160,8 +160,12 @@ namespace NBXplorer
 			public EngineAccessor(string directory)
 			{
 				this.directory = directory;
-				_Pool = new CustomThreadPool(1, "Repository");
-				RenewEngine();
+				try
+				{
+					_Pool = new CustomThreadPool(1, "Repository");
+					RenewEngine();
+				}
+				catch { Dispose(); throw; }
 				_Renew = new Timer((o) =>
 				{
 					try
@@ -309,7 +313,8 @@ namespace NBXplorer
 				if(!_Disposed)
 				{
 					_Disposed = true;
-					_Renew.Dispose();
+					if(_Renew != null)
+						_Renew.Dispose();
 					_Pool.DoAsync(() => DisposeEngine()).GetAwaiter().GetResult();
 					_Pool.Dispose();
 				}

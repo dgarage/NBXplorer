@@ -12,7 +12,11 @@ namespace NBXplorer.Logging
 {
 	public class CustomConsoleLogProvider : ILoggerProvider
 	{
-		ConsoleLoggerProcessor _Processor = new ConsoleLoggerProcessor();
+		ConsoleLoggerProcessor _Processor;
+		public CustomConsoleLogProvider(ConsoleLoggerProcessor processor)
+		{
+			_Processor = processor;
+		}
 		public ILogger CreateLogger(string categoryName)
 		{
 			return new CustomerConsoleLogger(categoryName, (a, b) => true, false, _Processor);
@@ -20,7 +24,6 @@ namespace NBXplorer.Logging
 
 		public void Dispose()
 		{
-
 		}
 	}
 

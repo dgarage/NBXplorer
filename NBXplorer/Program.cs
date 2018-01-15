@@ -45,7 +45,7 @@ namespace NBXplorer
 						{
 							l.SetMinimumLevel(LogLevel.Debug);
 						}
-						l.AddProvider(new CustomConsoleLogProvider());
+						l.AddProvider(new CustomConsoleLogProvider(processor));
 					})
 					.UseStartup<Startup>()
 					.Build();
