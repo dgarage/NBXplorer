@@ -60,11 +60,6 @@ namespace NBXplorer
 			{
 				Logs.Explorer.LogError(parsing.HelpText + "\r\n" + parsing.Message);
 			}
-			catch(Exception exception)
-			{
-				Logs.Explorer.LogError("Exception thrown while running the server");
-				Logs.Explorer.LogError(exception.ToString());
-			}
 			finally
 			{
 				processor.Dispose();
