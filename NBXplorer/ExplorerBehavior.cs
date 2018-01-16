@@ -240,9 +240,10 @@ namespace NBXplorer
 
 		private void SaveMatches(TransactionMatch[] matches, uint256 h)
 		{
+			DateTimeOffset now = DateTimeOffset.UtcNow;
 			Repository.MarkAsUsed(matches.SelectMany(m => m.Outputs).ToArray());
-			Repository.SaveMatches(matches.Select(m => m.CreateInsertTransaction(h)).ToArray());
-			var saved = Repository.SaveTransactions(matches.Select(m => m.Transaction).Distinct().ToArray(), h);
+			Repository.SaveMatches(now, matches.Select(m => m.CreateInsertTransaction(h)).ToArray());
+			var saved = Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), h);
 			for(int i = 0; i < matches.Length; i++)
 			{
 				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, h, matches[i], saved[i]));

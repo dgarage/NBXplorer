@@ -62,32 +62,32 @@ namespace NBXplorer.Models
 	}
 	public class UTXOChange
 	{
-		byte _Reset;
-		public bool Reset
+
+		Bookmark _KnownBookmark;
+		public Bookmark KnownBookmark
 		{
 			get
 			{
-				return _Reset == 1;
+				return _KnownBookmark;
 			}
 			set
 			{
-				_Reset = (byte)(value ? 1 : 0);
+				_KnownBookmark = value;
 			}
 		}
 
-		uint256 _Hash = uint256.Zero;
-		public uint256 Hash
+		Bookmark _Bookmark = null;
+		public Bookmark Bookmark
 		{
 			get
 			{
-				return _Hash;
+				return _Bookmark;
 			}
 			set
 			{
-				_Hash = value;
+				_Bookmark = value;
 			}
 		}
-
 
 		List<UTXO> _UTXOs = new List<UTXO>();
 		public List<UTXO> UTXOs
@@ -119,7 +119,7 @@ namespace NBXplorer.Models
 		{
 			get
 			{
-				return Reset || UTXOs.Count != 0 || SpentOutpoints.Count != 0;
+				return KnownBookmark != Bookmark || UTXOs.Count != 0 || SpentOutpoints.Count != 0;
 			}
 		}
 	}

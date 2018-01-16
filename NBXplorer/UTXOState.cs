@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
@@ -124,13 +125,13 @@ namespace NBXplorer
 		} = new MultiValueDictionary<OutPoint, uint256>();
 
 		MemoryStream _Hasher = new MemoryStream();
-		byte[] _CurrentHash = new byte[32];
+		byte[] _CurrentHash = new byte[20];
 
-		public uint256 CurrentHash
+		public Bookmark CurrentBookmark
 		{
 			get
 			{
-				return new uint256(_CurrentHash);
+				return new Bookmark(new uint160(_CurrentHash));
 			}
 		}
 
@@ -140,13 +141,13 @@ namespace NBXplorer
 			Events.Add(evt);
 
 			_Hasher.Position = 0;
-			_Hasher.Write(_CurrentHash, 0, 32);
+			_Hasher.Write(_CurrentHash, 0, 20);
 			_Hasher.Write(evt.TxId.ToBytes(), 0, 32);
 			var bs = new BitcoinStream(_Hasher, true);
 			var outpoint = evt.Outpoint;
 			bs.ReadWrite(ref outpoint);
 			_Hasher.WriteByte((byte)(evt.Received ? 1 : 0));
-			_CurrentHash = Hashes.SHA256(_Buffer);
+			_CurrentHash = Hashes.RIPEMD160(_Buffer, _Buffer.Length);
 		}
 
 		public UTXOState Snapshot()

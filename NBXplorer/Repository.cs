@@ -641,7 +641,7 @@ namespace NBXplorer
 					stream.ReadWrite(ref _TimeStamp);
 			}
 		}
-		public List<SavedTransaction> SaveTransactions(NBitcoin.Transaction[] transactions, uint256 blockHash)
+		public List<SavedTransaction> SaveTransactions(DateTimeOffset now, NBitcoin.Transaction[] transactions, uint256 blockHash)
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
@@ -649,7 +649,7 @@ namespace NBXplorer
 				return result;
 			_Engine.Do(tx =>
 			{
-				var date = NBitcoin.Utils.DateTimeToUnixTime(DateTimeOffset.UtcNow);
+				var date = NBitcoin.Utils.DateTimeToUnixTime(now);
 				foreach(var btx in transactions)
 				{
 					var timestamped = new TimeStampedTransaction(btx, date);
@@ -817,7 +817,7 @@ namespace NBXplorer
 		}
 
 
-		public void SaveMatches(InsertTransaction[] transactions)
+		public void SaveMatches(DateTimeOffset now, InsertTransaction[] transactions)
 		{
 			if(transactions.Length == 0)
 				return;
@@ -830,7 +830,7 @@ namespace NBXplorer
 					var table = GetTransactionsIndex(group.Key);
 					foreach(var value in group)
 					{
-						var ticksCount = DateTimeOffset.UtcNow.UtcTicks;
+						var ticksCount = now.UtcTicks;
 						var ms = new MemoryStream();
 						BitcoinStream bs = new BitcoinStream(ms, true);
 						bs.ReadWrite(value.TrackedTransaction.Transaction);
@@ -851,7 +851,8 @@ namespace NBXplorer
 			{
 				foreach(var tracked in cleanList)
 				{
-					table.RemoveKey(tx, tracked.GetRowKey());
+					var k = tracked.GetRowKey();
+					table.RemoveKey(tx, k);
 				}
 				tx.Commit();
 			});

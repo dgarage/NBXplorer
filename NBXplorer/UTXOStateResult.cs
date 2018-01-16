@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Linq;
 using Microsoft.Extensions.Logging;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
@@ -41,18 +42,18 @@ namespace NBXplorer
 	{
 		public static UTXOStateResult CreateStates(
 			Func<Script[], bool[]> matchScript,
-			uint256 knownUnconfHash, IEnumerable<Transaction> unconfirmed,
-			uint256 knownConfHash, IEnumerable<Transaction> confirmed)
+			Bookmark knownUnconfBookmark, IEnumerable<Transaction> unconfirmed,
+			Bookmark knownConfBookmark, IEnumerable<Transaction> confirmed)
 		{
 			var utxoState = new UTXOState();
 			utxoState.MatchScript = matchScript;
 
-			var knownConf = knownConfHash == uint256.Zero ? new UTXOState() : null;
+			var knownConf = knownConfBookmark == Bookmark.Start ? new UTXOState() : null;
 			foreach(var tx in confirmed)
 			{
 				if(utxoState.Apply(tx) == ApplyTransactionResult.Conflict)
 					throw new InvalidOperationException("Conflict in UTXOStateResult.CreateStates should never happen");
-				if(utxoState.CurrentHash == knownConfHash)
+				if(utxoState.CurrentBookmark == knownConfBookmark)
 					knownConf = utxoState.Snapshot();
 			}
 
@@ -60,14 +61,14 @@ namespace NBXplorer
 			var actualConf = utxoState.Snapshot();
 			utxoState.ResetEvents();
 
-			var knownUnconf = knownUnconfHash == uint256.Zero ? utxoState.Snapshot() : null;
+			var knownUnconf = knownUnconfBookmark == Bookmark.Start ? utxoState.Snapshot() : null;
 			foreach(var tx in unconfirmed)
 			{
 				var txid = tx.GetHash();
 				if(utxoState.Apply(tx) == ApplyTransactionResult.Conflict)
 					throw new InvalidOperationException("Conflict in UTXOStateResult.CreateStates should never happen");
 
-				if(utxoState.CurrentHash == knownUnconfHash)
+				if(utxoState.CurrentBookmark == knownUnconfBookmark)
 					knownUnconf = utxoState.Snapshot();
 			}
 

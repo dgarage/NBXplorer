@@ -142,7 +142,7 @@ namespace NBXplorer.Tests
 			{
 				var bob = DummyPubKey;
 				tester.Client.Track(bob);
-				var utxo = tester.Client.Sync(bob, null, null, true); //Track things do not wait
+				var utxo = tester.Client.Sync(bob, null, true); //Track things do not wait
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 
 				var payment1 = Money.Coins(0.04m);
@@ -176,7 +176,7 @@ namespace NBXplorer.Tests
 
 				var prevUtxo = utxo;
 				utxo = tester.Client.Sync(bob, prevUtxo); //Wait tx received
-				Assert.True(utxo.Unconfirmed.Reset);
+				Assert.Null(utxo.Unconfirmed.KnownBookmark);
 				Assert.Equal(replaced.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 			}
@@ -188,7 +188,7 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				var bob = DummyPubKey;
-				var utxo = tester.Client.Sync(bob, null, null, true); //Track things do not wait
+				var utxo = tester.Client.Sync(bob, null, true); //Track things do not wait
 
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 				Assert.Null(a1);
@@ -263,23 +263,23 @@ namespace NBXplorer.Tests
 				var alicePubKey = CreateDerivationStrategy(alice.Neuter());
 
 				tester.Client.Track(alicePubKey);
-				var utxoAlice = tester.Client.Sync(alicePubKey, uint256.Zero, uint256.Zero, true); //Track things do not wait
+				var utxoAlice = tester.Client.Sync(alicePubKey, Bookmark.Start, Bookmark.Start, true); //Track things do not wait
 				tester.Client.Track(bobPubKey);
-				var utxoBob = tester.Client.Sync(bobPubKey, null, null, true); //Track things do not wait
-				Assert.False(utxoAlice.Confirmed.Reset);
-				Assert.False(utxoAlice.Unconfirmed.Reset);
+				var utxoBob = tester.Client.Sync(bobPubKey, null, true); //Track things do not wait
+				Assert.NotNull(utxoAlice.Confirmed.KnownBookmark);
+				Assert.NotNull(utxoAlice.Unconfirmed.KnownBookmark);
 
 				var id = tester.RPC.SendToAddress(AddressOf(alice, "0/1"), Money.Coins(1.0m));
 				id = tester.RPC.SendToAddress(AddressOf(bob, "0/2"), Money.Coins(0.1m));
 				utxoAlice = tester.Client.Sync(alicePubKey, utxoAlice);
 				utxoBob = tester.Client.Sync(bobPubKey, utxoBob);
-				Assert.False(utxoAlice.Unconfirmed.Reset);
+				Assert.NotNull(utxoAlice.Unconfirmed.KnownBookmark);
 
 				tester.RPC.Generate(1);
 
 				utxoAlice = tester.Client.Sync(alicePubKey, utxoAlice);
 				utxoBob = tester.Client.Sync(bobPubKey, utxoBob);
-				Assert.False(utxoAlice.Confirmed.Reset);
+				Assert.NotNull(utxoAlice.Confirmed.KnownBookmark);
 
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(PrivateKeyOf(alice, "0/1"));
@@ -287,17 +287,17 @@ namespace NBXplorer.Tests
 
 				utxoAlice = tester.Client.Sync(alicePubKey, utxoAlice);
 				utxoBob = tester.Client.Sync(bobPubKey, utxoBob);
-				Assert.False(utxoAlice.Unconfirmed.Reset);
+				Assert.NotNull(utxoAlice.Unconfirmed.KnownBookmark);
 
 				utxoAlice = tester.Client.Sync(alicePubKey, utxoAlice, true);
-				Assert.False(utxoAlice.Unconfirmed.Reset);
+				Assert.NotNull(utxoAlice.Unconfirmed.KnownBookmark);
 
 				tester.RPC.Generate(1);
 
 				utxoAlice = tester.Client.Sync(alicePubKey, utxoAlice);
 				utxoBob = tester.Client.Sync(bobPubKey, utxoBob);
 
-				Assert.False(utxoAlice.Confirmed.Reset);
+				Assert.NotNull(utxoAlice.Confirmed.KnownBookmark);
 				Assert.Single(utxoAlice.Confirmed.SpentOutpoints);
 				Assert.Empty(utxoAlice.Confirmed.UTXOs);
 
@@ -314,7 +314,7 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
-				tester.Client.Sync(pubkey, null, null, true); //Track things do not wait
+				tester.Client.Sync(pubkey, null, true); //Track things do not wait
 				var id = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				id = tester.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(1.1m));
 				id = tester.RPC.SendToAddress(AddressOf(key, "0/2"), Money.Coins(1.2m));
@@ -323,7 +323,7 @@ namespace NBXplorer.Tests
 
 				while(utxo == null || utxo.Unconfirmed.UTXOs.Count != 3)
 				{
-					utxo = tester.Client.Sync(pubkey, null, null);
+					utxo = tester.Client.Sync(pubkey, null);
 				}
 
 				tester.RPC.Generate(1);
@@ -345,7 +345,7 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
-				var utxo = tester.Client.Sync(pubkey, null, null, true); //Track things do not wait
+				var utxo = tester.Client.Sync(pubkey, null, true); //Track things do not wait
 
 				var addresses = new HashSet<Script>();
 				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0/0"));
@@ -374,7 +374,7 @@ namespace NBXplorer.Tests
 					utxo = tester.Client.Sync(pubkey, utxo);
 					if(!utxo.HasChanges)
 						Assert.False(true, "should have changes");
-					Assert.False(utxo.Confirmed.Reset);
+					Assert.NotNull(utxo.Confirmed.KnownBookmark);
 					Assert.True(utxo.Unconfirmed.HasChanges);
 					Assert.Single(utxo.Unconfirmed.UTXOs);
 					if(new KeyPath($"0/{i}").Equals(utxo.Unconfirmed.UTXOs[0].KeyPath))
@@ -398,10 +398,10 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
-				var utxo = tester.Client.Sync(pubkey, null, null, true); //Track things do not wait
+				var utxo = tester.Client.Sync(pubkey, null, true); //Track things do not wait
 				var tx1 = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = tester.Client.Sync(pubkey, utxo);
-				Assert.False(utxo.Confirmed.Reset);
+				Assert.NotNull(utxo.Confirmed.KnownBookmark);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 
@@ -412,7 +412,7 @@ namespace NBXplorer.Tests
 
 				var prevUtxo = utxo;
 				utxo = tester.Client.Sync(pubkey, utxo);
-				Assert.False(utxo.Unconfirmed.Reset);
+				Assert.NotNull(utxo.Unconfirmed.KnownBookmark);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Equal(tx2, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash); //got the 0.6m
 				Assert.Equal(Money.Coins(0.6m), utxo.Unconfirmed.UTXOs[0].Value); //got the 0.6m
@@ -420,8 +420,8 @@ namespace NBXplorer.Tests
 				Assert.Single(utxo.Unconfirmed.SpentOutpoints);
 				Assert.Equal(tx1, utxo.Unconfirmed.SpentOutpoints[0].Hash); //previous coin is spent
 
-				utxo = tester.Client.Sync(pubkey, prevUtxo.Confirmed.Hash, null);
-				Assert.True(utxo.Unconfirmed.Reset);
+				utxo = tester.Client.Sync(pubkey, prevUtxo.Confirmed.Bookmark, null);
+				Assert.Null(utxo.Unconfirmed.KnownBookmark);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Empty(utxo.Unconfirmed.SpentOutpoints); //should be skipped as the unconf coin were not known
 
@@ -447,7 +447,7 @@ namespace NBXplorer.Tests
 				//WaitServerStarted not needed, just a sanity check
 				tester.Client.WaitServerStarted();
 				tester.Client.Track(DummyPubKey);
-				var utxo = tester.Client.Sync(DummyPubKey, null, null, true); //Track things do not wait
+				var utxo = tester.Client.Sync(DummyPubKey, null, true); //Track things do not wait
 
 				var tasks = new List<Task<KeyPathInformation>>();
 				for(int i = 0; i < 100; i++)
@@ -551,38 +551,37 @@ namespace NBXplorer.Tests
 				var pubkey = CreateDerivationStrategy(key.Neuter());
 
 				tester.Client.Track(pubkey);
-				var utxo = tester.Client.Sync(pubkey, null, null, true); //Track things do not wait
+				var utxo = tester.Client.Sync(pubkey, null, true); //Track things do not wait
 				var gettingUTXO = tester.Client.SyncAsync(pubkey, utxo);
 				var txId = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = gettingUTXO.GetAwaiter().GetResult();
 				Assert.Equal(103, utxo.CurrentHeight);
 
-				Assert.False(utxo.Confirmed.Reset);
+				Assert.NotNull(utxo.Confirmed.KnownBookmark);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Equal(txId, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				var unconfTimestamp = utxo.Unconfirmed.UTXOs[0].Timestamp;
 				Assert.Equal(0, utxo.Unconfirmed.UTXOs[0].Confirmations);
 				Assert.Empty(utxo.Confirmed.UTXOs);
-				Assert.Equal(uint256.Zero, utxo.Confirmed.Hash);
-				Assert.NotEqual(uint256.Zero, utxo.Unconfirmed.Hash);
-
+				Assert.Equal(Bookmark.Start, utxo.Confirmed.Bookmark);
+				Assert.NotEqual(Bookmark.Start, utxo.Unconfirmed.Bookmark);
 				var tx = tester.Client.GetTransaction(utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.NotNull(tx);
-				Assert.Equal(unconfTimestamp, tx.Timestamp);
 				Assert.Equal(0, tx.Confirmations);
 				Assert.Equal(utxo.Unconfirmed.UTXOs[0].Outpoint.Hash, tx.Transaction.GetHash());
+				Assert.Equal(unconfTimestamp, tx.Timestamp);
 
 				tester.RPC.Generate(1);
 				var prevUtxo = utxo;
 				utxo = tester.Client.Sync(pubkey, prevUtxo);
-				Assert.True(utxo.Unconfirmed.Reset);
+				Assert.Null(utxo.Unconfirmed.KnownBookmark);
 				Assert.Empty(utxo.Unconfirmed.UTXOs);
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Equal(1, utxo.Confirmed.UTXOs[0].Confirmations);
 				Assert.Equal(unconfTimestamp, utxo.Confirmed.UTXOs[0].Timestamp);
-				Assert.NotEqual(uint256.Zero, utxo.Confirmed.Hash);
-				var prevConfHash = utxo.Confirmed.Hash;
+				Assert.NotEqual(Bookmark.Start, utxo.Confirmed.Bookmark);
+				var prevConfHash = utxo.Confirmed.Bookmark;
 
 				txId = tester.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(1.0m));
 				var txId1 = txId;
@@ -590,26 +589,26 @@ namespace NBXplorer.Tests
 				prevUtxo = utxo;
 				utxo = tester.Client.Sync(pubkey, utxo);
 				Assert.Empty(utxo.Confirmed.UTXOs);
-				Assert.False(utxo.Confirmed.Reset);
+				Assert.NotNull(utxo.Confirmed.KnownBookmark);
 				Assert.True(utxo.HasChanges);
-				Assert.False(utxo.Unconfirmed.Reset);
+				Assert.NotNull(utxo.Unconfirmed.KnownBookmark);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Equal(txId, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
-				utxo = tester.Client.Sync(pubkey, null, null, true);
+				utxo = tester.Client.Sync(pubkey, null, true);
 
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Equal(new KeyPath("0/1"), utxo.Unconfirmed.UTXOs[0].KeyPath);
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.Equal(new KeyPath("0/0"), utxo.Confirmed.UTXOs[0].KeyPath);
-				Assert.Equal(prevConfHash, utxo.Confirmed.Hash);
+				Assert.Equal(prevConfHash, utxo.Confirmed.Bookmark);
 
-				utxo = tester.Client.Sync(pubkey, utxo.Confirmed.Hash, null, true);
-				Assert.False(utxo.Confirmed.Reset);
+				utxo = tester.Client.Sync(pubkey, utxo.Confirmed.Bookmark, null, true);
+				Assert.NotNull(utxo.Confirmed.KnownBookmark);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Empty(utxo.Confirmed.UTXOs);
 
-				utxo = tester.Client.Sync(pubkey, null, utxo.Unconfirmed.Hash, true);
-				Assert.True(utxo.Confirmed.Reset);
+				utxo = tester.Client.Sync(pubkey, null, utxo.Unconfirmed.Bookmark, true);
+				Assert.Null(utxo.Confirmed.KnownBookmark);
 				Assert.Empty(utxo.Unconfirmed.UTXOs);
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.Equal(1, utxo.Confirmed.UTXOs[0].Confirmations);
@@ -643,7 +642,7 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.Sync(pubkey, utxo, true);
 				Assert.True(!utxo.HasChanges);
 
-				var before01Spend = utxo.Confirmed.Hash;
+				var before01Spend = utxo.Confirmed.Bookmark;
 
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0/1"));
@@ -659,7 +658,7 @@ namespace NBXplorer.Tests
 				Assert.False(utxo.HasChanges);
 				tester.RPC.Generate(1);
 
-				utxo = tester.Client.Sync(pubkey, before01Spend, utxo.Unconfirmed.Hash);
+				utxo = tester.Client.Sync(pubkey, before01Spend, utxo.Unconfirmed.Bookmark);
 				Assert.True(utxo.Unconfirmed.HasChanges);
 
 				Assert.Single(utxo.Confirmed.UTXOs);

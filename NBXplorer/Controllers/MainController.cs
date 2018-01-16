@@ -323,10 +323,10 @@ namespace NBXplorer.Controllers
 		public async Task<UTXOChanges> Sync(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase extPubKey,
-			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
-			uint256 confHash = null,
-			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
-			uint256 unconfHash = null,
+			[ModelBinder(BinderType = typeof(BookmarkModelBinding))]
+			Bookmark confirmedBookmark = null,
+			[ModelBinder(BinderType = typeof(BookmarkModelBinding))]
+			Bookmark unconfirmedBookmark = null,
 			bool noWait = false, string cryptoCode = null)
 		{
 			if(extPubKey == null)
@@ -338,7 +338,6 @@ namespace NBXplorer.Controllers
 			UTXOChanges changes = null;
 			var getKeyPaths = GetKeyPaths(repo, extPubKey);
 			var matchScript = MatchKeyPaths(getKeyPaths);
-
 			while(true)
 			{
 				changes = new UTXOChanges();
@@ -346,7 +345,7 @@ namespace NBXplorer.Controllers
 				var transactions = GetAnnotatedTransactions(repo, chain, extPubKey);
 
 
-				var states = UTXOStateResult.CreateStates(matchScript, unconfHash, transactions.UnconfirmedTransactions.Select(c => c.Record.Transaction), confHash, transactions.ConfirmedTransactions.Select(c => c.Record.Transaction));
+				var states = UTXOStateResult.CreateStates(matchScript, unconfirmedBookmark, transactions.UnconfirmedTransactions.Select(c => c.Record.Transaction), confirmedBookmark, transactions.ConfirmedTransactions.Select(c => c.Record.Transaction));
 
 				changes.Confirmed = SetUTXOChange(states.Confirmed);
 				changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
@@ -366,14 +365,17 @@ namespace NBXplorer.Controllers
 
 		private void CleanConflicts(Repository repo, DerivationStrategyBase extPubKey, AnnotatedTransactionCollection transactions)
 		{
-			if(transactions.Conflicted.Length != 0)
-			{
-				foreach(var tx in transactions.Conflicted.Select(c => c.Record))
-				{
-					_EventAggregator.Publish(new EvictedTransactionEvent(tx.Transaction.GetHash()));
-				}
-				repo.CleanTransactions(extPubKey, transactions.Conflicted.Select(c => c.Record).ToList());
-			}
+			// TODO: We don't want to throw unconf transactions, as they have the timestamp of when we first saw the transaction
+			// We should find a way to clean stuff out, while keeping this information
+
+			//if(transactions.Conflicted.Length != 0)
+			//{
+			//	foreach(var tx in transactions.Conflicted.Select(c => c.Record))
+			//	{
+			//		_EventAggregator.Publish(new EvictedTransactionEvent(tx.Transaction.GetHash()));
+			//	}
+			//	repo.CleanTransactions(extPubKey, transactions.Conflicted.Select(c => c.Record).ToList());
+			//}
 		}
 
 		static int[] MaxValue = new[] { int.MaxValue };
@@ -407,8 +409,8 @@ namespace NBXplorer.Controllers
 			var substractedReceived = new HashSet<OutPoint>(substract.UTXOByOutpoint.Select(u => u.Key));
 
 			UTXOChange change = new UTXOChange();
-			change.Reset = states.Known == null;
-			change.Hash = states.Actual.CurrentHash;
+			change.KnownBookmark = states.Known == null ? null : states.Known.CurrentBookmark;
+			change.Bookmark = states.Actual.CurrentBookmark;
 
 			states.Known = states.Known ?? new UTXOState();
 

@@ -131,12 +131,12 @@ namespace NBXplorer
 
 		public Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, previousChange?.Confirmed?.Hash, previousChange?.Unconfirmed?.Hash, noWait, cancellation);
+			return SyncAsync(extKey, previousChange?.Confirmed?.Bookmark, previousChange?.Unconfirmed?.Bookmark, noWait, cancellation);
 		}
 
-		public UTXOChanges Sync(DerivationStrategyBase extKey, uint256 confHash, uint256 unconfirmedHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public UTXOChanges Sync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, confHash, unconfirmedHash, noWait, cancellation).GetAwaiter().GetResult();
+			return SyncAsync(extKey, confirmedBookmark, unconfirmedBookmark, noWait, cancellation).GetAwaiter().GetResult();
 		}
 
 		public NotificationSession CreateNotificationSession(CancellationToken cancellation = default(CancellationToken))
@@ -151,13 +151,13 @@ namespace NBXplorer
 			return session;
 		}
 
-		public async Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, uint256 confHash, uint256 unconfHash, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public async Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			Dictionary<string, string> parameters = new Dictionary<string, string>();
-			if(confHash != null)
-				parameters.Add("confHash", confHash.ToString());
-			if(unconfHash != null)
-				parameters.Add("unconfHash", unconfHash.ToString());
+			if(confirmedBookmark != null)
+				parameters.Add("confirmedBookmark", confirmedBookmark.ToString());
+			if(unconfirmedBookmark != null)
+				parameters.Add("unconfirmedBookmark", unconfirmedBookmark.ToString());
 			parameters.Add("noWait", noWait.ToString());
 
 			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
@@ -312,6 +312,11 @@ namespace NBXplorer
 				}
 			}
 			return await ParseResponse<T>(result).ConfigureAwait(false);
+		}
+
+		public object Sync(DirectDerivationStrategy alicePubKey, object start, uint256 zero1, uint256 zero2, bool v)
+		{
+			throw new NotImplementedException();
 		}
 
 		internal HttpRequestMessage CreateMessage(HttpMethod method, object body, string relativePath, object[] parameters)
