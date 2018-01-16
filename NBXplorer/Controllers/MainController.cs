@@ -331,7 +331,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
 			HashSet<Bookmark> bookmarks = null,
 			bool includeTransaction = true,
-			bool noWait = false)
+			bool longPolling = true)
 		{
 			bookmarks = bookmarks ?? new HashSet<Bookmark>();
 			if(extPubKey == null)
@@ -339,7 +339,7 @@ namespace NBXplorer.Controllers
 			var network = GetNetwork(cryptoCode);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
-			var waitingTransaction = noWait ? Task.FromResult(false) : WaitingTransaction(extPubKey);
+			var waitingTransaction = longPolling ? WaitingTransaction(extPubKey) : Task.FromResult(false);
 			GetTransactionsResponse response = null;
 			while(true)
 			{
@@ -390,7 +390,7 @@ namespace NBXplorer.Controllers
 			HashSet<Bookmark> confirmedBookmarks = null,
 			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
 			HashSet<Bookmark> unconfirmedBookmarks = null,
-			bool noWait = false)
+			bool longPolling = true)
 		{
 			unconfirmedBookmarks = unconfirmedBookmarks ?? new HashSet<Bookmark>();
 			confirmedBookmarks = confirmedBookmarks ?? new HashSet<Bookmark>();
@@ -399,7 +399,7 @@ namespace NBXplorer.Controllers
 			var network = GetNetwork(cryptoCode);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
-			var waitingTransaction = noWait ? Task.FromResult(false) : WaitingTransaction(extPubKey);
+			var waitingTransaction = longPolling ? WaitingTransaction(extPubKey) : Task.FromResult(false);
 			UTXOChanges changes = null;
 			var getKeyPaths = GetKeyPaths(repo, extPubKey);
 			var matchScript = MatchKeyPaths(getKeyPaths);

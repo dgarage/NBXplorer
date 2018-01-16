@@ -114,9 +114,9 @@ namespace NBXplorer
 
 		Serializer _Serializer;
 		DerivationStrategy.DerivationStrategyFactory _Factory;
-		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, UTXOChanges previousChange, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetUTXOsAsync(extKey, previousChange, noWait, cancellation).GetAwaiter().GetResult();
+			return GetUTXOsAsync(extKey, previousChange, longPolling, cancellation).GetAwaiter().GetResult();
 		}
 
 		public async Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default(CancellationToken))
@@ -129,14 +129,14 @@ namespace NBXplorer
 			return GetTransactionAsync(txId, cancellation).GetAwaiter().GetResult();
 		}
 
-		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, UTXOChanges previousChange, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetUTXOsAsync(extKey, previousChange?.Confirmed?.Bookmark, previousChange?.Unconfirmed?.Bookmark, noWait, cancellation);
+			return GetUTXOsAsync(extKey, previousChange?.Confirmed?.Bookmark, previousChange?.Unconfirmed?.Bookmark, longPolling, cancellation);
 		}
 
-		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetUTXOsAsync(extKey, confirmedBookmark, unconfirmedBookmark, noWait, cancellation).GetAwaiter().GetResult();
+			return GetUTXOsAsync(extKey, confirmedBookmark, unconfirmedBookmark, longPolling, cancellation).GetAwaiter().GetResult();
 		}
 
 		public NotificationSession CreateNotificationSession(CancellationToken cancellation = default(CancellationToken))
@@ -151,21 +151,21 @@ namespace NBXplorer
 			return session;
 		}
 
-		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey,
+			return GetUTXOsAsync(extKey,
 				confirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { confirmedBookmark },
-				unconfirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { unconfirmedBookmark }, noWait, cancellation);
+				unconfirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { unconfirmedBookmark }, longPolling, cancellation);
 		}
 
-		public async Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public async Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
 		{
 			Dictionary<string, string> parameters = new Dictionary<string, string>();
 			if(confirmedBookmarks != null)
 				parameters.Add("confirmedBookmarks", String.Join(",", confirmedBookmarks.Select(b => b.ToString())));
 			if(unconfirmedBookmarks != null)
 				parameters.Add("unconfirmedBookmarks", String.Join(",", unconfirmedBookmarks.Select(b => b.ToString())));
-			parameters.Add("noWait", noWait.ToString());
+			parameters.Add("longPolling", longPolling.ToString());
 
 			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
 			return await SendAsync<UTXOChanges>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/utxos?" + query, new object[] { CryptoCode, extKey.ToString() }, cancellation).ConfigureAwait(false);
@@ -220,24 +220,24 @@ namespace NBXplorer
 		{
 			return SendAsync<StatusResult>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/status", null, cancellation);
 		}
-		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark bookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark bookmark, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetTransactionsAsync(strategy, new[] { bookmark }, noWait, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(strategy, new[] { bookmark }, longPolling, cancellation).GetAwaiter().GetResult();
 		}
-		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark[] bookmarks, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark[] bookmarks, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetTransactionsAsync(strategy, bookmarks, noWait, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(strategy, bookmarks, longPolling, cancellation).GetAwaiter().GetResult();
 		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark bookmark, bool noWait, CancellationToken cancellation = default(CancellationToken))
+		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark bookmark, bool longPolling, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetTransactionsAsync(strategy, new[] { bookmark }, noWait, cancellation);
+			return GetTransactionsAsync(strategy, new[] { bookmark }, longPolling, cancellation);
 		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark[] bookmarks, bool noWait, CancellationToken cancellation = default(CancellationToken))
+		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark[] bookmarks, bool longPolling, CancellationToken cancellation = default(CancellationToken))
 		{
 			Dictionary<string, string> parameters = new Dictionary<string, string>();
 			if(bookmarks != null)
 				parameters.Add("bookmarks", String.Join(",", bookmarks.Select(b => b.ToString())));
-			parameters.Add("noWait", noWait.ToString());
+			parameters.Add("longPolling", longPolling.ToString());
 			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
 			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/transactions?" + query, null, cancellation);
 		}
@@ -345,11 +345,6 @@ namespace NBXplorer
 				}
 			}
 			return await ParseResponse<T>(result).ConfigureAwait(false);
-		}
-
-		public object Sync(DirectDerivationStrategy alicePubKey, object start, uint256 zero1, uint256 zero2, bool v)
-		{
-			throw new NotImplementedException();
 		}
 
 		internal HttpRequestMessage CreateMessage(HttpMethod method, object body, string relativePath, object[] parameters)
