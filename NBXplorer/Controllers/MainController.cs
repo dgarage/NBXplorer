@@ -150,7 +150,7 @@ namespace NBXplorer.Controllers
 				ChainType = network.DefaultSettings.ChainType,
 				CryptoCode = network.CryptoCode,
 				Version = typeof(MainController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version,
-			SupportedCryptoCodes = Waiters.All().Select(w => w.Network.CryptoCode).ToArray(),
+				SupportedCryptoCodes = Waiters.All().Select(w => w.Network.CryptoCode).ToArray(),
 				RepositoryPingTime = (DateTimeOffset.UtcNow - now).TotalSeconds,
 				IsFullySynched = true
 			};
@@ -329,11 +329,14 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase extPubKey,
 			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
-			HashSet<Bookmark> bookmarks = null,
+			HashSet<Bookmark> unconfirmedBookmarks = null,
+			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
+			HashSet<Bookmark> confirmedBookmarks = null,
+			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
+			HashSet<Bookmark> replacedBookmarks = null,
 			bool includeTransaction = true,
 			bool longPolling = true)
 		{
-			bookmarks = bookmarks ?? new HashSet<Bookmark>();
 			if(extPubKey == null)
 				throw new ArgumentNullException(nameof(extPubKey));
 			var network = GetNetwork(cryptoCode);
@@ -344,35 +347,60 @@ namespace NBXplorer.Controllers
 			while(true)
 			{
 				response = new GetTransactionsResponse();
-				response.KnownBookmark = bookmarks.Contains(Bookmark.Start) ? Bookmark.Start : null;
 				int currentHeight = chain.Height;
-				response.Bookmark = Bookmark.Start;
 				var txs = GetAnnotatedTransactions(repo, chain, extPubKey);
-				foreach(var tx in txs.ConfirmedTransactions.Concat(txs.UnconfirmedTransactions))
+				foreach(var item in new[]
 				{
-					BookmarkProcessor processor = new BookmarkProcessor(32 + 32 + 25);
-					processor.AddData(tx.Record.Transaction.GetHash());
-					processor.AddData(tx.Record.BlockHash ?? uint256.Zero);
-					processor.UpdateBookmark();
-
-					response.Transactions.Add(new TransactionInformation()
+					new
 					{
-						BlockHash = tx.Record.BlockHash,
-						Height = tx.Record.BlockHash == null ? null : tx.Height,
-						TransactionId = tx.Record.Transaction.GetHash(),
-						Transaction = includeTransaction  ? tx.Record.Transaction : null,
-						Confirmations = tx.Record.BlockHash == null ? 0 : currentHeight - tx.Height.Value + 1
-					});
-
-					response.Bookmark = processor.CurrentBookmark;
-					if(bookmarks.Contains(processor.CurrentBookmark))
+						TxSet = response.ConfirmedTransactions,
+						KnownBookmarks = confirmedBookmarks  ?? new HashSet<Bookmark>(),
+						AnnotatedTx = txs.ConfirmedTransactions
+					},
+					new
 					{
-						response.KnownBookmark = processor.CurrentBookmark;
-						response.Transactions.Clear();
+						TxSet = response.UnconfirmedTransactions,
+						KnownBookmarks = unconfirmedBookmarks  ?? new HashSet<Bookmark>(),
+						AnnotatedTx = txs.UnconfirmedTransactions
+					},
+					new
+					{
+						TxSet = response.ReplacedTransactions,
+						KnownBookmarks = replacedBookmarks  ?? new HashSet<Bookmark>(),
+						AnnotatedTx = txs.ReplacedTransactions
+					},
+				})
+				{
+					item.TxSet.Bookmark = Bookmark.Start;
+					item.TxSet.KnownBookmark = item.KnownBookmarks.Contains(Bookmark.Start) ? Bookmark.Start : null;
+
+					foreach(var tx in item.AnnotatedTx.Values)
+					{
+						BookmarkProcessor processor = new BookmarkProcessor(32 + 32 + 25);
+						processor.AddData(tx.Record.Transaction.GetHash());
+						processor.AddData(tx.Record.BlockHash ?? uint256.Zero);
+						processor.UpdateBookmark();
+
+						item.TxSet.Transactions.Add(new TransactionInformation()
+						{
+							BlockHash = tx.Record.BlockHash,
+							Height = tx.Record.BlockHash == null ? null : tx.Height,
+							TransactionId = tx.Record.Transaction.GetHash(),
+							Transaction = includeTransaction ? tx.Record.Transaction : null,
+							Confirmations = tx.Record.BlockHash == null ? 0 : currentHeight - tx.Height.Value + 1,
+							Timestamp = txs.GetFirstSeen(tx.Record.Transaction.GetHash())
+						});
+
+						item.TxSet.Bookmark = processor.CurrentBookmark;
+						if(item.KnownBookmarks.Contains(processor.CurrentBookmark))
+						{
+							item.TxSet.KnownBookmark = processor.CurrentBookmark;
+							item.TxSet.Transactions.Clear();
+						}
 					}
 				}
 
-				if(response.Bookmark != response.KnownBookmark || !(await waitingTransaction))
+				if(response.HasChanges() || !(await waitingTransaction))
 					break;
 				waitingTransaction = Task.FromResult(false); //next time, will not wait
 			}
@@ -410,7 +438,11 @@ namespace NBXplorer.Controllers
 				var transactions = GetAnnotatedTransactions(repo, chain, extPubKey);
 
 
-				var states = UTXOStateResult.CreateStates(matchScript, unconfirmedBookmarks, transactions.UnconfirmedTransactions.Select(c => c.Record.Transaction), confirmedBookmarks, transactions.ConfirmedTransactions.Select(c => c.Record.Transaction));
+				var states = UTXOStateResult.CreateStates(matchScript,
+														unconfirmedBookmarks,
+														transactions.UnconfirmedTransactions.Values.Select(c => c.Record.Transaction),
+														confirmedBookmarks,
+														transactions.ConfirmedTransactions.Values.Select(c => c.Record.Transaction));
 
 				changes.Confirmed = SetUTXOChange(states.Confirmed);
 				changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
@@ -591,7 +623,7 @@ namespace NBXplorer.Controllers
 				{
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Trying to broadcast unconfirmed of the wallet");
 					var transactions = GetAnnotatedTransactions(repo, chain, extPubKey);
-					foreach(var existing in transactions.UnconfirmedTransactions)
+					foreach(var existing in transactions.UnconfirmedTransactions.Values)
 					{
 						try
 						{
@@ -602,7 +634,6 @@ namespace NBXplorer.Controllers
 
 					try
 					{
-
 						await waiter.RPC.SendRawTransactionAsync(tx);
 						Logs.Explorer.LogInformation($"{network.CryptoCode}: Broadcast success");
 						return new BroadcastResult(true);

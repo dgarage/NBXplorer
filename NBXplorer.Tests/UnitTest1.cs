@@ -170,15 +170,21 @@ namespace NBXplorer.Tests
 				output.Value = payment2;
 				var change = tx.Outputs.First(o => o.Value != payment1);
 				change.Value -= (payment2 - payment1) * 2; //Add more fees
-				var replaced = tester.RPC.SignRawTransaction(tx);
+				var replacement = tester.RPC.SignRawTransaction(tx);
 
-				tester.RPC.SendRawTransaction(replaced);
+				tester.RPC.SendRawTransaction(replacement);
 
 				var prevUtxo = utxo;
 				utxo = tester.Client.GetUTXOs(bob, prevUtxo); //Wait tx received
 				Assert.Null(utxo.Unconfirmed.KnownBookmark);
-				Assert.Equal(replaced.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+				Assert.Equal(replacement.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
+
+				var txs = tester.Client.GetTransactions(bob, null);
+				Assert.Single(txs.UnconfirmedTransactions.Transactions);
+				Assert.Equal(replacement.GetHash(), txs.UnconfirmedTransactions.Transactions[0].TransactionId);
+				Assert.Single(txs.ReplacedTransactions.Transactions);
+				Assert.Equal(tx1, txs.ReplacedTransactions.Transactions[0].TransactionId);
 			}
 		}
 
@@ -554,35 +560,44 @@ namespace NBXplorer.Tests
 				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
 
 				var txId = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
-				var result = tester.Client.GetTransactions(pubkey, Bookmark.Start);
+				var result = tester.Client.GetTransactions(pubkey, new[] { Bookmark.Start }, new[] { Bookmark.Start }, new[] { Bookmark.Start });
 				Assert.True(result.HasChanges());
-				Assert.Single(result.Transactions);
+				Assert.Single(result.UnconfirmedTransactions.Transactions);
 				var height = result.Height;
-				Assert.Null(result.Transactions[0].BlockHash);
-				Assert.Null(result.Transactions[0].Height);
-				Assert.Equal(0, result.Transactions[0].Confirmations);
-				Assert.Equal(result.Transactions[0].Transaction.GetHash(), result.Transactions[0].TransactionId);
+				var timestampUnconf = result.UnconfirmedTransactions.Transactions[0].Timestamp;
+				Assert.Null(result.UnconfirmedTransactions.Transactions[0].BlockHash);
+				Assert.Null(result.UnconfirmedTransactions.Transactions[0].Height);
+				Assert.Equal(0, result.UnconfirmedTransactions.Transactions[0].Confirmations);
+				Assert.Equal(result.UnconfirmedTransactions.Transactions[0].Transaction.GetHash(), result.UnconfirmedTransactions.Transactions[0].TransactionId);
 
 				tester.Client.IncludeTransaction = false;
-				result = tester.Client.GetTransactions(pubkey, Bookmark.Start);
-				Assert.Null(result.Transactions[0].Transaction);
+				result = tester.Client.GetTransactions(pubkey, new[] { Bookmark.Start }, new[] { Bookmark.Start }, new[] { Bookmark.Start });
+				Assert.Null(result.UnconfirmedTransactions.Transactions[0].Transaction);
 
-				result = tester.Client.GetTransactions(pubkey, result.Bookmark, false);
+				result = tester.Client.GetTransactions(pubkey, result, false);
 				Assert.False(result.HasChanges());
 
 				tester.RPC.Generate(1);
-				result = tester.Client.GetTransactions(pubkey, result.Bookmark);
+				result = tester.Client.GetTransactions(pubkey, result);
 				Assert.True(result.HasChanges());
-				Assert.Null(result.KnownBookmark);
+				Assert.Null(result.UnconfirmedTransactions.KnownBookmark);
 
-				var gotConf = result.Bookmark;
+				var gotConf = result.ConfirmedTransactions.Bookmark;
 
 				var txId2 = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
-				result = tester.Client.GetTransactions(pubkey, gotConf);
+				result = tester.Client.GetTransactions(pubkey, result);
 				Assert.True(result.HasChanges());
-				Assert.Equal(gotConf, result.KnownBookmark);
-				Assert.Single(result.Transactions);
-				Assert.Equal(txId2, result.Transactions[0].TransactionId);
+				Assert.Equal(gotConf, result.ConfirmedTransactions.KnownBookmark);
+				Assert.Single(result.UnconfirmedTransactions.Transactions);
+				Assert.Equal(txId2, result.UnconfirmedTransactions.Transactions[0].TransactionId);
+
+				result = tester.Client.GetTransactions(pubkey, null, null, null, false);
+				Assert.True(result.HasChanges());
+				Assert.Single(result.ConfirmedTransactions.Transactions);
+				Assert.Single(result.UnconfirmedTransactions.Transactions);
+				Assert.Equal(txId, result.ConfirmedTransactions.Transactions[0].TransactionId);
+				Assert.Equal(timestampUnconf, result.ConfirmedTransactions.Transactions[0].Timestamp);
+				Assert.Equal(txId2, result.UnconfirmedTransactions.Transactions[0].TransactionId);
 			}
 		}
 

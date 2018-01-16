@@ -67,36 +67,45 @@ namespace NBXplorer
 				UpdateFirstSeen(tx, h);
 			}
 
-			UnconfirmedTransactions = transactions
-										.Where(tx => tx.Type == AnnotatedTransactionType.Unconfirmed || tx.Type == AnnotatedTransactionType.Orphan)
-										.OrderByDescending(t => t.Record.Inserted) // OrderByDescending so that the last received is least likely to be conflicted
-										.TopologicalSort().ToArray();
-			ConfirmedTransactions = transactions
-										.Where(tx => tx.Type == AnnotatedTransactionType.Confirmed)
-										.TopologicalSort().ToArray();
 
 			UTXOState state = new UTXOState();
-			foreach(var confirmed in ConfirmedTransactions)
+			foreach(var confirmed in transactions
+										.Where(tx => tx.Type == AnnotatedTransactionType.Confirmed)
+										.TopologicalSort())
 			{
-				if(state.Apply(confirmed.Record.Transaction) == ApplyTransactionResult.Conflict)
+				if(state.Apply(confirmed.Record.Transaction) == ApplyTransactionResult.Conflict
+					|| !ConfirmedTransactions.TryAdd(confirmed.Record.Transaction.GetHash(), confirmed))
 				{
 					Logs.Explorer.LogError("A conflict among confirmed transaction happened, this should be impossible");
 					throw new InvalidOperationException("The impossible happened");
 				}
 			}
 
-			var conflicted = new HashSet<AnnotatedTransaction>();
-			foreach(var unconfirmed in UnconfirmedTransactions)
+			foreach(var unconfirmed in transactions
+										.Where(tx => tx.Type == AnnotatedTransactionType.Unconfirmed || tx.Type == AnnotatedTransactionType.Orphan)
+										.OrderByDescending(t => t.Record.Inserted) // OrderByDescending so that the last received is least likely to be conflicted
+										.TopologicalSort())
 			{
-				if(state.Apply(unconfirmed.Record.Transaction) == ApplyTransactionResult.Conflict)
+				var hash = unconfirmed.Record.Transaction.GetHash();
+				if(ConfirmedTransactions.ContainsKey(hash))
 				{
-					conflicted.Add(unconfirmed);
+					DuplicatedTransactions.Add(unconfirmed);
+				}
+				else
+				{
+					if(state.Apply(unconfirmed.Record.Transaction) == ApplyTransactionResult.Conflict)
+					{
+						ReplacedTransactions.Add(hash, unconfirmed);
+					}
+					else
+					{
+						if(!UnconfirmedTransactions.TryAdd(hash, unconfirmed))
+						{
+							throw new InvalidOperationException("The impossible happened (!UnconfirmedTransactions.TryAdd(hash, unconfirmed))");
+						}
+					}
 				}
 			}
-			
-			Conflicted = conflicted.ToArray();
-			if(conflicted.Count != 0)
-				UnconfirmedTransactions = UnconfirmedTransactions.Where(t => !conflicted.Contains(t)).ToArray();
 		}
 
 		private void UpdateFirstSeen(AnnotatedTransaction tx, uint256 h)
@@ -131,19 +140,25 @@ namespace NBXplorer
 			return new List<AnnotatedTransaction>();
 		}
 
-		public AnnotatedTransaction[] ConfirmedTransactions
+		public Dictionary<uint256, AnnotatedTransaction> ReplacedTransactions
 		{
 			get; set;
-		}
-		public AnnotatedTransaction[] UnconfirmedTransactions
-		{
-			get; set;
-		}
+		} = new Dictionary<uint256, AnnotatedTransaction>();
 
-		public AnnotatedTransaction[] Conflicted
+		public Dictionary<uint256, AnnotatedTransaction> ConfirmedTransactions
 		{
 			get; set;
-		}
+		} = new Dictionary<uint256, AnnotatedTransaction>();
+
+		public Dictionary<uint256, AnnotatedTransaction> UnconfirmedTransactions
+		{
+			get; set;
+		} = new Dictionary<uint256, AnnotatedTransaction>();
+
+		public List<AnnotatedTransaction> DuplicatedTransactions
+		{
+			get; set;
+		} = new List<AnnotatedTransaction>();
 	}
 
 }

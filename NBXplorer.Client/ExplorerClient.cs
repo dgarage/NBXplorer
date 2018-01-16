@@ -220,23 +220,30 @@ namespace NBXplorer
 		{
 			return SendAsync<StatusResult>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/status", null, cancellation);
 		}
-		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark bookmark, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, GetTransactionsResponse previous, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetTransactionsAsync(strategy, new[] { bookmark }, longPolling, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(strategy, previous, longPolling, cancellation).GetAwaiter().GetResult();
 		}
-		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark[] bookmarks, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, Bookmark[] replacedBookmarks, bool longPolling = true, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetTransactionsAsync(strategy, bookmarks, longPolling, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(strategy, confirmedBookmarks, unconfirmedBookmarks, replacedBookmarks, longPolling, cancellation).GetAwaiter().GetResult();
 		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark bookmark, bool longPolling, CancellationToken cancellation = default(CancellationToken))
+		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, GetTransactionsResponse previous, bool longPolling, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetTransactionsAsync(strategy, new[] { bookmark }, longPolling, cancellation);
+			return GetTransactionsAsync(strategy,
+										previous == null ? null : new[] { previous.ConfirmedTransactions.Bookmark },
+										previous == null ? null : new[] { previous.UnconfirmedTransactions.Bookmark }, 
+										previous == null ? null : new[] { previous.ReplacedTransactions.Bookmark }, longPolling, cancellation);
 		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark[] bookmarks, bool longPolling, CancellationToken cancellation = default(CancellationToken))
+		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, Bookmark[] replacedBookmarks, bool longPolling, CancellationToken cancellation = default(CancellationToken))
 		{
 			Dictionary<string, string> parameters = new Dictionary<string, string>();
-			if(bookmarks != null)
-				parameters.Add("bookmarks", String.Join(",", bookmarks.Select(b => b.ToString())));
+			if(confirmedBookmarks != null)
+				parameters.Add("confirmedBookmarks", String.Join(",", confirmedBookmarks.Select(b => b.ToString())));
+			if(unconfirmedBookmarks != null)
+				parameters.Add("unconfirmedBookmarks", String.Join(",", unconfirmedBookmarks.Select(b => b.ToString())));
+			if(replacedBookmarks != null)
+				parameters.Add("replacedBookmarks", String.Join(",", replacedBookmarks.Select(b => b.ToString())));
 			parameters.Add("longPolling", longPolling.ToString());
 			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
 			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/transactions?" + query, null, cancellation);

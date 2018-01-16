@@ -12,6 +12,29 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
+		public bool HasChanges()
+		{
+			return ConfirmedTransactions.HasChanges() || UnconfirmedTransactions.HasChanges() || ReplacedTransactions.HasChanges();
+		}
+
+		public TransactionInformationSet ConfirmedTransactions
+		{
+			get; set;
+		} = new TransactionInformationSet();
+
+		public TransactionInformationSet UnconfirmedTransactions
+		{
+			get; set;
+		} = new TransactionInformationSet();
+
+		public TransactionInformationSet ReplacedTransactions
+		{
+			get; set;
+		} = new TransactionInformationSet();
+	}
+
+	public class TransactionInformationSet
+	{
 		public Bookmark KnownBookmark
 		{
 			get; set;
@@ -21,17 +44,14 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
-
-		public bool HasChanges()
-		{
-			return KnownBookmark != Bookmark;
-		}
-
-
 		public List<TransactionInformation> Transactions
 		{
 			get; set;
 		} = new List<TransactionInformation>();
+		public bool HasChanges()
+		{
+			return KnownBookmark != Bookmark;
+		}
 	}
 
 	public class TransactionInformation
@@ -55,6 +75,11 @@ namespace NBXplorer.Models
 		public Transaction Transaction
 		{
 			get; set;
+		}
+		public DateTimeOffset Timestamp
+		{
+			get;
+			set;
 		}
 	}
 }
