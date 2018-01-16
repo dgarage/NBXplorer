@@ -57,11 +57,14 @@ namespace NBXplorer
 
 	public class AnnotatedTransactionCollection : List<AnnotatedTransaction>
 	{
+		Dictionary<uint256, DateTimeOffset> _FirstSeenByTxId = new Dictionary<uint256, DateTimeOffset>();
 		public AnnotatedTransactionCollection(IEnumerable<AnnotatedTransaction> transactions) : base(transactions)
 		{
 			foreach(var tx in transactions)
 			{
-				_TxById.Add(tx.Record.Transaction.GetHash(), tx);
+				var h = tx.Record.Transaction.GetHash();
+				_TxById.Add(h, tx);
+				UpdateFirstSeen(tx, h);
 			}
 
 			UnconfirmedTransactions = transactions
@@ -94,6 +97,27 @@ namespace NBXplorer
 			Conflicted = conflicted.ToArray();
 			if(conflicted.Count != 0)
 				UnconfirmedTransactions = UnconfirmedTransactions.Where(t => !conflicted.Contains(t)).ToArray();
+		}
+
+		private void UpdateFirstSeen(AnnotatedTransaction tx, uint256 h)
+		{
+			DateTimeOffset inserted;
+			if(_FirstSeenByTxId.TryGetValue(h, out inserted))
+			{
+				if(inserted > tx.Record.Inserted)
+					_FirstSeenByTxId[h] = inserted;
+			}
+			else
+			{
+				_FirstSeenByTxId.Add(h, tx.Record.Inserted);
+			}
+		}
+
+		public DateTimeOffset GetFirstSeen(uint256 txId)
+		{
+			DateTimeOffset date;
+			_FirstSeenByTxId.TryGetValue(txId, out date);
+			return date;
 		}
 
 		MultiValueDictionary<uint256, AnnotatedTransaction> _TxById = new MultiValueDictionary<uint256, AnnotatedTransaction>();

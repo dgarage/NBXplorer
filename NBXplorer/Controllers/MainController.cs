@@ -63,8 +63,8 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("fees/{blockCount}")]
-		public async Task<GetFeeRateResult> GetFeeRate(int blockCount, string cryptoCode = null)
+		[Route("cryptos/{cryptoCode}/fees/{blockCount}")]
+		public async Task<GetFeeRateResult> GetFeeRate(int blockCount, string cryptoCode)
 		{
 			var network = GetNetwork(cryptoCode);
 			var waiter = GetWaiter(network);
@@ -94,10 +94,11 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("addresses/{strategy}/unused")]
+		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/unused")]
 		public async Task<KeyPathInformation> GetUnusedAddress(
+			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			DerivationStrategyBase strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false, string cryptoCode = null)
+			DerivationStrategyBase strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false)
 		{
 			if(strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
@@ -117,9 +118,9 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("addresses/{strategy}/cancelreservation")]
-		public IActionResult CancelReservation([ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths, string cryptoCode = null)
+		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/cancelreservation")]
+		public IActionResult CancelReservation(string cryptoCode, [ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths)
 		{
 			var network = GetNetwork(cryptoCode);
 			var repo = RepositoryProvider.GetRepository(network);
@@ -128,8 +129,8 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("status")]
-		public async Task<IActionResult> GetStatus(string cryptoCode = null)
+		[Route("cryptos/{cryptoCode}/status")]
+		public async Task<IActionResult> GetStatus(string cryptoCode)
 		{
 			var network = GetNetwork(cryptoCode);
 			var waiter = Waiters.GetWaiter(network);
@@ -176,7 +177,8 @@ namespace NBXplorer.Controllers
 
 		private NBXplorerNetwork GetNetwork(string cryptoCode)
 		{
-			cryptoCode = cryptoCode ?? "BTC";
+			if(cryptoCode == null)
+				throw new ArgumentNullException(nameof(cryptoCode));
 			cryptoCode = cryptoCode.ToUpperInvariant();
 			var network = Waiters.GetWaiter(cryptoCode)?.Network;
 			if(network == null)
@@ -186,12 +188,13 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("connect")]
-		public async Task<IActionResult> ConnectWebSocket(string cryptoCode = null, CancellationToken cancellation = default(CancellationToken))
+		public async Task<IActionResult> ConnectWebSocket(
+			bool includeTransaction = true,
+			CancellationToken cancellation = default(CancellationToken))
 		{
 			if(!HttpContext.WebSockets.IsWebSocketRequest)
 				return NotFound();
 
-			cryptoCode = cryptoCode ?? "BTC";
 			var listenedBlocks = new ConcurrentDictionary<string, string>();
 			var listenedDerivations = new ConcurrentDictionary<(Network, DerivationStrategyBase), DerivationStrategyBase>();
 
@@ -233,7 +236,7 @@ namespace NBXplorer.Controllers
 						CryptoCode = o.CryptoCode,
 						DerivationStrategy = o.Match.DerivationStrategy,
 						BlockId = blockHeader?.HashBlock,
-						TransactionData = ToTransactionResult(chain, new[] { o.SavedTransaction }),
+						TransactionData = ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
 						Inputs = o.Match.Inputs,
 						Outputs = o.Match.Outputs
 					});
@@ -247,11 +250,9 @@ namespace NBXplorer.Controllers
 					switch(message)
 					{
 						case Models.NewBlockEventRequest r:
-							r.CryptoCode = r.CryptoCode ?? cryptoCode;
 							listenedBlocks.TryAdd(r.CryptoCode, r.CryptoCode);
 							break;
 						case Models.NewTransactionEventRequest r:
-							r.CryptoCode = r.CryptoCode ?? cryptoCode;
 							var network = Waiters.GetWaiter(r.CryptoCode)?.Network;
 							if(network == null)
 								break;
@@ -274,20 +275,22 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("tx/{txId}")]
+		[Route("cryptos/{cryptoCode}/transactions/{txId}")]
 		public IActionResult GetTransaction(
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
-			uint256 txId, string cryptoCode = null)
+			uint256 txId,
+			bool includeTransaction = true,
+			string cryptoCode = null)
 		{
 			var network = GetNetwork(cryptoCode);
 			var chain = this.ChainProvider.GetChain(network);
 			var result = RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if(result.Length == 0)
 				return NotFound();
-			return Json(ToTransactionResult(chain, result));
+			return Json(ToTransactionResult(includeTransaction, chain, result));
 		}
 
-		private TransactionResult ToTransactionResult(ConcurrentChain chain, Repository.SavedTransaction[] result)
+		private TransactionResult ToTransactionResult(bool includeTransaction, ConcurrentChain chain, Repository.SavedTransaction[] result)
 		{
 			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
 			var oldest = result
@@ -302,14 +305,15 @@ namespace NBXplorer.Controllers
 
 			var conf = confBlock == null ? 0 : chain.Tip.Height - confBlock.Height + 1;
 
-			return new TransactionResult() { Confirmations = conf, Transaction = oldest.Transaction, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			return new TransactionResult() { Confirmations = conf, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
 		}
 
 		[HttpPost]
-		[Route("track/{derivationStrategy}")]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationStrategy}")]
 		public IActionResult TrackWallet(
+			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			DerivationStrategyBase derivationStrategy, string cryptoCode = null)
+			DerivationStrategyBase derivationStrategy)
 		{
 			if(derivationStrategy == null)
 				return NotFound();
@@ -319,15 +323,74 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("sync/{extPubKey}")]
-		public async Task<UTXOChanges> Sync(
+		[Route("cryptos/{cryptoCode}/derivations/{extPubKey}/transactions")]
+		public async Task<GetTransactionsResponse> GetTransactions(
+			string cryptoCode,
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase extPubKey,
+			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
+			HashSet<Bookmark> bookmarks = null,
+			bool includeTransaction = true,
+			bool noWait = false)
+		{
+			bookmarks = bookmarks ?? new HashSet<Bookmark>();
+			if(extPubKey == null)
+				throw new ArgumentNullException(nameof(extPubKey));
+			var network = GetNetwork(cryptoCode);
+			var chain = ChainProvider.GetChain(network);
+			var repo = RepositoryProvider.GetRepository(network);
+			var waitingTransaction = noWait ? Task.FromResult(false) : WaitingTransaction(extPubKey);
+			GetTransactionsResponse response = null;
+			while(true)
+			{
+				response = new GetTransactionsResponse();
+				response.KnownBookmark = bookmarks.Contains(Bookmark.Start) ? Bookmark.Start : null;
+				int currentHeight = chain.Height;
+				response.Bookmark = Bookmark.Start;
+				var txs = GetAnnotatedTransactions(repo, chain, extPubKey);
+				foreach(var tx in txs.ConfirmedTransactions.Concat(txs.UnconfirmedTransactions))
+				{
+					BookmarkProcessor processor = new BookmarkProcessor(32 + 32 + 25);
+					processor.AddData(tx.Record.Transaction.GetHash());
+					processor.AddData(tx.Record.BlockHash ?? uint256.Zero);
+					processor.UpdateBookmark();
+
+					response.Transactions.Add(new TransactionInformation()
+					{
+						BlockHash = tx.Record.BlockHash,
+						Height = tx.Record.BlockHash == null ? null : tx.Height,
+						TransactionId = tx.Record.Transaction.GetHash(),
+						Transaction = includeTransaction  ? tx.Record.Transaction : null,
+						Confirmations = tx.Record.BlockHash == null ? 0 : currentHeight - tx.Height.Value + 1
+					});
+
+					response.Bookmark = processor.CurrentBookmark;
+					if(bookmarks.Contains(processor.CurrentBookmark))
+					{
+						response.KnownBookmark = processor.CurrentBookmark;
+						response.Transactions.Clear();
+					}
+				}
+
+				if(response.Bookmark != response.KnownBookmark || !(await waitingTransaction))
+					break;
+				waitingTransaction = Task.FromResult(false); //next time, will not wait
+			}
+
+			return response;
+		}
+
+		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{extPubKey}/utxos")]
+		public async Task<UTXOChanges> GetUTXOs(
+			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase extPubKey,
 			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
 			HashSet<Bookmark> confirmedBookmarks = null,
 			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
 			HashSet<Bookmark> unconfirmedBookmarks = null,
-			bool noWait = false, string cryptoCode = null)
+			bool noWait = false)
 		{
 			unconfirmedBookmarks = unconfirmedBookmarks ?? new HashSet<Bookmark>();
 			confirmedBookmarks = confirmedBookmarks ?? new HashSet<Bookmark>();
@@ -499,10 +562,11 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("broadcast")]
+		[Route("cryptos/{cryptoCode}/transactions")]
 		public async Task<BroadcastResult> Broadcast(
+			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
-			DerivationStrategyBase extPubKey, string cryptoCode = null)
+			DerivationStrategyBase extPubKey)
 		{
 			var tx = new Transaction();
 			var stream = new BitcoinStream(Request.Body, false);

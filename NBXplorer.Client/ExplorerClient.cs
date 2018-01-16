@@ -103,7 +103,7 @@ namespace NBXplorer
 			_Auth = new NullAuthentication();
 		}
 
-		private readonly string _CryptoCode;
+		private readonly string _CryptoCode = "BTC";
 		public string CryptoCode
 		{
 			get
@@ -114,14 +114,14 @@ namespace NBXplorer
 
 		Serializer _Serializer;
 		DerivationStrategy.DerivationStrategyFactory _Factory;
-		public UTXOChanges Sync(DerivationStrategyBase extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, previousChange, noWait, cancellation).GetAwaiter().GetResult();
+			return GetUTXOsAsync(extKey, previousChange, noWait, cancellation).GetAwaiter().GetResult();
 		}
 
 		public async Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default(CancellationToken))
 		{
-			return await SendAsync<TransactionResult>(HttpMethod.Get, null, "v1/tx/" + txId, null, cancellation).ConfigureAwait(false);
+			return await SendAsync<TransactionResult>(HttpMethod.Get, null, "v1/cryptos/{0}/transactions/" + txId, new[] { CryptoCode }, cancellation).ConfigureAwait(false);
 		}
 
 		public TransactionResult GetTransaction(uint256 txId, CancellationToken cancellation = default(CancellationToken))
@@ -129,14 +129,14 @@ namespace NBXplorer
 			return GetTransactionAsync(txId, cancellation).GetAwaiter().GetResult();
 		}
 
-		public Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, UTXOChanges previousChange, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, previousChange?.Confirmed?.Bookmark, previousChange?.Unconfirmed?.Bookmark, noWait, cancellation);
+			return GetUTXOsAsync(extKey, previousChange?.Confirmed?.Bookmark, previousChange?.Unconfirmed?.Bookmark, noWait, cancellation);
 		}
 
-		public UTXOChanges Sync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, confirmedBookmark, unconfirmedBookmark, noWait, cancellation).GetAwaiter().GetResult();
+			return GetUTXOsAsync(extKey, confirmedBookmark, unconfirmedBookmark, noWait, cancellation).GetAwaiter().GetResult();
 		}
 
 		public NotificationSession CreateNotificationSession(CancellationToken cancellation = default(CancellationToken))
@@ -151,9 +151,9 @@ namespace NBXplorer
 			return session;
 		}
 
-		public Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SyncAsync(extKey, 
+			return SyncAsync(extKey,
 				confirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { confirmedBookmark },
 				unconfirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { unconfirmedBookmark }, noWait, cancellation);
 		}
@@ -168,7 +168,7 @@ namespace NBXplorer
 			parameters.Add("noWait", noWait.ToString());
 
 			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
-			return await SendAsync<UTXOChanges>(HttpMethod.Get, null, "v1/sync/{0}?" + query, new object[] { extKey.ToString() }, cancellation).ConfigureAwait(false);
+			return await SendAsync<UTXOChanges>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/utxos?" + query, new object[] { CryptoCode, extKey.ToString() }, cancellation).ConfigureAwait(false);
 		}
 
 		public void WaitServerStarted(CancellationToken cancellation = default(CancellationToken))
@@ -198,7 +198,7 @@ namespace NBXplorer
 		}
 		public Task TrackAsync(DerivationStrategyBase strategy, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SendAsync<string>(HttpMethod.Post, null, "v1/track/{0}", new[] { strategy.ToString() }, cancellation);
+			return SendAsync<string>(HttpMethod.Post, null, "v1/cryptos/{0}/derivations/{1}", new[] { CryptoCode, strategy.ToString() }, cancellation);
 		}
 
 		public void CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default(CancellationToken))
@@ -208,7 +208,7 @@ namespace NBXplorer
 
 		public Task CancelReservationAsync(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SendAsync<string>(HttpMethod.Post, keyPaths, "v1/addresses/{0}/cancelreservation", new[] { strategy.ToString() }, cancellation);
+			return SendAsync<string>(HttpMethod.Post, keyPaths, "v1/cryptos/{0}/derivations/{1}/addresses/cancelreservation", new[] { CryptoCode, strategy.ToString() }, cancellation);
 		}
 
 		public StatusResult GetStatus(CancellationToken cancellation = default(CancellationToken))
@@ -218,7 +218,28 @@ namespace NBXplorer
 
 		public Task<StatusResult> GetStatusAsync(CancellationToken cancellation = default(CancellationToken))
 		{
-			return SendAsync<StatusResult>(HttpMethod.Get, null, "v1/status", null, cancellation);
+			return SendAsync<StatusResult>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/status", null, cancellation);
+		}
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark bookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetTransactionsAsync(strategy, new[] { bookmark }, noWait, cancellation).GetAwaiter().GetResult();
+		}
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark[] bookmarks, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetTransactionsAsync(strategy, bookmarks, noWait, cancellation).GetAwaiter().GetResult();
+		}
+		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark bookmark, bool noWait, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetTransactionsAsync(strategy, new[] { bookmark }, noWait, cancellation);
+		}
+		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark[] bookmarks, bool noWait, CancellationToken cancellation = default(CancellationToken))
+		{
+			Dictionary<string, string> parameters = new Dictionary<string, string>();
+			if(bookmarks != null)
+				parameters.Add("bookmarks", String.Join(",", bookmarks.Select(b => b.ToString())));
+			parameters.Add("noWait", noWait.ToString());
+			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
+			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/transactions?" + query, null, cancellation);
 		}
 
 		public KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default(CancellationToken))
@@ -230,7 +251,7 @@ namespace NBXplorer
 		{
 			try
 			{
-				return await GetAsync<KeyPathInformation>("v1/addresses/{0}/unused?feature={1}&skip={2}&reserve={3}", new object[] { strategy.ToString(), feature, skip, reserve }, cancellation).ConfigureAwait(false);
+				return await GetAsync<KeyPathInformation>($"v1/cryptos/{CryptoCode}/derivations/{strategy}/addresses/unused?feature={feature}&skip={skip}&reserve={reserve}", null, cancellation).ConfigureAwait(false);
 			}
 			catch(NBXplorerException ex) when(ex.Error?.HttpCode == 404)
 			{
@@ -246,7 +267,7 @@ namespace NBXplorer
 
 		public Task<GetFeeRateResult> GetFeeRateAsync(int blockCount, CancellationToken cancellation = default(CancellationToken))
 		{
-			return GetAsync<GetFeeRateResult>("v1/fees/{0}", new object[] { blockCount }, cancellation);
+			return GetAsync<GetFeeRateResult>("v1/cryptos/{0}/fees/{1}", new object[] { CryptoCode, blockCount }, cancellation);
 		}
 
 		public BroadcastResult Broadcast(Transaction tx, CancellationToken cancellation = default(CancellationToken))
@@ -256,7 +277,7 @@ namespace NBXplorer
 
 		public Task<BroadcastResult> BroadcastAsync(Transaction tx, CancellationToken cancellation = default(CancellationToken))
 		{
-			return SendAsync<BroadcastResult>(HttpMethod.Post, tx.ToBytes(), "v1/broadcast", null, cancellation);
+			return SendAsync<BroadcastResult>(HttpMethod.Post, tx.ToBytes(), "v1/cryptos/{0}/transactions", new[] { CryptoCode }, cancellation);
 		}
 
 		private static readonly HttpClient SharedClient = new HttpClient();
@@ -281,6 +302,11 @@ namespace NBXplorer
 			}
 		}
 
+		public bool IncludeTransaction
+		{
+			get; set;
+		} = true;
+
 
 		internal string GetFullUri(string relativePath, params object[] parameters)
 		{
@@ -289,12 +315,12 @@ namespace NBXplorer
 			if(!uri.EndsWith("/", StringComparison.Ordinal))
 				uri += "/";
 			uri += relativePath;
-			if(!string.IsNullOrEmpty(CryptoCode))
+			if(!IncludeTransaction)
 			{
 				if(uri.IndexOf('?') == -1)
-					uri += $"?cryptoCode={CryptoCode}";
+					uri += $"?includeTransaction=false";
 				else
-					uri += $"&cryptoCode={CryptoCode}";
+					uri += $"&includeTransaction=false";
 			}
 			return uri;
 		}

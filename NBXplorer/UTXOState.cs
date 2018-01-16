@@ -33,12 +33,6 @@ namespace NBXplorer
 
 	public class UTXOState
 	{
-		byte[] _Buffer;
-		public UTXOState()
-		{
-			_Buffer = new byte[32 + 32 + 32 + 4 + 1];
-			_Hasher = new MemoryStream(_Buffer);
-		}
 
 		public Dictionary<OutPoint, Coin> UTXOByOutpoint
 		{
@@ -124,14 +118,15 @@ namespace NBXplorer
 			get; set;
 		} = new MultiValueDictionary<OutPoint, uint256>();
 
-		MemoryStream _Hasher = new MemoryStream();
-		byte[] _CurrentHash = new byte[20];
+		
+
+		BookmarkProcessor _BookmarkProcessor = new BookmarkProcessor(32 + 32 + 32 + 4 + 1);
 
 		public Bookmark CurrentBookmark
 		{
 			get
 			{
-				return new Bookmark(new uint160(_CurrentHash));
+				return _BookmarkProcessor.CurrentBookmark;
 			}
 		}
 
@@ -139,20 +134,14 @@ namespace NBXplorer
 		private void AddEvent(UTXOEvent evt)
 		{
 			Events.Add(evt);
-
-			_Hasher.Position = 0;
-			_Hasher.Write(_CurrentHash, 0, 20);
-			_Hasher.Write(evt.TxId.ToBytes(), 0, 32);
-			var bs = new BitcoinStream(_Hasher, true);
-			var outpoint = evt.Outpoint;
-			bs.ReadWrite(ref outpoint);
-			_Hasher.WriteByte((byte)(evt.Received ? 1 : 0));
-			_CurrentHash = Hashes.RIPEMD160(_Buffer, _Buffer.Length);
+			_BookmarkProcessor.AddData(evt.TxId.ToBytes());
+			_BookmarkProcessor.AddData(evt.Outpoint);
+			_BookmarkProcessor.AddData(evt.Received);
+			_BookmarkProcessor.UpdateBookmark();
 		}
 
 		public UTXOState Snapshot()
 		{
-			var buffer = _Buffer.ToArray();
 			return new UTXOState()
 			{
 				UTXOByOutpoint = new Dictionary<OutPoint, Coin>(UTXOByOutpoint),
@@ -160,16 +149,14 @@ namespace NBXplorer
 				Events = new List<UTXOEvent>(Events),
 				MatchScript = MatchScript,
 				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
-				_Buffer = buffer.ToArray(),
-				_CurrentHash = _CurrentHash.ToArray(),
-				_Hasher = new MemoryStream(buffer)
+				_BookmarkProcessor = _BookmarkProcessor.Clone()
 			};
 		}
 		
 
 		internal void ResetEvents()
 		{
-			Array.Clear(_CurrentHash, 0, _CurrentHash.Length);
+			_BookmarkProcessor.Clear();
 			Events.Clear();
 		}
 	}
