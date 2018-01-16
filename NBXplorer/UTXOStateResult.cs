@@ -42,18 +42,18 @@ namespace NBXplorer
 	{
 		public static UTXOStateResult CreateStates(
 			Func<Script[], bool[]> matchScript,
-			Bookmark knownUnconfBookmark, IEnumerable<Transaction> unconfirmed,
-			Bookmark knownConfBookmark, IEnumerable<Transaction> confirmed)
+			HashSet<Bookmark> knownUnconfBookmarks, IEnumerable<Transaction> unconfirmed,
+			HashSet<Bookmark> knownConfBookmarks, IEnumerable<Transaction> confirmed)
 		{
 			var utxoState = new UTXOState();
 			utxoState.MatchScript = matchScript;
 
-			var knownConf = knownConfBookmark == Bookmark.Start ? new UTXOState() : null;
+			var knownConf = knownConfBookmarks.Contains(Bookmark.Start) ? new UTXOState() : null;
 			foreach(var tx in confirmed)
 			{
 				if(utxoState.Apply(tx) == ApplyTransactionResult.Conflict)
 					throw new InvalidOperationException("Conflict in UTXOStateResult.CreateStates should never happen");
-				if(utxoState.CurrentBookmark == knownConfBookmark)
+				if(knownConfBookmarks.Contains(utxoState.CurrentBookmark))
 					knownConf = utxoState.Snapshot();
 			}
 
@@ -61,14 +61,14 @@ namespace NBXplorer
 			var actualConf = utxoState.Snapshot();
 			utxoState.ResetEvents();
 
-			var knownUnconf = knownUnconfBookmark == Bookmark.Start ? utxoState.Snapshot() : null;
+			var knownUnconf = knownUnconfBookmarks.Contains(Bookmark.Start) ? utxoState.Snapshot() : null;
 			foreach(var tx in unconfirmed)
 			{
 				var txid = tx.GetHash();
 				if(utxoState.Apply(tx) == ApplyTransactionResult.Conflict)
 					throw new InvalidOperationException("Conflict in UTXOStateResult.CreateStates should never happen");
 
-				if(utxoState.CurrentBookmark == knownUnconfBookmark)
+				if(knownUnconfBookmarks.Contains(utxoState.CurrentBookmark))
 					knownUnconf = utxoState.Snapshot();
 			}
 

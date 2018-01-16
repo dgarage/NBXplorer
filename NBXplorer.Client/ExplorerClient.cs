@@ -151,13 +151,20 @@ namespace NBXplorer
 			return session;
 		}
 
-		public async Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		public Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
+		{
+			return SyncAsync(extKey, 
+				confirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { confirmedBookmark },
+				unconfirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { unconfirmedBookmark }, noWait, cancellation);
+		}
+
+		public async Task<UTXOChanges> SyncAsync(DerivationStrategyBase extKey, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, bool noWait = false, CancellationToken cancellation = default(CancellationToken))
 		{
 			Dictionary<string, string> parameters = new Dictionary<string, string>();
-			if(confirmedBookmark != null)
-				parameters.Add("confirmedBookmark", confirmedBookmark.ToString());
-			if(unconfirmedBookmark != null)
-				parameters.Add("unconfirmedBookmark", unconfirmedBookmark.ToString());
+			if(confirmedBookmarks != null)
+				parameters.Add("confirmedBookmarks", String.Join(",", confirmedBookmarks.Select(b => b.ToString())));
+			if(unconfirmedBookmarks != null)
+				parameters.Add("unconfirmedBookmarks", String.Join(",", unconfirmedBookmarks.Select(b => b.ToString())));
 			parameters.Add("noWait", noWait.ToString());
 
 			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());

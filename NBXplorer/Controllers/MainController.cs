@@ -323,12 +323,14 @@ namespace NBXplorer.Controllers
 		public async Task<UTXOChanges> Sync(
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase extPubKey,
-			[ModelBinder(BinderType = typeof(BookmarkModelBinding))]
-			Bookmark confirmedBookmark = null,
-			[ModelBinder(BinderType = typeof(BookmarkModelBinding))]
-			Bookmark unconfirmedBookmark = null,
+			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
+			HashSet<Bookmark> confirmedBookmarks = null,
+			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
+			HashSet<Bookmark> unconfirmedBookmarks = null,
 			bool noWait = false, string cryptoCode = null)
 		{
+			unconfirmedBookmarks = unconfirmedBookmarks ?? new HashSet<Bookmark>();
+			confirmedBookmarks = confirmedBookmarks ?? new HashSet<Bookmark>();
 			if(extPubKey == null)
 				throw new ArgumentNullException(nameof(extPubKey));
 			var network = GetNetwork(cryptoCode);
@@ -345,7 +347,7 @@ namespace NBXplorer.Controllers
 				var transactions = GetAnnotatedTransactions(repo, chain, extPubKey);
 
 
-				var states = UTXOStateResult.CreateStates(matchScript, unconfirmedBookmark, transactions.UnconfirmedTransactions.Select(c => c.Record.Transaction), confirmedBookmark, transactions.ConfirmedTransactions.Select(c => c.Record.Transaction));
+				var states = UTXOStateResult.CreateStates(matchScript, unconfirmedBookmarks, transactions.UnconfirmedTransactions.Select(c => c.Record.Transaction), confirmedBookmarks, transactions.ConfirmedTransactions.Select(c => c.Record.Transaction));
 
 				changes.Confirmed = SetUTXOChange(states.Confirmed);
 				changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
