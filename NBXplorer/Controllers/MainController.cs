@@ -335,7 +335,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
 			HashSet<Bookmark> replacedBookmarks = null,
 			bool includeTransaction = true,
-			bool longPolling = true)
+			bool longPolling = false)
 		{
 			if(extPubKey == null)
 				throw new ArgumentNullException(nameof(extPubKey));
@@ -418,7 +418,7 @@ namespace NBXplorer.Controllers
 			HashSet<Bookmark> confirmedBookmarks = null,
 			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
 			HashSet<Bookmark> unconfirmedBookmarks = null,
-			bool longPolling = true)
+			bool longPolling = false)
 		{
 			unconfirmedBookmarks = unconfirmedBookmarks ?? new HashSet<Bookmark>();
 			confirmedBookmarks = confirmedBookmarks ?? new HashSet<Bookmark>();

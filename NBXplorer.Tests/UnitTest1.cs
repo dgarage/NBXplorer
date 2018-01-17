@@ -686,6 +686,9 @@ namespace NBXplorer.Tests
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.Equal(new KeyPath("0/1"), utxo.Confirmed.UTXOs[0].KeyPath);
 
+				tx = tester.Client.GetTransaction(tx.Transaction.GetHash());
+				Assert.Equal(2, tx.Confirmations);
+
 				var outpoint01 = utxo.Confirmed.UTXOs[0].Outpoint;
 
 				txId = tester.RPC.SendToAddress(AddressOf(key, "0/2"), Money.Coins(1.0m));
@@ -699,6 +702,8 @@ namespace NBXplorer.Tests
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.Equal(new KeyPath("0/2"), utxo.Confirmed.UTXOs[0].KeyPath);
 
+				tx = tester.Client.GetTransaction(tx.Transaction.GetHash());
+				Assert.Equal(3, tx.Confirmations);
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo, false);
 				Assert.True(!utxo.HasChanges);
