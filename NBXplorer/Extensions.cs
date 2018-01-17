@@ -23,6 +23,8 @@ using NBitcoin.RPC;
 using Microsoft.Extensions.Hosting;
 using System.Threading.Tasks;
 using System.Threading;
+using Microsoft.AspNetCore.Authentication;
+using NBXplorer.Authentication;
 
 namespace NBXplorer
 {
@@ -35,7 +37,8 @@ namespace NBXplorer
 
 			var tcs = new TaskCompletionSource<bool>();
 			var rwh = ThreadPool.RegisterWaitForSingleObject(waitHandle,
-				delegate {
+				delegate
+				{
 					tcs.TrySetResult(true);
 				}, null, TimeSpan.FromMinutes(1.0), true);
 			var t = tcs.Task;
@@ -65,6 +68,47 @@ namespace NBXplorer
 			}
 		}
 
+		public class ConfigureCookieFileBasedConfiguration : IConfigureNamedOptions<BasicAuthenticationOptions>
+		{
+			ExplorerConfiguration _Configuration;
+			public ConfigureCookieFileBasedConfiguration(ExplorerConfiguration configuration)
+			{
+				_Configuration = configuration;
+			}
+
+			public void Configure(string name, BasicAuthenticationOptions options)
+			{
+				if(name == "Basic")
+				{
+					if(!_Configuration.NoAuthentication)
+					{
+						var cookieFile = Path.Combine(_Configuration.DataDir, ".cookie");
+						var pass = new uint256(RandomUtils.GetBytes(32));
+						var user = "__cookie__";
+						var cookieStr = user + ":" + pass;
+						File.WriteAllText(cookieFile, cookieStr);
+
+						options.Username = user;
+						options.Password = pass.ToString();
+					}
+				}
+			}
+
+			public void Configure(BasicAuthenticationOptions options)
+			{
+				Configure(null, options);
+			}
+		}
+
+		public static AuthenticationBuilder AddNBXplorerAuthentication(this AuthenticationBuilder builder)
+		{
+			builder.Services.AddSingleton<IConfigureOptions<BasicAuthenticationOptions>, ConfigureCookieFileBasedConfiguration>();
+			return builder.AddScheme<Authentication.BasicAuthenticationOptions, Authentication.BasicAuthenticationHandler>("Basic", o =>
+			{
+
+			});
+		}
+
 		public static IServiceCollection AddNBXplorer(this IServiceCollection services)
 		{
 			services.AddSingleton<IObjectModelValidator, NoObjectModelValidator>();
@@ -89,19 +133,6 @@ namespace NBXplorer
 				return c.NetworkProvider;
 			});
 			services.TryAddSingleton<RPCClientProvider>();
-			services.TryAddSingleton<RPCAuthorization>(o =>
-			{
-				var configuration = o.GetRequiredService<ExplorerConfiguration>();
-				var cookieFile = Path.Combine(configuration.DataDir, ".cookie");
-				var cookieStr = "__cookie__:" + new uint256(RandomUtils.GetBytes(32));
-				File.WriteAllText(cookieFile, cookieStr);
-				RPCAuthorization auth = new RPCAuthorization();
-				if(!configuration.NoAuthentication)
-				{
-					auth.Authorized.Add(cookieStr);
-				}
-				return auth;
-			});
 			return services;
 		}
 
@@ -112,12 +143,6 @@ namespace NBXplorer
 				o.LoadArgs(conf);
 			});
 			return services;
-		}
-
-		public static IApplicationBuilder UseNBXplorer(this IApplicationBuilder app)
-		{
-			app.UseMiddleware<NBXplorerMiddleware>();
-			return app;
 		}
 
 		internal class NoObjectModelValidator : IObjectModelValidator

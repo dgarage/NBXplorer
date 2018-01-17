@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Http.Features;
 using NBXplorer.Filters;
 using Microsoft.ApplicationInsights.AspNetCore.Extensions;
 using NBXplorer.Logging;
+using Microsoft.AspNetCore.Authentication;
 
 namespace NBXplorer
 {
@@ -39,7 +40,10 @@ namespace NBXplorer
 			services.ConfigureNBxplorer(Configuration);
 			services.AddMvcCore()
 				.AddJsonFormatters()
+				.AddAuthorization()
 				.AddFormatterMappings();
+			services.AddAuthentication("Basic")
+				.AddNBXplorerAuthentication();
 			services.Configure<IOptions<ApplicationInsightsServiceOptions>>(o =>
 			{
 				o.Value.DeveloperMode = _Env.IsDevelopment();
@@ -56,7 +60,7 @@ namespace NBXplorer
 			Logs.Configure(loggerFactory);
 
 			loggerFactory.AddApplicationInsights(prov, LogLevel.Information);
-			app.UseNBXplorer();
+			app.UseAuthentication();
 			app.UseWebSockets();
 			app.UseMvc();
 		}

@@ -54,7 +54,8 @@ namespace NBXplorer
 
 			public void SetWebSocketAuth(ClientWebSocket socket)
 			{
-				socket.Options.SetRequestHeader("Authorization", $"{_CachedAuth.Scheme} {_CachedAuth.Parameter}");
+				if(_CachedAuth != null)
+					socket.Options.SetRequestHeader("Authorization", $"{_CachedAuth.Scheme} {_CachedAuth.Parameter}");
 			}
 		}
 		class NullAuthentication : IAuth
@@ -92,10 +93,8 @@ namespace NBXplorer
 			if(path == null)
 				throw new ArgumentNullException(nameof(path));
 			CookieAuthentication auth = new CookieAuthentication(path);
-			if(!auth.RefreshCache())
-				return false;
 			_Auth = auth;
-			return true;
+			return auth.RefreshCache();
 		}
 
 		public void SetNoAuth()

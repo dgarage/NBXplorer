@@ -529,7 +529,7 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = ServerTester.Create())
 			{
-				tester.Client.WaitServerStarted();
+				tester.Client.WaitServerStarted(Timeout);
 				var status = tester.Client.GetStatus();
 				Assert.NotNull(status.BitcoinStatus);
 				Assert.True(status.IsFullySynched);
