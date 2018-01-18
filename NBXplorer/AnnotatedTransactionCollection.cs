@@ -95,7 +95,7 @@ namespace NBXplorer
 				{
 					if(state.Apply(unconfirmed.Record.Transaction) == ApplyTransactionResult.Conflict)
 					{
-						ReplacedTransactions.Add(hash, unconfirmed);
+						ReplacedTransactions.TryAdd(hash, unconfirmed);
 					}
 					else
 					{
