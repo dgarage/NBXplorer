@@ -146,7 +146,7 @@ namespace NBXplorer.Configuration
 		private static bool IsTransient(RPCException ex)
 		{
 			return 
-				   (int)ex.RPCCode == -28 ||
+				   ex.RPCCode == RPCErrorCode.RPC_IN_WARMUP ||
 				   ex.Message.Contains("Loading wallet...") || 
 				   ex.Message.Contains("Loading block index...") ||
 				   ex.Message.Contains("Loading P2P addresses...") ||
