@@ -145,7 +145,9 @@ namespace NBXplorer.Configuration
 
 		private static bool IsTransient(RPCException ex)
 		{
-			return ex.Message.Contains("Loading wallet...") || 
+			return 
+				   (int)ex.RPCCode == -28 ||
+				   ex.Message.Contains("Loading wallet...") || 
 				   ex.Message.Contains("Loading block index...") ||
 				   ex.Message.Contains("Loading P2P addresses...") ||
 				   ex.Message.Contains("Rewinding blocks...") ||
