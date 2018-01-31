@@ -35,9 +35,9 @@ namespace NBXplorer.DerivationStrategy
 		}
 		public abstract Derivation Derive(KeyPath keyPath);
 
-		internal string StringValue
+		protected abstract string StringValue
 		{
-			get; set;
+			get;
 		}
 
 

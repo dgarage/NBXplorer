@@ -11,6 +11,10 @@ namespace NBXplorer
 			InitBitcoin(chainType);
 			InitLitecoin(chainType);
 			ChainType = chainType;
+			foreach(var chain in _Networks.Values)
+			{
+				chain.DerivationStrategyFactory = new DerivationStrategy.DerivationStrategyFactory(chain.NBitcoinNetwork);
+			}
 		}
 
 		public ChainType ChainType

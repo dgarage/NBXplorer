@@ -21,7 +21,9 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
-		
+
+		protected override string StringValue => Inner.ToString();
+
 		public override Derivation Derive(KeyPath keyPath)
 		{
 			var derivation = Inner.Derive(keyPath);

@@ -9,6 +9,33 @@ using System.Text.RegularExpressions;
 
 namespace NBXplorer.DerivationStrategy
 {
+	public class DerivationStrategyOptions
+	{
+
+		/// <summary>
+		/// If true, use P2SH (default: false)
+		/// </summary>
+		public bool P2SH
+		{
+			get; set;
+		}
+
+		/// <summary>
+		/// If false, use segwit (default: false)
+		/// </summary>
+		public bool Legacy
+		{
+			get; set;
+		}
+
+		/// <summary>
+		/// If true, in case of multisig, do not reorder the public keys of an address lexicographically (default: false)
+		/// </summary>
+		public bool KeepOrder
+		{
+			get; set;
+		}
+	}
 	public class DerivationStrategyFactory
 	{
 
@@ -31,7 +58,6 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase Parse(string str)
 		{
 			var strategy = ParseCore(str);
-			strategy.StringValue = str;
 			return strategy;
 		}
 
@@ -46,6 +72,13 @@ namespace NBXplorer.DerivationStrategy
 			bool keepOrder = false;
 			ReadBool(ref str, "keeporder", ref keepOrder);
 
+
+			var options = new DerivationStrategyOptions()
+			{
+				KeepOrder = keepOrder,
+				Legacy = legacy,
+				P2SH = p2sh
+			};
 			var match = MultiSigRegex.Match(str);
 			if(match.Success)
 			{
@@ -54,32 +87,57 @@ namespace NBXplorer.DerivationStrategy
 									.OfType<Group>()
 									.Skip(2)
 									.SelectMany(g => g.Captures.OfType<Capture>())
-									.Select(g => new BitcoinExtPubKey(g.Value.Substring(1), Network))
+									.Select(g => new BitcoinExtPubKey(g.Value.Substring(1), Network).ExtPubKey)
 									.ToArray();
-				DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys)
-				{
-					LexicographicOrder = !keepOrder
-				};
-				if(legacy)
-					return new P2SHDerivationStrategy(derivationStrategy);
-
-				derivationStrategy = new P2WSHDerivationStrategy(derivationStrategy);
-				if(p2sh)
-				{
-					derivationStrategy = new P2SHDerivationStrategy(derivationStrategy);
-				}
-				return derivationStrategy;
+				return CreateMultiSigDerivationStrategy(pubKeys, sigCount, options);
 			}
 			else
 			{
 				var key = _Network.Parse<BitcoinExtPubKey>(str);
-				DerivationStrategyBase strategy = new DirectDerivationStrategy(key) { Segwit = !legacy };
-				if(p2sh && !legacy)
-				{
-					strategy = new P2SHDerivationStrategy(strategy);
-				}
-				return strategy;
+				return CreateDirectDerivationStrategy(key.ExtPubKey, options);
 			}
+		}
+
+		/// <summary>
+		/// Create a single signature derivation strategy from public key
+		/// </summary>
+		/// <param name="publicKey">The public key of the wallet</param>
+		/// <param name="options">Derivation options</param>
+		/// <returns></returns>
+		public DerivationStrategyBase CreateDirectDerivationStrategy(ExtPubKey publicKey, DerivationStrategyOptions options = null)
+		{
+			options = options ?? new DerivationStrategyOptions();
+			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey.GetWif(Network)) { Segwit = !options.Legacy };
+			if(options.P2SH && !options.Legacy)
+			{
+				strategy = new P2SHDerivationStrategy(strategy, true);
+			}
+			return strategy;
+		}
+
+		/// <summary>
+		/// Create a multisig derivation strategy from public keys
+		/// </summary>
+		/// <param name="pubKeys">The public keys belonging to the multi sig</param>
+		/// <param name="sigCount">The number of required signature</param>
+		/// <param name="options">Derivation options</param>
+		/// <returns>A multisig derivation strategy</returns>
+		public DerivationStrategyBase CreateMultiSigDerivationStrategy(ExtPubKey[] pubKeys, int sigCount, DerivationStrategyOptions options = null)
+		{
+			options = options ?? new DerivationStrategyOptions();
+			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.Select(p => p.GetWif(Network)).ToArray(), options.Legacy)
+			{
+				LexicographicOrder = !options.KeepOrder
+			};
+			if(options.Legacy)
+				return new P2SHDerivationStrategy(derivationStrategy, false);
+
+			derivationStrategy = new P2WSHDerivationStrategy(derivationStrategy);
+			if(options.P2SH)
+			{
+				derivationStrategy = new P2SHDerivationStrategy(derivationStrategy, true);
+			}
+			return derivationStrategy;
 		}
 
 		private void ReadBool(ref string str, string attribute, ref bool value)

@@ -27,11 +27,38 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
-		internal MultisigDerivationStrategy(int reqSignature, BitcoinExtPubKey[] keys)
+
+		protected override string StringValue
+		{
+			get
+			{
+				StringBuilder builder = new StringBuilder();
+				builder.Append(RequiredSignatures);
+				builder.Append("-of-");
+				builder.Append(string.Join("-", Keys.Select(k => k.ToString()).ToArray()));
+				if(IsLegacy)
+				{
+					builder.Append("-[legacy]");
+				}
+				if(!LexicographicOrder)
+				{
+					builder.Append("-[keeporder]");
+				}
+				return builder.ToString();
+			}
+		}
+
+		internal MultisigDerivationStrategy(int reqSignature, BitcoinExtPubKey[] keys, bool isLegacy)
 		{
 			Keys = keys;
-			RequiredSignatures = RequiredSignatures;
+			RequiredSignatures = reqSignature;
 			LexicographicOrder = true;
+			IsLegacy = isLegacy;
+		}
+
+		public bool IsLegacy
+		{
+			get; private set;
 		}
 
 		private void WriteBytes(MemoryStream ms, byte[] v)
@@ -52,7 +79,7 @@ namespace NBXplorer.DerivationStrategy
 
 		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
 		{
-			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray())
+			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray(), IsLegacy)
 			{
 				LexicographicOrder = LexicographicOrder
 			};

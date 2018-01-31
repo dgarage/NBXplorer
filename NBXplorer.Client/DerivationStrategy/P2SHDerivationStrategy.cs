@@ -10,17 +10,30 @@ namespace NBXplorer.DerivationStrategy
 {
 	public class P2SHDerivationStrategy : DerivationStrategyBase
 	{
-		internal P2SHDerivationStrategy(DerivationStrategyBase inner)
+		bool addSuffix;
+		internal P2SHDerivationStrategy(DerivationStrategyBase inner, bool addSuffix)
 		{
 			if(inner == null)
 				throw new ArgumentNullException(nameof(inner));
 			Inner = inner;
+			this.addSuffix = addSuffix;
 		}
 
 		public DerivationStrategyBase Inner
 		{
 			get; set;
 		}
+
+		protected override string StringValue
+		{
+			get
+			{
+				if(addSuffix)
+					return Inner.ToString() + "-[p2sh]";
+				return Inner.ToString();
+			}
+		}
+
 		public override Derivation Derive(KeyPath keyPath)
 		{
 			var derivation = Inner.Derive(keyPath);
@@ -33,7 +46,7 @@ namespace NBXplorer.DerivationStrategy
 
 		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
 		{
-			return new P2SHDerivationStrategy(Inner.GetLineFor(keyPath));
+			return new P2SHDerivationStrategy(Inner.GetLineFor(keyPath), addSuffix);
 		}
 	}
 }

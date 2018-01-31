@@ -31,6 +31,12 @@ namespace NBXplorer
 			set;
 		}
 
+		public DerivationStrategy.DerivationStrategyFactory DerivationStrategyFactory
+		{
+			get;
+			internal set;
+		}
+
 		public override string ToString()
 		{
 			return CryptoCode.ToString();

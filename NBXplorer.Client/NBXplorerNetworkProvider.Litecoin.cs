@@ -19,5 +19,10 @@ namespace NBXplorer
 				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType)
 			});
 		}
+
+		public NBXplorerNetwork GetLTC()
+		{
+			return GetFromCryptoCode("LTC");
+		}
 	}
 }

@@ -141,6 +141,54 @@ namespace NBXplorer.Tests
 
 
 		[Fact]
+		public void CanEasilySpendUTXOs()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				var userExtKey = new ExtKey();
+				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
+				{
+					// Use non-segwit
+					Legacy = true
+				});
+				tester.Client.Track(userDerivationScheme);
+				var utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
+
+				// Send 1 BTC
+				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(Network.RegTest), Money.Coins(1.0m));
+				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+
+				// Send 1 more BTC
+				newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(Network.RegTest), Money.Coins(1.0m));
+				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+
+				utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
+				Assert.Equal(2, utxos.GetUnspentCoins().Length);
+
+
+				var changeAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Change);
+				var coins = utxos.GetUnspentCoins();
+				var keys = utxos.GetKeys(userExtKey);
+				TransactionBuilder builder = new TransactionBuilder();
+				builder.AddCoins(coins);
+				builder.AddKeys(keys);
+				builder.Send(new Key(), Money.Coins(0.5m));
+				builder.SendFees(Money.Coins(0.001m));
+				builder.SetChange(changeAddress.ScriptPubKey);
+				var tx = builder.BuildTransaction(true);
+				tester.Client.Broadcast(tx);
+
+				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+				utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
+				Assert.Equal(2, utxos.GetUnspentCoins().Length);
+
+				Assert.Contains(utxos.GetUnspentCoins(), u => u.ScriptPubKey == changeAddress.ScriptPubKey);
+			}
+		}
+
+		[Fact]
 		public void ShowRBFedTransaction()
 		{
 			using(var tester = ServerTester.Create())
@@ -486,11 +534,13 @@ namespace NBXplorer.Tests
 			var toto = new BitcoinExtPubKey("xpub661MyMwAqRbcFqyJE6zy5jMF7bjUtvNHgHJPbENEZtEQKRrukKWJP5xLMKntBaNya7CLMLL6u1KEk8GnrEv8pur5DFSgEMf1hRGjsJrcQKS", network);
 
 			var direct = (DirectDerivationStrategy)factory.Parse($"{toto}-[legacy]");
+			Assert.Equal($"{toto}-[legacy]", direct.ToString());
 			var generated = Generate(direct);
 			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.Hash.ScriptPubKey, generated.ScriptPubKey);
 			Assert.Null(generated.Redeem);
 
 			var p2wpkh = (DirectDerivationStrategy)factory.Parse($"{toto}");
+			Assert.Equal($"{toto}", p2wpkh.ToString());
 			generated = Generate(p2wpkh);
 			Assert.Null(generated.Redeem);
 			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.WitHash.ScriptPubKey, generated.ScriptPubKey);
@@ -503,23 +553,27 @@ namespace NBXplorer.Tests
 
 			//Same thing as above, reversed attribute
 			p2shp2wpkh = (P2SHDerivationStrategy)factory.Parse($"{toto}-[p2sh]");
+			Assert.Equal($"{toto}-[p2sh]", p2shp2wpkh.ToString());
 			Assert.NotNull(generated.Redeem);
 			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.WitHash.ScriptPubKey.Hash.ScriptPubKey, generated.ScriptPubKey);
 			Assert.Equal(toto.ExtPubKey.Derive(new KeyPath("0/1")).PubKey.WitHash.ScriptPubKey, generated.Redeem);
 
 			var multiSig = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-[legacy]");
 			generated = Generate(multiSig);
-			Assert.Equal(new Script("0 025ca59b2007a67f24fdd26acefbe8feb5e8849c207d504b16d4801a8290fe9409 03d15f88de692693e0c25cec27b68da49ae4c29805efbe08154c4acfdf951ccb54 2 OP_CHECKMULTISIG"), generated.Redeem);
+			Assert.Equal(new Script("2 025ca59b2007a67f24fdd26acefbe8feb5e8849c207d504b16d4801a8290fe9409 03d15f88de692693e0c25cec27b68da49ae4c29805efbe08154c4acfdf951ccb54 2 OP_CHECKMULTISIG"), generated.Redeem);
 			multiSig = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-[legacy]-[keeporder]");
+			Assert.Equal($"2-of-{toto}-{tata}-[legacy]-[keeporder]", multiSig.ToString());
 			generated = Generate(multiSig);
-			Assert.Equal(new Script("0 03d15f88de692693e0c25cec27b68da49ae4c29805efbe08154c4acfdf951ccb54 025ca59b2007a67f24fdd26acefbe8feb5e8849c207d504b16d4801a8290fe9409 2 OP_CHECKMULTISIG"), generated.Redeem);
+			Assert.Equal(new Script("2 03d15f88de692693e0c25cec27b68da49ae4c29805efbe08154c4acfdf951ccb54 025ca59b2007a67f24fdd26acefbe8feb5e8849c207d504b16d4801a8290fe9409 2 OP_CHECKMULTISIG"), generated.Redeem);
 
 			var multiP2SH = (P2WSHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}");
+			Assert.Equal($"2-of-{toto}-{tata}", multiP2SH.ToString());
 			generated = Generate(multiP2SH);
 			Assert.IsType<WitScriptId>(generated.ScriptPubKey.GetDestination());
 			Assert.NotNull(PayToMultiSigTemplate.Instance.ExtractScriptPubKeyParameters(generated.Redeem));
 
 			var multiP2WSHP2SH = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-[p2sh]");
+			Assert.Equal($"2-of-{toto}-{tata}-[p2sh]", multiP2WSHP2SH.ToString());
 			generated = Generate(multiP2WSHP2SH);
 			Assert.IsType<ScriptId>(generated.ScriptPubKey.GetDestination());
 			Assert.NotNull(PayToMultiSigTemplate.Instance.ExtractScriptPubKeyParameters(generated.Redeem));

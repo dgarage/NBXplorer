@@ -19,5 +19,10 @@ namespace NBXplorer
 				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType)
 			});
 		}
+
+		public NBXplorerNetwork GetBTC()
+		{
+			return GetFromCryptoCode("BTC");
+		}
 	}
 }
