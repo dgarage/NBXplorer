@@ -378,7 +378,7 @@ namespace NBXplorer
 				bool needCommit = false;
 				var featuresPerKeyPaths =
 				new[] { DerivationFeature.Deposit, DerivationFeature.Change }
-				.Select(f => (Feature: f, Path: strategy.GetLineFor(f).Path))
+				.Select(f => (Feature: f, Path: DerivationStrategyBase.GetKeyPath(f)))
 				.ToDictionary(o => o.Path, o => o.Feature);
 
 				var groups = keyPaths.Where(k => k.Indexes.Length > 0).GroupBy(k => k.Parent);
@@ -578,7 +578,7 @@ namespace NBXplorer
 					Redeem = derivation.Redeem,
 					DerivationStrategy = strategy,
 					Feature = derivationFeature,
-					KeyPath = feature.Path.Derive(index, false)
+					KeyPath = DerivationStrategyBase.GetKeyPath(derivationFeature).Derive(index, false)
 				};
 				var bytes = ToBytes(info);
 				GetScriptsIndex(info.ScriptPubKey).Insert(tx, $"{strategy.GetHash()}-{derivationFeature}", bytes);

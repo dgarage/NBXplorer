@@ -10,26 +10,6 @@ namespace NBXplorer.DerivationStrategy
 {
 	public class P2WSHDerivationStrategy : DerivationStrategyBase
 	{
-		class P2WSHDerivationLine : DerivationStrategyLine
-		{
-			private DerivationStrategyLine inner;
-
-			public P2WSHDerivationLine(DerivationStrategyLine inner)
-			{
-				this.inner = inner;
-			}
-			public KeyPath Path => inner.Path;
-
-			public Derivation Derive(uint i)
-			{
-				var derivation = inner.Derive(i);
-				return new Derivation()
-				{
-					ScriptPubKey = derivation.ScriptPubKey.WitHash.ScriptPubKey,
-					Redeem = derivation.ScriptPubKey
-				};
-			}
-		}
 		internal P2WSHDerivationStrategy(DerivationStrategyBase inner)
 		{
 			if(inner == null)
@@ -41,11 +21,20 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
-
-		public override DerivationStrategyLine GetLineFor(DerivationFeature feature)
+		
+		public override Derivation Derive(KeyPath keyPath)
 		{
-			var inner = Inner.GetLineFor(feature);
-			return new P2WSHDerivationLine(inner);
+			var derivation = Inner.Derive(keyPath);
+			return new Derivation()
+			{
+				ScriptPubKey = derivation.ScriptPubKey.WitHash.ScriptPubKey,
+				Redeem = derivation.ScriptPubKey
+			};
+		}
+
+		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
+		{
+			return new P2WSHDerivationStrategy(Inner.GetLineFor(keyPath));
 		}
 	}
 }

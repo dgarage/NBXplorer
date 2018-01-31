@@ -17,7 +17,23 @@ namespace NBXplorer.DerivationStrategy
 		{
 
 		}
-		public abstract DerivationStrategyLine GetLineFor(DerivationFeature feature);
+
+		public static KeyPath GetKeyPath(DerivationFeature derivationFeature)
+		{
+			return derivationFeature == DerivationFeature.Deposit ? new KeyPath("0") : new KeyPath("1");
+		}
+		public DerivationStrategyBase GetLineFor(DerivationFeature derivationFeature)
+		{
+			return GetLineFor(GetKeyPath(derivationFeature));
+		}
+
+		public abstract DerivationStrategyBase GetLineFor(KeyPath keyPath);
+
+		public Derivation Derive(uint i)
+		{
+			return Derive(new KeyPath(i));
+		}
+		public abstract Derivation Derive(KeyPath keyPath);
 
 		internal string StringValue
 		{
@@ -55,15 +71,5 @@ namespace NBXplorer.DerivationStrategy
 		{
 			return StringValue;
 		}
-	}
-
-	public interface DerivationStrategyLine
-	{
-		KeyPath Path
-		{
-			get;
-		}
-
-		Derivation Derive(uint i);
 	}
 }

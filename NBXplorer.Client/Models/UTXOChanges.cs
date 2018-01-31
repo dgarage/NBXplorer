@@ -6,12 +6,13 @@ using System.Collections.Generic;
 using System.Text;
 using NBitcoin.Crypto;
 using System.IO;
+using Newtonsoft.Json;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Models
 {
 	public class UTXOChanges
 	{
-
 		uint _CurrentHeight;
 		public int CurrentHeight
 		{
@@ -58,6 +59,22 @@ namespace NBXplorer.Models
 			{
 				return Confirmed.HasChanges || Unconfirmed.HasChanges;
 			}
+		}
+
+		public IEnumerable<Coin> GetUnspentCoins(DerivationStrategy.DerivationStrategyBase derivationStrategy = null)
+		{
+			if(Confirmed.KnownBookmark != null || Unconfirmed.KnownBookmark != null)
+				throw new InvalidOperationException("This UTXOChanges is partial, it is calculate the unspent coins");
+			Dictionary<OutPoint, UTXO> received = new Dictionary<OutPoint, UTXO>();
+			foreach(var utxo in Confirmed.UTXOs.Concat(Unconfirmed.UTXOs))
+			{
+				received.TryAdd(utxo.Outpoint, utxo);
+			}
+			foreach(var utxo in Confirmed.SpentOutpoints.Concat(Unconfirmed.SpentOutpoints))
+			{
+				received.Remove(utxo);
+			}
+			return received.Values.Select(c => c.AsCoin(derivationStrategy)).ToList();
 		}
 	}
 	public class UTXOChange
@@ -138,9 +155,29 @@ namespace NBXplorer.Models
 			ScriptPubKey = coin.TxOut.ScriptPubKey;
 		}
 
+		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+		public DerivationFeature Feature
+		{
+			get; set;
+		}
+
 		public Coin AsCoin()
 		{
-			return new Coin(Outpoint, new TxOut(Value, ScriptPubKey));
+			return AsCoin(null);
+		}
+
+		public Coin AsCoin(DerivationStrategy.DerivationStrategyBase derivationStrategy)
+		{
+			var coin = new Coin(Outpoint, new TxOut(Value, ScriptPubKey));
+			if(derivationStrategy != null)
+			{
+				var derivation = derivationStrategy.Derive(KeyPath);
+				if(derivation.ScriptPubKey != coin.ScriptPubKey)
+					throw new InvalidOperationException($"This Derivation Strategy does not own this coin");
+				if(derivation.Redeem != null)
+					coin = coin.ToScriptCoin(derivation.Redeem);
+			}
+			return coin;
 		}
 
 		OutPoint _Outpoint = new OutPoint();

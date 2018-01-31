@@ -47,6 +47,11 @@ namespace NBXplorer.Tests
 			pubKey = pubKey ?? new ExtKey().Neuter();
 			return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[legacy]");
 		}
+		private static P2SHDerivationStrategy CreateP2SHDerivationStrategy(ExtPubKey pubKey = null)
+		{
+			pubKey = pubKey ?? new ExtKey().Neuter();
+			return (P2SHDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[p2sh]");
+		}
 
 		private static void RepositoryCanTrackAddressesCore(RepositoryTester tester)
 		{
@@ -435,6 +440,7 @@ namespace NBXplorer.Tests
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
+				Assert.IsType<Coin>(utxo.Unconfirmed.UTXOs[0].AsCoin(pubkey));
 				Assert.Equal(Money.Coins(0.15m), utxo.Unconfirmed.UTXOs[0].Value);
 				Assert.Empty(utxo.Unconfirmed.SpentOutpoints);
 
@@ -521,7 +527,10 @@ namespace NBXplorer.Tests
 
 		private static Derivation Generate(DerivationStrategyBase strategy)
 		{
-			return strategy.GetLineFor(DerivationFeature.Deposit).Derive(1);
+			var derivation = strategy.GetLineFor(DerivationFeature.Deposit).Derive(1);
+			var derivation2 = strategy.Derive(DerivationStrategyBase.GetKeyPath(DerivationFeature.Deposit).Derive(1));
+			Assert.Equal(derivation.Redeem, derivation2.Redeem);
+			return derivation;
 		}
 
 		[Fact]
@@ -759,6 +768,11 @@ namespace NBXplorer.Tests
 		private BitcoinAddress AddressOf(BitcoinExtKey key, string path)
 		{
 			return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.Hash.GetAddress(key.Network);
+		}
+
+		private BitcoinAddress AddressOf(DerivationStrategyBase scheme, string path)
+		{
+			return scheme.Derive(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(Network.RegTest);
 		}
 
 		[Fact]

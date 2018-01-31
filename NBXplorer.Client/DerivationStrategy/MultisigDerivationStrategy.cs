@@ -11,35 +11,6 @@ namespace NBXplorer.DerivationStrategy
 {
 	public class MultisigDerivationStrategy : DerivationStrategyBase
 	{
-		class LineStrategy : DerivationStrategyLine
-		{
-			private MultisigDerivationStrategy up;
-			private ExtPubKey[] rootDerivations;
-
-			public LineStrategy(MultisigDerivationStrategy up, bool change)
-			{
-				this.up = up;
-				Path = new KeyPath(change ? "1" : "0");
-				rootDerivations = up.Keys.Select(k => k.ExtPubKey.Derive(Path)).ToArray();
-			}
-
-			public KeyPath Path
-			{
-				get; set;
-			}
-
-			readonly Comparer<PubKey> LexicographicComparer = Comparer<PubKey>.Create((a, b) => Comparer<string>.Default.Compare(a?.ToHex(), b?.ToHex()));
-			public Derivation Derive(uint i)
-			{
-				var pubKeys = rootDerivations.Select(s => s.Derive(i).PubKey).ToArray();
-				if(up.LexicographicOrder)
-				{
-					Array.Sort(pubKeys, LexicographicComparer);
-				}
-				var redeem = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(up.RequiredSignatures, pubKeys);
-				return new Derivation() { ScriptPubKey = redeem };
-			}
-		}
 		public bool LexicographicOrder
 		{
 			get; set;
@@ -49,6 +20,8 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
+
+		static readonly Comparer<PubKey> LexicographicComparer = Comparer<PubKey>.Create((a, b) => Comparer<string>.Default.Compare(a?.ToHex(), b?.ToHex()));
 
 		public BitcoinExtPubKey[] Keys
 		{
@@ -66,13 +39,23 @@ namespace NBXplorer.DerivationStrategy
 			ms.Write(v, 0, v.Length);
 		}
 
-		public override DerivationStrategyLine GetLineFor(DerivationFeature feature)
+		public override Derivation Derive(KeyPath keyPath)
 		{
-			if(feature == DerivationFeature.Change)
-				return new LineStrategy(this, true);
-			if(feature == DerivationFeature.Deposit)
-				return new LineStrategy(this, false);
-			throw new NotSupportedException();
+			var pubKeys = this.Keys.Select(s => s.ExtPubKey.Derive(keyPath).PubKey).ToArray();
+			if(LexicographicOrder)
+			{
+				Array.Sort(pubKeys, LexicographicComparer);
+			}
+			var redeem = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(RequiredSignatures, pubKeys);
+			return new Derivation() { ScriptPubKey = redeem };
+		}
+
+		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
+		{
+			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray())
+			{
+				LexicographicOrder = LexicographicOrder
+			};
 		}
 	}
 }
