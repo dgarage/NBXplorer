@@ -13,6 +13,11 @@ namespace NBXplorer.Models
 {
 	public class UTXOChanges
 	{
+		public DerivationStrategyBase DerivationStrategy
+		{
+			get; set;
+		}
+
 		uint _CurrentHeight;
 		public int CurrentHeight
 		{
@@ -61,7 +66,7 @@ namespace NBXplorer.Models
 			}
 		}
 
-		public IEnumerable<Coin> GetUnspentCoins(DerivationStrategy.DerivationStrategyBase derivationStrategy = null)
+		public IEnumerable<Coin> GetUnspentCoins()
 		{
 			if(Confirmed.KnownBookmark != null || Unconfirmed.KnownBookmark != null)
 				throw new InvalidOperationException("This UTXOChanges is partial, it is calculate the unspent coins");
@@ -74,7 +79,7 @@ namespace NBXplorer.Models
 			{
 				received.Remove(utxo);
 			}
-			return received.Values.Select(c => c.AsCoin(derivationStrategy)).ToList();
+			return received.Values.Select(c => c.AsCoin(DerivationStrategy)).ToList();
 		}
 	}
 	public class UTXOChange

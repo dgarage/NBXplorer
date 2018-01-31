@@ -460,7 +460,7 @@ namespace NBXplorer.Controllers
 					break;
 				waitingTransaction = Task.FromResult(false); //next time, will not wait
 			}
-
+			changes.DerivationStrategy = extPubKey;
 			return changes;
 		}
 
