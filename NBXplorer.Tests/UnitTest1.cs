@@ -175,8 +175,12 @@ namespace NBXplorer.Tests
 				builder.AddCoins(coins);
 				builder.AddKeys(keys);
 				builder.Send(new Key(), Money.Coins(0.5m));
-				builder.SendFees(Money.Coins(0.001m));
 				builder.SetChange(changeAddress.ScriptPubKey);
+
+				var fallbackFeeRate = new FeeRate(Money.Satoshis(100), 1);
+				var feeRate = tester.Client.GetFeeRate(1, fallbackFeeRate).FeeRate;
+
+				builder.SendEstimatedFees(feeRate);
 				var tx = builder.BuildTransaction(true);
 				tester.Client.Broadcast(tx);
 

@@ -271,6 +271,21 @@ namespace NBXplorer
 			return GetFeeRateAsync(blockCount, cancellation).GetAwaiter().GetResult();
 		}
 
+		public GetFeeRateResult GetFeeRate(int blockCount, FeeRate fallbackFeeRate, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetFeeRateAsync(blockCount, fallbackFeeRate, cancellation).GetAwaiter().GetResult();
+		}
+		public async Task<GetFeeRateResult> GetFeeRateAsync(int blockCount, FeeRate fallbackFeeRate, CancellationToken cancellation = default(CancellationToken))
+		{
+			try
+			{
+				return await GetAsync<GetFeeRateResult>("v1/cryptos/{0}/fees/{1}", new object[] { CryptoCode, blockCount }, cancellation).ConfigureAwait(false);
+			}
+			catch(NBXplorerException ex) when (fallbackFeeRate != null && ex.Error.Code == "fee-estimation-unavailable")
+			{
+				return new GetFeeRateResult() { BlockCount = blockCount, FeeRate = fallbackFeeRate };
+			}
+		}
 		public Task<GetFeeRateResult> GetFeeRateAsync(int blockCount, CancellationToken cancellation = default(CancellationToken))
 		{
 			return GetAsync<GetFeeRateResult>("v1/cryptos/{0}/fees/{1}", new object[] { CryptoCode, blockCount }, cancellation);
