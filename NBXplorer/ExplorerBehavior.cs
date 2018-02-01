@@ -215,7 +215,7 @@ namespace NBXplorer
 
 						var matches =
 							block.Object.Transactions
-							.SelectMany(tx => GetMatches(tx))
+							.SelectMany(tx => Repository.GetMatches(tx))
 							.ToArray();
 
 						var blockHash = block.Object.GetHash();
@@ -238,15 +238,19 @@ namespace NBXplorer
 
 		}
 
-		private void SaveMatches(TransactionMatch[] matches, uint256 h)
+		private void SaveMatches(TransactionMatch[] matches, uint256 blockHash)
 		{
 			DateTimeOffset now = DateTimeOffset.UtcNow;
 			Repository.MarkAsUsed(matches.SelectMany(m => m.Outputs).ToArray());
-			Repository.SaveMatches(now, matches.Select(m => m.CreateInsertTransaction(h)).ToArray());
-			var saved = Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), h);
+			Repository.SaveMatches(now, matches.Select(m => new MatchedTransaction()
+			{
+				BlockId = blockHash,
+				Match = m,
+			}).ToArray());
+			var saved = Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			for(int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, h, matches[i], saved[i]));
+				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], saved[i]));
 			}
 		}
 

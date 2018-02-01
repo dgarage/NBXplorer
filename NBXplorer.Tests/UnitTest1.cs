@@ -166,7 +166,7 @@ namespace NBXplorer.Tests
 				utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
 				Assert.Equal(2, utxos.GetUnspentCoins().Length);
 				for(int i = 0; i < 3; i++)
-				{					
+				{
 					var changeAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Change);
 					var coins = utxos.GetUnspentCoins();
 					var keys = utxos.GetKeys(userExtKey);
@@ -380,20 +380,23 @@ namespace NBXplorer.Tests
 				var pubkey = CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
 				tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
+				var events = tester.Client.CreateNotificationSession();
+				events.ListenDerivationSchemes(new[] { pubkey });
+
 				var id = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				id = tester.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(1.1m));
 				id = tester.RPC.SendToAddress(AddressOf(key, "0/2"), Money.Coins(1.2m));
 
-				UTXOChanges utxo = null;
 
-				while(utxo == null || utxo.Unconfirmed.UTXOs.Count != 3)
-				{
-					utxo = tester.Client.GetUTXOs(pubkey, null);
-				}
+				events.NextEvent(Timeout);
+				events.NextEvent(Timeout);
+				events.NextEvent(Timeout);
+				var utxo = tester.Client.GetUTXOs(pubkey, null);
 
 				tester.RPC.Generate(1);
 
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				var prev = utxo;
+				utxo = tester.Client.GetUTXOs(pubkey, prev);
 				Assert.True(utxo.HasChanges);
 				Assert.Equal(3, utxo.Confirmed.UTXOs.Count);
 				utxo = tester.Client.GetUTXOs(pubkey, utxo, false);
@@ -436,9 +439,9 @@ namespace NBXplorer.Tests
 
 				while(true)
 				{
-					utxo = tester.Client.GetUTXOs(pubkey, utxo);
+					utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
 					if(!utxo.HasChanges)
-						Assert.False(true, "should have changes");
+						continue;
 					Assert.NotNull(utxo.Confirmed.KnownBookmark);
 					Assert.True(utxo.Unconfirmed.HasChanges);
 					Assert.Single(utxo.Unconfirmed.UTXOs);

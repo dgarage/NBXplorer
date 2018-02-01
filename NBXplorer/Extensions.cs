@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Hosting;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -45,18 +46,52 @@ namespace NBXplorer
 			t.ContinueWith(_ => rwh.Unregister(null));
 			return t;
 		}
-		internal static InsertTransaction CreateInsertTransaction(this TransactionMatch match, uint256 blockHash)
-		{
-			return new InsertTransaction()
-			{
-				DerivationStrategy = match.DerivationStrategy,
-				TrackedTransaction = new TrackedTransaction() { Transaction = match.Transaction, BlockHash = blockHash }
-			};
-		}
 		internal static uint160 GetHash(this DerivationStrategyBase derivation)
 		{
 			var data = Encoding.UTF8.GetBytes(derivation.ToString());
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
+		}
+
+		public static IEnumerable<TransactionMatch> GetMatches(this Repository repository, Transaction tx)
+		{
+			var matches = new Dictionary<DerivationStrategyBase, TransactionMatch>();
+			HashSet<Script> scripts = new HashSet<Script>();
+			foreach(var input in tx.Inputs)
+			{
+				var signer = input.ScriptSig.GetSigner() ?? input.WitScript.ToScript().GetSigner();
+				if(signer != null)
+				{
+					scripts.Add(signer.ScriptPubKey);
+				}
+			}
+
+			int scriptPubKeyIndex = scripts.Count;
+			foreach(var output in tx.Outputs)
+			{
+				scripts.Add(output.ScriptPubKey);
+			}
+
+			var keyInformations = repository.GetKeyInformations(scripts.ToArray());
+			for(int scriptIndex = 0; scriptIndex < keyInformations.Length; scriptIndex++)
+			{
+				for(int i = 0; i < keyInformations[scriptIndex].Length; i++)
+				{
+					var keyInfo = keyInformations[scriptIndex][i];
+					if(!matches.TryGetValue(keyInfo.DerivationStrategy, out TransactionMatch match))
+					{
+						match = new TransactionMatch();
+						matches.Add(keyInfo.DerivationStrategy, match);
+						match.DerivationStrategy = keyInfo.DerivationStrategy;
+						match.Transaction = tx;
+					}
+					var isOutput = scriptIndex >= scriptPubKeyIndex;
+					if(isOutput)
+						match.Outputs.Add(keyInfo);
+					else
+						match.Inputs.Add(keyInfo);
+				}
+			}
+			return matches.Values;
 		}
 
 

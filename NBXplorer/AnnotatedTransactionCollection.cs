@@ -64,6 +64,10 @@ namespace NBXplorer
 			{
 				var h = tx.Record.Transaction.GetHash();
 				_TxById.Add(h, tx);
+				foreach(var keyPathInfo in tx.Record.TransactionMatch.Inputs.Concat(tx.Record.TransactionMatch.Outputs))
+				{
+					_KeyPaths.TryAdd(keyPathInfo.ScriptPubKey, keyPathInfo.KeyPath);
+				}
 				UpdateFirstSeen(tx, h);
 			}
 
@@ -106,6 +110,12 @@ namespace NBXplorer
 					}
 				}
 			}
+		}
+
+		Dictionary<Script, KeyPath> _KeyPaths = new Dictionary<Script, KeyPath>();
+		public KeyPath GetKeyPath(Script scriptPubkey)
+		{
+			return _KeyPaths.TryGet(scriptPubkey);
 		}
 
 		private void UpdateFirstSeen(AnnotatedTransaction tx, uint256 h)

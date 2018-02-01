@@ -433,14 +433,13 @@ namespace NBXplorer.Controllers
 			var repo = RepositoryProvider.GetRepository(network);
 			var waitingTransaction = longPolling ? WaitingTransaction(extPubKey) : Task.FromResult(false);
 			UTXOChanges changes = null;
-			var getKeyPaths = GetKeyPaths(repo, extPubKey);
-			var matchScript = MatchKeyPaths(getKeyPaths);
+
 			while(true)
 			{
 				changes = new UTXOChanges();
 				changes.CurrentHeight = chain.Height;
 				var transactions = GetAnnotatedTransactions(repo, chain, extPubKey);
-
+				Func<Script[], bool[]> matchScript = (scripts) => scripts.Select(s => transactions.GetKeyPath(s) != null).ToArray();
 
 				var states = UTXOStateResult.CreateStates(matchScript,
 														unconfirmedBookmarks,
@@ -453,8 +452,8 @@ namespace NBXplorer.Controllers
 
 
 
-				FillUTXOsInformation(changes.Confirmed.UTXOs, getKeyPaths, transactions, changes.CurrentHeight);
-				FillUTXOsInformation(changes.Unconfirmed.UTXOs, getKeyPaths, transactions, changes.CurrentHeight);
+				FillUTXOsInformation(changes.Confirmed.UTXOs, transactions, changes.CurrentHeight);
+				FillUTXOsInformation(changes.Unconfirmed.UTXOs, transactions, changes.CurrentHeight);
 
 				if(changes.HasChanges || !(await waitingTransaction))
 					break;
@@ -480,20 +479,19 @@ namespace NBXplorer.Controllers
 		}
 
 		static int[] MaxValue = new[] { int.MaxValue };
-		private void FillUTXOsInformation(List<UTXO> utxos, Func<Script[], KeyPath[]> getKeyPaths, AnnotatedTransactionCollection transactionsById, int currentHeight)
+		private void FillUTXOsInformation(List<UTXO> utxos, AnnotatedTransactionCollection transactions, int currentHeight)
 		{
-			var keyPaths = getKeyPaths(utxos.Select(u => u.ScriptPubKey).ToArray());
 			for(int i = 0; i < utxos.Count; i++)
 			{
 				var utxo = utxos[i];
-				utxo.KeyPath = keyPaths[i];
-				var txHeight = transactionsById.GetByTxId(utxo.Outpoint.Hash)
+				utxo.KeyPath = transactions.GetKeyPath(utxo.ScriptPubKey);
+				var txHeight = transactions.GetByTxId(utxo.Outpoint.Hash)
 									.Select(t => t.Height)
 									.Where(h => h.HasValue)
 									.Select(t => t.Value)
 									.Concat(MaxValue)
 									.Min();
-				var oldest = transactionsById
+				var oldest = transactions
 					.GetByTxId(utxo.Outpoint.Hash)
 					.OrderBy(o => o.Record.Inserted)
 					.FirstOrDefault();
@@ -553,48 +551,6 @@ namespace NBXplorer.Controllers
 				return true;
 			}
 			catch(OperationCanceledException) { return false; }
-		}
-
-		private Func<Script[], bool[]> MatchKeyPaths(Func<Script[], KeyPath[]> getKeyPaths)
-		{
-			return (scripts) => getKeyPaths(scripts).Select(c => c != null).ToArray();
-		}
-		private Func<Script[], KeyPath[]> GetKeyPaths(Repository repo, DerivationStrategyBase extPubKey)
-		{
-			Dictionary<Script, KeyPath> cache = new Dictionary<Script, KeyPath>();
-			return (scripts) =>
-			{
-				KeyPath[] result = new KeyPath[scripts.Length];
-				for(int i = 0; i < result.Length; i++)
-				{
-					if(cache.TryGetValue(scripts[i], out KeyPath keypath))
-						result[i] = keypath;
-				}
-
-				var needFetch = scripts.Where((r, i) => result[i] == null).ToArray();
-				var fetched = repo.GetKeyInformations(needFetch);
-				for(int i = 0; i < fetched.Length; i++)
-				{
-					var keyInfos = fetched[i];
-					var script = needFetch[i];
-					foreach(var keyInfo in keyInfos)
-					{
-						if(keyInfo.DerivationStrategy == extPubKey)
-						{
-							cache.TryAdd(script, keyInfo.KeyPath);
-							break;
-						}
-					}
-				}
-
-				for(int i = 0; i < result.Length; i++)
-				{
-					if(cache.TryGetValue(scripts[i], out KeyPath keypath))
-						result[i] = keypath;
-				}
-
-				return result;
-			};
 		}
 
 		[HttpPost]

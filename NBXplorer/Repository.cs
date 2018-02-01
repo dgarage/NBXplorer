@@ -22,6 +22,7 @@ using DBreeze.Exceptions;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using static NBXplorer.RepositoryProvider;
+using static NBXplorer.Repository;
 
 namespace NBXplorer
 {
@@ -41,20 +42,24 @@ namespace NBXplorer
 		{
 			get; set;
 		}
-
+		public TransactionMiniMatch TransactionMatch
+		{
+			get; set;
+		}
 		internal string GetRowKey()
 		{
 			return $"{Transaction.GetHash()}:{BlockHash}";
 		}
 	}
 
-	public class InsertTransaction
+	public class MatchedTransaction
 	{
-		public DerivationStrategyBase DerivationStrategy
+		public uint256 BlockId
 		{
 			get; set;
 		}
-		public TrackedTransaction TrackedTransaction
+
+		public TransactionMatch Match
 		{
 			get; set;
 		}
@@ -413,7 +418,7 @@ namespace NBXplorer
 				PrimaryKey = primaryKey;
 			}
 
-			
+
 			public string TableName
 			{
 				get; set;
@@ -789,39 +794,264 @@ namespace NBXplorer
 		public TrackedTransaction[] GetTransactions(DerivationStrategyBase pubkey)
 		{
 			var table = GetTransactionsIndex(pubkey);
-			return _Engine.Do(tx =>
+
+			bool needUpdate = false;
+			var transactions = _Engine.Do(tx =>
 			{
-				var result = new List<TrackedTransaction>();
+				tx.ValuesLazyLoadingIsOn = false;
+				var result = new List<TransactionMatchData>();
 				foreach(var row in table.SelectForwardSkip<byte[]>(tx, 0))
 				{
 					if(row == null || !row.Exists)
 						continue;
 					MemoryStream ms = new MemoryStream(row.Value);
 					BitcoinStream bs = new BitcoinStream(ms, false);
-					Transaction transaction = null;
-					bs.ReadWrite<Transaction>(ref transaction);
-					ulong ticksCount = 0;
-					if(ms.Position < ms.Length)
-						bs.ReadWrite(ref ticksCount);
-					transaction.PrecomputeHash(true, true);
+
+					TransactionMatchData data = new TransactionMatchData();
+					bs.ReadWrite(ref data);
+					data.Transaction.PrecomputeHash(true, true);
 					var blockHash = row.Key.Split(':')[1];
-					var tracked = new TrackedTransaction();
 					if(blockHash.Length != 0)
-						tracked.BlockHash = new uint256(blockHash);
-					tracked.Transaction = transaction;
-					tracked.Inserted = new DateTimeOffset((long)ticksCount, TimeSpan.Zero);
-					result.Add(tracked);
+						data.BlockHash = new uint256(blockHash);
+					result.Add(data);
+
+					if(data.NeedUpdate)
+						needUpdate = true;
 				}
-				return result.ToArray();
+				return result;
 			});
+
+			// This is legacy data, need an update
+			if(needUpdate)
+			{
+				foreach(var data in transactions.Where(t => t.NeedUpdate))
+				{
+					data.TransactionMatch = this.GetMatches(data.Transaction)
+											  .Where(m => m.DerivationStrategy.Equals(pubkey))
+											  .Select(m => new TransactionMiniMatch(m))
+											  .First();
+				}
+
+				_Engine.Do(tx =>
+				{
+					foreach(var data in transactions.Where(t => t.NeedUpdate))
+					{
+						table.Insert(tx, data.GetRowKey(), data.ToBytes());
+					}
+					tx.Commit();
+				});
+			}
+
+			return transactions.Select(c => new TrackedTransaction()
+			{
+				BlockHash = c.BlockHash,
+				Transaction = c.Transaction,
+				Inserted = c.TickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)c.TickCount, TimeSpan.Zero),
+				TransactionMatch = c.TransactionMatch
+			}).ToArray();
 		}
 
 
-		public void SaveMatches(DateTimeOffset now, InsertTransaction[] transactions)
+		public class TransactionMiniKeyInformation : IBitcoinSerializable
+		{
+			public TransactionMiniKeyInformation()
+			{
+
+			}
+			public TransactionMiniKeyInformation(KeyPathInformation keyInformation)
+			{
+				_KeyPath = keyInformation.KeyPath;
+				_ScriptPubKey = keyInformation.ScriptPubKey;
+			}
+
+
+
+			Script _ScriptPubKey;
+			public Script ScriptPubKey
+			{
+				get
+				{
+					return _ScriptPubKey;
+				}
+				set
+				{
+					_ScriptPubKey = value;
+				}
+			}
+
+			KeyPath _KeyPath;
+			public KeyPath KeyPath
+			{
+				get
+				{
+					return _KeyPath;
+				}
+				set
+				{
+					_KeyPath = value;
+				}
+			}
+
+			public void ReadWrite(BitcoinStream stream)
+			{
+				stream.ReadWrite(ref _ScriptPubKey);
+				if(stream.Serializing)
+				{
+					stream.ReadWrite((byte)_KeyPath.Indexes.Length);
+					foreach(var index in _KeyPath.Indexes)
+					{
+						stream.ReadWrite(index);
+					}
+				}
+				else
+				{
+					byte len = 0;
+					stream.ReadWrite(ref len);
+					var indexes = new uint[len];
+					for(int i = 0; i < len; i++)
+					{
+						uint index = 0;
+						stream.ReadWrite(ref index);
+						indexes[i] = index;
+					}
+					_KeyPath = new KeyPath(indexes);
+				}
+			}
+		}
+
+		public class TransactionMiniMatch : IBitcoinSerializable
+		{
+			
+			public TransactionMiniMatch()
+			{
+
+			}
+			public TransactionMiniMatch(TransactionMatch match)
+			{
+				Inputs = match.Inputs.Select(o => new TransactionMiniKeyInformation(o)).ToArray();
+				Outputs = match.Outputs.Select(o => new TransactionMiniKeyInformation(o)).ToArray();
+			}
+
+
+			TransactionMiniKeyInformation[] _Outputs;
+			public TransactionMiniKeyInformation[] Outputs
+			{
+				get
+				{
+					return _Outputs;
+				}
+				set
+				{
+					_Outputs = value;
+				}
+			}
+
+
+			TransactionMiniKeyInformation[] _Inputs;
+			public TransactionMiniKeyInformation[] Inputs
+			{
+				get
+				{
+					return _Inputs;
+				}
+				set
+				{
+					_Inputs = value;
+				}
+			}
+
+			public void ReadWrite(BitcoinStream stream)
+			{
+				stream.ReadWrite(ref _Inputs);
+				stream.ReadWrite(ref _Outputs);
+			}
+		}
+
+		class TransactionMatchData : IBitcoinSerializable
+		{
+
+			Transaction _Transaction;
+			public Transaction Transaction
+			{
+				get
+				{
+					return _Transaction;
+				}
+				set
+				{
+					_Transaction = value;
+				}
+			}
+
+
+			long _TickCount;
+			public long TickCount
+			{
+				get
+				{
+					return _TickCount;
+				}
+				set
+				{
+					_TickCount = value;
+				}
+			}
+
+
+			TransactionMiniMatch _TransactionMatch;
+			public TransactionMiniMatch TransactionMatch
+			{
+				get
+				{
+					return _TransactionMatch;
+				}
+				set
+				{
+					_TransactionMatch = value;
+				}
+			}
+
+			public bool NeedUpdate
+			{
+				get; set;
+			}
+			public void ReadWrite(BitcoinStream stream)
+			{
+				stream.ReadWrite(ref _Transaction);
+				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
+				{
+					stream.ReadWrite(ref _TickCount);
+				}
+				else
+				{
+					NeedUpdate = true;
+				}
+				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
+				{
+					stream.ReadWrite(ref _TransactionMatch);
+				}
+				else
+				{
+					NeedUpdate = true;
+				}
+			}
+
+			public uint256 BlockHash
+			{
+				get; set;
+			}
+
+			internal string GetRowKey()
+			{
+				return $"{Transaction.GetHash()}:{BlockHash}";
+			}
+		}
+
+		public void SaveMatches(DateTimeOffset now, MatchedTransaction[] transactions)
 		{
 			if(transactions.Length == 0)
 				return;
-			var groups = transactions.GroupBy(i => i.DerivationStrategy);
+			var groups = transactions.GroupBy(i => i.Match.DerivationStrategy);
 
 			_Engine.Do(tx =>
 			{
@@ -833,13 +1063,24 @@ namespace NBXplorer
 						var ticksCount = now.UtcTicks;
 						var ms = new MemoryStream();
 						BitcoinStream bs = new BitcoinStream(ms, true);
-						bs.ReadWrite(value.TrackedTransaction.Transaction);
-						bs.ReadWrite(ticksCount);
-						table.Insert(tx, value.TrackedTransaction.GetRowKey(), ms.ToArrayEfficient());
+						TransactionMatchData data = new TransactionMatchData()
+						{
+							Transaction = value.Match.Transaction,
+							TickCount = ticksCount,
+							TransactionMatch = new TransactionMiniMatch(value.Match),
+							BlockHash = value.BlockId
+						};
+						bs.ReadWrite(data);
+						table.Insert(tx, data.GetRowKey(), ms.ToArrayEfficient());
 					}
 				}
 				tx.Commit();
 			});
+		}
+
+		private static Script[] GetScripts(TransactionMatch value)
+		{
+			return value.Outputs.Select(m => m.ScriptPubKey).Concat(value.Inputs.Select(m => m.ScriptPubKey)).ToArray();
 		}
 
 		public void CleanTransactions(DerivationStrategyBase pubkey, List<TrackedTransaction> cleanList)
