@@ -36,11 +36,25 @@ namespace NBXplorer.Tests
 			{
 				tester.Repository.Track(DummyPubKey);
 				RepositoryCanTrackAddressesCore(tester);
-
 			}
 		}
 
-		static DirectDerivationStrategy DummyPubKey = CreateDerivationStrategy();
+		[Fact]
+		public void CanSerializeKeyPathFast()
+		{
+			using(var tester = RepositoryTester.Create(true))
+			{
+				var seria = new Serializer(Network.RegTest);
+				var keyInfo = new KeyPathInformation() { DerivationStrategy = DummyPubKey, Feature = DerivationFeature.Change, KeyPath = new KeyPath("0/1"), Redeem = Script.Empty, ScriptPubKey = Script.Empty };
+				var str = seria.ToString(keyInfo);
+				for(int i = 0; i < 1500; i++)
+				{
+					seria.ToObject<KeyPathInformation>(str);
+				}
+			}
+		}
+
+		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
 
 		private static DirectDerivationStrategy CreateDerivationStrategy(ExtPubKey pubKey = null)
 		{

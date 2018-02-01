@@ -55,6 +55,7 @@ namespace NBXplorer.DerivationStrategy
 		}
 
 		readonly Regex MultiSigRegex = new Regex("^([0-9]{1,2})-of(-[A-Za-z0-9]+)+$");
+		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
 		public DerivationStrategyBase Parse(string str)
 		{
 			var strategy = ParseCore(str);
@@ -87,14 +88,14 @@ namespace NBXplorer.DerivationStrategy
 									.OfType<Group>()
 									.Skip(2)
 									.SelectMany(g => g.Captures.OfType<Capture>())
-									.Select(g => new BitcoinExtPubKey(g.Value.Substring(1), Network).ExtPubKey)
+									.Select(g => new BitcoinExtPubKey(g.Value.Substring(1), Network))
 									.ToArray();
 				return CreateMultiSigDerivationStrategy(pubKeys, sigCount, options);
 			}
 			else
 			{
 				var key = _Network.Parse<BitcoinExtPubKey>(str);
-				return CreateDirectDerivationStrategy(key.ExtPubKey, options);
+				return CreateDirectDerivationStrategy(key, options);
 			}
 		}
 
@@ -106,8 +107,19 @@ namespace NBXplorer.DerivationStrategy
 		/// <returns></returns>
 		public DerivationStrategyBase CreateDirectDerivationStrategy(ExtPubKey publicKey, DerivationStrategyOptions options = null)
 		{
+			return CreateDirectDerivationStrategy(publicKey.GetWif(Network), options);
+		}
+
+		/// <summary>
+		/// Create a single signature derivation strategy from public key
+		/// </summary>
+		/// <param name="publicKey">The public key of the wallet</param>
+		/// <param name="options">Derivation options</param>
+		/// <returns></returns>
+		public DerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey, DerivationStrategyOptions options = null)
+		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey.GetWif(Network)) { Segwit = !options.Legacy };
+			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey) { Segwit = !options.Legacy };
 			if(options.P2SH && !options.Legacy)
 			{
 				strategy = new P2SHDerivationStrategy(strategy, true);
@@ -124,8 +136,20 @@ namespace NBXplorer.DerivationStrategy
 		/// <returns>A multisig derivation strategy</returns>
 		public DerivationStrategyBase CreateMultiSigDerivationStrategy(ExtPubKey[] pubKeys, int sigCount, DerivationStrategyOptions options = null)
 		{
+			return CreateMultiSigDerivationStrategy(pubKeys.Select(p => p.GetWif(Network)).ToArray(), sigCount, options);
+		}
+
+		/// <summary>
+		/// Create a multisig derivation strategy from public keys
+		/// </summary>
+		/// <param name="pubKeys">The public keys belonging to the multi sig</param>
+		/// <param name="sigCount">The number of required signature</param>
+		/// <param name="options">Derivation options</param>
+		/// <returns>A multisig derivation strategy</returns>
+		public DerivationStrategyBase CreateMultiSigDerivationStrategy(BitcoinExtPubKey[] pubKeys, int sigCount, DerivationStrategyOptions options = null)
+		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.Select(p => p.GetWif(Network)).ToArray(), options.Legacy)
+			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options.Legacy)
 			{
 				LexicographicOrder = !options.KeepOrder
 			};
