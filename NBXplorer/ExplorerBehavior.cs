@@ -199,7 +199,7 @@ namespace NBXplorer
 
 			message.Message.IfPayloadIs<BlockPayload>(block =>
 			{
-				block.Object.Header.CacheHashes();
+				block.Object.Header.PrecomputeHash(false, false);
 				Download o;
 				if(_InFlights.ContainsKey(block.Object.GetHash()))
 				{
@@ -211,7 +211,7 @@ namespace NBXplorer
 					if(_InFlights.TryRemove(block.Object.GetHash(), out o))
 					{
 						foreach(var tx in block.Object.Transactions)
-							tx.CacheHashes();
+							tx.PrecomputeHash(false, true);
 
 						var matches =
 							block.Object.Transactions

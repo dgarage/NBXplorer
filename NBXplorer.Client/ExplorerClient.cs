@@ -84,6 +84,7 @@ namespace NBXplorer
 			_Serializer = new Serializer(network.NBitcoinNetwork);
 			_CryptoCode = _Network.CryptoCode;
 			_Factory = new DerivationStrategy.DerivationStrategyFactory(Network.NBitcoinNetwork);
+			SetCookieAuth(network.DefaultSettings.DefaultCookieFile);
 		}
 
 		internal IAuth _Auth = new NullAuthentication();

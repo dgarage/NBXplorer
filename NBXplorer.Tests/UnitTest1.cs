@@ -139,7 +139,6 @@ namespace NBXplorer.Tests
 			}
 		}
 
-
 		[Fact]
 		public void CanEasilySpendUTXOs()
 		{

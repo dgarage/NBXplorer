@@ -702,7 +702,7 @@ namespace NBXplorer
 			var timeStamped = new TimeStampedTransaction(value);
 			t.Transaction = timeStamped.Transaction;
 			t.Timestamp = NBitcoin.Utils.UnixTimeToDateTime(timeStamped.TimeStamp);
-			t.Transaction.CacheHashes();
+			t.Transaction.PrecomputeHash(true, false);
 			return t;
 		}
 
@@ -803,7 +803,7 @@ namespace NBXplorer
 					ulong ticksCount = 0;
 					if(ms.Position < ms.Length)
 						bs.ReadWrite(ref ticksCount);
-					transaction.CacheHashes();
+					transaction.PrecomputeHash(true, true);
 					var blockHash = row.Key.Split(':')[1];
 					var tracked = new TrackedTransaction();
 					if(blockHash.Length != 0)
