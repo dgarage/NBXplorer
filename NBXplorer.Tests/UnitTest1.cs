@@ -166,29 +166,32 @@ namespace NBXplorer.Tests
 
 				utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
 				Assert.Equal(2, utxos.GetUnspentCoins().Length);
+				for(int i = 0; i < 3; i++)
+				{					
+					var changeAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Change);
+					var coins = utxos.GetUnspentCoins();
+					var keys = utxos.GetKeys(userExtKey);
+					TransactionBuilder builder = new TransactionBuilder();
+					builder.AddCoins(coins);
+					builder.AddKeys(keys);
+					builder.Send(new Key(), Money.Coins(0.5m));
+					builder.SetChange(changeAddress.ScriptPubKey);
 
+					var fallbackFeeRate = new FeeRate(Money.Satoshis(100), 1);
+					var feeRate = tester.Client.GetFeeRate(1, fallbackFeeRate).FeeRate;
 
-				var changeAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Change);
-				var coins = utxos.GetUnspentCoins();
-				var keys = utxos.GetKeys(userExtKey);
-				TransactionBuilder builder = new TransactionBuilder();
-				builder.AddCoins(coins);
-				builder.AddKeys(keys);
-				builder.Send(new Key(), Money.Coins(0.5m));
-				builder.SetChange(changeAddress.ScriptPubKey);
+					builder.SendEstimatedFees(feeRate);
+					var tx = builder.BuildTransaction(true);
+					Assert.True(tester.Client.Broadcast(tx).Success);
 
-				var fallbackFeeRate = new FeeRate(Money.Satoshis(100), 1);
-				var feeRate = tester.Client.GetFeeRate(1, fallbackFeeRate).FeeRate;
+					utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+					utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
 
-				builder.SendEstimatedFees(feeRate);
-				var tx = builder.BuildTransaction(true);
-				tester.Client.Broadcast(tx);
+					if(i == 0)
+						Assert.Equal(2, utxos.GetUnspentCoins().Length);
 
-				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
-				utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
-				Assert.Equal(2, utxos.GetUnspentCoins().Length);
-
-				Assert.Contains(utxos.GetUnspentCoins(), u => u.ScriptPubKey == changeAddress.ScriptPubKey);
+					Assert.Contains(utxos.GetUnspentCoins(), u => u.ScriptPubKey == changeAddress.ScriptPubKey);
+				}
 			}
 		}
 
