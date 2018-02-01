@@ -57,7 +57,6 @@ namespace NBXplorer
 
 	public class AnnotatedTransactionCollection : List<AnnotatedTransaction>
 	{
-		Dictionary<uint256, DateTimeOffset> _FirstSeenByTxId = new Dictionary<uint256, DateTimeOffset>();
 		public AnnotatedTransactionCollection(IEnumerable<AnnotatedTransaction> transactions) : base(transactions)
 		{
 			foreach(var tx in transactions)
@@ -68,7 +67,6 @@ namespace NBXplorer
 				{
 					_KeyPaths.TryAdd(keyPathInfo.ScriptPubKey, keyPathInfo.KeyPath);
 				}
-				UpdateFirstSeen(tx, h);
 			}
 
 
@@ -116,27 +114,6 @@ namespace NBXplorer
 		public KeyPath GetKeyPath(Script scriptPubkey)
 		{
 			return _KeyPaths.TryGet(scriptPubkey);
-		}
-
-		private void UpdateFirstSeen(AnnotatedTransaction tx, uint256 h)
-		{
-			DateTimeOffset inserted;
-			if(_FirstSeenByTxId.TryGetValue(h, out inserted))
-			{
-				if(inserted > tx.Record.Inserted)
-					_FirstSeenByTxId[h] = inserted;
-			}
-			else
-			{
-				_FirstSeenByTxId.Add(h, tx.Record.Inserted);
-			}
-		}
-
-		public DateTimeOffset GetFirstSeen(uint256 txId)
-		{
-			DateTimeOffset date;
-			_FirstSeenByTxId.TryGetValue(txId, out date);
-			return date;
 		}
 
 		MultiValueDictionary<uint256, AnnotatedTransaction> _TxById = new MultiValueDictionary<uint256, AnnotatedTransaction>();

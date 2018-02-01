@@ -42,6 +42,12 @@ namespace NBXplorer
 		{
 			get; set;
 		}
+
+		public DateTimeOffset FirstSeen
+		{
+			get; set;
+		}
+
 		public TransactionMiniMatch TransactionMatch
 		{
 			get; set;
@@ -796,6 +802,8 @@ namespace NBXplorer
 			var table = GetTransactionsIndex(pubkey);
 
 			bool needUpdate = false;
+			Dictionary<uint256, long> firstSeenList = new Dictionary<uint256, long>();
+
 			var transactions = _Engine.Do(tx =>
 			{
 				tx.ValuesLazyLoadingIsOn = false;
@@ -817,14 +825,37 @@ namespace NBXplorer
 
 					if(data.NeedUpdate)
 						needUpdate = true;
+
+					long firstSeen;
+					var hash = data.Transaction.GetHash();
+					if(firstSeenList.TryGetValue(data.Transaction.GetHash(), out firstSeen))
+					{
+						if(firstSeen > data.FirstSeenTickCount)
+							firstSeenList[hash] = firstSeen;
+					}
+					else
+					{
+						firstSeenList.Add(hash, data.FirstSeenTickCount);
+					}
+
 				}
 				return result;
 			});
 
+			foreach(var tx in transactions)
+			{
+				if(tx.FirstSeenTickCount != firstSeenList[tx.Transaction.GetHash()])
+				{
+					needUpdate = true;
+					tx.NeedUpdate = true;
+					tx.FirstSeenTickCount = firstSeenList[tx.Transaction.GetHash()];
+				}
+			}
+
 			// This is legacy data, need an update
 			if(needUpdate)
 			{
-				foreach(var data in transactions.Where(t => t.NeedUpdate))
+				foreach(var data in transactions.Where(t => t.NeedUpdate && t.TransactionMatch == null))
 				{
 					data.TransactionMatch = this.GetMatches(data.Transaction)
 											  .Where(m => m.DerivationStrategy.Equals(pubkey))
@@ -847,10 +878,10 @@ namespace NBXplorer
 				BlockHash = c.BlockHash,
 				Transaction = c.Transaction,
 				Inserted = c.TickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)c.TickCount, TimeSpan.Zero),
+				FirstSeen = c.FirstSeenTickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)c.FirstSeenTickCount, TimeSpan.Zero),
 				TransactionMatch = c.TransactionMatch
 			}).ToArray();
 		}
-
 
 		public class TransactionMiniKeyInformation : IBitcoinSerializable
 		{
@@ -998,6 +1029,20 @@ namespace NBXplorer
 			}
 
 
+			long _FirstSeenTickCount;
+			public long FirstSeenTickCount
+			{
+				get
+				{
+					return _FirstSeenTickCount;
+				}
+				set
+				{
+					_FirstSeenTickCount = value;
+				}
+			}
+
+
 			TransactionMiniMatch _TransactionMatch;
 			public TransactionMiniMatch TransactionMatch
 			{
@@ -1021,6 +1066,9 @@ namespace NBXplorer
 				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 				{
 					stream.ReadWrite(ref _TickCount);
+					// We always with FirstSeenTickCount to be at least TickCount
+					if(!stream.Serializing)
+						_FirstSeenTickCount = _TickCount;
 				}
 				else
 				{
@@ -1029,6 +1077,14 @@ namespace NBXplorer
 				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 				{
 					stream.ReadWrite(ref _TransactionMatch);
+				}
+				else
+				{
+					NeedUpdate = true;
+				}
+				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
+				{
+					stream.ReadWrite(ref _FirstSeenTickCount);
 				}
 				else
 				{
@@ -1067,6 +1123,7 @@ namespace NBXplorer
 						{
 							Transaction = value.Match.Transaction,
 							TickCount = ticksCount,
+							FirstSeenTickCount = ticksCount,
 							TransactionMatch = new TransactionMiniMatch(value.Match),
 							BlockHash = value.BlockId
 						};

@@ -404,7 +404,6 @@ namespace NBXplorer.Tests
 			}
 		}
 
-
 		[Fact]
 		public void CanTrackSeveralTransactions()
 		{

@@ -392,7 +392,7 @@ namespace NBXplorer.Controllers
 							TransactionId = tx.Record.Transaction.GetHash(),
 							Transaction = includeTransaction ? tx.Record.Transaction : null,
 							Confirmations = tx.Record.BlockHash == null ? 0 : currentHeight - tx.Height.Value + 1,
-							Timestamp = txs.GetFirstSeen(tx.Record.Transaction.GetHash())
+							Timestamp = txs.GetByTxId(tx.Record.Transaction.GetHash()).Select(t => t.Record.FirstSeen).First()
 						});
 
 						item.TxSet.Bookmark = processor.CurrentBookmark;
@@ -468,14 +468,14 @@ namespace NBXplorer.Controllers
 			// TODO: We don't want to throw unconf transactions, as they have the timestamp of when we first saw the transaction
 			// We should find a way to clean stuff out, while keeping this information
 
-			//if(transactions.Conflicted.Length != 0)
-			//{
-			//	foreach(var tx in transactions.Conflicted.Select(c => c.Record))
-			//	{
-			//		_EventAggregator.Publish(new EvictedTransactionEvent(tx.Transaction.GetHash()));
-			//	}
-			//	repo.CleanTransactions(extPubKey, transactions.Conflicted.Select(c => c.Record).ToList());
-			//}
+			if(transactions.DuplicatedTransactions.Count != 0)
+			{
+				foreach(var tx in transactions.DuplicatedTransactions.Select(c => c.Record))
+				{
+					_EventAggregator.Publish(new EvictedTransactionEvent(tx.Transaction.GetHash()));
+				}
+				repo.CleanTransactions(extPubKey, transactions.DuplicatedTransactions.Select(c => c.Record).ToList());
+			}
 		}
 
 		static int[] MaxValue = new[] { int.MaxValue };
@@ -491,13 +491,13 @@ namespace NBXplorer.Controllers
 									.Select(t => t.Value)
 									.Concat(MaxValue)
 									.Min();
-				var oldest = transactions
+				var firstSeen = transactions
 					.GetByTxId(utxo.Outpoint.Hash)
-					.OrderBy(o => o.Record.Inserted)
+					.Select(o => o.Record.FirstSeen)
 					.FirstOrDefault();
 				var isUnconf = txHeight == MaxValue[0];
 				utxo.Confirmations = isUnconf ? 0 : currentHeight - txHeight + 1;
-				utxo.Timestamp = oldest.Record.Inserted;
+				utxo.Timestamp = firstSeen;
 			}
 		}
 
