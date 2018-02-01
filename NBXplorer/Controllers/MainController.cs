@@ -465,16 +465,14 @@ namespace NBXplorer.Controllers
 
 		private void CleanConflicts(Repository repo, DerivationStrategyBase extPubKey, AnnotatedTransactionCollection transactions)
 		{
-			// TODO: We don't want to throw unconf transactions, as they have the timestamp of when we first saw the transaction
-			// We should find a way to clean stuff out, while keeping this information
-
-			if(transactions.DuplicatedTransactions.Count != 0)
+			var cleaned = transactions.DuplicatedTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
+			if(cleaned.Length != 0)
 			{
-				foreach(var tx in transactions.DuplicatedTransactions.Select(c => c.Record))
+				foreach(var tx in cleaned)
 				{
 					_EventAggregator.Publish(new EvictedTransactionEvent(tx.Transaction.GetHash()));
 				}
-				repo.CleanTransactions(extPubKey, transactions.DuplicatedTransactions.Select(c => c.Record).ToList());
+				repo.CleanTransactions(extPubKey, cleaned.ToList());
 			}
 		}
 
