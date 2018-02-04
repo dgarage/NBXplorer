@@ -8,9 +8,10 @@ namespace NBXplorer.DerivationStrategy
 {
 	public enum DerivationFeature
 	{
-		Change,
-		Deposit
-	}
+		Change =  1,
+		Deposit = 0,
+        Direct =  2  
+    }
 	public abstract class DerivationStrategyBase
 	{
 		internal DerivationStrategyBase()
@@ -20,12 +21,13 @@ namespace NBXplorer.DerivationStrategy
 
 		public static KeyPath GetKeyPath(DerivationFeature derivationFeature)
 		{
-			return derivationFeature == DerivationFeature.Deposit ? new KeyPath("0") : new KeyPath("1");
+			return derivationFeature == DerivationFeature.Direct ? new KeyPath() : new KeyPath((uint)derivationFeature);
 		}
 		public DerivationStrategyBase GetLineFor(DerivationFeature derivationFeature)
 		{
-			return GetLineFor(GetKeyPath(derivationFeature));
-		}
+            return derivationFeature == DerivationFeature.Direct ? this :
+                 GetLineFor(GetKeyPath(derivationFeature));
+        }
 
 		public abstract DerivationStrategyBase GetLineFor(KeyPath keyPath);
 

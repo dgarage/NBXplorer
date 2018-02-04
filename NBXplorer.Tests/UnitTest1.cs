@@ -152,8 +152,8 @@ namespace NBXplorer.Tests
 				Assert.True(watch.Elapsed > TimeSpan.FromSeconds(10));
 			}
 		}
-
-		[Fact]
+       
+        [Fact]
 		public void CanEasilySpendUTXOs()
 		{
 			using(var tester = ServerTester.Create())
@@ -168,7 +168,7 @@ namespace NBXplorer.Tests
 				var utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
 
 				// Send 1 BTC
-				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
 				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(Network.RegTest), Money.Coins(1.0m));
 				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
 
@@ -283,7 +283,11 @@ namespace NBXplorer.Tests
 				var a3 = tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 0);
 				Assert.Equal(a3.ScriptPubKey, bob.Root.Derive(new KeyPath("1/0")).PubKey.Hash.ScriptPubKey);
 
-				Assert.Null(tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 30));
+                var a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
+                Assert.Equal(a4.ScriptPubKey, bob.Root.Derive(new KeyPath("1")).PubKey.Hash.ScriptPubKey);
+
+
+                Assert.Null(tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 30));
 
 				a3 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 2);
 				Assert.Equal(new KeyPath("0/2"), a3.KeyPath);
@@ -294,12 +298,20 @@ namespace NBXplorer.Tests
 				tester.RPC.SendToAddressAsync(a3.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
 
-				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+                tester.RPC.SendToAddressAsync(a4.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+                utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
+
+
+                a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 				Assert.Equal(a1.ScriptPubKey, bob.Root.Derive(new KeyPath("0/1")).PubKey.Hash.ScriptPubKey);
 				a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
 				Assert.Equal(a2.ScriptPubKey, bob.Root.Derive(new KeyPath("0/3")).PubKey.Hash.ScriptPubKey);
-			}
-		}
+
+                a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
+                Assert.Equal(a4.ScriptPubKey, bob.Root.Derive(new KeyPath("2")).PubKey.Hash.ScriptPubKey);
+
+            }
+        }
 
 		CancellationToken Cancel => new CancellationTokenSource(5000).Token;
 
@@ -400,19 +412,22 @@ namespace NBXplorer.Tests
 				var id = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
 				id = tester.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(1.1m));
 				id = tester.RPC.SendToAddress(AddressOf(key, "0/2"), Money.Coins(1.2m));
+                id = tester.RPC.SendToAddress(AddressOf(key, "0"), Money.Coins(1.2m));
+                id = tester.RPC.SendToAddress(AddressOf(key, "1"), Money.Coins(1.2m));
 
-
+                events.NextEvent(Timeout);
 				events.NextEvent(Timeout);
 				events.NextEvent(Timeout);
-				events.NextEvent(Timeout);
-				var utxo = tester.Client.GetUTXOs(pubkey, null);
+                events.NextEvent(Timeout);
+                events.NextEvent(Timeout);
+                var utxo = tester.Client.GetUTXOs(pubkey, null);
 
 				tester.RPC.Generate(1);
 
 				var prev = utxo;
 				utxo = tester.Client.GetUTXOs(pubkey, prev);
 				Assert.True(utxo.HasChanges);
-				Assert.Equal(3, utxo.Confirmed.UTXOs.Count);
+				Assert.Equal(5, utxo.Confirmed.UTXOs.Count);
 				utxo = tester.Client.GetUTXOs(pubkey, utxo, false);
 				Assert.False(utxo.HasChanges);
 			}
@@ -520,8 +535,8 @@ namespace NBXplorer.Tests
 				Assert.Empty(utxo.Unconfirmed.SpentOutpoints);
 			}
 		}
-
-		[Fact]
+              
+        [Fact]
 		public void CanReserveAddress()
 		{
 			using(var tester = ServerTester.Create())
@@ -545,9 +560,8 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0/0"), tester.Client.GetUnused(DummyPubKey, DerivationFeature.Deposit).KeyPath);
 			}
 		}
-
-
-		[Fact]
+     
+        [Fact]
 		public void CanParseDerivationScheme()
 		{
 			var network = Network.Main;
@@ -669,7 +683,7 @@ namespace NBXplorer.Tests
 
 				var gotConf = result.ConfirmedTransactions.Bookmark;
 
-				var txId2 = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
+				var txId2 = tester.RPC.SendToAddress(AddressOf(key, "0"), Money.Coins(1.0m));
 				result = tester.Client.GetTransactions(pubkey, result);
 				Assert.True(result.HasChanges());
 				Assert.Equal(gotConf, result.ConfirmedTransactions.KnownBookmark);
@@ -894,5 +908,83 @@ namespace NBXplorer.Tests
 				Assert.Equal("fee-estimation-unavailable", ex.Error.Code);
 			}
 		}
-	}
+
+        [Fact]
+        public void CanReserveDirectAddress()
+        {
+            using (var tester = ServerTester.Create())
+            {
+                //WaitServerStarted not needed, just a sanity check
+                tester.Client.WaitServerStarted();
+                tester.Client.Track(DummyPubKey);
+                var utxo = tester.Client.GetUTXOs(DummyPubKey, null, false); //Track things do not wait
+
+                var tasks = new List<Task<KeyPathInformation>>();
+                for (int i = 0; i < 10; i++)
+                {
+                    tasks.Add(tester.Client.GetUnusedAsync(DummyPubKey, DerivationFeature.Direct, reserve: true));
+                }
+                Task.WaitAll(tasks.ToArray());
+
+                var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
+                Assert.Equal(9U, paths.Select(p => p.Key.Indexes.Last()).Max());
+
+                tester.Client.CancelReservation(DummyPubKey, new[] { new KeyPath("0") });
+                var path = tester.Client.GetUnused(DummyPubKey, DerivationFeature.Direct).KeyPath;
+                Assert.Equal(new KeyPath("0"), path);
+            }
+        }
+
+        [Fact]
+        public void CanTrackDirect()
+        {
+            using (var tester = ServerTester.Create())
+            {
+                var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+                var pubkey = CreateDerivationStrategy(key.Neuter());
+                tester.Client.Track(pubkey);
+                var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
+                var tx1 = tester.RPC.SendToAddress(AddressOf(key, "0"), Money.Coins(1.0m));
+                utxo = tester.Client.GetUTXOs(pubkey, utxo);
+                Assert.NotNull(utxo.Confirmed.KnownBookmark);
+                Assert.Single(utxo.Unconfirmed.UTXOs);
+                Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+
+
+                LockTestCoins(tester.RPC);
+                tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0"));
+                var tx2 = tester.RPC.SendToAddress(AddressOf(key, "1"), Money.Coins(0.6m));
+
+                var prevUtxo = utxo;
+                utxo = tester.Client.GetUTXOs(pubkey, utxo);
+                Assert.NotNull(utxo.Unconfirmed.KnownBookmark);
+                Assert.Single(utxo.Unconfirmed.UTXOs);
+                Assert.Equal(tx2, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash); //got the 0.6m
+                Assert.Equal(Money.Coins(0.6m), utxo.Unconfirmed.UTXOs[0].Value); //got the 0.6m
+
+                Assert.Single(utxo.Unconfirmed.SpentOutpoints);
+                Assert.Equal(tx1, utxo.Unconfirmed.SpentOutpoints[0].Hash); //previous coin is spent
+
+                utxo = tester.Client.GetUTXOs(pubkey, prevUtxo.Confirmed.Bookmark, null);
+                Assert.Null(utxo.Unconfirmed.KnownBookmark);
+                Assert.Single(utxo.Unconfirmed.UTXOs);
+                Assert.Empty(utxo.Unconfirmed.SpentOutpoints); //should be skipped as the unconf coin were not known
+
+                tester.RPC.SendToAddress(AddressOf(key, "0"), Money.Coins(0.15m));
+
+                utxo = tester.Client.GetUTXOs(pubkey, utxo);
+                Assert.Single(utxo.Unconfirmed.UTXOs);
+                Assert.IsType<Coin>(utxo.Unconfirmed.UTXOs[0].AsCoin(pubkey));
+                Assert.Equal(Money.Coins(0.15m), utxo.Unconfirmed.UTXOs[0].Value);
+                Assert.Empty(utxo.Unconfirmed.SpentOutpoints);
+
+                utxo = tester.Client.GetUTXOs(pubkey, null);
+                Assert.Equal(2, utxo.Unconfirmed.UTXOs.Count); //Should have 0.15 and 0.6
+                Assert.Equal(Money.Coins(0.75m), utxo.Unconfirmed.UTXOs.Select(c => c.Value).Sum());
+                Assert.Empty(utxo.Unconfirmed.SpentOutpoints);
+            }
+        }
+
+
+    }
 }

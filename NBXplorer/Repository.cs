@@ -387,8 +387,7 @@ namespace NBXplorer
 			_Engine.Do(tx =>
 			{
 				bool needCommit = false;
-				var featuresPerKeyPaths =
-				new[] { DerivationFeature.Deposit, DerivationFeature.Change }
+				var featuresPerKeyPaths = Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>()
 				.Select(f => (Feature: f, Path: DerivationStrategyBase.GetKeyPath(f)))
 				.ToDictionary(o => o.Path, o => o.Feature);
 
@@ -589,7 +588,7 @@ namespace NBXplorer
 					Redeem = derivation.Redeem,
 					DerivationStrategy = strategy,
 					Feature = derivationFeature,
-					KeyPath = DerivationStrategyBase.GetKeyPath(derivationFeature).Derive(index, false)
+					KeyPath = DerivationFeature.Direct == derivationFeature ? new KeyPath(index.ToString()) : DerivationStrategyBase.GetKeyPath(derivationFeature).Derive(index, false)
 				};
 				var bytes = ToBytes(info);
 				GetScriptsIndex(info.ScriptPubKey).Insert(tx, $"{strategy.GetHash()}-{derivationFeature}", bytes);
@@ -1160,7 +1159,7 @@ namespace NBXplorer
 		{
 			_Engine.Do(tx =>
 			{
-				foreach(var feature in new[] { DerivationFeature.Change, DerivationFeature.Deposit })
+				foreach(var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
 				{
 					RefillAvailable(tx, strategy, feature);
 				}
