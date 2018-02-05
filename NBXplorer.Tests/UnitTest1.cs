@@ -286,6 +286,7 @@ namespace NBXplorer.Tests
                 var a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
                 Assert.Equal(a4.ScriptPubKey, bob.Root.Derive(new KeyPath("1")).PubKey.Hash.ScriptPubKey);
 
+
                 Assert.Null(tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 30));
 
                 a3 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 2);
