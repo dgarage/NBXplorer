@@ -10,8 +10,8 @@ namespace NBXplorer.DerivationStrategy
 	{
 		Change =  1,
 		Deposit = 0,
-        Direct =  2  
-    }
+        	Direct =  2  
+    	}
 	public abstract class DerivationStrategyBase
 	{
 		internal DerivationStrategyBase()
@@ -25,9 +25,9 @@ namespace NBXplorer.DerivationStrategy
 		}
 		public DerivationStrategyBase GetLineFor(DerivationFeature derivationFeature)
 		{
-            return derivationFeature == DerivationFeature.Direct ? this :
-                    GetLineFor(GetKeyPath(derivationFeature));
-        }
+            		return derivationFeature == DerivationFeature.Direct ? this :
+                    		GetLineFor(GetKeyPath(derivationFeature));
+        	}
 
 		public abstract DerivationStrategyBase GetLineFor(KeyPath keyPath);
 
