@@ -26,7 +26,7 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase GetLineFor(DerivationFeature derivationFeature)
 		{
             return derivationFeature == DerivationFeature.Direct ? this :
-                 GetLineFor(GetKeyPath(derivationFeature));
+                    GetLineFor(GetKeyPath(derivationFeature));
         }
 
 		public abstract DerivationStrategyBase GetLineFor(KeyPath keyPath);
