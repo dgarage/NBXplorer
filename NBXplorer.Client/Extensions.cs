@@ -30,6 +30,27 @@ namespace NBXplorer
 			_NameByType.Add(type, typeName);
 		}
 
+		public static IEnumerable<T[]> Batch<T>(this IEnumerable<T> values, int size)
+		{
+			var batch = new T[size];
+			int index = 0;
+			foreach(var v in values)
+			{
+				batch[index++] = v;
+				if(index == batch.Length)
+				{
+					yield return batch;
+					batch = new T[size];
+					index = 0;
+				}
+			}
+			if(index != 0)
+			{
+				Array.Resize(ref batch, index);
+				yield return batch;
+			}
+		}
+
 		public static ArraySegment<T> Slice<T>(this ArraySegment<T> array, int index)
 		{
 			

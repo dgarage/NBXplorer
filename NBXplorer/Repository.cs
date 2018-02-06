@@ -651,25 +651,33 @@ namespace NBXplorer
 					stream.ReadWrite(ref _TimeStamp);
 			}
 		}
+
+		public int BatchSize
+		{
+			get; set;
+		} = 100;
 		public List<SavedTransaction> SaveTransactions(DateTimeOffset now, NBitcoin.Transaction[] transactions, uint256 blockHash)
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
 			if(transactions.Length == 0)
 				return result;
-			_Engine.Do(tx =>
+			foreach(var batch in transactions.Batch(BatchSize))
 			{
-				var date = NBitcoin.Utils.DateTimeToUnixTime(now);
-				foreach(var btx in transactions)
+				_Engine.Do(tx =>
 				{
-					var timestamped = new TimeStampedTransaction(btx, date);
-					var key = blockHash == null ? "0" : blockHash.ToString();
-					var value = timestamped.ToBytes();
-					tx.Insert($"{_Suffix}tx-" + btx.GetHash().ToString(), key, value);
-					result.Add(ToSavedTransaction(key, value));
-				}
-				tx.Commit();
-			});
+					var date = NBitcoin.Utils.DateTimeToUnixTime(now);
+					foreach(var btx in batch)
+					{
+						var timestamped = new TimeStampedTransaction(btx, date);
+						var key = blockHash == null ? "0" : blockHash.ToString();
+						var value = timestamped.ToBytes();
+						tx.Insert($"{_Suffix}tx-" + btx.GetHash().ToString(), key, value);
+						result.Add(ToSavedTransaction(key, value));
+					}
+					tx.Commit();
+				});
+			}
 			return result;
 		}
 
@@ -720,17 +728,20 @@ namespace NBXplorer
 		{
 			if(scripts.Length == 0)
 				return new KeyPathInformation[0][];
-			return _Engine.Do(tx =>
+			List<KeyPathInformation[]> result = new List<KeyPathInformation[]>();
+			foreach(var batch in scripts.Batch(BatchSize))
 			{
-				List<KeyPathInformation[]> result = new List<KeyPathInformation[]>();
-				tx.ValuesLazyLoadingIsOn = false;
-				foreach(var script in scripts)
+				_Engine.Do(tx =>
 				{
-					var table = GetScriptsIndex(script);
-					result.Add(table.SelectForwardSkip<byte[]>(tx, 0).Select(r => ToObject<KeyPathInformation>(r.Value)).ToArray());
-				}
-				return result.ToArray();
-			});
+					tx.ValuesLazyLoadingIsOn = false;
+					foreach(var script in batch)
+					{
+						var table = GetScriptsIndex(script);
+						result.Add(table.SelectForwardSkip<byte[]>(tx, 0).Select(r => ToObject<KeyPathInformation>(r.Value)).ToArray());
+					}
+				});
+			}
+			return result.ToArray();
 		}
 
 		public Serializer Serializer
@@ -951,7 +962,7 @@ namespace NBXplorer
 
 		public class TransactionMiniMatch : IBitcoinSerializable
 		{
-			
+
 			public TransactionMiniMatch()
 			{
 
