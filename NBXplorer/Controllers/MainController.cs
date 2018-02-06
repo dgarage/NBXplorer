@@ -144,6 +144,7 @@ namespace NBXplorer.Controllers
 			var blockchainInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetBlockchainInfoAsync() : null;
 			repo.Ping();
 			var pingAfter = DateTimeOffset.UtcNow;
+
 			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
 			var status = new StatusResult()
 			{
@@ -151,9 +152,14 @@ namespace NBXplorer.Controllers
 				CryptoCode = network.CryptoCode,
 				Version = typeof(MainController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version,
 				SupportedCryptoCodes = Waiters.All().Select(w => w.Network.CryptoCode).ToArray(),
-				RepositoryPingTime = (DateTimeOffset.UtcNow - now).TotalSeconds,
+				RepositoryPingTime = (pingAfter - now).TotalSeconds,
 				IsFullySynched = true
 			};
+
+			if(status.RepositoryPingTime > 30)
+			{
+				Logs.Explorer.LogWarning($"Repository ping exceeded 30 seconds ({(int)status.RepositoryPingTime}), please report the issue to NBXplorer developers");
+			}
 
 			if(blockchainInfo != null)
 			{
