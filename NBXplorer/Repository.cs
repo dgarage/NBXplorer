@@ -588,7 +588,7 @@ namespace NBXplorer
 					Redeem = derivation.Redeem,
 					DerivationStrategy = strategy,
 					Feature = derivationFeature,
-					KeyPath = DerivationFeature.Direct == derivationFeature ? new KeyPath(index.ToString()) : DerivationStrategyBase.GetKeyPath(derivationFeature).Derive(index, false)
+					KeyPath = DerivationStrategyBase.GetKeyPath(derivationFeature).Derive(index, false)
 				};
 				var bytes = ToBytes(info);
 				GetScriptsIndex(info.ScriptPubKey).Insert(tx, $"{strategy.GetHash()}-{derivationFeature}", bytes);
