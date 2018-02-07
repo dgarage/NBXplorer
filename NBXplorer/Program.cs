@@ -32,6 +32,12 @@ namespace NBXplorer
 				var conf = new DefaultConfiguration() { Logger = Logs.Configuration }.CreateConfiguration(args);
 				if(conf == null)
 					return;
+
+				// Sanity check of the config, this is not strictly needed as it would happen down the line when the host is built
+				// However, a bug in .NET Core fixed in 2.1 will prevent the app from stopping if an exception is thrown by the host
+				// at startup. We need to remove this line later
+				new ExplorerConfiguration().LoadArgs(conf);
+
 				ConfigurationBuilder builder = new ConfigurationBuilder();
 				host = new WebHostBuilder()
 					.UseKestrel()
