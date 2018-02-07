@@ -171,8 +171,11 @@ namespace NBXplorer.Models
 		}
 
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-		public DerivationFeature Feature => DerivationStrategyBase.GetFeature(_KeyPath);
-		
+		public DerivationFeature Feature
+		{
+			get; set;
+		}
+
 		public Coin AsCoin()
 		{
 			return AsCoin(null);
