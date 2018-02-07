@@ -204,6 +204,7 @@ namespace NBXplorer.Tests
 						Assert.Equal(2, utxos.GetUnspentCoins().Length);
 
 					Assert.Contains(utxos.GetUnspentCoins(), u => u.ScriptPubKey == changeAddress.ScriptPubKey);
+					Assert.Contains(utxos.Unconfirmed.UTXOs, u => u.ScriptPubKey == changeAddress.ScriptPubKey && u.Feature == DerivationFeature.Change);
 				}
 			}
 		}

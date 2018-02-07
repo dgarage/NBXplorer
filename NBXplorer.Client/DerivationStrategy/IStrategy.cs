@@ -23,6 +23,10 @@ namespace NBXplorer.DerivationStrategy
 		{
 			return derivationFeature == DerivationFeature.Direct ? new KeyPath() : new KeyPath((uint)derivationFeature);
 		}
+		public static DerivationFeature GetFeature(KeyPath path)
+		{
+			return path.Indexes.Length == 1 ? DerivationFeature.Direct : (DerivationFeature)path.Indexes[0];
+		}
 		public DerivationStrategyBase GetLineFor(DerivationFeature derivationFeature)
 		{
             		return derivationFeature == DerivationFeature.Direct ? this :
