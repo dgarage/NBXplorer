@@ -137,6 +137,8 @@ namespace NBXplorer.Tests
 				keyValues.Add(("btcrpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 				keyValues.Add(("cachechain", "0"));
 				keyValues.Add(("rpcnotest", "1"));
+				keyValues.Add(("mingapsize", "2"));
+				keyValues.Add(("maxgapsize", "4"));
 				keyValues.Add(("btcstartheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
 				keyValues.Add(("btcnodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 

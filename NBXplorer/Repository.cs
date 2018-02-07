@@ -347,6 +347,8 @@ namespace NBXplorer
 				if(settings != null)
 				{
 					var repo = new Repository(_Engine, net);
+					repo.MaxPoolSize = configuration.MaxGapSize;
+					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
 					if(settings.Rescan)
 					{
@@ -778,9 +780,15 @@ namespace NBXplorer
 				return unzipped;
 			}
 		}
-
-		public const int MinPoolSize = 20;
-		public const int MaxPoolSize = 30;
+		
+		public int MinPoolSize
+		{
+			get; set;
+		} = 20;
+		public int MaxPoolSize
+		{
+			get; set;
+		} = 30;
 
 		public void MarkAsUsed(KeyPathInformation[] infos)
 		{

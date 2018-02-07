@@ -71,6 +71,16 @@ namespace NBXplorer.Configuration
 			set;
 		}
 
+		public int MinGapSize
+		{
+			get; set;
+		} = 20;
+
+		public int MaxGapSize
+		{
+			get; set;
+		} = 30;
+
 		public List<ChainConfiguration> ChainConfigurations
 		{
 			get; set;
@@ -108,6 +118,10 @@ namespace NBXplorer.Configuration
 
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
 			BaseDataDir = config.GetOrDefault<string>("datadir", Path.GetDirectoryName(defaultSettings.DefaultDataDirectory));
+			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);
+			MaxGapSize = config.GetOrDefault<int>("maxgapsize", 30);
+			if(MinGapSize >= MaxGapSize)
+				throw new ConfigException("mingapsize should be equal or lower than maxgapsize");
 			if(!Directory.Exists(BaseDataDir))
 				Directory.CreateDirectory(BaseDataDir);
 			DataDir = Path.Combine(BaseDataDir, NetworkProvider.ChainType.ToNetwork().Name);
