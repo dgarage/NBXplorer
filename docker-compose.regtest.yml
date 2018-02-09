@@ -11,12 +11,12 @@ services:
       dockerfile: DockerFile
     environment:
       NBXPLORER_NETWORK: regtest
-      NBXPLORER_RPCURL: http://bitcoind:49372/
-      NBXPLORER_RPCUSER: ceiwHEbqWI83
-      NBXPLORER_RPCPASSWORD: DwubwWsoo3
-      NBXPLORER_NODEENDPOINT: bitcoind:8332
       NBXPLORER_BIND: 0.0.0.0:32838
       NBXPLORER_NOAUTH: 1
+      NBXPLORER_BTCRPCURL: http://bitcoind:49372/
+      NBXPLORER_BTCRPCUSER: ceiwHEbqWI83
+      NBXPLORER_BTCRPCPASSWORD: DwubwWsoo3
+      NBXPLORER_BTCNODEENDPOINT: bitcoind:8332
     links:
       - bitcoind
 
