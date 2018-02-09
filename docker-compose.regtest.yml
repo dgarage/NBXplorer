@@ -8,7 +8,6 @@ services:
       - 32838
     build:
       context: .
-      dockerfile: Dockerfile
     environment:
       NBXPLORER_NETWORK: regtest
       NBXPLORER_BIND: 0.0.0.0:32838
