@@ -701,6 +701,43 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanTrack5()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				//WaitServerStarted not needed, just a sanity check
+				tester.Client.WaitServerStarted(Timeout);
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = CreateDerivationStrategy(key.Neuter());
+
+				tester.Client.Track(pubkey);
+				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
+
+				// We receive money
+				var fundingTx = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
+				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				tester.RPC.Generate(1);
+				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				Assert.Single(utxo.Confirmed.UTXOs);
+
+				LockTestCoins(tester.RPC);
+				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0/0"));
+				var spendingTx = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.2m));
+
+				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				Assert.False(utxo.Confirmed.HasChanges); // No change here
+				Assert.True(utxo.Unconfirmed.HasChanges);
+				Assert.Single(utxo.Unconfirmed.SpentOutpoints);
+				Assert.Equal(fundingTx, utxo.Unconfirmed.SpentOutpoints[0].Hash);
+
+				utxo = tester.Client.GetUTXOs(pubkey, null, false);
+				Assert.Single(utxo.Confirmed.UTXOs);
+				Assert.Single(utxo.Unconfirmed.SpentOutpoints);
+				Assert.Equal(fundingTx, utxo.Unconfirmed.SpentOutpoints[0].Hash);
+			}
+		}
+
+		[Fact]
 		public void CanTrack()
 		{
 			using(var tester = ServerTester.Create())

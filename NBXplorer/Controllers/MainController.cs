@@ -528,7 +528,7 @@ namespace NBXplorer.Controllers
 			foreach(var outpoint in states.Actual.SpentUTXOs)
 			{
 				if(!states.Known.SpentUTXOs.Contains(outpoint) &&
-					states.Known.UTXOByOutpoint.ContainsKey(outpoint) &&
+					(states.Known.UTXOByOutpoint.ContainsKey(outpoint) || substractedReceived.Contains(outpoint)) &&
 					!substractedSpent.Contains(outpoint))
 					change.SpentOutpoints.Add(outpoint);
 			}

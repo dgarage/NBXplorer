@@ -73,7 +73,7 @@ namespace NBXplorer.Models
 			return GetUnspentUTXOs().Select(c => c.AsCoin(DerivationStrategy)).ToArray();
 		}
 
-		private UTXO[] GetUnspentUTXOs()
+		public UTXO[] GetUnspentUTXOs()
 		{
 			Dictionary<OutPoint, UTXO> received = new Dictionary<OutPoint, UTXO>();
 			foreach(var utxo in Confirmed.UTXOs.Concat(Unconfirmed.UTXOs))
