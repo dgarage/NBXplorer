@@ -69,14 +69,15 @@ namespace NBXplorer.Controllers
 			var network = GetNetwork(cryptoCode);
 			var waiter = GetWaiter(network);
 			var result = await waiter.RPC.SendCommandAsync("estimatesmartfee", blockCount);
-			var feeRateProperty = ((JObject)result.Result).Property("feeRate");
-			var rate = feeRateProperty == null ? (decimal)-1 : ((JObject)result.Result)["feerate"].Value<decimal>();
+			var obj = (JObject)result.Result;
+			var feeRateProperty = obj.Property("feerate");
+			var rate = feeRateProperty == null ? (decimal)-1 : obj["feerate"].Value<decimal>();
 			if(rate == -1)
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
 			return new GetFeeRateResult()
 			{
-				FeeRate = new FeeRate(Money.Coins(rate), 1000),
-				BlockCount = ((JObject)result.Result)["blocks"].Value<int>()
+				FeeRate = new FeeRate(Money.Coins(Math.Round(rate / 1000, 8)), 1),
+				BlockCount = obj["blocks"].Value<int>()
 			};
 		}
 
