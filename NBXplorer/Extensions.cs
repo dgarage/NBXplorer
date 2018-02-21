@@ -55,28 +55,30 @@ namespace NBXplorer
 		public static IEnumerable<TransactionMatch> GetMatches(this Repository repository, Transaction tx)
 		{
 			var matches = new Dictionary<DerivationStrategyBase, TransactionMatch>();
+			HashSet<Script> inputScripts = new HashSet<Script>();
+			HashSet<Script> outputScripts = new HashSet<Script>();
 			HashSet<Script> scripts = new HashSet<Script>();
 			foreach(var input in tx.Inputs)
 			{
 				var signer = input.ScriptSig.GetSigner() ?? input.WitScript.ToScript().GetSigner();
 				if(signer != null)
 				{
+					inputScripts.Add(signer.ScriptPubKey);
 					scripts.Add(signer.ScriptPubKey);
 				}
 			}
 
-			int scriptPubKeyIndex = scripts.Count;
 			foreach(var output in tx.Outputs)
 			{
+				outputScripts.Add(output.ScriptPubKey);
 				scripts.Add(output.ScriptPubKey);
 			}
 
 			var keyInformations = repository.GetKeyInformations(scripts.ToArray());
-			for(int scriptIndex = 0; scriptIndex < keyInformations.Length; scriptIndex++)
+			foreach(var keyInfoByScripts in keyInformations)
 			{
-				for(int i = 0; i < keyInformations[scriptIndex].Length; i++)
+				foreach(var keyInfo in keyInfoByScripts.Value)
 				{
-					var keyInfo = keyInformations[scriptIndex][i];
 					if(!matches.TryGetValue(keyInfo.DerivationStrategy, out TransactionMatch match))
 					{
 						match = new TransactionMatch();
@@ -84,10 +86,11 @@ namespace NBXplorer
 						match.DerivationStrategy = keyInfo.DerivationStrategy;
 						match.Transaction = tx;
 					}
-					var isOutput = scriptIndex >= scriptPubKeyIndex;
-					if(isOutput)
+
+					if(outputScripts.Contains(keyInfo.ScriptPubKey))
 						match.Outputs.Add(keyInfo);
-					else
+
+					if(inputScripts.Contains(keyInfo.ScriptPubKey))
 						match.Inputs.Add(keyInfo);
 				}
 			}

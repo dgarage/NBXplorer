@@ -12,7 +12,7 @@ namespace NBXplorer.Tests
 	{
 		public static KeyPathInformation GetKeyInformation(this Repository repo, Script script)
 		{
-			return repo.GetKeyInformations(new Script[] { script })[0].SingleOrDefault();
+			return repo.GetKeyInformations(new Script[] { script })[script].SingleOrDefault();
 		}
 	}
 }

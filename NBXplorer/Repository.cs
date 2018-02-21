@@ -726,11 +726,11 @@ namespace NBXplorer
 			return t;
 		}
 
-		public KeyPathInformation[][] GetKeyInformations(Script[] scripts)
+		public MultiValueDictionary<Script, KeyPathInformation> GetKeyInformations(Script[] scripts)
 		{
+			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
 			if(scripts.Length == 0)
-				return new KeyPathInformation[0][];
-			List<KeyPathInformation[]> result = new List<KeyPathInformation[]>();
+				return result;
 			foreach(var batch in scripts.Batch(BatchSize))
 			{
 				_Engine.Do(tx =>
@@ -739,11 +739,18 @@ namespace NBXplorer
 					foreach(var script in batch)
 					{
 						var table = GetScriptsIndex(script);
-						result.Add(table.SelectForwardSkip<byte[]>(tx, 0).Select(r => ToObject<KeyPathInformation>(r.Value)).ToArray());
+						var keyInfos = table.SelectForwardSkip<byte[]>(tx, 0)
+											.Select(r => ToObject<KeyPathInformation>(r.Value))
+											// Because xpub are mutable (several xpub map to same script)
+											// an attacker could generate lot's of xpub mapping to the same script
+											// and this would blow up here. This we take only 5 results max.
+											.Take(5)
+											.ToArray();
+						result.AddRange(script, keyInfos);
 					}
 				});
 			}
-			return result.ToArray();
+			return result;
 		}
 
 		public Serializer Serializer

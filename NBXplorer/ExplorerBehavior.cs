@@ -232,7 +232,7 @@ namespace NBXplorer
 
 			message.Message.IfPayloadIs<TxPayload>(txPayload =>
 			{
-				var matches = GetMatches(txPayload.Object).ToArray();
+				var matches = Repository.GetMatches(txPayload.Object).ToArray();
 				SaveMatches(matches, null);
 			});
 
@@ -261,48 +261,6 @@ namespace NBXplorer
 				return true;
 			var fork = Chain.FindFork(location);
 			return Chain.Tip.Height - fork.Height > 10;
-		}
-
-		private IEnumerable<TransactionMatch> GetMatches(Transaction tx)
-		{
-			var matches = new Dictionary<DerivationStrategyBase, TransactionMatch>();
-			HashSet<Script> scripts = new HashSet<Script>();
-			foreach(var input in tx.Inputs)
-			{
-				var signer = input.ScriptSig.GetSigner() ?? input.WitScript.ToScript().GetSigner();
-				if(signer != null)
-				{
-					scripts.Add(signer.ScriptPubKey);
-				}
-			}
-
-			int scriptPubKeyIndex = scripts.Count;
-			foreach(var output in tx.Outputs)
-			{
-				scripts.Add(output.ScriptPubKey);
-			}
-
-			var keyInformations = Repository.GetKeyInformations(scripts.ToArray());
-			for(int scriptIndex = 0; scriptIndex < keyInformations.Length; scriptIndex++)
-			{
-				for(int i = 0; i < keyInformations[scriptIndex].Length; i++)
-				{
-					var keyInfo = keyInformations[scriptIndex][i];
-					if(!matches.TryGetValue(keyInfo.DerivationStrategy, out TransactionMatch match))
-					{
-						match = new TransactionMatch();
-						matches.Add(keyInfo.DerivationStrategy, match);
-						match.DerivationStrategy = keyInfo.DerivationStrategy;
-						match.Transaction = tx;
-					}
-					var isOutput = scriptIndex >= scriptPubKeyIndex;
-					if(isOutput)
-						match.Outputs.Add(keyInfo);
-					else
-						match.Inputs.Add(keyInfo);
-				}
-			}
-			return matches.Values;
 		}
 
 		private void AttachedNode_StateChanged(Node node, NodeState oldState)
