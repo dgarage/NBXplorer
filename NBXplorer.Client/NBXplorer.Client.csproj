@@ -15,7 +15,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="4.0.0.54" />
+		<PackageReference Include="NBitcoin" Version="4.0.0.56" />
 		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.13" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>

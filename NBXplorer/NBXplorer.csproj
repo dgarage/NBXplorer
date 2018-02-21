@@ -7,7 +7,7 @@
 	  <NoWarn>1701;1702;1705;1591;CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NBitcoin" Version="4.0.0.54" />
+    <PackageReference Include="NBitcoin" Version="4.0.0.56" />
 	<PackageReference Include="DBreeze" Version="1.87.0" />
 	<PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.5" />
 	<PackageReference Include="NicolasDorier.CommandLine" Version="1.0.0.1" />
