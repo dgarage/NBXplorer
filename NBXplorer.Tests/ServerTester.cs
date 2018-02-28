@@ -73,7 +73,7 @@ namespace NBXplorer.Tests
 
 		NodeDownloadData bitcoinDownloadData = new NodeDownloadData()
 		{
-			Version = "0.15.0",
+			Version = "0.16.0",
 			Linux = new NodeOSDownloadData()
 			{
 				Archive = "bitcoin-{0}-x86_64-linux-gnu.tar.gz",

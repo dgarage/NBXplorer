@@ -64,9 +64,9 @@ namespace NBXplorer
 
 		private static string ToWebsocketUri(string uri)
 		{
-			if(uri.StartsWith("https://"))
+			if(uri.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
 				uri = uri.Replace("https://", "wss://");
-			if(uri.StartsWith("http://"))
+			if(uri.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
 				uri = uri.Replace("http://", "ws://");
 			return uri;
 		}

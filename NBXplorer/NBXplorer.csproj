@@ -2,12 +2,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
-    <Version>1.0.1.14</Version>
+    <Version>1.0.1.15</Version>
 	  <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\NBXplorer.xml</DocumentationFile>
 	  <NoWarn>1701;1702;1705;1591;CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="NBitcoin" Version="4.0.0.56" />
+    <PackageReference Include="NBitcoin" Version="4.0.0.58" />
 	<PackageReference Include="DBreeze" Version="1.87.0" />
 	<PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.5" />
 	<PackageReference Include="NicolasDorier.CommandLine" Version="1.0.0.1" />

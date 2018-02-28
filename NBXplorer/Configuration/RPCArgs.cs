@@ -132,9 +132,7 @@ namespace NBXplorer.Configuration
 				throw new ConfigException();
 			}
 			Logs.Configuration.LogInformation("RPC connection successfull");
-
-			var getInfo = await rpcClient.SendCommandAsync(RPCOperations.getinfo);
-			var version = ((JObject)getInfo.Result)["version"].Value<int>();
+			int version = await GetVersion(rpcClient);
 			if(version < networkInfo.MinRPCVersion)
 			{
 				Logs.Configuration.LogError($"The minimum Bitcoin version required is {networkInfo.MinRPCVersion} (detected: {version})");
@@ -143,11 +141,25 @@ namespace NBXplorer.Configuration
 			Logs.Configuration.LogInformation($"Bitcoin version detected: {version}");
 		}
 
+		private static async Task<int> GetVersion(RPCClient rpcClient)
+		{
+			try
+			{
+				var getInfo = await rpcClient.SendCommandAsync(RPCOperations.getnetworkinfo);
+				return ((JObject)getInfo.Result)["version"].Value<int>();
+			}
+			catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+			{
+				var getInfo = await rpcClient.SendCommandAsync(RPCOperations.getinfo);
+				return ((JObject)getInfo.Result)["version"].Value<int>();
+			}
+		}
+
 		private static bool IsTransient(RPCException ex)
 		{
-			return 
+			return
 				   ex.RPCCode == RPCErrorCode.RPC_IN_WARMUP ||
-				   ex.Message.Contains("Loading wallet...") || 
+				   ex.Message.Contains("Loading wallet...") ||
 				   ex.Message.Contains("Loading block index...") ||
 				   ex.Message.Contains("Loading P2P addresses...") ||
 				   ex.Message.Contains("Rewinding blocks...") ||
