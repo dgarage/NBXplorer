@@ -241,6 +241,13 @@ namespace NBXplorer
 					try
 					{
 						blockchainInfo = await _RPC.GetBlockchainInfoAsync();
+						if(blockchainInfo != null && _Network.DefaultSettings.ChainType == ChainType.Regtest)
+						{
+							if(await WarmupBlockchain())
+							{
+								blockchainInfo = await _RPC.GetBlockchainInfoAsync();
+							}
+						}
 					}
 					catch(Exception ex)
 					{
@@ -324,10 +331,6 @@ namespace NBXplorer
 
 		private async Task ConnectToBitcoinD(CancellationToken cancellation)
 		{
-			if(_Network.DefaultSettings.ChainType == ChainType.Regtest)
-			{
-				await WarmupBlockchain();
-			}
 			if(_Group != null)
 				return;
 			if(_Configuration.CacheChain)
@@ -502,13 +505,14 @@ namespace NBXplorer
 			}
 		}
 
-		private async Task WarmupBlockchain()
+		private async Task<bool> WarmupBlockchain()
 		{
 			if(await _RPC.GetBlockCountAsync() < 100)
 			{
 
 				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Less than 100 blocks, mining some block for regtest");
 				await _RPC.GenerateAsync(101);
+				return true;
 			}
 			else
 			{
@@ -517,7 +521,9 @@ namespace NBXplorer
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: It has been a while nothing got mined on regtest... mining 10 blocks");
 					await _RPC.GenerateAsync(10);
+					return true;
 				}
+				return false;
 			}
 		}
 
