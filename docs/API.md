@@ -30,7 +30,6 @@ NBXplorer will track any addresses on the `0/x`, `1/x` and `x` path.
 Here a documentation of the different derivation scheme supported:
 
 | Address type | Format |
--------------------------
 | P2WPKH | xpub1 |
 | P2SH-P2WPKH | xpub1-[p2sh] |
 | P2PKH | xpub-[legacy] |
