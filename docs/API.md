@@ -314,3 +314,36 @@ Then you will receive such notifications when a transaction is impacting the `de
 }
 ```
 
+## Broadcast a transaction
+
+HTTP POST cryptos/{cryptoCode}/transactions
+
+Body:
+
+Raw bytes of the transaction.
+
+Returns:
+
+```
+{  
+   "success":false,
+   "rpcCode":-25,
+   "rpcCodeMessage":"General error during transaction submission",
+   "rpcMessage":"Missing inputs"
+}
+```
+
+## Get fee rate
+
+HTTP GET cryptos/{cryptoCode}/fees/{blockCount}
+
+Get expected fee rate for being confirmed in `blockCount` blocks.
+
+```
+{
+    "feeRate": 5,
+    "blockCount": 1,
+}
+```
+
+The fee rate is in satoshi/byte.
