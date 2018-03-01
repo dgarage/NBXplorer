@@ -40,6 +40,8 @@ Here a documentation of the different derivation scheme supported:
 
 For multisig, the public keys are ordered before generating the address by default for privacy reason, use `-[keeporder]` to disable it.
 
+You can use more than one label at same time, example: `2-of-xpub1-xpub2-[legacy]-[keeporder]`
+
 ## Bookmarks
 
 Some routes allow the user to specify a bookmark.
