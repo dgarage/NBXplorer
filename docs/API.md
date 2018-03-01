@@ -342,7 +342,7 @@ Get expected fee rate for being confirmed in `blockCount` blocks.
 ```
 {
     "feeRate": 5,
-    "blockCount": 1,
+    "blockCount": 1
 }
 ```
 
