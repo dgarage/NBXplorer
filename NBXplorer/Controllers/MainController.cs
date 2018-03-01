@@ -359,6 +359,7 @@ namespace NBXplorer.Controllers
 			{
 				response = new GetTransactionsResponse();
 				int currentHeight = chain.Height;
+				response.Height = currentHeight;
 				var txs = GetAnnotatedTransactions(repo, chain, extPubKey);
 				foreach(var item in new[]
 				{
