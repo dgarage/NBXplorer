@@ -40,7 +40,7 @@ Here a documentation of the different derivation scheme supported:
 
 For multisig, the public keys are ordered before generating the address by default for privacy reason, use `-[keeporder]` to disable it.
 
-You can use more than one label at same time, example: `2-of-xpub1-xpub2-[legacy]-[keeporder]`
+You can use more than one options at same time, example: `2-of-xpub1-xpub2-[legacy]-[keeporder]`
 
 ## Bookmarks
 
@@ -53,7 +53,7 @@ NBXplorer will then just transmit what changed from the client's known state.
 
 Most of routes asks for a crypto code. This identify the crypto currency to request data from. Currently supported is `BTC` and `LTC`.
 
-## Track a derivation key
+## Track a derivation scheme
 
 After this call, the specified `derivation scheme` will be tracked by NBXplorer
 
