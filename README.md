@@ -13,6 +13,10 @@ This explorer is not meant to be exposed on internet, but should be used as an i
 * Install [.NET Core 2.0](https://www.microsoft.com/net/core)
 * Bitcoin Core instance synched and running, at least 0.13.1. (0.14.1 if you want the segwit goodness coming)
 
+## API Specification
+
+Read our [API Specification](docs/API.md).
+
 ## How to build and run?
 
 If you are using Bitcoin core default settings:
