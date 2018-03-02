@@ -143,10 +143,12 @@ namespace NBXplorer.Controllers
 			var location = waiter.GetLocation();
 
 			var blockchainInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetBlockchainInfoAsync() : null;
+			var networkInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetNetworkInfoAsync() : null;
 			repo.Ping();
 			var pingAfter = DateTimeOffset.UtcNow;
 
 			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
+			GetNetworkInfoResponse networkInfo = networkInfoAsync == null ? null : await networkInfoAsync;
 			var status = new StatusResult()
 			{
 				ChainType = network.DefaultSettings.ChainType,
@@ -169,7 +171,9 @@ namespace NBXplorer.Controllers
 					IsSynched = !waiter.IsSynchingCore(blockchainInfo),
 					Blocks = blockchainInfo.Blocks,
 					Headers = blockchainInfo.Headers,
-					VerificationProgress = blockchainInfo.VerificationProgress
+					VerificationProgress = blockchainInfo.VerificationProgress,
+					MinRelayTxFee = new FeeRate(Money.Coins((decimal)networkInfo.relayfee), 1000),
+					IncrementalRelayFee = new FeeRate(Money.Coins((decimal)networkInfo.incrementalfee), 1000)
 				};
 				status.IsFullySynched &= status.BitcoinStatus.IsSynched;
 			}

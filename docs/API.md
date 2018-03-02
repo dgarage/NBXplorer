@@ -146,11 +146,13 @@ HTTP GET v1/cryptos/{cryptoCode}/status
 Returns:
 ```
 {  
-   "bitcoinStatus":{  
+   "bitcoinStatus":{  # can be null
       "blocks":103,
       "headers":103,
       "verificationProgress":1.0,
-      "isSynched":true
+      "isSynched":true,
+      "minRelayTxFee": 1,       # in satoshi/byte
+      "incrementalRelayFee": 1  # in satoshi/byte
    },
    "repositoryPingTime":0.0032478,
    "isFullySynched":true,

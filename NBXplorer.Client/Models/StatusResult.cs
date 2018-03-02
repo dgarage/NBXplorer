@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using NBitcoin;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -20,6 +21,16 @@ namespace NBXplorer.Models
 			get; set;
 		}
 		public bool IsSynched
+		{
+			get;
+			set;
+		}
+		public FeeRate IncrementalRelayFee
+		{
+			get;
+			set;
+		}
+		public FeeRate MinRelayTxFee
 		{
 			get;
 			set;

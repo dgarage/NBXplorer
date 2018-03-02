@@ -37,12 +37,31 @@ namespace NBXplorer
 			get; set;
 		}
 	}
-    public static class RPCClientExtensions
+
+	public class GetNetworkInfoResponse
+	{
+		public double relayfee
+		{
+			get; set;
+		}
+		public double incrementalfee
+		{
+			get; set;
+		}
+	}
+
+	public static class RPCClientExtensions
     {
 		public static async Task<GetBlockchainInfoResponse> GetBlockchainInfoAsync(this RPCClient client)
 		{
 			var result = await client.SendCommandAsync("getblockchaininfo").ConfigureAwait(false);
 			return JsonConvert.DeserializeObject<GetBlockchainInfoResponse>(result.ResultString);
 		}
-    }
+
+		public static async Task<GetNetworkInfoResponse> GetNetworkInfoAsync(this RPCClient client)
+		{
+			var result = await client.SendCommandAsync("getnetworkinfo").ConfigureAwait(false);
+			return JsonConvert.DeserializeObject<GetNetworkInfoResponse>(result.ResultString);
+		}
+	}
 }
