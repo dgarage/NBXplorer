@@ -66,21 +66,21 @@ namespace NBXplorer.Models
 			}
 		}
 
-		public Coin[] GetUnspentCoins()
+		public Coin[] GetUnspentCoins(bool onlyConfirmed = false)
 		{
 			if(Confirmed.KnownBookmark != null || Unconfirmed.KnownBookmark != null)
 				throw new InvalidOperationException("This UTXOChanges is partial, it is calculate the unspent coins");
-			return GetUnspentUTXOs().Select(c => c.AsCoin(DerivationStrategy)).ToArray();
+			return GetUnspentUTXOs(onlyConfirmed).Select(c => c.AsCoin(DerivationStrategy)).ToArray();
 		}
 
-		public UTXO[] GetUnspentUTXOs()
+		public UTXO[] GetUnspentUTXOs(bool onlyConfirmed = false)
 		{
 			Dictionary<OutPoint, UTXO> received = new Dictionary<OutPoint, UTXO>();
-			foreach(var utxo in Confirmed.UTXOs.Concat(Unconfirmed.UTXOs))
+			foreach(var utxo in Confirmed.UTXOs.Concat(onlyConfirmed ? (IEnumerable<UTXO>)Array.Empty<UTXO>() : Unconfirmed.UTXOs))
 			{
 				received.TryAdd(utxo.Outpoint, utxo);
 			}
-			foreach(var utxo in Confirmed.SpentOutpoints.Concat(Unconfirmed.SpentOutpoints))
+			foreach(var utxo in Confirmed.SpentOutpoints.Concat(onlyConfirmed ? (IEnumerable<OutPoint>)Array.Empty<OutPoint>() : Unconfirmed.SpentOutpoints))
 			{
 				received.Remove(utxo);
 			}
@@ -237,7 +237,7 @@ namespace NBXplorer.Models
 			}
 		}
 
-		KeyPath _KeyPath;		
+		KeyPath _KeyPath;
 
 		public KeyPath KeyPath
 		{
