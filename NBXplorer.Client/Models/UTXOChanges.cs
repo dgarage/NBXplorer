@@ -87,9 +87,9 @@ namespace NBXplorer.Models
 			return received.Values.ToArray();
 		}
 
-		public Key[] GetKeys(ExtKey extKey)
+		public Key[] GetKeys(ExtKey extKey, bool onlyConfirmed = false)
 		{
-			return GetUnspentUTXOs().Select(u => extKey.Derive(u.KeyPath).PrivateKey).ToArray();
+			return GetUnspentUTXOs(onlyConfirmed).Select(u => extKey.Derive(u.KeyPath).PrivateKey).ToArray();
 		}
 	}
 	public class UTXOChange
