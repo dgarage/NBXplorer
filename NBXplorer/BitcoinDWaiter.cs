@@ -363,6 +363,7 @@ namespace NBXplorer
 			{
 				Services = NodeServices.Nothing,
 				IsRelay = true,
+				SkipPoWCheck = true,
 				TemplateBehaviors =
 				{
 					new AddressManagerBehavior(manager)
@@ -373,7 +374,8 @@ namespace NBXplorer
 					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode).StartHeight },
 					new ChainBehavior(_Chain)
 					{
-						CanRespondToGetHeaders = false
+						CanRespondToGetHeaders = false,
+						SkipPoWCheck = true
 					},
 					new PingPongBehavior()
 				}
