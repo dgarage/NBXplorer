@@ -208,6 +208,8 @@ namespace NBXplorer.Controllers
 				return NotFound();
 
 			GetNetwork(cryptoCode); // Internally check if cryptoCode is correct
+
+			string listenAllDerivationSchemes = null;
 			var listenedBlocks = new ConcurrentDictionary<string, string>();
 			var listenedDerivations = new ConcurrentDictionary<(Network, DerivationStrategyBase), DerivationStrategyBase>();
 
@@ -238,7 +240,10 @@ namespace NBXplorer.Controllers
 				var network = Waiters.GetWaiter(o.CryptoCode);
 				if(network == null)
 					return;
-				if(listenedDerivations.ContainsKey((network.Network.NBitcoinNetwork, o.Match.DerivationStrategy)))
+				if(
+				listenAllDerivationSchemes == "*" ||
+				listenAllDerivationSchemes == o.CryptoCode ||
+				listenedDerivations.ContainsKey((network.Network.NBitcoinNetwork, o.Match.DerivationStrategy)))
 				{
 					var chain = ChainProvider.GetChain(o.CryptoCode);
 					if(chain == null)
@@ -267,14 +272,21 @@ namespace NBXplorer.Controllers
 							listenedBlocks.TryAdd(r.CryptoCode, r.CryptoCode);
 							break;
 						case Models.NewTransactionEventRequest r:
-							r.CryptoCode = r.CryptoCode ?? cryptoCode;
-							var network = Waiters.GetWaiter(r.CryptoCode)?.Network;
-							if(network == null)
-								break;
-							foreach(var derivation in r.DerivationSchemes)
+							if(r.DerivationSchemes != null)
 							{
-								var parsed = new DerivationStrategyFactory(network.NBitcoinNetwork).Parse(derivation);
-								listenedDerivations.TryAdd((network.NBitcoinNetwork, parsed), parsed);
+								r.CryptoCode = r.CryptoCode ?? cryptoCode;
+								var network = Waiters.GetWaiter(r.CryptoCode)?.Network;
+								if(network == null)
+									break;
+								foreach(var derivation in r.DerivationSchemes)
+								{
+									var parsed = new DerivationStrategyFactory(network.NBitcoinNetwork).Parse(derivation);
+									listenedDerivations.TryAdd((network.NBitcoinNetwork, parsed), parsed);
+								}
+							}
+							else
+							{
+								listenAllDerivationSchemes = r.CryptoCode;
 							}
 							break;
 						default:

@@ -83,6 +83,26 @@ namespace NBXplorer
 			return _MessageListener.Send(new Models.NewBlockEventRequest() { CryptoCode = _Client.CryptoCode }, cancellation);
 		}
 
+		/// <summary>
+		/// Listen all derivation schemes
+		/// </summary>
+		/// <param name="allCryptoCodes">If true, all derivation schemes of all crypto code will get a notification (default: false)</param>
+		/// <param name="cancellation">Cancellation token</param>
+		public void ListenAllDerivationSchemes(bool allCryptoCodes = false, CancellationToken cancellation = default(CancellationToken))
+		{
+			ListenAllDerivationSchemesAsync(allCryptoCodes, cancellation).GetAwaiter().GetResult();
+		}
+
+		/// <summary>
+		/// Listen all derivation schemes
+		/// </summary>
+		/// <param name="allCryptoCodes">If true, all derivation schemes of all crypto code will get a notification (default: false)</param>
+		/// <param name="cancellation">Cancellation token</param>
+		public Task ListenAllDerivationSchemesAsync(bool allCryptoCodes = false, CancellationToken cancellation = default(CancellationToken))
+		{
+			return _MessageListener.Send(new Models.NewTransactionEventRequest() { CryptoCode = allCryptoCodes ? "*" : _Client.CryptoCode }, cancellation);
+		}
+
 		public void ListenDerivationSchemes(DerivationStrategyBase[] derivationSchemes, CancellationToken cancellation = default(CancellationToken))
 		{
 			ListenDerivationSchemesAsync(derivationSchemes, cancellation).GetAwaiter().GetResult();

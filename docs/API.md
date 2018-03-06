@@ -318,6 +318,28 @@ Then you will receive such notifications when a transaction is impacting the `de
 }
 ```
 
+If you want all transactions of all derivation schemes of BTC, send this to the WebSocket:
+
+```
+{
+  "type": "subscribetransaction",
+  "data": {
+    "cryptoCode": "BTC"
+  }
+}
+```
+
+If you want all transactions of all derivation schemes of all crypto currencies, send this to the WebSocket:
+
+```
+{
+  "type": "subscribetransaction",
+  "data": {
+    "cryptoCode": "*"
+  }
+}
+```
+
 ## Broadcast a transaction
 
 HTTP POST cryptos/{cryptoCode}/transactions
