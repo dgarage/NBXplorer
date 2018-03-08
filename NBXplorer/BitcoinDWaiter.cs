@@ -352,6 +352,8 @@ namespace NBXplorer
 			{
 				SaveChainInCache();
 			}
+			foreach(var block in _Chain.Tip.EnumerateToGenesis())
+				block.StripCachedData();
 			await LoadGroup();
 		}
 
