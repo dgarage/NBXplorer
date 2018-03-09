@@ -333,6 +333,7 @@ namespace NBXplorer
 		{
 			if(_Group != null)
 				return;
+			_Chain.SetTip(_Chain.Genesis);
 			if(_Configuration.CacheChain)
 				LoadChainFromCache();
 			var heightBefore = _Chain.Height;
