@@ -115,6 +115,7 @@ namespace NBXplorer
 				currentBlock = Chain.GetBlock(StartHeight) ?? pendingTip;
 
 			//Up to date
+			pendingTip.StripHeader();
 			if(pendingTip.HashBlock == currentBlock.HashBlock)
 				return;
 
