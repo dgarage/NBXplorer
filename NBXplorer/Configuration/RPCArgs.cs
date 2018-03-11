@@ -150,7 +150,9 @@ namespace NBXplorer.Configuration
 			}
 			catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
 			{
+#pragma warning disable CS0618 // Type or member is obsolete
 				var getInfo = await rpcClient.SendCommandAsync(RPCOperations.getinfo);
+#pragma warning restore CS0618 // Type or member is obsolete
 				return ((JObject)getInfo.Result)["version"].Value<int>();
 			}
 		}

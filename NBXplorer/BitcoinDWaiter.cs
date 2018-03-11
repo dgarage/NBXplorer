@@ -337,7 +337,7 @@ namespace NBXplorer
 			if(_Configuration.CacheChain)
 				LoadChainFromCache();
 			var heightBefore = _Chain.Height;
-			using(var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation))	
+			using(var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 			{
 				timeout.CancelAfter(TimeSpan.FromMinutes(15));
 				try
@@ -353,8 +353,6 @@ namespace NBXplorer
 			{
 				SaveChainInCache();
 			}
-			foreach(var block in _Chain.Tip.EnumerateToGenesis())
-				block.StripHeader();
 			await LoadGroup();
 		}
 
@@ -366,7 +364,6 @@ namespace NBXplorer
 			{
 				Services = NodeServices.Nothing,
 				IsRelay = true,
-				SkipPoWCheck = true,
 				TemplateBehaviors =
 				{
 					new AddressManagerBehavior(manager)
@@ -378,7 +375,8 @@ namespace NBXplorer
 					new ChainBehavior(_Chain)
 					{
 						CanRespondToGetHeaders = false,
-						SkipPoWCheck = true
+						SkipPoWCheck = true,
+						StripHeader = true
 					},
 					new PingPongBehavior()
 				}
@@ -430,13 +428,17 @@ namespace NBXplorer
 		private void SaveChainInCache()
 		{
 			var suffix = _Network.CryptoCode == "BTC" ? "" : _Network.CryptoCode;
-			var cachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain.dat");
-			var cachePathTemp = Path.Combine(_Configuration.DataDir, $"{suffix}chain.dat.temp");
+			var cachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain-stripped.dat");
+			var cachePathTemp = Path.Combine(_Configuration.DataDir, $"{suffix}chain-stripped.dat.temp");
 
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Saving chain to cache...");
 			using(var fs = new FileStream(cachePathTemp, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024))
 			{
-				_Chain.WriteTo(fs);
+				_Chain.WriteTo(fs, new ConcurrentChain.ChainSerializationFormat()
+				{
+					SerializeBlockHeader = false,
+					SerializePrecomputedBlockHash = true
+				});
 				fs.Flush();
 			}
 
@@ -455,7 +457,6 @@ namespace NBXplorer
 				UserAgent = userAgent,
 				ConnectCancellation = cancellation,
 				IsRelay = false
-
 			}))
 			{
 				using(var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
@@ -467,18 +468,25 @@ namespace NBXplorer
 				var loadChainTimeout = _Network.DefaultSettings.ChainType == ChainType.Regtest ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(15);
 				if(_Chain.Height < 5)
 					loadChainTimeout = TimeSpan.FromDays(7); // unlimited
+
+				var synchronizeOptions = new SynchronizeChainOptions()
+				{
+					SkipPoWCheck = true,
+					StripHeaders = true
+				};
+
 				try
 				{
 					using(var cts1 = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 					{
 						cts1.CancelAfter(loadChainTimeout);
-						node.SynchronizeChain(_Chain, cancellationToken: cts1.Token);
+						node.SynchronizeChain(_Chain, synchronizeOptions, cancellationToken: cts1.Token);
 					}
 				}
 				catch // Timeout happens with SynchronizeChain, if so, throw away the cached chain
 				{
 					_Chain.SetTip(_Chain.Genesis);
-					node.SynchronizeChain(_Chain, cancellationToken: cancellation);
+					node.SynchronizeChain(_Chain, synchronizeOptions, cancellationToken: cancellation);
 				}
 
 
@@ -501,12 +509,31 @@ namespace NBXplorer
 		private void LoadChainFromCache()
 		{
 			var suffix = _Network.CryptoCode == "BTC" ? "" : _Network.CryptoCode;
-			var cachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain.dat");
-			if(_Configuration.CacheChain && File.Exists(cachePath))
 			{
-				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
-				_Chain.Load(File.ReadAllBytes(cachePath));
-				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
+				var legacyCachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain.dat");
+				if(_Configuration.CacheChain && File.Exists(legacyCachePath))
+				{
+					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
+					_Chain.Load(File.ReadAllBytes(legacyCachePath));
+					File.Delete(legacyCachePath);
+					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
+					return;
+				}
+			}
+
+			{
+				var cachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain-stripped.dat");
+				if(_Configuration.CacheChain && File.Exists(cachePath))
+				{
+					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
+					_Chain.Load(File.ReadAllBytes(cachePath), new ConcurrentChain.ChainSerializationFormat()
+					{
+						SerializeBlockHeader = false,
+						SerializePrecomputedBlockHash = true
+					});
+					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
+					return;
+				}
 			}
 		}
 
