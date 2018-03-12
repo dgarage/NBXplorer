@@ -677,6 +677,7 @@ namespace NBXplorer.Tests
 				Assert.Null(result.UnconfirmedTransactions.Transactions[0].Height);
 				Assert.Equal(0, result.UnconfirmedTransactions.Transactions[0].Confirmations);
 				Assert.Equal(result.UnconfirmedTransactions.Transactions[0].Transaction.GetHash(), result.UnconfirmedTransactions.Transactions[0].TransactionId);
+				Assert.Equal(Money.Coins(1.0m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
 
 				tester.Client.IncludeTransaction = false;
 				result = tester.Client.GetTransactions(pubkey, new[] { Bookmark.Start }, new[] { Bookmark.Start }, new[] { Bookmark.Start });
@@ -706,6 +707,12 @@ namespace NBXplorer.Tests
 				Assert.Equal(txId, result.ConfirmedTransactions.Transactions[0].TransactionId);
 				Assert.Equal(timestampUnconf, result.ConfirmedTransactions.Transactions[0].Timestamp);
 				Assert.Equal(txId2, result.UnconfirmedTransactions.Transactions[0].TransactionId);
+
+				LockTestCoins(tester.RPC);
+				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0/0"));
+				var txId3 = tester.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(0.2m));
+				result = tester.Client.GetTransactions(pubkey, result);
+				Assert.Equal(Money.Coins(-0.8m),result.UnconfirmedTransactions.Transactions[0].BalanceChange);
 			}
 		}
 

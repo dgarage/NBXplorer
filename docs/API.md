@@ -79,32 +79,53 @@ Returns:
 
 ```
 {  
-   "height":101,
+   "height":104,
    "confirmedTransactions":{  
       "knownBookmark":null,
-      "bookmark":"cac706ff1568b4e4ffbb19beb8f850ab669eb05f",
+      "bookmark":"837d6552744fc387752303a0f49f52f831e58990",
       "transactions":[  
          {  
-            "blockHash":"2178abc9e2174fff049794c5b859a93fda80d70e8806fd9708e34172f8061130",
+            "blockHash":"618b5b095da1799022de895d06d7c037cfe42fa51f1ed6115e6ffe5765bffeb9",
             "confirmations":1,
             "height":104,
-            "transactionId":"3a5ff59e9767f06a49f468c6b5cfd95ce3d4b37d769538e4e64eddd370004ebd",
-            "transaction":"01000.....",
-            "timestamp":1519896741
+            "transactionId":"7511df56825e1165b30ba22f2e452f7cd2cd2fbfb10abe80bc2163d464bc014f",
+            "transaction":"02000....0000",
+            "outputs":[  
+               {  
+                  "keyPath":"0/0",
+                  "index":0,
+                  "value":100000000
+               }
+            ],
+            "inputs":[  
+
+            ],
+            "timestamp":1520845215,
+            "balanceChange":100000000
          }
       ]
    },
    "unconfirmedTransactions":{  
       "knownBookmark":null,
-      "bookmark":"75b136755ffd13ca5889ca739bf37357441052e1",
+      "bookmark":"130060cd08af228abb8e2e31bb80f109cceae42a",
       "transactions":[  
          {  
             "blockHash":null,
             "confirmations":0,
             "height":null,
-            "transactionId":"242e166811902be901e73c362730ec0291780d664378a09dff93e07020302a53",
-            "transaction":"01000.....",
-            "timestamp":1519896743
+            "transactionId":"c964484507dc1bf0142ae618023b12f2722fc654df791d34cf6b25d77904d3fa",
+            "transaction":"02000....0000",
+            "outputs":[  
+            ],
+            "inputs":[  
+              {  
+                  "keyPath":"0",
+                  "index":0,
+                  "value":-80000000
+               }
+            ],
+            "timestamp":1520845222,
+            "balanceChange":-80000000
          }
       ]
    },

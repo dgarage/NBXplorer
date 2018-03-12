@@ -12,6 +12,7 @@ namespace NBXplorer
 	public class BookmarkProcessor
 	{
 		byte[] _Buffer;
+		bool _FirstPush = true;
 		public BookmarkProcessor(BookmarkProcessor copied)
 		{
 			_Buffer = copied._Buffer.ToArray();
@@ -34,10 +35,14 @@ namespace NBXplorer
 			}
 		}
 
-		public void AddData(byte[] data)
+		public void PushNew()
 		{
 			_Hasher.Position = 0;
-			_Hasher.Write(_CurrentHash, 0, 20);
+			if(!_FirstPush)
+				_Hasher.Write(_CurrentHash, 0, 20);
+		}
+		public void AddData(byte[] data)
+		{
 			_Hasher.Write(data, 0, data.Length);
 		}
 
@@ -61,6 +66,7 @@ namespace NBXplorer
 		public void UpdateBookmark()
 		{
 			_CurrentHash = Hashes.RIPEMD160(_Buffer, _Buffer.Length);
+			_FirstPush = false;
 		}
 
 		internal void Clear()

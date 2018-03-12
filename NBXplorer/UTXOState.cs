@@ -134,6 +134,7 @@ namespace NBXplorer
 		private void AddEvent(UTXOEvent evt)
 		{
 			Events.Add(evt);
+			_BookmarkProcessor.PushNew();
 			_BookmarkProcessor.AddData(evt.TxId.ToBytes());
 			_BookmarkProcessor.AddData(evt.Outpoint);
 			_BookmarkProcessor.AddData(evt.Received);

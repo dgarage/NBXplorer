@@ -110,6 +110,18 @@ namespace NBXplorer
 			}
 		}
 
+		public TxOut GetUTXO(OutPoint outpoint)
+		{
+			if(_TxById.TryGetValue(outpoint.Hash, out var txs))
+			{
+				var tx = txs.First().Record.Transaction;
+				if(outpoint.N >= tx.Outputs.Count)
+					return null;
+				return tx.Outputs[outpoint.N];
+			}
+			return null;
+		}
+
 		Dictionary<Script, KeyPath> _KeyPaths = new Dictionary<Script, KeyPath>();
 		public KeyPath GetKeyPath(Script scriptPubkey)
 		{

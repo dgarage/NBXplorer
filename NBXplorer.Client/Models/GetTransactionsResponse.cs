@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -54,6 +55,21 @@ namespace NBXplorer.Models
 		}
 	}
 
+	public class TransactionInformationMatch
+	{
+		public KeyPath KeyPath
+		{
+			get; set;
+		}
+		public int Index
+		{
+			get; set;
+		}
+		public Money Value
+		{
+			get; set;
+		}
+	}
 	public class TransactionInformation
 	{
 		public uint256 BlockHash
@@ -76,7 +92,21 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
+		public List<TransactionInformationMatch> Outputs
+		{
+			get; set;
+		} = new List<TransactionInformationMatch>();
+
+		public List<TransactionInformationMatch> Inputs
+		{
+			get; set;
+		} = new List<TransactionInformationMatch>();
 		public DateTimeOffset Timestamp
+		{
+			get;
+			set;
+		}
+		public Money BalanceChange
 		{
 			get;
 			set;

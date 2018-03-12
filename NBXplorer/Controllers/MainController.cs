@@ -402,22 +402,29 @@ namespace NBXplorer.Controllers
 					item.TxSet.Bookmark = Bookmark.Start;
 					item.TxSet.KnownBookmark = item.KnownBookmarks.Contains(Bookmark.Start) ? Bookmark.Start : null;
 
+					BookmarkProcessor processor = new BookmarkProcessor(32 + 32 + 25);
 					foreach(var tx in item.AnnotatedTx.Values)
 					{
-						BookmarkProcessor processor = new BookmarkProcessor(32 + 32 + 25);
+						processor.PushNew();
 						processor.AddData(tx.Record.Transaction.GetHash());
 						processor.AddData(tx.Record.BlockHash ?? uint256.Zero);
 						processor.UpdateBookmark();
 
-						item.TxSet.Transactions.Add(new TransactionInformation()
+						var txInfo = new TransactionInformation()
 						{
 							BlockHash = tx.Record.BlockHash,
 							Height = tx.Record.BlockHash == null ? null : tx.Height,
 							TransactionId = tx.Record.Transaction.GetHash(),
 							Transaction = includeTransaction ? tx.Record.Transaction : null,
 							Confirmations = tx.Record.BlockHash == null ? 0 : currentHeight - tx.Height.Value + 1,
-							Timestamp = txs.GetByTxId(tx.Record.Transaction.GetHash()).Select(t => t.Record.FirstSeen).First()
-						});
+							Timestamp = txs.GetByTxId(tx.Record.Transaction.GetHash()).Select(t => t.Record.FirstSeen).First(),
+							Inputs = ToMatch(txs, tx.Record.Transaction.Inputs.Select(o => txs.GetUTXO(o.PrevOut)).ToList(), extPubKey, tx.Record.TransactionMatch.Inputs),
+							Outputs = ToMatch(txs, tx.Record.Transaction.Outputs, extPubKey, tx.Record.TransactionMatch.Outputs)
+						};
+
+						item.TxSet.Transactions.Add(txInfo);
+
+						txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).Sum() - txInfo.Inputs.Select(o => o.Value).Sum();
 
 						item.TxSet.Bookmark = processor.CurrentBookmark;
 						if(item.KnownBookmarks.Contains(processor.CurrentBookmark))
@@ -434,6 +441,25 @@ namespace NBXplorer.Controllers
 			}
 
 			return response;
+		}
+
+		List<TransactionInformationMatch> ToMatch(AnnotatedTransactionCollection txs,
+												 List<TxOut> outputs,
+												 DerivationStrategyBase derivation,
+												 Repository.TransactionMiniKeyInformation[] keyInformations)
+		{
+			var result = new List<TransactionInformationMatch>();
+			for(int i = 0; i < outputs.Count; i++)
+			{
+				if(outputs[i] == null)
+					continue;
+				var keyPath = txs.GetKeyPath(outputs[i].ScriptPubKey);
+				if(keyPath == null)
+					continue;
+
+				result.Add(new TransactionInformationMatch() { Index = i, KeyPath = keyPath, Value = outputs[i].Value });
+			}
+			return result;
 		}
 
 		[HttpGet]

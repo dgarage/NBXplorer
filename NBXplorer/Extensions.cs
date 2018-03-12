@@ -60,7 +60,7 @@ namespace NBXplorer
 			HashSet<Script> scripts = new HashSet<Script>();
 			foreach(var input in tx.Inputs)
 			{
-				var signer = input.ScriptSig.GetSigner() ?? input.WitScript.ToScript().GetSigner();
+				var signer = input.GetSigner();
 				if(signer != null)
 				{
 					inputScripts.Add(signer.ScriptPubKey);
