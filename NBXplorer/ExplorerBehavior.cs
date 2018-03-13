@@ -248,9 +248,10 @@ namespace NBXplorer
 				Match = m,
 			}).ToArray());
 			var saved = Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
+			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
 			for(int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], saved[i]));
+				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]));
 			}
 		}
 
