@@ -47,7 +47,7 @@ On Linux:
 Example, if you have ltc node and btc node on regtest (default configuration), and want to connect to them:
 
 ```
-dotnet run --no-build -c Release -- --chains=btc,ltc --network=regtest
+./run.sh --chains=btc,ltc --network=regtest
 ```
 
 ## With Docker
