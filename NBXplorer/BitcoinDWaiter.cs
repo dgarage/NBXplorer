@@ -452,57 +452,62 @@ namespace NBXplorer
 		{
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from node...");
 			var userAgent = "NBXplorer-" + RandomUtils.GetInt64();
-			using(var node = Node.Connect(_Network.NBitcoinNetwork, GetEndpoint(), new NodeConnectionParameters()
+			bool handshaked = false;
+			using(var handshakeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 			{
-				UserAgent = userAgent,
-				ConnectCancellation = cancellation,
-				IsRelay = false
-			}))
-			{
-				using(var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
-				{
-					cts.CancelAfter(TimeSpan.FromSeconds(5));
-					node.VersionHandshake(cts.Token);
-				}
-
-				var loadChainTimeout = _Network.DefaultSettings.ChainType == ChainType.Regtest ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(15);
-				if(_Chain.Height < 5)
-					loadChainTimeout = TimeSpan.FromDays(7); // unlimited
-
-				var synchronizeOptions = new SynchronizeChainOptions()
-				{
-					SkipPoWCheck = true,
-					StripHeaders = true
-				};
-
 				try
 				{
-					using(var cts1 = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
+					handshakeTimeout.CancelAfter(TimeSpan.FromSeconds(10));
+					using(var node = Node.Connect(_Network.NBitcoinNetwork, GetEndpoint(), new NodeConnectionParameters()
 					{
-						cts1.CancelAfter(loadChainTimeout);
-						node.SynchronizeChain(_Chain, synchronizeOptions, cancellationToken: cts1.Token);
+						UserAgent = userAgent,
+						ConnectCancellation = handshakeTimeout.Token,
+						IsRelay = false
+					}))
+					{
+						node.VersionHandshake(handshakeTimeout.Token);
+						handshaked = true;
+						var loadChainTimeout = _Network.DefaultSettings.ChainType == ChainType.Regtest ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(15);
+						if(_Chain.Height < 5)
+							loadChainTimeout = TimeSpan.FromDays(7); // unlimited
+
+						var synchronizeOptions = new SynchronizeChainOptions()
+						{
+							SkipPoWCheck = true,
+							StripHeaders = true
+						};
+
+						try
+						{
+							using(var cts1 = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
+							{
+								cts1.CancelAfter(loadChainTimeout);
+								node.SynchronizeChain(_Chain, synchronizeOptions, cancellationToken: cts1.Token);
+							}
+						}
+						catch // Timeout happens with SynchronizeChain, if so, throw away the cached chain
+						{
+							_Chain.SetTip(_Chain.Genesis);
+							node.SynchronizeChain(_Chain, synchronizeOptions, cancellationToken: cancellation);
+						}
+
+
+						var peer = (await _RPC.GetPeersInfoAsync())
+									.FirstOrDefault(p => p.SubVersion == userAgent);
+						if(peer != null && !peer.IsWhiteListed)
+						{
+							Logs.Explorer.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
+								$" you should add \"whitelist={peer.Address.Address}\" to the configuration file of your node. (Or use whitebind)");
+						}
 					}
 				}
-				catch // Timeout happens with SynchronizeChain, if so, throw away the cached chain
+				catch(OperationCanceledException) when(!handshaked && handshakeTimeout.IsCancellationRequested)
 				{
-					_Chain.SetTip(_Chain.Genesis);
-					node.SynchronizeChain(_Chain, synchronizeOptions, cancellationToken: cancellation);
+					Logs.Explorer.LogWarning($"{Network.CryptoCode}: The initial hanshake failed, your NBXplorer server might not be whitelisted by your node," +
+							$" if your bitcoin node is on the same machine as NBXplorer, you should add \"whitelist=127.0.0.1\" to the configuration file of your node. (Or use whitebind)");
+					throw;
 				}
-
-
-				var peer = (await _RPC.GetPeersInfoAsync())
-							.FirstOrDefault(p => p.SubVersion == userAgent);
-				if(peer != null && !peer.IsWhiteListed)
-				{
-					Logs.Explorer.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
-						$" your should add \"whitelist={peer.Address.Address}\" to the configuration file of your node. (Or use whitebind)");
-				}
-
-
-				//var peers = _RPC.GetPeersInfo().FirstOrDefault(p => p.u;
-				//nodes.FirstOrDefault(n => n.)
 			}
-
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
 		}
 
