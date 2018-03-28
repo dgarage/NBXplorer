@@ -37,55 +37,52 @@ namespace NBXplorer.Altcoins.Dogecoin
 
 		private static object RegisterLazy()
 		{
-			var port = 9333;
 			NetworkBuilder builder = new NetworkBuilder();
 			_Mainnet = builder.SetConsensus(new Consensus()
 			{
-				SubsidyHalvingInterval = 840000,
-				MajorityEnforceBlockUpgrade = 750,
-				MajorityRejectBlockOutdated = 950,
-				MajorityWindow = 1000,
-				BIP34Hash = new uint256("fa09d204a83a768ed5a7c8d441fa62f2043abf420cff1226c7b4329aeb9d51cf"),
+				SubsidyHalvingInterval = 100000,
+				MajorityEnforceBlockUpgrade = 1500,
+				MajorityRejectBlockOutdated = 1900,
+				MajorityWindow = 2000,
 				PowLimit = new Target(new uint256("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")),
-				PowTargetTimespan = TimeSpan.FromSeconds(3.5 * 24 * 60 * 60),
-				PowTargetSpacing = TimeSpan.FromSeconds(2.5 * 60),
+				PowTargetTimespan = TimeSpan.FromSeconds(4 * 60 * 60),
+				PowTargetSpacing = TimeSpan.FromSeconds(60),
 				PowAllowMinDifficultyBlocks = false,
-				PowNoRetargeting = false,
-				RuleChangeActivationThreshold = 6048,
-				MinerConfirmationWindow = 8064,
-				CoinbaseMaturity = 100,
-				HashGenesisBlock = new uint256("12a765e31ffd4059bada1e25190f6e98c99d9714d334efa41a195a7e7e04bfe2"),
+				CoinbaseMaturity = 30,
+				//
+				PowNoRetargeting = false, // Not set in reference client, assuming false
+				//RuleChangeActivationThreshold = 6048,
+				//MinerConfirmationWindow = 8064,
+				HashGenesisBlock = new uint256("1a91e3dace36e2be3bf030a65679fe821aa1d6ef92e7c9902eb318182c355691"),
 				GetPoWHash = GetPoWHash,
-				LitecoinWorkCalculation = true
+				LitecoinWorkCalculation = true,
 			})
-			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 48 })
-			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 50 })
-			.SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 176 })
-			.SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x04, 0x88, 0xB2, 0x1E })
-			.SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x04, 0x88, 0xAD, 0xE4 })
-			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("ltc"))
-			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("ltc"))
-			.SetMagic(0xdbb6c0fb)
-			.SetPort(port)
-			.SetRPCPort(9332)
-			.SetName("ltc-main")
-			.AddAlias("ltc-mainnet")
-			.AddAlias("litecoin-mainnet")
-			.AddAlias("litecoin-main")
+			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 30 })
+			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 22 })
+			.SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 158 })
+			.SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x02, 0xFA, 0xCA, 0xFD })
+			.SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x02, 0xFA, 0xC3, 0x98 })
+			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("doge"))
+			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("doge"))
+			.SetMagic(0xc0c0c0c0)
+			.SetPort(22556)
+			.SetRPCPort(22555)
+			.SetName("doge-main")
+			.AddAlias("doge-mainnet")
+			.AddAlias("dogecoin-mainnet")
+			.AddAlias("dogecoin-main")
 			.AddDNSSeeds(new[]
 			{
-				new DNSSeedData("loshan.co.uk", "seed-a.litecoin.loshan.co.uk"),
-				new DNSSeedData("thrasher.io", "dnsseed.thrasher.io"),
-				new DNSSeedData("litecointools.com", "dnsseed.litecointools.com"),
-				new DNSSeedData("litecoinpool.org", "dnsseed.litecoinpool.org"),
-				new DNSSeedData("koin-project.com", "dnsseed.koin-project.com"),
+				new DNSSeedData("dogecoin.com", "seed.dogecoin.com"),
+				new DNSSeedData("multidoge.org", "seed.multidoge.org"),
+				new DNSSeedData("multidoge.org", "seed.multidoge.org"),
+				new DNSSeedData("doger.dogecoin.com", "seed.doger.dogecoin.com")
 			})
 			.AddSeeds(new NetworkAddress[0])
-			.SetGenesis(new Block(Encoders.Hex.DecodeData("010000000000000000000000000000000000000000000000000000000000000000000000d9ced4ed1130f7b7faad9be25323ffafa33232a17c3edf6cfd97bee6bafbdd97b9aa8e4ef0ff0f1ecd513f7c0101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4804ffff001d0104404e592054696d65732030352f4f63742f32303131205374657665204a6f62732c204170706c65e280997320566973696f6e6172792c2044696573206174203536ffffffff0100f2052a010000004341040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9ac00000000")))
+			.SetGenesis(new Block(Encoders.Hex.DecodeData("NEED TO OBTAIN IT")))
 			.BuildAndRegister();
 
 			builder = new NetworkBuilder();
-			port = 19335;
 			_Testnet = builder.SetConsensus(new Consensus()
 			{
 				SubsidyHalvingInterval = 840000,
@@ -112,7 +109,7 @@ namespace NBXplorer.Altcoins.Dogecoin
 			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("tltc"))
 			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tltc"))
 			.SetMagic(0xf1c8d2fd)
-			.SetPort(port)
+			.SetPort(19335)
 			.SetRPCPort(19332)
 			.SetName("ltc-test")
 			.AddAlias("ltc-testnet")
@@ -129,7 +126,6 @@ namespace NBXplorer.Altcoins.Dogecoin
 			.BuildAndRegister();
 
 			builder = new NetworkBuilder();
-			port = 19444;
 			_Regtest = builder.SetConsensus(new Consensus()
 			{
 				SubsidyHalvingInterval = 150,
@@ -157,7 +153,7 @@ namespace NBXplorer.Altcoins.Dogecoin
 			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("tltc"))
 			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tltc"))
 			.SetMagic(0xdab5bffa)
-			.SetPort(port)
+			.SetPort(19444)
 			.SetRPCPort(19332)
 			.SetName("ltc-reg")
 			.AddAlias("ltc-regtest")
