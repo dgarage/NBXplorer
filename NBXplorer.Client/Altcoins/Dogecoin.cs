@@ -44,56 +44,6 @@ namespace NBXplorer.Altcoins.Dogecoin
 			return new object();
 		}
 
-		private static Network registerTestNet()
-		{
-			var builder = new NetworkBuilder();
-			var res = builder.SetConsensus(new Consensus()
-			{
-				SubsidyHalvingInterval = 840000,
-				MajorityEnforceBlockUpgrade = 51,
-				MajorityRejectBlockOutdated = 75,
-				MajorityWindow = 1000,
-				PowLimit = new Target(new uint256("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")),
-				PowTargetTimespan = TimeSpan.FromSeconds(3.5 * 24 * 60 * 60),
-				PowTargetSpacing = TimeSpan.FromSeconds(2.5 * 60),
-				PowAllowMinDifficultyBlocks = true,
-				PowNoRetargeting = false,
-				RuleChangeActivationThreshold = 1512,
-				MinerConfirmationWindow = 2016,
-				CoinbaseMaturity = 100,
-				HashGenesisBlock = new uint256("4966625a4b2851d9fdee139e56211a0d88575f59ed816ff5e6a63deb4e3e29a0"),
-				GetPoWHash = GetPoWHash,
-				LitecoinWorkCalculation = true
-			})
-		   .SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 111 })
-		   .SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 58 })
-		   .SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 239 })
-		   .SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x04, 0x35, 0x87, 0xCF })
-		   .SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x04, 0x35, 0x83, 0x94 })
-		   .SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("tltc"))
-		   .SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tltc"))
-		   .SetMagic(0xf1c8d2fd)
-		   .SetPort(19335)
-		   .SetRPCPort(19332)
-		   .SetName("ltc-test")
-		   .AddAlias("ltc-testnet")
-		   .AddAlias("litecoin-test")
-		   .AddAlias("litecoin-testnet")
-		   .AddDNSSeeds(new[]
-		   {
-				new DNSSeedData("litecointools.com", "testnet-seed.litecointools.com"),
-				new DNSSeedData("loshan.co.uk", "seed-b.litecoin.loshan.co.uk"),
-				new DNSSeedData("thrasher.io", "dnsseed-testnet.thrasher.io"),
-		   })
-		   .AddSeeds(new NetworkAddress[0])
-		   .SetGenesis(new Block(Encoders.Hex.DecodeData("010000000000000000000000000000000000000000000000000000000000000000000000d9ced4ed1130f7b7faad9be25323ffafa33232a17c3edf6cfd97bee6bafbdd97f60ba158f0ff0f1ee17904000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4804ffff001d0104404e592054696d65732030352f4f63742f32303131205374657665204a6f62732c204170706c65e280997320566973696f6e6172792c2044696573206174203536ffffffff0100f2052a010000004341040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9ac00000000")))
-		   .BuildAndRegister();
-
-			registerDefaultCookiePath(_Testnet, "testnet4", ".cookie");
-
-			return res;
-		}
-
 		private static Network registerMainNet()
 		{
 			var builder = new NetworkBuilder();
@@ -138,7 +88,7 @@ namespace NBXplorer.Altcoins.Dogecoin
 				new DNSSeedData("doger.dogecoin.com", "seed.doger.dogecoin.com")
 			})
 			.AddSeeds(new NetworkAddress[0])
-			.SetGenesis(new Block(Encoders.Hex.DecodeData("NEED TO OBTAIN IT")))
+			.SetGenesis(new Block(Encoders.Hex.DecodeData("010000000000000000000000000000000000000000000000000000000000000000000000696ad20e2dd4365c7459b4a4a5af743d5e92c6da3229e6532cd605f6533f2a5b24a6a152f0ff0f1e678601000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff1004ffff001d0104084e696e746f6e646fffffffff010058850c020000004341040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9ac00000000")))
 			.BuildAndRegister();
 
 			registerDefaultCookiePath(res, ".cookie");
@@ -166,6 +116,56 @@ namespace NBXplorer.Altcoins.Dogecoin
 				var fullPath = Path.Combine(pathList.ToArray());
 				RPCClient.RegisterDefaultCookiePath(network, fullPath);
 			}
+		}
+
+		private static Network registerTestNet()
+		{
+			var builder = new NetworkBuilder();
+			var res = builder.SetConsensus(new Consensus()
+			{
+				SubsidyHalvingInterval = 840000,
+				MajorityEnforceBlockUpgrade = 51,
+				MajorityRejectBlockOutdated = 75,
+				MajorityWindow = 1000,
+				PowLimit = new Target(new uint256("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")),
+				PowTargetTimespan = TimeSpan.FromSeconds(3.5 * 24 * 60 * 60),
+				PowTargetSpacing = TimeSpan.FromSeconds(2.5 * 60),
+				PowAllowMinDifficultyBlocks = true,
+				PowNoRetargeting = false,
+				RuleChangeActivationThreshold = 1512,
+				MinerConfirmationWindow = 2016,
+				CoinbaseMaturity = 100,
+				HashGenesisBlock = new uint256("4966625a4b2851d9fdee139e56211a0d88575f59ed816ff5e6a63deb4e3e29a0"),
+				GetPoWHash = GetPoWHash,
+				LitecoinWorkCalculation = true
+			})
+		   .SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 111 })
+		   .SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 58 })
+		   .SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 239 })
+		   .SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x04, 0x35, 0x87, 0xCF })
+		   .SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x04, 0x35, 0x83, 0x94 })
+		   .SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("tltc"))
+		   .SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tltc"))
+		   .SetMagic(0xf1c8d2fd)
+		   .SetPort(19335)
+		   .SetRPCPort(19332)
+		   .SetName("ltc-test")
+		   .AddAlias("ltc-testnet")
+		   .AddAlias("litecoin-test")
+		   .AddAlias("litecoin-testnet")
+		   .AddDNSSeeds(new[]
+		   {
+				new DNSSeedData("litecointools.com", "testnet-seed.litecointools.com"),
+				new DNSSeedData("loshan.co.uk", "seed-b.litecoin.loshan.co.uk"),
+				new DNSSeedData("thrasher.io", "dnsseed-testnet.thrasher.io"),
+		   })
+		   .AddSeeds(new NetworkAddress[0])
+		   .SetGenesis(new Block(Encoders.Hex.DecodeData("010000000000000000000000000000000000000000000000000000000000000000000000696ad20e2dd4365c7459b4a4a5af743d5e92c6da3229e6532cd605f6533f2a5b24a6a152f0ff0f1e678601000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff1004ffff001d0104084e696e746f6e646fffffffff010058850c020000004341040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9ac00000000")))
+		   .BuildAndRegister();
+
+			registerDefaultCookiePath(_Testnet, "testnet3", ".cookie");
+
+			return res;
 		}
 
 		private static Network registerRegtest()
@@ -204,7 +204,7 @@ namespace NBXplorer.Altcoins.Dogecoin
 			.AddAlias("ltc-regtest")
 			.AddAlias("litecoin-reg")
 			.AddAlias("litecoin-regtest")
-			.SetGenesis(new Block(Encoders.Hex.DecodeData("010000000000000000000000000000000000000000000000000000000000000000000000d9ced4ed1130f7b7faad9be25323ffafa33232a17c3edf6cfd97bee6bafbdd97dae5494dffff7f20000000000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4804ffff001d0104404e592054696d65732030352f4f63742f32303131205374657665204a6f62732c204170706c65e280997320566973696f6e6172792c2044696573206174203536ffffffff0100f2052a010000004341040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9ac00000000")))
+			.SetGenesis(new Block(Encoders.Hex.DecodeData("010000000000000000000000000000000000000000000000000000000000000000000000696ad20e2dd4365c7459b4a4a5af743d5e92c6da3229e6532cd605f6533f2a5b24a6a152f0ff0f1e678601000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff1004ffff001d0104084e696e746f6e646fffffffff010058850c020000004341040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9ac00000000")))
 			.BuildAndRegister();
 
 			registerDefaultCookiePath(res, "regtest", ".cookie");
