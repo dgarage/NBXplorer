@@ -58,10 +58,10 @@ namespace NBXplorer.Altcoins.Dogecoin
 				PowTargetSpacing = TimeSpan.FromSeconds(60),
 				PowAllowMinDifficultyBlocks = false,
 				CoinbaseMaturity = 30,
-				//
-				PowNoRetargeting = false, // Not set in reference client, assuming false
-										  //RuleChangeActivationThreshold = 6048,
-										  //MinerConfirmationWindow = 8064,
+				//  Not set in reference client, assuming false
+				PowNoRetargeting = false,
+				//RuleChangeActivationThreshold = 6048,
+				//MinerConfirmationWindow = 8064,
 				HashGenesisBlock = new uint256("1a91e3dace36e2be3bf030a65679fe821aa1d6ef92e7c9902eb318182c355691"),
 				GetPoWHash = GetPoWHash,
 				LitecoinWorkCalculation = true,
@@ -174,36 +174,38 @@ namespace NBXplorer.Altcoins.Dogecoin
 			var res = builder.SetConsensus(new Consensus()
 			{
 				SubsidyHalvingInterval = 150,
-				MajorityEnforceBlockUpgrade = 51,
-				MajorityRejectBlockOutdated = 75,
-				MajorityWindow = 144,
-				PowLimit = new Target(new uint256("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")),
-				PowTargetTimespan = TimeSpan.FromSeconds(3.5 * 24 * 60 * 60),
-				PowTargetSpacing = TimeSpan.FromSeconds(2.5 * 60),
-				PowAllowMinDifficultyBlocks = true,
-				MinimumChainWork = uint256.Zero,
-				PowNoRetargeting = true,
-				RuleChangeActivationThreshold = 108,
-				MinerConfirmationWindow = 2016,
-				CoinbaseMaturity = 100,
-				HashGenesisBlock = new uint256("f5ae71e26c74beacc88382716aced69cddf3dffff24f384e1808905e0188f68f"),
+				MajorityEnforceBlockUpgrade = 750,
+				MajorityRejectBlockOutdated = 950,
+				MajorityWindow = 1000,
+				PowLimit = new Target(new uint256("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")),
+				PowTargetTimespan = TimeSpan.FromSeconds(4 * 60 * 60),
+				PowTargetSpacing = TimeSpan.FromSeconds(1),
+				PowAllowMinDifficultyBlocks = false,
+				CoinbaseMaturity = 60,
+				//  Not set in reference client, assuming false
+				PowNoRetargeting = false,
+				//RuleChangeActivationThreshold = 6048,
+				//MinerConfirmationWindow = 8064,
+				HashGenesisBlock = new uint256("3d2160a3b5dc4a9d62e7e66a295f70313ac808440ef7400d6c0772171ce973a5"),
 				GetPoWHash = GetPoWHash,
-				LitecoinWorkCalculation = true
+				LitecoinWorkCalculation = true,
 			})
-			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 111 })
-			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 58 })
-			.SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 239 })
-			.SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x04, 0x35, 0x87, 0xCF })
-			.SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x04, 0x35, 0x83, 0x94 })
-			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("tltc"))
-			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tltc"))
+			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 30 })
+			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 22 })
+			.SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 158 })
+			.SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x02, 0xFA, 0xCA, 0xFD })
+			.SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x02, 0xFA, 0xC3, 0x98 })
+			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("tdoge"))
+			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tdoge"))
 			.SetMagic(0xdab5bffa)
-			.SetPort(19444)
-			.SetRPCPort(19332)
-			.SetName("ltc-reg")
-			.AddAlias("ltc-regtest")
-			.AddAlias("litecoin-reg")
-			.AddAlias("litecoin-regtest")
+			.SetPort(18444)
+			.SetRPCPort(18443) // not sure, seems like it's dynamic
+			.SetName("doge-reg")
+			.AddAlias("doge-regtest")
+			.AddAlias("dogecoin-regtest")
+			.AddAlias("dogecoin-reg")
+			.AddDNSSeeds(new DNSSeedData[0])
+			.AddSeeds(new NetworkAddress[0])
 			.SetGenesis(new Block(Encoders.Hex.DecodeData("010000000000000000000000000000000000000000000000000000000000000000000000696ad20e2dd4365c7459b4a4a5af743d5e92c6da3229e6532cd605f6533f2a5b24a6a152f0ff0f1e678601000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff1004ffff001d0104084e696e746f6e646fffffffff010058850c020000004341040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9ac00000000")))
 			.BuildAndRegister();
 
