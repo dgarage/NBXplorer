@@ -123,41 +123,41 @@ namespace NBXplorer.Altcoins.Dogecoin
 			var builder = new NetworkBuilder();
 			var res = builder.SetConsensus(new Consensus()
 			{
-				SubsidyHalvingInterval = 840000,
-				MajorityEnforceBlockUpgrade = 51,
-				MajorityRejectBlockOutdated = 75,
+				SubsidyHalvingInterval = 100000,
+				MajorityEnforceBlockUpgrade = 501,
+				MajorityRejectBlockOutdated = 750,
 				MajorityWindow = 1000,
 				PowLimit = new Target(new uint256("00000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")),
-				PowTargetTimespan = TimeSpan.FromSeconds(3.5 * 24 * 60 * 60),
-				PowTargetSpacing = TimeSpan.FromSeconds(2.5 * 60),
+				// pre-post-digishield https://github.com/dogecoin/dogecoin/blob/10a5e93a055ab5f239c5447a5fe05283af09e293/src/chainparams.cpp#L45
+				PowTargetTimespan = TimeSpan.FromSeconds(60),
+				PowTargetSpacing = TimeSpan.FromSeconds(60),
 				PowAllowMinDifficultyBlocks = true,
+				CoinbaseMaturity = 240,
+				//  Not set in reference client, assuming false
 				PowNoRetargeting = false,
-				RuleChangeActivationThreshold = 1512,
-				MinerConfirmationWindow = 2016,
-				CoinbaseMaturity = 100,
-				HashGenesisBlock = new uint256("bb0a78264637406b6360aad926284d544d7049f45189db5664f3c4d07350559e"),
+				//RuleChangeActivationThreshold = 6048,
+				//MinerConfirmationWindow = 8064,
+				HashGenesisBlock = new uint256("1a91e3dace36e2be3bf030a65679fe821aa1d6ef92e7c9902eb318182c355691"),
 				GetPoWHash = GetPoWHash,
-				LitecoinWorkCalculation = true
+				LitecoinWorkCalculation = true,
 			})
-		   .SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 111 })
-		   .SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 58 })
-		   .SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 239 })
-		   .SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x04, 0x35, 0x87, 0xCF })
-		   .SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x04, 0x35, 0x83, 0x94 })
-		   .SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("tltc"))
-		   .SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tltc"))
-		   .SetMagic(0xf1c8d2fd)
-		   .SetPort(19335)
-		   .SetRPCPort(19332)
-		   .SetName("ltc-test")
-		   .AddAlias("ltc-testnet")
-		   .AddAlias("litecoin-test")
-		   .AddAlias("litecoin-testnet")
+			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 113 })
+			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 196 })
+			.SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 241 })
+			.SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x04, 0x35, 0x87, 0xCF })
+			.SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x04, 0x35, 0x83, 0x94 })
+			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("tdoge"))
+			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tdoge"))
+			.SetMagic(0xdcb7c1fc)
+			.SetPort(44556)
+			.SetRPCPort(22555)
+		   .SetName("doge-test")
+		   .AddAlias("doge-testnet")
+		   .AddAlias("dogecoin-test")
+		   .AddAlias("dogecoin-testnet")
 		   .AddDNSSeeds(new[]
 		   {
-				new DNSSeedData("litecointools.com", "testnet-seed.litecointools.com"),
-				new DNSSeedData("loshan.co.uk", "seed-b.litecoin.loshan.co.uk"),
-				new DNSSeedData("thrasher.io", "dnsseed-testnet.thrasher.io"),
+				new DNSSeedData("jrn.me.uk", "testseed.jrn.me.uk")
 		   })
 		   .AddSeeds(new NetworkAddress[0])
 		   .SetGenesis(new Block(Encoders.Hex.DecodeData("010000000000000000000000000000000000000000000000000000000000000000000000696ad20e2dd4365c7459b4a4a5af743d5e92c6da3229e6532cd605f6533f2a5bb9a7f052f0ff0f1ef7390f000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff1004ffff001d0104084e696e746f6e646fffffffff010058850c020000004341040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9ac00000000")))
@@ -199,7 +199,7 @@ namespace NBXplorer.Altcoins.Dogecoin
 			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tdoge"))
 			.SetMagic(0xdab5bffa)
 			.SetPort(18444)
-			.SetRPCPort(18443) // not sure, seems like it's dynamic
+			.SetRPCPort(22555) // not sure, seems like it's dynamic
 			.SetName("doge-reg")
 			.AddAlias("doge-regtest")
 			.AddAlias("dogecoin-regtest")
