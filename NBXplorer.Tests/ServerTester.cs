@@ -48,56 +48,11 @@ namespace NBXplorer.Tests
 		}
 
 		NodeDownloadData nodeDownloadData;
-		NodeDownloadData litecoinDownloadData = new NodeDownloadData()
-		{
-			Version = "0.14.2",
-			Windows = new NodeOSDownloadData()
-			{
-				DownloadLink = "https://download.litecoin.org/litecoin-{0}/win/litecoin-{0}-win64.zip",
-				Archive = "litecoin-{0}-win32.zip",
-				Executable = "litecoin-{0}/bin/litecoind.exe"
-			},
-			Linux = new NodeOSDownloadData()
-			{
-				DownloadLink = "https://download.litecoin.org/litecoin-{0}/linux/litecoin-{0}-x86_64-linux-gnu.tar.gz",
-				Archive = "litecoin-{0}-x86_64-linux-gnu.tar.gz",
-				Executable = "litecoin-{0}/bin/litecoind"
-			},
-			Mac = new NodeOSDownloadData()
-			{
-				DownloadLink = "https://download.litecoin.org/litecoin-{0}/osx/litecoin-{0}-osx64.tar.gz",
-				Archive = "litecoin-{0}-osx64.tar.gz",
-				Executable = "litecoin-{0}/bin/litecoind"
-			}
-		};
-
-		NodeDownloadData bitcoinDownloadData = new NodeDownloadData()
-		{
-			Version = "0.16.0",
-			Linux = new NodeOSDownloadData()
-			{
-				Archive = "bitcoin-{0}-x86_64-linux-gnu.tar.gz",
-				DownloadLink = "https://bitcoin.org/bin/bitcoin-core-{0}/bitcoin-{0}-x86_64-linux-gnu.tar.gz",
-				Executable = "bitcoin-{0}/bin/bitcoind"
-			},
-			Mac = new NodeOSDownloadData()
-			{
-				Archive = "bitcoin-{0}-osx64.tar.gz",
-				DownloadLink = "https://bitcoin.org/bin/bitcoin-core-{0}/bitcoin-{0}-osx64.tar.gz",
-				Executable = "bitcoin-{0}/bin/bitcoind"
-			},
-			Windows = new NodeOSDownloadData()
-			{
-				Executable = "bitcoin-{0}/bin/bitcoind.exe",
-				DownloadLink = "https://bitcoin.org/bin/bitcoin-core-{0}/bitcoin-{0}-win32.zip",
-				Archive = "bitcoin-{0}-win32.zip"
-			}
-		};
 
 		public ServerTester(string directory)
 		{
-			nodeDownloadData = bitcoinDownloadData;
-			var networkString = "regtest";
+			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
+			string cryptoCode = "BTC";
 			try
 			{
 				var rootTestData = "TestData";
@@ -130,7 +85,7 @@ namespace NBXplorer.Tests
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
 				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
 				keyValues.Add(("datadir", datadir));
-				keyValues.Add(("network", networkString));
+				keyValues.Add(("network", "regtest"));
 				keyValues.Add(("verbose", "1"));
 				keyValues.Add(("btcrpcuser", creds.UserName));
 				keyValues.Add(("btcrpcpassword", creds.Password));
@@ -157,7 +112,6 @@ namespace NBXplorer.Tests
 					.UseStartup<Startup>()
 					.Build();
 
-				string cryptoCode = "BTC";
 				RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(cryptoCode);
 				var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(cryptoCode);
 				Network = nbxnetwork.NBitcoinNetwork;
