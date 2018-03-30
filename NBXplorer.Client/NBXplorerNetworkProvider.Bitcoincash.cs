@@ -6,16 +6,16 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitBitcoincash(ChainType chainType)
+		private void InitBCash(ChainType chainType)
 		{
-			NBXplorer.Altcoins.Bitcoincash.Networks.EnsureRegistered();
+			NBXplorer.Altcoins.BCash.Networks.EnsureRegistered();
 			Add(new NBXplorerNetwork()
 			{
 				CryptoCode = "BCH",
 				MinRPCVersion = 140200,
-				NBitcoinNetwork = chainType == ChainType.Main ? NBXplorer.Altcoins.Bitcoincash.Networks.Mainnet:
-								  chainType == ChainType.Test ? NBXplorer.Altcoins.Bitcoincash.Networks.Testnet :
-								  chainType == ChainType.Regtest ? NBXplorer.Altcoins.Bitcoincash.Networks.Regtest : throw new NotSupportedException(chainType.ToString()),
+				NBitcoinNetwork = chainType == ChainType.Main ? NBXplorer.Altcoins.BCash.Networks.Mainnet:
+								  chainType == ChainType.Test ? NBXplorer.Altcoins.BCash.Networks.Testnet :
+								  chainType == ChainType.Regtest ? NBXplorer.Altcoins.BCash.Networks.Regtest : throw new NotSupportedException(chainType.ToString()),
 				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType)
 			});
 		}
