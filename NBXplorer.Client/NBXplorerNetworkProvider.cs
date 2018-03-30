@@ -10,6 +10,8 @@ namespace NBXplorer
 		{
 			InitBitcoin(chainType);
 			InitLitecoin(chainType);
+			InitBitcoincash(chainType);
+
 			ChainType = chainType;
 			foreach(var chain in _Networks.Values)
 			{
