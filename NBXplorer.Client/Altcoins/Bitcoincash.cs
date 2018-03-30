@@ -190,8 +190,10 @@ namespace NBXplorer.Altcoins.Bitcoincash
 				MinimumChainWork = new uint256("0000000000000000000000000000000000000000007e5dbf54c7f6b58a6853cd"),
 				GetPoWHash = GetPoWHash,								
 			})
-			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 0 }) 
-			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 5 }) 
+			// See https://support.bitpay.com/hc/en-us/articles/115004671663-BitPay-s-Adopted-Conventions-for-Bitcoin-Cash-Addresses-URIs-and-Payment-Requests
+			// Note: This is not compatible with Bitcoin ABC
+			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 28 }) 
+			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 40 }) 
 			.SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 128 }) 
 			.SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x04, 0x88, 0xB2, 0x1E }) 
 			.SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x04, 0x88, 0xAD, 0xE4 }) 
