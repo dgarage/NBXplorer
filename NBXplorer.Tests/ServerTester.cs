@@ -49,10 +49,14 @@ namespace NBXplorer.Tests
 
 		NodeDownloadData nodeDownloadData;
 
+		public string CryptoCode
+		{
+			get; set;
+		} = "BTC";
+
 		public ServerTester(string directory)
 		{
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
-			string cryptoCode = "BTC";
 			try
 			{
 				var rootTestData = "TestData";
@@ -86,17 +90,17 @@ namespace NBXplorer.Tests
 				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
 				keyValues.Add(("datadir", datadir));
 				keyValues.Add(("network", "regtest"));
-				keyValues.Add(("chains", cryptoCode.ToLowerInvariant()));
+				keyValues.Add(("chains", CryptoCode.ToLowerInvariant()));
 				keyValues.Add(("verbose", "1"));
-				keyValues.Add(($"{cryptoCode.ToLowerInvariant()}rpcuser", creds.UserName));
-				keyValues.Add(($"{cryptoCode.ToLowerInvariant()}rpcpassword", creds.Password));
-				keyValues.Add(($"{cryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcuser", creds.UserName));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcpassword", creds.Password));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 				keyValues.Add(("cachechain", "0"));
 				keyValues.Add(("rpcnotest", "1"));
 				keyValues.Add(("mingapsize", "2"));
 				keyValues.Add(("maxgapsize", "4"));
-				keyValues.Add(($"{cryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
-				keyValues.Add(($"{cryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 
 				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
 				Host = new WebHostBuilder()
@@ -113,8 +117,8 @@ namespace NBXplorer.Tests
 					.UseStartup<Startup>()
 					.Build();
 
-				RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(cryptoCode);
-				var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(cryptoCode);
+				RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(CryptoCode);
+				var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
 				Network = nbxnetwork.NBitcoinNetwork;
 				var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 				Host.Start();
