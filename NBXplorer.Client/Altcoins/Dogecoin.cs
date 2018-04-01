@@ -37,14 +37,14 @@ namespace NBXplorer.Altcoins.Dogecoin
 
 		private static object RegisterLazy()
 		{
-			_Mainnet = registerMainNet();
-			_Testnet = registerTestNet();
-			_Regtest = registerRegtest();
+			_Mainnet = mainnetReg();
+			_Testnet = testnetReg();
+			_Regtest = regtestReg();
 
 			return new object();
 		}
 
-		private static Network registerMainNet()
+		private static Network mainnetReg()
 		{
 			var builder = new NetworkBuilder();
 			var res = builder.SetConsensus(new Consensus()
@@ -118,7 +118,7 @@ namespace NBXplorer.Altcoins.Dogecoin
 			}
 		}
 
-		private static Network registerTestNet()
+		private static Network testnetReg()
 		{
 			var builder = new NetworkBuilder();
 			var res = builder.SetConsensus(new Consensus()
@@ -163,12 +163,12 @@ namespace NBXplorer.Altcoins.Dogecoin
 		   .SetGenesis(new Block(Encoders.Hex.DecodeData("010000000000000000000000000000000000000000000000000000000000000000000000696ad20e2dd4365c7459b4a4a5af743d5e92c6da3229e6532cd605f6533f2a5bb9a7f052f0ff0f1ef7390f000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff1004ffff001d0104084e696e746f6e646fffffffff010058850c020000004341040184710fa689ad5023690c80f3a49c8f13f8d45b8c857fbcbc8bc4a8e4d3eb4b10f4d4604fa08dce601aaf0f470216fe1b51850b4acf21b179c45070ac7b03a9ac00000000")))
 		   .BuildAndRegister();
 
-			registerDefaultCookiePath(_Testnet, "testnet3", ".cookie");
+			registerDefaultCookiePath(res, "testnet3", ".cookie");
 
 			return res;
 		}
 
-		private static Network registerRegtest()
+		private static Network regtestReg()
 		{
 			var builder = new NetworkBuilder();
 			var res = builder.SetConsensus(new Consensus()
