@@ -12,7 +12,7 @@ namespace NBXplorer
 			Add(new NBXplorerNetwork()
 			{
 				CryptoCode = "POLIS",
-				MinRPCVersion = 102020,
+				MinRPCVersion = 1030000,
 				NBitcoinNetwork = chainType == ChainType.Main ? NBXplorer.Altcoins.Polis.Networks.Mainnet:
 								  chainType == ChainType.Test ? NBXplorer.Altcoins.Polis.Networks.Testnet :
 								  chainType == ChainType.Regtest ? NBXplorer.Altcoins.Polis.Networks.Regtest : throw new NotSupportedException(chainType.ToString()),
