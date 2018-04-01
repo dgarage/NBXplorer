@@ -190,16 +190,16 @@ namespace NBXplorer.Altcoins.Dogecoin
 				GetPoWHash = GetPoWHash,
 				LitecoinWorkCalculation = true,
 			})
-			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 30 })
-			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 22 })
-			.SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 158 })
-			.SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x02, 0xFA, 0xCA, 0xFD })
-			.SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x02, 0xFA, 0xC3, 0x98 })
+			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 113 })
+			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 196 })
+			.SetBase58Bytes(Base58Type.SECRET_KEY, new byte[] { 241 })
+			.SetBase58Bytes(Base58Type.EXT_PUBLIC_KEY, new byte[] { 0x04, 0x35, 0x87, 0xCF })
+			.SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x04, 0x35, 0x83, 0x94 })
 			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("tdoge"))
 			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("tdoge"))
 			.SetMagic(0xdab5bffa)
 			.SetPort(18444)
-			.SetRPCPort(22555) // not sure, seems like it's dynamic
+			.SetRPCPort(44555) // by default this is assigned dynamically, adding port I got for testing
 			.SetName("doge-reg")
 			.AddAlias("doge-regtest")
 			.AddAlias("dogecoin-regtest")
