@@ -11,7 +11,8 @@ namespace NBXplorer
 			InitBitcoin(chainType);
 			InitLitecoin(chainType);
 			InitBCash(chainType);
-
+      InitPolis(chainType);
+      
 			ChainType = chainType;
 			foreach(var chain in _Networks.Values)
 			{

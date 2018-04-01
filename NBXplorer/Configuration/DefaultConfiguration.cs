@@ -128,7 +128,7 @@ namespace NBXplorer.Configuration
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");
 			builder.AppendLine("## What crypto currencies is supported");
-			builder.AppendLine("#chains=btc,ltc");
+			builder.AppendLine("#chains=btc,ltc,polis");
 			builder.AppendLine("## Activate or disable verbose logs");
 			builder.AppendLine("#verbose=0");
 
