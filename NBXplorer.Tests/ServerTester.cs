@@ -48,56 +48,15 @@ namespace NBXplorer.Tests
 		}
 
 		NodeDownloadData nodeDownloadData;
-		NodeDownloadData litecoinDownloadData = new NodeDownloadData()
-		{
-			Version = "0.14.2",
-			Windows = new NodeOSDownloadData()
-			{
-				DownloadLink = "https://download.litecoin.org/litecoin-{0}/win/litecoin-{0}-win64.zip",
-				Archive = "litecoin-{0}-win32.zip",
-				Executable = "litecoin-{0}/bin/litecoind.exe"
-			},
-			Linux = new NodeOSDownloadData()
-			{
-				DownloadLink = "https://download.litecoin.org/litecoin-{0}/linux/litecoin-{0}-x86_64-linux-gnu.tar.gz",
-				Archive = "litecoin-{0}-x86_64-linux-gnu.tar.gz",
-				Executable = "litecoin-{0}/bin/litecoind"
-			},
-			Mac = new NodeOSDownloadData()
-			{
-				DownloadLink = "https://download.litecoin.org/litecoin-{0}/osx/litecoin-{0}-osx64.tar.gz",
-				Archive = "litecoin-{0}-osx64.tar.gz",
-				Executable = "litecoin-{0}/bin/litecoind"
-			}
-		};
 
-		NodeDownloadData bitcoinDownloadData = new NodeDownloadData()
+		public string CryptoCode
 		{
-			Version = "0.16.0",
-			Linux = new NodeOSDownloadData()
-			{
-				Archive = "bitcoin-{0}-x86_64-linux-gnu.tar.gz",
-				DownloadLink = "https://bitcoin.org/bin/bitcoin-core-{0}/bitcoin-{0}-x86_64-linux-gnu.tar.gz",
-				Executable = "bitcoin-{0}/bin/bitcoind"
-			},
-			Mac = new NodeOSDownloadData()
-			{
-				Archive = "bitcoin-{0}-osx64.tar.gz",
-				DownloadLink = "https://bitcoin.org/bin/bitcoin-core-{0}/bitcoin-{0}-osx64.tar.gz",
-				Executable = "bitcoin-{0}/bin/bitcoind"
-			},
-			Windows = new NodeOSDownloadData()
-			{
-				Executable = "bitcoin-{0}/bin/bitcoind.exe",
-				DownloadLink = "https://bitcoin.org/bin/bitcoin-core-{0}/bitcoin-{0}-win32.zip",
-				Archive = "bitcoin-{0}-win32.zip"
-			}
-		};
+			get; set;
+		} = "BTC";
 
 		public ServerTester(string directory)
 		{
-			nodeDownloadData = bitcoinDownloadData;
-			var networkString = "regtest";
+			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
 			try
 			{
 				var rootTestData = "TestData";
@@ -130,17 +89,18 @@ namespace NBXplorer.Tests
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
 				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
 				keyValues.Add(("datadir", datadir));
-				keyValues.Add(("network", networkString));
+				keyValues.Add(("network", "regtest"));
+				keyValues.Add(("chains", CryptoCode.ToLowerInvariant()));
 				keyValues.Add(("verbose", "1"));
-				keyValues.Add(("btcrpcuser", creds.UserName));
-				keyValues.Add(("btcrpcpassword", creds.Password));
-				keyValues.Add(("btcrpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcuser", creds.UserName));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcpassword", creds.Password));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 				keyValues.Add(("cachechain", "0"));
 				keyValues.Add(("rpcnotest", "1"));
 				keyValues.Add(("mingapsize", "2"));
 				keyValues.Add(("maxgapsize", "4"));
-				keyValues.Add(("btcstartheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
-				keyValues.Add(("btcnodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 
 				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
 				Host = new WebHostBuilder()
@@ -157,9 +117,8 @@ namespace NBXplorer.Tests
 					.UseStartup<Startup>()
 					.Build();
 
-				string cryptoCode = "BTC";
-				RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(cryptoCode);
-				var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(cryptoCode);
+				RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(CryptoCode);
+				var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
 				Network = nbxnetwork.NBitcoinNetwork;
 				var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 				Host.Start();

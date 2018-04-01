@@ -61,10 +61,10 @@ namespace NBXplorer.Tests
 		{
 			pubKey = pubKey ?? new ExtKey().Neuter();
 			if(p2sh)
-				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}");
+				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[legacy]");
 			else
 
-				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[legacy]");
+				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}");
 		}
 		private static P2SHDerivationStrategy CreateP2SHDerivationStrategy(ExtPubKey pubKey = null)
 		{
@@ -337,7 +337,7 @@ namespace NBXplorer.Tests
 					Assert.NotEqual(0, blockEvent.Height);
 
 					connected.ListenDerivationSchemes(new[] { pubkey });
-					tester.Explorer.CreateRPCClient().SendToAddress(AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+					tester.Explorer.CreateRPCClient().SendToAddress(AddressOf(pubkey, "0/1", tester.Network), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
@@ -346,7 +346,7 @@ namespace NBXplorer.Tests
 				using(var connected = tester.Client.CreateNotificationSession())
 				{
 					connected.ListenAllDerivationSchemes();
-					tester.Explorer.CreateRPCClient().SendToAddress(AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+					tester.Explorer.CreateRPCClient().SendToAddress(AddressOf(pubkey, "0/1", tester.Network), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
@@ -371,8 +371,8 @@ namespace NBXplorer.Tests
 				{
 					connected.ListenAllDerivationSchemes();
 					tester.Explorer.CreateRPCClient().SendCommand(RPCOperations.sendmany, "",
-						JObject.Parse($"{{ \"{AddressOf(pubkey, "0/1")}\": \"0.9\", \"{AddressOf(pubkey, "1/1")}\": \"0.5\"," +
-									  $"\"{AddressOf(pubkey2, "0/2")}\": \"0.9\", \"{AddressOf(pubkey2, "1/2")}\": \"0.5\" }}"));
+						JObject.Parse($"{{ \"{AddressOf(pubkey, "0/1", tester.Network)}\": \"0.9\", \"{AddressOf(pubkey, "1/1", tester.Network)}\": \"0.5\"," +
+									  $"\"{AddressOf(pubkey2, "0/2", tester.Network)}\": \"0.9\", \"{AddressOf(pubkey2, "1/2", tester.Network)}\": \"0.5\" }}"));
 
 					var schemes = new[] { pubkey.ToString(), pubkey2.ToString() }.ToList();
 
@@ -684,9 +684,9 @@ namespace NBXplorer.Tests
 				Assert.Equal(status.BitcoinStatus.Blocks, status.ChainHeight);
 				Assert.Equal(1.0, status.BitcoinStatus.VerificationProgress);
 				Assert.NotNull(status.Version);
-				Assert.Equal("BTC", status.CryptoCode);
+				Assert.Equal(tester.CryptoCode, status.CryptoCode);
 				Assert.Equal(ChainType.Regtest, status.ChainType);
-				Assert.Equal("BTC", status.SupportedCryptoCodes[0]);
+				Assert.Equal(tester.CryptoCode, status.SupportedCryptoCodes[0]);
 				Assert.Single(status.SupportedCryptoCodes);
 			}
 		}
@@ -952,9 +952,9 @@ namespace NBXplorer.Tests
 			return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.Hash.GetAddress(key.Network);
 		}
 
-		private BitcoinAddress AddressOf(DerivationStrategyBase scheme, string path)
+		private BitcoinAddress AddressOf(DerivationStrategyBase scheme, string path, Network network)
 		{
-			return scheme.Derive(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(Network.RegTest);
+			return scheme.Derive(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(network);
 		}
 
 		[Fact]
