@@ -68,6 +68,7 @@ namespace NBXplorer.Altcoins.Polis
 				CoinbaseMaturity = 15,
 				HashGenesisBlock = new uint256("000009701eb781a8113b1af1d814e2f060f6408a2c990db291bc5108a1345c1e"),
 				GetPoWHash = GetPoWHash,
+				LitecoinWorkCalculation = true
 			})
 			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 55 })
 			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 56 })
@@ -110,6 +111,7 @@ namespace NBXplorer.Altcoins.Polis
 				CoinbaseMaturity = 15,
 				HashGenesisBlock = new uint256("0000009038aeaea86784e959b0b4002793adad39fc9d6f8789ed2edf99ad5c8b"),
 				GetPoWHash = GetPoWHash,
+				LitecoinWorkCalculation = true
 			})
 			.SetBase58Bytes(Base58Type.PUBKEY_ADDRESS, new byte[] { 140 })
 			.SetBase58Bytes(Base58Type.SCRIPT_ADDRESS, new byte[] { 19 })
