@@ -138,7 +138,7 @@ namespace NBXplorer.Altcoins.Feathercoin
 			.SetBase58Bytes(Base58Type.EXT_SECRET_KEY, new byte[] { 0x04, 0x88, 0xDA, 0xEE })
 			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("fc"))
 			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("fc"))
-			.SetMagic(0xFBA4C795)
+			.SetMagic(0x211a1541)
 			.SetPort(port)
 			.SetRPCPort(9337)
 			.SetName("ftc-main")
