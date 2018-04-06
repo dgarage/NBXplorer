@@ -21,10 +21,11 @@ using System.Net;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using NBXplorer.Logging;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Tests
 {
-	public class ServerTester : IDisposable
+	public partial class ServerTester : IDisposable
 	{
 		private readonly string _Directory;
 
@@ -52,11 +53,11 @@ namespace NBXplorer.Tests
 		public string CryptoCode
 		{
 			get; set;
-		} = "BTC";
+		}
 
 		public ServerTester(string directory)
 		{
-			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
+			SetEnvironment();
 			try
 			{
 				var rootTestData = "TestData";
@@ -65,8 +66,7 @@ namespace NBXplorer.Tests
 				if(!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
 
-				NodeBuilder = CreateNodeBuilder(directory);
-
+				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, directory);
 
 
 				User1 = NodeBuilder.CreateNode();
@@ -83,7 +83,6 @@ namespace NBXplorer.Tests
 				User2.CreateRPCClient().Generate(101);
 				User1.Sync(User2, true);
 
-				var creds = RPCCredentialString.Parse(Explorer.AuthenticationString).UserPassword;
 				var datadir = Path.Combine(directory, "explorer");
 				DeleteRecursivelyWithMagicDust(datadir);
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
@@ -92,8 +91,7 @@ namespace NBXplorer.Tests
 				keyValues.Add(("network", "regtest"));
 				keyValues.Add(("chains", CryptoCode.ToLowerInvariant()));
 				keyValues.Add(("verbose", "1"));
-				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcuser", creds.UserName));
-				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcpassword", creds.Password));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcauth", Explorer.GetRPCAuth()));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 				keyValues.Add(("cachechain", "0"));
 				keyValues.Add(("rpcnotest", "1"));
@@ -131,11 +129,6 @@ namespace NBXplorer.Tests
 				Dispose();
 				throw;
 			}
-		}
-
-		private NodeBuilder CreateNodeBuilder(string directory)
-		{
-			return NodeBuilder.Create(nodeDownloadData, directory);
 		}
 
 		private NetworkCredential ExtractCredentials(string config)
@@ -296,5 +289,42 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		public BitcoinSecret PrivateKeyOf(BitcoinExtKey key, string path)
+		{
+			return new BitcoinSecret(key.ExtKey.Derive(new KeyPath(path)).PrivateKey, Network);
+		}
+
+		public BitcoinAddress AddressOf(BitcoinExtKey key, string path)
+		{
+			if(SupportSegwit())
+				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.WitHash.GetAddress(Network);
+			else
+				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.Hash.GetAddress(Network);
+		}
+
+		public BitcoinAddress AddressOf(DerivationStrategyBase scheme, string path)
+		{
+			return scheme.Derive(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(Network);
+		}
+
+		public DirectDerivationStrategy CreateDerivationStrategy(ExtPubKey pubKey = null, bool p2sh = false)
+		{
+			pubKey = pubKey ?? new ExtKey().Neuter();
+			string suffix = SupportSegwit() ? "" : "-[legacy]";
+			if(p2sh)
+				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[p2sh]{suffix}");
+			else
+				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}{suffix}");
+		}
+
+		public bool RPCSupportSegwit
+		{
+			get; set;
+		} = true;
+
+		private bool SupportSegwit()
+		{
+			return RPCSupportSegwit && Network.Consensus.ConsensusFactory.GetProtocolCapabilities(Network.MaxP2PVersion).SupportWitness;
+		}
 	}
 }

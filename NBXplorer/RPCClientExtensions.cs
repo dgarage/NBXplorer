@@ -52,7 +52,7 @@ namespace NBXplorer
 
 	public static class RPCClientExtensions
     {
-		public static async Task<GetBlockchainInfoResponse> GetBlockchainInfoAsync(this RPCClient client)
+		public static async Task<GetBlockchainInfoResponse> GetBlockchainInfoAsyncEx(this RPCClient client)
 		{
 			var result = await client.SendCommandAsync("getblockchaininfo").ConfigureAwait(false);
 			return JsonConvert.DeserializeObject<GetBlockchainInfoResponse>(result.ResultString);

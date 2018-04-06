@@ -8,14 +8,14 @@ namespace NBXplorer
     {
 		private void InitBCash(ChainType chainType)
 		{
-			NBXplorer.Altcoins.BCash.Networks.EnsureRegistered();
+			NBitcoin.Altcoins.BCash.EnsureRegistered();
 			Add(new NBXplorerNetwork()
 			{
 				CryptoCode = "BCH",
 				MinRPCVersion = 140200,
-				NBitcoinNetwork = chainType == ChainType.Main ? NBXplorer.Altcoins.BCash.Networks.Mainnet:
-								  chainType == ChainType.Test ? NBXplorer.Altcoins.BCash.Networks.Testnet :
-								  chainType == ChainType.Regtest ? NBXplorer.Altcoins.BCash.Networks.Regtest : throw new NotSupportedException(chainType.ToString()),
+				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.BCash.Mainnet:
+								  chainType == ChainType.Test ? NBitcoin.Altcoins.BCash.Testnet :
+								  chainType == ChainType.Regtest ? NBitcoin.Altcoins.BCash.Regtest : throw new NotSupportedException(chainType.ToString()),
 				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType)
 			});
 		}

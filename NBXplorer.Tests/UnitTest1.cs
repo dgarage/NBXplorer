@@ -35,8 +35,9 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = RepositoryTester.Create(true))
 			{
-				tester.Repository.Track(DummyPubKey);
-				RepositoryCanTrackAddressesCore(tester);
+				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
+				tester.Repository.Track(dummy);
+				RepositoryCanTrackAddressesCore(tester, dummy);
 			}
 		}
 
@@ -45,8 +46,9 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = RepositoryTester.Create(true))
 			{
+				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
 				var seria = new Serializer(Network.RegTest);
-				var keyInfo = new KeyPathInformation() { DerivationStrategy = DummyPubKey, Feature = DerivationFeature.Change, KeyPath = new KeyPath("0/1"), Redeem = Script.Empty, ScriptPubKey = Script.Empty };
+				var keyInfo = new KeyPathInformation() { DerivationStrategy = dummy, Feature = DerivationFeature.Change, KeyPath = new KeyPath("0/1"), Redeem = Script.Empty, ScriptPubKey = Script.Empty };
 				var str = seria.ToString(keyInfo);
 				for(int i = 0; i < 1500; i++)
 				{
@@ -55,86 +57,69 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
-
-		private static DirectDerivationStrategy CreateDerivationStrategy(ExtPubKey pubKey = null, bool p2sh = false)
+		private static void RepositoryCanTrackAddressesCore(RepositoryTester tester, DerivationStrategyBase dummy)
 		{
-			pubKey = pubKey ?? new ExtKey().Neuter();
-			if(p2sh)
-				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[legacy]");
-			else
-
-				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}");
-		}
-		private static P2SHDerivationStrategy CreateP2SHDerivationStrategy(ExtPubKey pubKey = null)
-		{
-			pubKey = pubKey ?? new ExtKey().Neuter();
-			return (P2SHDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[p2sh]");
-		}
-
-		private static void RepositoryCanTrackAddressesCore(RepositoryTester tester)
-		{
-			var keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Deposit).Derive(0).ScriptPubKey);
+			var keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(0).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/0"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.DerivationStrategy.ToString(), DummyPubKey.ToString());
+			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
 
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Deposit).Derive(1).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(1).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/1"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.DerivationStrategy.ToString(), DummyPubKey.ToString());
+			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
 
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Deposit).Derive(29).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(29).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/29"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.DerivationStrategy.ToString(), DummyPubKey.ToString());
+			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
 
 
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Change).Derive(29).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(29).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/29"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.DerivationStrategy.ToString(), DummyPubKey.ToString());
+			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
 
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Change).Derive(30).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
 
-			tester.Repository.MarkAsUsed(CreateKeyPathInformation(DummyPubKey, new KeyPath("1/5")));
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Change).Derive(25).ScriptPubKey);
+			tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/5")));
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(25).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/25"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.DerivationStrategy, DummyPubKey);
+			Assert.Equal(keyInfo.DerivationStrategy, dummy);
 
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Change).Derive(36).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(36).ScriptPubKey);
 			Assert.Null(keyInfo);
 
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
 
 			for(int i = 0; i < 10; i++)
 			{
-				tester.Repository.MarkAsUsed(CreateKeyPathInformation(DummyPubKey, new KeyPath("1/" + i)));
+				tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/" + i)));
 			}
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
-			tester.Repository.MarkAsUsed(CreateKeyPathInformation(DummyPubKey, new KeyPath("1/10")));
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
+			tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/10")));
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Deposit).Derive(39).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(39).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Deposit).Derive(41).ScriptPubKey);
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(41).ScriptPubKey);
 			Assert.Null(keyInfo);
 
 			//No op
-			tester.Repository.MarkAsUsed(CreateKeyPathInformation(DummyPubKey, new KeyPath("1/6")));
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Change).Derive(29).ScriptPubKey);
+			tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/6")));
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(29).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/29"), keyInfo.KeyPath);
-			Assert.Equal(keyInfo.DerivationStrategy.ToString(), DummyPubKey.ToString());
-			keyInfo = tester.Repository.GetKeyInformation(DummyPubKey.GetLineFor(DerivationFeature.Change).Derive(30).ScriptPubKey);
+			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
+			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
 		}
 
@@ -148,7 +133,7 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = ServerTester.Create())
 			{
-				var bob = DummyPubKey;
+				var bob = tester.CreateDerivationStrategy();
 				var utxo = tester.Client.GetUTXOs(bob, null, false);
 				Stopwatch watch = new Stopwatch();
 				watch.Start();
@@ -219,7 +204,7 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = ServerTester.Create())
 			{
-				var bob = DummyPubKey;
+				var bob = tester.CreateDerivationStrategy();
 				tester.Client.Track(bob);
 				var utxo = tester.Client.GetUTXOs(bob, null, false); //Track things do not wait
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
@@ -272,7 +257,7 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = ServerTester.Create())
 			{
-				var bob = DummyPubKey;
+				var bob = tester.CreateDerivationStrategy();
 				var utxo = tester.Client.GetUTXOs(bob, null, false); //Track things do not wait
 
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
@@ -326,7 +311,7 @@ namespace NBXplorer.Tests
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = CreateDerivationStrategy(key.Neuter(), true);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
 				tester.Client.Track(pubkey);
 				using(var connected = tester.Client.CreateNotificationSession())
 				{
@@ -337,7 +322,7 @@ namespace NBXplorer.Tests
 					Assert.NotEqual(0, blockEvent.Height);
 
 					connected.ListenDerivationSchemes(new[] { pubkey });
-					tester.Explorer.CreateRPCClient().SendToAddress(AddressOf(pubkey, "0/1", tester.Network), Money.Coins(1.0m));
+					tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
@@ -346,7 +331,7 @@ namespace NBXplorer.Tests
 				using(var connected = tester.Client.CreateNotificationSession())
 				{
 					connected.ListenAllDerivationSchemes();
-					tester.Explorer.CreateRPCClient().SendToAddress(AddressOf(pubkey, "0/1", tester.Network), Money.Coins(1.0m));
+					tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
@@ -361,9 +346,9 @@ namespace NBXplorer.Tests
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = CreateDerivationStrategy(key.Neuter());
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), false);
 
-				var pubkey2 = CreateDerivationStrategy(key.Neuter(), true);
+				var pubkey2 = tester.CreateDerivationStrategy(key.Neuter(), true);
 
 				tester.Client.Track(pubkey);
 				tester.Client.Track(pubkey2);
@@ -371,8 +356,8 @@ namespace NBXplorer.Tests
 				{
 					connected.ListenAllDerivationSchemes();
 					tester.Explorer.CreateRPCClient().SendCommand(RPCOperations.sendmany, "",
-						JObject.Parse($"{{ \"{AddressOf(pubkey, "0/1", tester.Network)}\": \"0.9\", \"{AddressOf(pubkey, "1/1", tester.Network)}\": \"0.5\"," +
-									  $"\"{AddressOf(pubkey2, "0/2", tester.Network)}\": \"0.9\", \"{AddressOf(pubkey2, "1/2", tester.Network)}\": \"0.5\" }}"));
+						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "1/1")}\": \"0.5\"," +
+									  $"\"{tester.AddressOf(pubkey2, "0/2")}\": \"0.9\", \"{tester.AddressOf(pubkey2, "1/2")}\": \"0.5\" }}"));
 
 					var schemes = new[] { pubkey.ToString(), pubkey2.ToString() }.ToList();
 
@@ -397,8 +382,8 @@ namespace NBXplorer.Tests
 				var bob = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var alice = new BitcoinExtKey(new ExtKey(), tester.Network);
 
-				var bobPubKey = CreateDerivationStrategy(bob.Neuter());
-				var alicePubKey = CreateDerivationStrategy(alice.Neuter());
+				var bobPubKey = tester.CreateDerivationStrategy(bob.Neuter());
+				var alicePubKey = tester.CreateDerivationStrategy(alice.Neuter());
 
 				tester.Client.Track(alicePubKey);
 				var utxoAlice = tester.Client.GetUTXOs(alicePubKey, Bookmark.Start, Bookmark.Start, true); //Track things do not wait
@@ -407,8 +392,8 @@ namespace NBXplorer.Tests
 				Assert.NotNull(utxoAlice.Confirmed.KnownBookmark);
 				Assert.NotNull(utxoAlice.Unconfirmed.KnownBookmark);
 
-				var id = tester.RPC.SendToAddress(AddressOf(alice, "0/1"), Money.Coins(1.0m));
-				id = tester.RPC.SendToAddress(AddressOf(bob, "0/2"), Money.Coins(0.1m));
+				var id = tester.RPC.SendToAddress(tester.AddressOf(alice, "0/1"), Money.Coins(1.0m));
+				id = tester.RPC.SendToAddress(tester.AddressOf(bob, "0/2"), Money.Coins(0.1m));
 				utxoAlice = tester.Client.GetUTXOs(alicePubKey, utxoAlice);
 				utxoBob = tester.Client.GetUTXOs(bobPubKey, utxoBob);
 				Assert.NotNull(utxoAlice.Unconfirmed.KnownBookmark);
@@ -420,8 +405,8 @@ namespace NBXplorer.Tests
 				Assert.NotNull(utxoAlice.Confirmed.KnownBookmark);
 
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(PrivateKeyOf(alice, "0/1"));
-				tester.RPC.SendToAddress(AddressOf(bob, "0/3"), Money.Coins(0.6m));
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(alice, "0/1"));
+				tester.RPC.SendToAddress(tester.AddressOf(bob, "0/3"), Money.Coins(0.6m));
 
 				utxoAlice = tester.Client.GetUTXOs(alicePubKey, utxoAlice);
 				utxoBob = tester.Client.GetUTXOs(bobPubKey, utxoBob);
@@ -451,17 +436,17 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = CreateDerivationStrategy(key.Neuter());
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
 				tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
 				var events = tester.Client.CreateNotificationSession();
 				events.ListenDerivationSchemes(new[] { pubkey });
 
-				var id = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
-				id = tester.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(1.1m));
-				id = tester.RPC.SendToAddress(AddressOf(key, "0/2"), Money.Coins(1.2m));
-				id = tester.RPC.SendToAddress(AddressOf(key, "0"), Money.Coins(1.2m));
-				id = tester.RPC.SendToAddress(AddressOf(key, "1"), Money.Coins(1.2m));
+				var id = tester.RPC.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
+				id = tester.RPC.SendToAddress(tester.AddressOf(key, "0/1"), Money.Coins(1.1m));
+				id = tester.RPC.SendToAddress(tester.AddressOf(key, "0/2"), Money.Coins(1.2m));
+				id = tester.RPC.SendToAddress(tester.AddressOf(key, "0"), Money.Coins(1.2m));
+				id = tester.RPC.SendToAddress(tester.AddressOf(key, "1"), Money.Coins(1.2m));
 
 				events.NextEvent(Timeout);
 				events.NextEvent(Timeout);
@@ -487,14 +472,14 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = CreateDerivationStrategy(key.Neuter());
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
 				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
 
 				var addresses = new HashSet<Script>();
-				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0/0"));
-				var id = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
-				addresses.Add(AddressOf(key, "0/0").ScriptPubKey);
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				var id = tester.RPC.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
+				addresses.Add(tester.AddressOf(key, "0/0").ScriptPubKey);
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.True(utxo.HasChanges);
@@ -506,9 +491,9 @@ namespace NBXplorer.Tests
 					LockTestCoins(tester.RPC, addresses);
 					var spendable = tester.RPC.ListUnspent(0, 0);
 					coins = coins - Money.Coins(0.001m);
-					var destination = AddressOf(key, $"0/{i + 1}");
+					var destination = tester.AddressOf(key, $"0/{i + 1}");
 
-					tester.RPC.ImportPrivKey(PrivateKeyOf(key, $"0/{i + 1}"));
+					tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, $"0/{i + 1}"));
 					tester.RPC.SendToAddress(destination, coins);
 					addresses.Add(destination.ScriptPubKey);
 				}
@@ -540,10 +525,10 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = CreateDerivationStrategy(key.Neuter());
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
 				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
-				var tx1 = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
+				var tx1 = tester.RPC.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.NotNull(utxo.Confirmed.KnownBookmark);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
@@ -551,8 +536,8 @@ namespace NBXplorer.Tests
 
 
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0/0"));
-				var tx2 = tester.RPC.SendToAddress(AddressOf(key, "1/0"), Money.Coins(0.6m));
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				var tx2 = tester.RPC.SendToAddress(tester.AddressOf(key, "1/0"), Money.Coins(0.6m));
 
 				var prevUtxo = utxo;
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
@@ -569,7 +554,7 @@ namespace NBXplorer.Tests
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Empty(utxo.Unconfirmed.SpentOutpoints); //should be skipped as the unconf coin were not known
 
-				tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(0.15m));
+				tester.RPC.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(0.15m));
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
@@ -590,22 +575,23 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				//WaitServerStarted not needed, just a sanity check
+				var bob = tester.CreateDerivationStrategy();
 				tester.Client.WaitServerStarted();
-				tester.Client.Track(DummyPubKey);
-				var utxo = tester.Client.GetUTXOs(DummyPubKey, null, false); //Track things do not wait
+				tester.Client.Track(bob);
+				var utxo = tester.Client.GetUTXOs(bob, null, false); //Track things do not wait
 
 				var tasks = new List<Task<KeyPathInformation>>();
 				for(int i = 0; i < 100; i++)
 				{
-					tasks.Add(tester.Client.GetUnusedAsync(DummyPubKey, DerivationFeature.Deposit, reserve: true));
+					tasks.Add(tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, reserve: true));
 				}
 				Task.WaitAll(tasks.ToArray());
 
 				var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
 				Assert.Equal(99U, paths.Select(p => p.Key.Indexes.Last()).Max());
 
-				tester.Client.CancelReservation(DummyPubKey, new[] { new KeyPath("0/0") });
-				Assert.Equal(new KeyPath("0/0"), tester.Client.GetUnused(DummyPubKey, DerivationFeature.Deposit).KeyPath);
+				tester.Client.CancelReservation(bob, new[] { new KeyPath("0/0") });
+				Assert.Equal(new KeyPath("0/0"), tester.Client.GetUnused(bob, DerivationFeature.Deposit).KeyPath);
 			}
 		}
 
@@ -701,12 +687,12 @@ namespace NBXplorer.Tests
 			{
 				tester.Client.WaitServerStarted(Timeout);
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = CreateDerivationStrategy(key.Neuter());
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 
 				tester.Client.Track(pubkey);
 				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
 
-				var txId = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
+				var txId = tester.RPC.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				var result = tester.Client.GetTransactions(pubkey, new[] { Bookmark.Start }, new[] { Bookmark.Start }, new[] { Bookmark.Start });
 				Assert.True(result.HasChanges());
 				Assert.Single(result.UnconfirmedTransactions.Transactions);
@@ -732,7 +718,7 @@ namespace NBXplorer.Tests
 
 				var gotConf = result.ConfirmedTransactions.Bookmark;
 
-				var txId2 = tester.RPC.SendToAddress(AddressOf(key, "0"), Money.Coins(1.0m));
+				var txId2 = tester.RPC.SendToAddress(tester.AddressOf(key, "0"), Money.Coins(1.0m));
 				result = tester.Client.GetTransactions(pubkey, result);
 				Assert.True(result.HasChanges());
 				Assert.Equal(gotConf, result.ConfirmedTransactions.KnownBookmark);
@@ -748,8 +734,8 @@ namespace NBXplorer.Tests
 				Assert.Equal(txId2, result.UnconfirmedTransactions.Transactions[0].TransactionId);
 
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0/0"));
-				var txId3 = tester.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(0.2m));
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				var txId3 = tester.RPC.SendToAddress(tester.AddressOf(key, "0/1"), Money.Coins(0.2m));
 				result = tester.Client.GetTransactions(pubkey, result);
 				Assert.Equal(Money.Coins(-0.8m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
 			}
@@ -763,20 +749,20 @@ namespace NBXplorer.Tests
 				//WaitServerStarted not needed, just a sanity check
 				tester.Client.WaitServerStarted(Timeout);
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = CreateDerivationStrategy(key.Neuter());
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 
 				tester.Client.Track(pubkey);
 				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
 
 				// We receive money
-				var fundingTx = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
+				var fundingTx = tester.RPC.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				tester.RPC.Generate(1);
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Confirmed.UTXOs);
 
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0/0"));
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var spendingTx = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.2m));
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
@@ -800,12 +786,12 @@ namespace NBXplorer.Tests
 				//WaitServerStarted not needed, just a sanity check
 				tester.Client.WaitServerStarted(Timeout);
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = CreateDerivationStrategy(key.Neuter());
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 
 				tester.Client.Track(pubkey);
 				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
 				var gettingUTXO = tester.Client.GetUTXOsAsync(pubkey, utxo);
-				var txId = tester.RPC.SendToAddress(AddressOf(key, "0/0"), Money.Coins(1.0m));
+				var txId = tester.RPC.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = gettingUTXO.GetAwaiter().GetResult();
 				Assert.Equal(103, utxo.CurrentHeight);
 
@@ -835,7 +821,7 @@ namespace NBXplorer.Tests
 				Assert.NotEqual(Bookmark.Start, utxo.Confirmed.Bookmark);
 				var prevConfHash = utxo.Confirmed.Bookmark;
 
-				txId = tester.RPC.SendToAddress(AddressOf(key, "0/1"), Money.Coins(1.0m));
+				txId = tester.RPC.SendToAddress(tester.AddressOf(key, "0/1"), Money.Coins(1.0m));
 				var txId1 = txId;
 
 				prevUtxo = utxo;
@@ -882,7 +868,7 @@ namespace NBXplorer.Tests
 
 				var outpoint01 = utxo.Confirmed.UTXOs[0].Outpoint;
 
-				txId = tester.RPC.SendToAddress(AddressOf(key, "0/2"), Money.Coins(1.0m));
+				txId = tester.RPC.SendToAddress(tester.AddressOf(key, "0/2"), Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Empty(utxo.Confirmed.UTXOs);
@@ -902,8 +888,8 @@ namespace NBXplorer.Tests
 				var before01Spend = utxo.Confirmed.Bookmark;
 
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0/1"));
-				txId = tester.RPC.SendToAddress(AddressOf(key, "0/3"), Money.Coins(0.5m));
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
+				txId = tester.RPC.SendToAddress(tester.AddressOf(key, "0/3"), Money.Coins(0.5m));
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
@@ -940,21 +926,6 @@ namespace NBXplorer.Tests
 				var outpoints = rpc.ListUnspent(0, 999999).Where(l => !keepAddresses.Contains(l.ScriptPubKey)).Select(c => c.OutPoint).ToArray();
 				rpc.LockUnspent(outpoints);
 			}
-		}
-
-		private BitcoinSecret PrivateKeyOf(BitcoinExtKey key, string path)
-		{
-			return new BitcoinSecret(key.ExtKey.Derive(new KeyPath(path)).PrivateKey, key.Network);
-		}
-
-		private BitcoinAddress AddressOf(BitcoinExtKey key, string path)
-		{
-			return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.Hash.GetAddress(key.Network);
-		}
-
-		private BitcoinAddress AddressOf(DerivationStrategyBase scheme, string path, Network network)
-		{
-			return scheme.Derive(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(network);
 		}
 
 		[Fact]
@@ -1007,22 +978,23 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				//WaitServerStarted not needed, just a sanity check
+				var bob = tester.CreateDerivationStrategy();
 				tester.Client.WaitServerStarted();
-				tester.Client.Track(DummyPubKey);
-				var utxo = tester.Client.GetUTXOs(DummyPubKey, null, false); //Track things do not wait
+				tester.Client.Track(bob);
+				var utxo = tester.Client.GetUTXOs(bob, null, false); //Track things do not wait
 
 				var tasks = new List<Task<KeyPathInformation>>();
 				for(int i = 0; i < 10; i++)
 				{
-					tasks.Add(tester.Client.GetUnusedAsync(DummyPubKey, DerivationFeature.Direct, reserve: true));
+					tasks.Add(tester.Client.GetUnusedAsync(bob, DerivationFeature.Direct, reserve: true));
 				}
 				Task.WaitAll(tasks.ToArray());
 
 				var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
 				Assert.Equal(9U, paths.Select(p => p.Key.Indexes.Last()).Max());
 
-				tester.Client.CancelReservation(DummyPubKey, new[] { new KeyPath("0") });
-				var path = tester.Client.GetUnused(DummyPubKey, DerivationFeature.Direct).KeyPath;
+				tester.Client.CancelReservation(bob, new[] { new KeyPath("0") });
+				var path = tester.Client.GetUnused(bob, DerivationFeature.Direct).KeyPath;
 				Assert.Equal(new KeyPath("0"), path);
 			}
 		}
@@ -1033,10 +1005,10 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = CreateDerivationStrategy(key.Neuter());
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
 				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
-				var tx1 = tester.RPC.SendToAddress(AddressOf(key, "0"), Money.Coins(1.0m));
+				var tx1 = tester.RPC.SendToAddress(tester.AddressOf(key, "0"), Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.NotNull(utxo.Confirmed.KnownBookmark);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
@@ -1044,8 +1016,8 @@ namespace NBXplorer.Tests
 
 
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(PrivateKeyOf(key, "0"));
-				var tx2 = tester.RPC.SendToAddress(AddressOf(key, "1"), Money.Coins(0.6m));
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0"));
+				var tx2 = tester.RPC.SendToAddress(tester.AddressOf(key, "1"), Money.Coins(0.6m));
 
 				var prevUtxo = utxo;
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
@@ -1062,7 +1034,7 @@ namespace NBXplorer.Tests
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Empty(utxo.Unconfirmed.SpentOutpoints); //should be skipped as the unconf coin were not known
 
-				tester.RPC.SendToAddress(AddressOf(key, "0"), Money.Coins(0.15m));
+				tester.RPC.SendToAddress(tester.AddressOf(key, "0"), Money.Coins(0.15m));
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Unconfirmed.UTXOs);

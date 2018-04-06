@@ -240,12 +240,12 @@ namespace NBXplorer
 					GetBlockchainInfoResponse blockchainInfo = null;
 					try
 					{
-						blockchainInfo = await _RPC.GetBlockchainInfoAsync();
+						blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
 						if(blockchainInfo != null && _Network.DefaultSettings.ChainType == ChainType.Regtest)
 						{
 							if(await WarmupBlockchain())
 							{
-								blockchainInfo = await _RPC.GetBlockchainInfoAsync();
+								blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
 							}
 						}
 					}
@@ -268,7 +268,7 @@ namespace NBXplorer
 					GetBlockchainInfoResponse blockchainInfo2 = null;
 					try
 					{
-						blockchainInfo2 = await _RPC.GetBlockchainInfoAsync();
+						blockchainInfo2 = await _RPC.GetBlockchainInfoAsyncEx();
 					}
 					catch(Exception ex)
 					{
@@ -289,7 +289,7 @@ namespace NBXplorer
 						GetBlockchainInfoResponse blockchainInfo3 = null;
 						try
 						{
-							blockchainInfo3 = await _RPC.GetBlockchainInfoAsync();
+							blockchainInfo3 = await _RPC.GetBlockchainInfoAsyncEx();
 						}
 						catch(Exception ex)
 						{
@@ -519,7 +519,7 @@ namespace NBXplorer
 				if(_Configuration.CacheChain && File.Exists(legacyCachePath))
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
-					_Chain.Load(File.ReadAllBytes(legacyCachePath));
+					_Chain.Load(File.ReadAllBytes(legacyCachePath), _Network.NBitcoinNetwork);
 					File.Delete(legacyCachePath);
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
 					return;
@@ -531,10 +531,10 @@ namespace NBXplorer
 				if(_Configuration.CacheChain && File.Exists(cachePath))
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
-					_Chain.Load(File.ReadAllBytes(cachePath), new ConcurrentChain.ChainSerializationFormat()
+					_Chain.Load(File.ReadAllBytes(cachePath), _Network.NBitcoinNetwork, new ConcurrentChain.ChainSerializationFormat()
 					{
 						SerializeBlockHeader = false,
-						SerializePrecomputedBlockHash = true
+						SerializePrecomputedBlockHash = true,
 					});
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
 					return;
@@ -546,7 +546,6 @@ namespace NBXplorer
 		{
 			if(await _RPC.GetBlockCountAsync() < 100)
 			{
-
 				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Less than 100 blocks, mining some block for regtest");
 				await _RPC.GenerateAsync(101);
 				return true;

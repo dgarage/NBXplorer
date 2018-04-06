@@ -8,6 +8,12 @@ The explorer supports only P2PKH derivation for now but will be able to support 
 
 This explorer is not meant to be exposed on internet, but should be used as an internal tool for tracking the UTXOs of your own service.
 
+It currently supports:
+
+* Bitcoin
+* Litecoin
+* BCash (also known as Bitcoin Cash)
+
 ## Prerequisite
 
 * Install [.NET Core 2.0](https://www.microsoft.com/net/core)
@@ -116,6 +122,16 @@ cd NBXplorer.Tests
 dotnet test
 ```
 The tests can take long the first time, as it download Bitcoin Core binaries. (Between 5 and 10 minutes)
+
+## How to add support to my altcoin
+
+First you need to add support for your altcoin to `NBitcoin.Altcoins`. (See [here](https://github.com/MetacoSA/NBitcoin/tree/master/NBitcoin.Altcoins)).
+
+Once this is done and `NBXplorer` updated to use the last version of `NBitcoin.Altcoins`, follow [Litecoin example](NBXplorer.Client/NBXplorerNetworkProvider.Litecoin.cs).
+
+If you want to test if everything is working, modify [ServerTester.Environment.cs](NBXplorer.Tests/ServerTester.Environment.cs) to match your altcoin.
+
+Then run the tests.
 
 ## Licence
 
