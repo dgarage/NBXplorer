@@ -52,11 +52,11 @@ namespace NBXplorer.Tests
 		public string CryptoCode
 		{
 			get; set;
-		} = "BTC";
+		} = "FTC";
 
 		public ServerTester(string directory)
 		{
-			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
+			nodeDownloadData = NodeDownloadData.Feathercoin.v0_13_1;
 			try
 			{
 				var rootTestData = "TestData";
