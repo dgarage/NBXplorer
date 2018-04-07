@@ -53,8 +53,6 @@ namespace NBXplorer.Altcoins.Polis
 			NetworkBuilder builder = new NetworkBuilder();
 			_Mainnet = builder.SetConsensus(new Consensus()
 			{
-				
-				
 				SubsidyHalvingInterval = 1569325056,
 				MasternodePaymentsStartBlock = 15, // not true, but it's ok as long as it's less then nMasternodePaymentsIncreaseBlock
 				MasternodePaymentsIncreaseBlock = 1569325056, // actual historical value
@@ -66,7 +64,7 @@ namespace NBXplorer.Altcoins.Polis
 				BudgetPaymentsWindowBlocks = 100,
 				SuperblockStartBlock = 66464, // The block at which 12.1 goes live (end of final 12.0 budget cycle)
 				SuperblockCycle = 16616, // ~(60*24*30)/2.6, actual number of blocks per month is 200700 / 12 = 16725
-				SuperblockStartHash = new uint256("0000000000000a7d13390bb29ac6d4466afb16358aeb3cd0656215392ed2468d");
+				SuperblockStartHash = new uint256("0000000000000a7d13390bb29ac6d4466afb16358aeb3cd0656215392ed2468d"),
 				GovernanceMinQuorum = 10,
 				GovernanceFilterElements = 20000,
 				MasternodeMinimumConfirmations = 15,
