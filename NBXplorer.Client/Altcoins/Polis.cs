@@ -53,10 +53,25 @@ namespace NBXplorer.Altcoins.Polis
 			NetworkBuilder builder = new NetworkBuilder();
 			_Mainnet = builder.SetConsensus(new Consensus()
 			{
+				
+				
 				SubsidyHalvingInterval = 1569325056,
-				MajorityEnforceBlockUpgrade = 750,
-				MajorityRejectBlockOutdated = 950,
-				MajorityWindow = 1000,
+				MasternodePaymentsStartBlock = 15, // not true, but it's ok as long as it's less then nMasternodePaymentsIncreaseBlock
+				MasternodePaymentsIncreaseBlock = 1569325056, // actual historical value
+				MasternodePaymentsIncreasePeriod = 1569325056, // 17280 - actual historical value
+				InstantSendConfirmationsRequired = 6,
+				InstantSendKeepLock = 24,
+				BudgetPaymentsStartBlock = 32800, // actual historical value
+				BudgetPaymentsCycleBlocks = 16616, // ~(60*24*30)/2.6, actual number of blocks per month is 200700 / 12 = 1672
+				BudgetPaymentsWindowBlocks = 100,
+				SuperblockStartBlock = 66464, // The block at which 12.1 goes live (end of final 12.0 budget cycle)
+				SuperblockCycle = 16616, // ~(60*24*30)/2.6, actual number of blocks per month is 200700 / 12 = 16725
+				SuperblockStartHash = new uint256("0000000000000a7d13390bb29ac6d4466afb16358aeb3cd0656215392ed2468d");
+				GovernanceMinQuorum = 10,
+				GovernanceFilterElements = 20000,
+				MasternodeMinimumConfirmations = 15,
+				DIP0001Height = 782208,
+				BIP34Height = 951,
 				BIP34Hash = new uint256("000001f35e70f7c5705f64c6c5cc3dea9449e74d5b5c7cf74dad1bcca14a8012"),
 				PowLimit = new Target(new uint256("00000fffff000000000000000000000000000000000000000000000000000000")),
 				PowTargetTimespan = TimeSpan.FromSeconds(24 * 60 * 60),
@@ -78,7 +93,7 @@ namespace NBXplorer.Altcoins.Polis
 			.SetBech32(Bech32Type.WITNESS_PUBKEY_ADDRESS, Encoders.Bech32("polis"))
 			.SetBech32(Bech32Type.WITNESS_SCRIPT_ADDRESS, Encoders.Bech32("polis"))
 			.SetMagic(0xbd6b0cbf)
-			.SetPort(port)
+			.SetPort(24126)
 			.SetRPCPort(24127)
 			.SetName("polis-main")
 			.AddAlias("polis-mainnet")
