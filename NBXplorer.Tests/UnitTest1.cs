@@ -266,38 +266,40 @@ namespace NBXplorer.Tests
 				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 				Assert.NotNull(a1);
 				Assert.Equal(a1.ScriptPubKey, tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0).ScriptPubKey);
-				Assert.Equal(a1.ScriptPubKey, bob.Root.Derive(new KeyPath("0/0")).PubKey.Hash.ScriptPubKey);
+				Assert.Equal(a1.ScriptPubKey, bob.Derive(new KeyPath("0/0")).ScriptPubKey);
 
 				var a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
-				Assert.Equal(a2.ScriptPubKey, bob.Root.Derive(new KeyPath("0/1")).PubKey.Hash.ScriptPubKey);
+				Assert.Equal(a2.ScriptPubKey, bob.Derive(new KeyPath("0/1")).ScriptPubKey);
 
 				var a3 = tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 0);
-				Assert.Equal(a3.ScriptPubKey, bob.Root.Derive(new KeyPath("1/0")).PubKey.Hash.ScriptPubKey);
+				Assert.Equal(a3.ScriptPubKey, bob.Derive(new KeyPath("1/0")).ScriptPubKey);
 
 				var a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
-				Assert.Equal(a4.ScriptPubKey, bob.Root.Derive(new KeyPath("1")).PubKey.Hash.ScriptPubKey);
+				Assert.Equal(a4.ScriptPubKey, bob.Derive(new KeyPath("1")).ScriptPubKey);
 
 				Assert.Null(tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 30));
 
 				a3 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 2);
 				Assert.Equal(new KeyPath("0/2"), a3.KeyPath);
 
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				//   0/0 and 0/2 used
 				tester.SendToAddressAsync(a1.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
+
 				tester.SendToAddressAsync(a3.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
 
 				tester.SendToAddressAsync(a4.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
-
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
-				Assert.Equal(a1.ScriptPubKey, bob.Root.Derive(new KeyPath("0/1")).PubKey.Hash.ScriptPubKey);
+				Assert.Equal(a1.ScriptPubKey, bob.Derive(new KeyPath("0/1")).ScriptPubKey);
 				a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
-				Assert.Equal(a2.ScriptPubKey, bob.Root.Derive(new KeyPath("0/3")).PubKey.Hash.ScriptPubKey);
+				Assert.Equal(a2.ScriptPubKey, bob.Derive(new KeyPath("0/3")).ScriptPubKey);
 
 				a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
-				Assert.Equal(a4.ScriptPubKey, bob.Root.Derive(new KeyPath("2")).PubKey.Hash.ScriptPubKey);
+				Assert.Equal(a4.ScriptPubKey, bob.Derive(new KeyPath("2")).ScriptPubKey);
 
 			}
 		}

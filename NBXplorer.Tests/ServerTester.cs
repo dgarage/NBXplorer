@@ -311,14 +311,16 @@ namespace NBXplorer.Tests
 			return scheme.Derive(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(Network);
 		}
 
-		public DirectDerivationStrategy CreateDerivationStrategy(ExtPubKey pubKey = null, bool p2sh = false)
+		public DirectDerivationStrategy CreateDerivationStrategy(ExtPubKey pubKey = null)
+		{
+			return (DirectDerivationStrategy)CreateDerivationStrategy(pubKey, false);
+		}
+		public DerivationStrategyBase CreateDerivationStrategy(ExtPubKey pubKey, bool p2sh)
 		{
 			pubKey = pubKey ?? new ExtKey().Neuter();
 			string suffix = SupportSegwit() ? "" : "-[legacy]";
-			if(p2sh)
-				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}-[p2sh]{suffix}");
-			else
-				return (DirectDerivationStrategy)new DerivationStrategyFactory(Network.RegTest).Parse($"{pubKey.ToString(Network.RegTest)}{suffix}");
+			suffix = p2sh ? "-[p2sh]" : "";
+			return new DerivationStrategyFactory(this.Network).Parse($"{pubKey.ToString(this.Network)}{suffix}");
 		}
 
 		public bool RPCSupportSegwit
@@ -333,7 +335,7 @@ namespace NBXplorer.Tests
 
 		private bool SupportSegwit()
 		{
-			return RPCSupportSegwit && Network.Consensus.ConsensusFactory.GetProtocolCapabilities(Network.MaxP2PVersion).SupportWitness;
+			return RPCSupportSegwit && Network.Consensus.SupportSegwit;
 		}
 
 		public uint256 SendToAddress(BitcoinAddress address, Money amount)

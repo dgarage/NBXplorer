@@ -73,6 +73,8 @@ namespace NBXplorer.DerivationStrategy
 			bool keepOrder = false;
 			ReadBool(ref str, "keeporder", ref keepOrder);
 
+			if(!legacy && !_Network.Consensus.SupportSegwit)
+				throw new FormatException("Segwit is not supported");
 
 			var options = new DerivationStrategyOptions()
 			{
@@ -120,6 +122,9 @@ namespace NBXplorer.DerivationStrategy
 		{
 			options = options ?? new DerivationStrategyOptions();
 			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey) { Segwit = !options.Legacy };
+			if(!options.Legacy && !_Network.Consensus.SupportSegwit)
+				throw new InvalidOperationException("This crypto currency does not support segwit");
+
 			if(options.P2SH && !options.Legacy)
 			{
 				strategy = new P2SHDerivationStrategy(strategy, true);
@@ -156,6 +161,8 @@ namespace NBXplorer.DerivationStrategy
 			if(options.Legacy)
 				return new P2SHDerivationStrategy(derivationStrategy, false);
 
+			if(!_Network.Consensus.SupportSegwit)
+				throw new InvalidOperationException("This crypto currency does not support segwit");
 			derivationStrategy = new P2WSHDerivationStrategy(derivationStrategy);
 			if(options.P2SH)
 			{
