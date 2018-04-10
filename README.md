@@ -12,6 +12,7 @@ It currently supports:
 
 * Bitcoin
 * Litecoin
+* Dogecoin
 * BCash (also known as Bitcoin Cash)
 
 ## Prerequisite
