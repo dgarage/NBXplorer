@@ -36,6 +36,11 @@ namespace NBXplorer
 			get;
 			internal set;
 		}
+		public bool SupportCookieAuthentication
+		{
+			get;
+			internal set;
+		} = true;
 
 		public override string ToString()
 		{

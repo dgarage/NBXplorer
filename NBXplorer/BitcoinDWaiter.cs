@@ -552,7 +552,17 @@ namespace NBXplorer
 			}
 			else
 			{
-				var header = await _RPC.GetBlockHeaderAsync(await _RPC.GetBestBlockHashAsync());
+				var hash = await _RPC.GetBestBlockHashAsync();
+
+				BlockHeader header = null;
+				try
+				{
+					header = await _RPC.GetBlockHeaderAsync(hash);
+				}
+				catch(RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+				{
+					header = (await _RPC.GetBlockAsync(hash)).Header;
+				}
 				if((DateTimeOffset.UtcNow - header.BlockTime) > TimeSpan.FromSeconds(24 * 60 * 60))
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: It has been a while nothing got mined on regtest... mining 10 blocks");

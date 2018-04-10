@@ -66,6 +66,7 @@ namespace NBXplorer.Tests
 				if(!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
 
+				var cryptoSettings = new NBXplorerNetworkProvider(ChainType.Regtest).GetFromCryptoCode(CryptoCode);
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, directory);
 
 
@@ -73,7 +74,10 @@ namespace NBXplorer.Tests
 				User2 = NodeBuilder.CreateNode();
 				Explorer = NodeBuilder.CreateNode();
 				foreach(var node in NodeBuilder.Nodes)
+				{
 					node.WhiteBind = true;
+					node.CookieAuth = cryptoSettings.SupportCookieAuthentication;
+				}
 				NodeBuilder.StartAll();
 
 				User1.CreateRPCClient().Generate(1);
@@ -177,7 +181,7 @@ namespace NBXplorer.Tests
 			get; set;
 		}
 
-		
+
 		public IWebHost Host
 		{
 			get; set;
@@ -322,9 +326,31 @@ namespace NBXplorer.Tests
 			get; set;
 		} = true;
 
+		public bool RPCStringAmount
+		{
+			get; set;
+		} = true;
+
 		private bool SupportSegwit()
 		{
 			return RPCSupportSegwit && Network.Consensus.ConsensusFactory.GetProtocolCapabilities(Network.MaxP2PVersion).SupportWitness;
+		}
+
+		public uint256 SendToAddress(BitcoinAddress address, Money amount)
+		{
+			return SendToAddressAsync(address, amount).GetAwaiter().GetResult();
+		}
+
+		public async Task<uint256> SendToAddressAsync(BitcoinAddress address, Money amount)
+		{
+			List<object> parameters = new List<object>();
+			parameters.Add(address.ToString());
+			if(RPCStringAmount)
+				parameters.Add(amount.ToString());
+			else
+				parameters.Add(amount.ToDecimal(MoneyUnit.BTC));
+			var resp = await RPC.SendCommandAsync(RPCOperations.sendtoaddress, parameters.ToArray());
+			return uint256.Parse(resp.Result.ToString());
 		}
 	}
 }

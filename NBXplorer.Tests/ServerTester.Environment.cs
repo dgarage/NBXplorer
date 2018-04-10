@@ -19,6 +19,13 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.BCash.Regtest;
 			//RPCSupportSegwit = false;
 
+			//Tests of DOGE are broken because it outpoint locking seems to work differently
+			//CryptoCode = "DOGE";
+			//nodeDownloadData = NodeDownloadData.Dogecoin.v1_10_0;
+			//Network = NBitcoin.Altcoins.Dogecoin.Regtest;
+			//RPCSupportSegwit = false;
+			//RPCStringAmount = false;
+
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
 			Network = NBitcoin.Network.RegTest;
