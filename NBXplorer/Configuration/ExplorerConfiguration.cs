@@ -106,7 +106,6 @@ namespace NBXplorer.Configuration
 					chainConfiguration.CryptoCode = network.CryptoCode;
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
 					chainConfiguration.RPC = args.ConfigureRPCClient(network);
-					Logs.Configuration.LogInformation(chainConfiguration.RPC.CredentialString.ToString());
 					if((chainConfiguration.RPC.CredentialString.CookieFile != null || chainConfiguration.RPC.CredentialString.UseDefault) && !network.SupportCookieAuthentication)
 					{
 						throw new ConfigException($"Chain {network.CryptoCode} does not support cookie file authentication,\n" +
