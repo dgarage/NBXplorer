@@ -10,7 +10,7 @@ namespace NBXplorer
 		{
 			InitBitcoin(chainType);
 			InitLitecoin(chainType);
-			InitDogecoin(ChainType);
+			InitDogecoin(chainType);
 			InitBCash(chainType);
 			ChainType = chainType;
 			foreach(var chain in _Networks.Values)
