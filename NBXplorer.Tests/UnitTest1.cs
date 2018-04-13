@@ -159,12 +159,12 @@ namespace NBXplorer.Tests
 
 				// Send 1 BTC
 				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
-				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(Network.RegTest), Money.Coins(1.0m));
+				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
 				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
 
 				// Send 1 more BTC
 				newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
-				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(Network.RegTest), Money.Coins(1.0m));
+				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
 				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
 
 				utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
@@ -365,7 +365,7 @@ namespace NBXplorer.Tests
 
 					int expectedOutput = tester.SupportSegwit() ? 2 : 4; // if does not support segwit pubkey == pubkey2
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
-					Assert.Equal(2, txEvent.Outputs.Count);
+					Assert.Equal(expectedOutput, txEvent.Outputs.Count);
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), schemes);
 					schemes.Remove(txEvent.DerivationStrategy.ToString());
 
