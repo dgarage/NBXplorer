@@ -26,6 +26,11 @@ namespace NBXplorer.Tests
 			//RPCSupportSegwit = false;
 			//RPCStringAmount = false;
 
+			//CryptoCode = "DASH";
+			//nodeDownloadData = NodeDownloadData.Dash.v0_12_2;
+			//Network = NBitcoin.Altcoins.Dash.Regtest;
+			//RPCSupportSegwit = false;
+
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
 			Network = NBitcoin.Network.RegTest;

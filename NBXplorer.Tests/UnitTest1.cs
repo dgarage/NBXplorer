@@ -363,10 +363,14 @@ namespace NBXplorer.Tests
 
 					var schemes = new[] { pubkey.ToString(), pubkey2.ToString() }.ToList();
 
+					int expectedOutput = tester.SupportSegwit() ? 2 : 4; // if does not support segwit pubkey == pubkey2
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(2, txEvent.Outputs.Count);
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), schemes);
 					schemes.Remove(txEvent.DerivationStrategy.ToString());
+
+					if(!tester.SupportSegwit())
+						return;
 
 					txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(2, txEvent.Outputs.Count);

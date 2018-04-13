@@ -91,7 +91,7 @@ namespace NBXplorer.Configuration
 		public static async Task TestRPCAsync(NBXplorerNetwork networkInfo, RPCClient rpcClient, CancellationToken cancellation)
 		{
 			var network = networkInfo.NBitcoinNetwork;
-			Logs.Configuration.LogInformation("Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
+			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
 			try
 			{
 				var address = new Key().PubKey.GetAddress(network);
@@ -105,14 +105,14 @@ namespace NBXplorer.Configuration
 						var isValid = ((JObject)(await rpcClient.SendCommandAsync("validateaddress", address.ToString())).Result)["isvalid"].Value<bool>();
 						if(!isValid)
 						{
-							Logs.Configuration.LogError("The RPC Server is on a different blockchain than the one configured for tumbling");
+							Logs.Configuration.LogError($"{networkInfo.CryptoCode}: The RPC Server is on a different blockchain than the one configured for tumbling");
 							throw new ConfigException();
 						}
 						break;
 					}
 					catch(RPCException ex) when(IsTransient(ex))
 					{
-						Logs.Configuration.LogInformation($"Transient error '{ex.Message}', retrying soon...");
+						Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Transient error '{ex.Message}', retrying soon...");
 						await Task.Delay(Math.Min(1000 * time, 10000), cancellation);
 					}
 				}
@@ -123,22 +123,22 @@ namespace NBXplorer.Configuration
 			}
 			catch(RPCException ex)
 			{
-				Logs.Configuration.LogError("Invalid response from RPC server " + ex.Message);
+				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: Invalid response from RPC server " + ex.Message);
 				throw new ConfigException();
 			}
 			catch(Exception ex)
 			{
-				Logs.Configuration.LogError("Error connecting to RPC server " + ex.Message);
+				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: Error connecting to RPC server " + ex.Message);
 				throw new ConfigException();
 			}
-			Logs.Configuration.LogInformation("RPC connection successfull");
+			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: RPC connection successfull");
 			int version = await GetVersion(rpcClient);
 			if(version < networkInfo.MinRPCVersion)
 			{
-				Logs.Configuration.LogError($"The minimum Bitcoin version required is {networkInfo.MinRPCVersion} (detected: {version})");
+				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: The minimum node version required is {networkInfo.MinRPCVersion} (detected: {version})");
 				throw new ConfigException();
 			}
-			Logs.Configuration.LogInformation($"Bitcoin version detected: {version}");
+			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Full node version detected: {version}");
 		}
 
 		private static async Task<int> GetVersion(RPCClient rpcClient)

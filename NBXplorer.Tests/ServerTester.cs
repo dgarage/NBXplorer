@@ -319,7 +319,7 @@ namespace NBXplorer.Tests
 		{
 			pubKey = pubKey ?? new ExtKey().Neuter();
 			string suffix = SupportSegwit() ? "" : "-[legacy]";
-			suffix = p2sh ? "-[p2sh]" : "";
+			suffix += p2sh ? "-[p2sh]" : "";
 			return new DerivationStrategyFactory(this.Network).Parse($"{pubKey.ToString(this.Network)}{suffix}");
 		}
 
@@ -333,7 +333,7 @@ namespace NBXplorer.Tests
 			get; set;
 		} = true;
 
-		private bool SupportSegwit()
+		public bool SupportSegwit()
 		{
 			return RPCSupportSegwit && Network.Consensus.SupportSegwit;
 		}
