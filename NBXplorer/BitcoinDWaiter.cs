@@ -339,7 +339,7 @@ namespace NBXplorer
 			var heightBefore = _Chain.Height;
 			using(var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 			{
-				timeout.CancelAfter(TimeSpan.FromMinutes(15));
+				timeout.CancelAfter(_Network.ChainLoadingTimeout);
 				try
 				{
 					await LoadChainFromNode(timeout.Token);

@@ -12,7 +12,7 @@ namespace NBXplorer
 			Add(new NBXplorerNetwork()
 			{
 				CryptoCode = "DASH",
-				MinRPCVersion = 120203,
+				MinRPCVersion = 120000,
 				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.Dash.Mainnet :
 								  chainType == ChainType.Test ? NBitcoin.Altcoins.Dash.Testnet :
 								  chainType == ChainType.Regtest ? NBitcoin.Altcoins.Dash.Regtest : throw new NotSupportedException(chainType.ToString()),

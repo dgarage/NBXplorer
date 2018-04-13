@@ -17,6 +17,7 @@ namespace NBXplorer
 								  chainType == ChainType.Test ? NBitcoin.Altcoins.Dogecoin.Testnet :
 								  chainType == ChainType.Regtest ? NBitcoin.Altcoins.Dogecoin.Regtest : throw new NotSupportedException(chainType.ToString()),
 				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType),
+				ChainLoadingTimeout = TimeSpan.FromHours(1),
 				SupportCookieAuthentication = false
 			});
 		}
