@@ -42,6 +42,12 @@ namespace NBXplorer
 			internal set;
 		} = true;
 
+		public TimeSpan ChainLoadingTimeout
+		{
+			get;
+			set;
+		} = TimeSpan.FromMinutes(15);
+
 		public override string ToString()
 		{
 			return CryptoCode.ToString();
