@@ -8,14 +8,14 @@ namespace NBXplorer
     {
 		private void InitLitecoin(ChainType chainType)
 		{
-			NBXplorer.Altcoins.Litecoin.Networks.EnsureRegistered();
+			NBitcoin.Altcoins.Litecoin.EnsureRegistered();
 			Add(new NBXplorerNetwork()
 			{
 				CryptoCode = "LTC",
 				MinRPCVersion = 140200,
-				NBitcoinNetwork = chainType == ChainType.Main ? NBXplorer.Altcoins.Litecoin.Networks.Mainnet:
-								  chainType == ChainType.Test ? NBXplorer.Altcoins.Litecoin.Networks.Testnet :
-								  chainType == ChainType.Regtest ? NBXplorer.Altcoins.Litecoin.Networks.Regtest : throw new NotSupportedException(chainType.ToString()),
+				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.Litecoin.Mainnet:
+								  chainType == ChainType.Test ? NBitcoin.Altcoins.Litecoin.Testnet :
+								  chainType == ChainType.Regtest ? NBitcoin.Altcoins.Litecoin.Regtest : throw new NotSupportedException(chainType.ToString()),
 				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType)
 			});
 		}

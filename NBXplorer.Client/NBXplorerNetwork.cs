@@ -36,6 +36,17 @@ namespace NBXplorer
 			get;
 			internal set;
 		}
+		public bool SupportCookieAuthentication
+		{
+			get;
+			internal set;
+		} = true;
+
+		public TimeSpan ChainLoadingTimeout
+		{
+			get;
+			set;
+		} = TimeSpan.FromMinutes(15);
 
 		public override string ToString()
 		{

@@ -142,7 +142,7 @@ namespace NBXplorer.Controllers
 
 			var location = waiter.GetLocation();
 
-			var blockchainInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetBlockchainInfoAsync() : null;
+			var blockchainInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetBlockchainInfoAsyncEx() : null;
 			var networkInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetNetworkInfoAsync() : null;
 			repo.Ping();
 			var pingAfter = DateTimeOffset.UtcNow;
@@ -169,8 +169,8 @@ namespace NBXplorer.Controllers
 				status.BitcoinStatus = new BitcoinStatus()
 				{
 					IsSynched = !waiter.IsSynchingCore(blockchainInfo),
-					Blocks = blockchainInfo.Blocks,
-					Headers = blockchainInfo.Headers,
+					Blocks = (int)blockchainInfo.Blocks,
+					Headers = (int)blockchainInfo.Headers,
 					VerificationProgress = blockchainInfo.VerificationProgress,
 					MinRelayTxFee = new FeeRate(Money.Coins((decimal)networkInfo.relayfee), 1000),
 					IncrementalRelayFee = new FeeRate(Money.Coins((decimal)networkInfo.incrementalfee), 1000)

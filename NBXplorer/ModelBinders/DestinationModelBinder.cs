@@ -40,12 +40,16 @@ namespace NBXplorer.ModelBinders
 			var networkProvider = (NBXplorer.NBXplorerNetworkProvider)bindingContext.HttpContext.RequestServices.GetService(typeof(NBXplorer.NBXplorerNetworkProvider));
 			var cryptoCode = bindingContext.ValueProvider.GetValue("cryptoCode").FirstValue;
 			var network = networkProvider.GetFromCryptoCode(cryptoCode ?? "BTC");
-			var data = new DerivationStrategy.DerivationStrategyFactory(network.NBitcoinNetwork).Parse(key);
-			if(!bindingContext.ModelType.IsInstanceOfType(data))
+			try
 			{
-				throw new FormatException("Invalid destination type");
+				var data = new DerivationStrategy.DerivationStrategyFactory(network.NBitcoinNetwork).Parse(key);
+				if(!bindingContext.ModelType.IsInstanceOfType(data))
+				{
+					throw new FormatException("Invalid destination type");
+				}
+				bindingContext.Result = ModelBindingResult.Success(data);
 			}
-			bindingContext.Result = ModelBindingResult.Success(data);
+			catch { throw new FormatException("Invalid derivation scheme"); }
 			return Task.CompletedTask;
 		}
 

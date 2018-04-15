@@ -21,10 +21,11 @@ using System.Net;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using NBXplorer.Logging;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Tests
 {
-	public class ServerTester : IDisposable
+	public partial class ServerTester : IDisposable
 	{
 		private readonly string _Directory;
 
@@ -52,11 +53,11 @@ namespace NBXplorer.Tests
 		public string CryptoCode
 		{
 			get; set;
-		} = "BTC";
+		}
 
 		public ServerTester(string directory)
 		{
-			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
+			SetEnvironment();
 			try
 			{
 				var rootTestData = "TestData";
@@ -65,15 +66,18 @@ namespace NBXplorer.Tests
 				if(!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
 
-				NodeBuilder = CreateNodeBuilder(directory);
-
+				var cryptoSettings = new NBXplorerNetworkProvider(ChainType.Regtest).GetFromCryptoCode(CryptoCode);
+				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, directory);
 
 
 				User1 = NodeBuilder.CreateNode();
 				User2 = NodeBuilder.CreateNode();
 				Explorer = NodeBuilder.CreateNode();
 				foreach(var node in NodeBuilder.Nodes)
+				{
 					node.WhiteBind = true;
+					node.CookieAuth = cryptoSettings.SupportCookieAuthentication;
+				}
 				NodeBuilder.StartAll();
 
 				User1.CreateRPCClient().Generate(1);
@@ -83,7 +87,6 @@ namespace NBXplorer.Tests
 				User2.CreateRPCClient().Generate(101);
 				User1.Sync(User2, true);
 
-				var creds = RPCCredentialString.Parse(Explorer.AuthenticationString).UserPassword;
 				var datadir = Path.Combine(directory, "explorer");
 				DeleteRecursivelyWithMagicDust(datadir);
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
@@ -92,8 +95,7 @@ namespace NBXplorer.Tests
 				keyValues.Add(("network", "regtest"));
 				keyValues.Add(("chains", CryptoCode.ToLowerInvariant()));
 				keyValues.Add(("verbose", "1"));
-				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcuser", creds.UserName));
-				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcpassword", creds.Password));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcauth", Explorer.GetRPCAuth()));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 				keyValues.Add(("cachechain", "0"));
 				keyValues.Add(("rpcnotest", "1"));
@@ -131,11 +133,6 @@ namespace NBXplorer.Tests
 				Dispose();
 				throw;
 			}
-		}
-
-		private NodeBuilder CreateNodeBuilder(string directory)
-		{
-			return NodeBuilder.Create(nodeDownloadData, directory);
 		}
 
 		private NetworkCredential ExtractCredentials(string config)
@@ -184,7 +181,7 @@ namespace NBXplorer.Tests
 			get; set;
 		}
 
-		
+
 		public IWebHost Host
 		{
 			get; set;
@@ -296,5 +293,66 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		public BitcoinSecret PrivateKeyOf(BitcoinExtKey key, string path)
+		{
+			return new BitcoinSecret(key.ExtKey.Derive(new KeyPath(path)).PrivateKey, Network);
+		}
+
+		public BitcoinAddress AddressOf(BitcoinExtKey key, string path)
+		{
+			if(SupportSegwit())
+				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.WitHash.GetAddress(Network);
+			else
+				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.Hash.GetAddress(Network);
+		}
+
+		public BitcoinAddress AddressOf(DerivationStrategyBase scheme, string path)
+		{
+			return scheme.Derive(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(Network);
+		}
+
+		public DirectDerivationStrategy CreateDerivationStrategy(ExtPubKey pubKey = null)
+		{
+			return (DirectDerivationStrategy)CreateDerivationStrategy(pubKey, false);
+		}
+		public DerivationStrategyBase CreateDerivationStrategy(ExtPubKey pubKey, bool p2sh)
+		{
+			pubKey = pubKey ?? new ExtKey().Neuter();
+			string suffix = SupportSegwit() ? "" : "-[legacy]";
+			suffix += p2sh ? "-[p2sh]" : "";
+			return new DerivationStrategyFactory(this.Network).Parse($"{pubKey.ToString(this.Network)}{suffix}");
+		}
+
+		public bool RPCSupportSegwit
+		{
+			get; set;
+		} = true;
+
+		public bool RPCStringAmount
+		{
+			get; set;
+		} = true;
+
+		public bool SupportSegwit()
+		{
+			return RPCSupportSegwit && Network.Consensus.SupportSegwit;
+		}
+
+		public uint256 SendToAddress(BitcoinAddress address, Money amount)
+		{
+			return SendToAddressAsync(address, amount).GetAwaiter().GetResult();
+		}
+
+		public async Task<uint256> SendToAddressAsync(BitcoinAddress address, Money amount)
+		{
+			List<object> parameters = new List<object>();
+			parameters.Add(address.ToString());
+			if(RPCStringAmount)
+				parameters.Add(amount.ToString());
+			else
+				parameters.Add(amount.ToDecimal(MoneyUnit.BTC));
+			var resp = await RPC.SendCommandAsync(RPCOperations.sendtoaddress, parameters.ToArray());
+			return uint256.Parse(resp.Result.ToString());
+		}
 	}
 }

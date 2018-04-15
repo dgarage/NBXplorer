@@ -106,6 +106,12 @@ namespace NBXplorer.Configuration
 					chainConfiguration.CryptoCode = network.CryptoCode;
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
 					chainConfiguration.RPC = args.ConfigureRPCClient(network);
+					if((chainConfiguration.RPC.CredentialString.CookieFile != null || chainConfiguration.RPC.CredentialString.UseDefault) && !network.SupportCookieAuthentication)
+					{
+						throw new ConfigException($"Chain {network.CryptoCode} does not support cookie file authentication,\n" +
+							$"Please use {network.CryptoCode.ToLowerInvariant()}rpcuser and {network.CryptoCode.ToLowerInvariant()}rpcpassword settings in NBXplorer" +
+							$"And configure rpcuser and rpcpassword in the configuration file or in commandline or your node");
+					}
 					chainConfiguration.NodeEndpoint = DefaultConfiguration.ConvertToEndpoint(config.GetOrDefault<string>($"{network.CryptoCode}.node.endpoint", "127.0.0.1"), network.NBitcoinNetwork.DefaultPort);
 					chainConfiguration.StartHeight = config.GetOrDefault<int>($"{network.CryptoCode}.startheight", -1);
 

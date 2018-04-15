@@ -34,10 +34,11 @@ namespace NBXplorer.Configuration
 			foreach(var network in provider.GetAll())
 			{
 				var crypto = network.CryptoCode.ToLowerInvariant();
-				app.Option($"--{crypto}rpcuser", $"The RPC user (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rescan", $"Rescan from startheight", CommandOptionType.BoolValue);
-				app.Option($"--{crypto}rpcpassword", $"The RPC password (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
-				app.Option($"--{crypto}rpccookiefile", $"The RPC cookiefile (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}rpcuser", $"RPC authentication method 1: The RPC user (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}rpcpassword", $"RPC authentication method 1: The RPC password (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}rpccookiefile", $"RPC authentication method 2: The RPC cookiefile (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}rpcauth", $"RPC authentication method 3: user:password or cookiefile=path (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpcurl", $"The RPC server url (default: default rpc server depended on the network)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}startheight", $"The height where starting the scan (default: where your rpc server was synched when you first started this program)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
@@ -128,7 +129,11 @@ namespace NBXplorer.Configuration
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");
 			builder.AppendLine("## What crypto currencies is supported");
-			builder.AppendLine("#chains=btc,ltc,bch,polis");
+			var chains = string.Join(',', new NBXplorerNetworkProvider(ChainType.Main)
+				.GetAll()
+				.Select(c => c.CryptoCode.ToLowerInvariant())
+				.ToArray());
+			builder.AppendLine($"#chains={chains}");
 			builder.AppendLine("## Activate or disable verbose logs");
 			builder.AppendLine("#verbose=0");
 
