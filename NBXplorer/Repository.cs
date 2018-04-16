@@ -468,6 +468,11 @@ namespace NBXplorer
 			{
 				return tx.SelectForwardStartsWith<string, byte[]>(TableName, PrimaryKey).Count();
 			}
+			
+			public IEnumerable<DBreeze.DataTypes.Row<string, T>> SelectForward<T>(DBreeze.Transactions.Transaction tx)
+			{
+				return tx.SelectForward<string, T>(TableName);
+			}
 		}
 
 		Index GetAvailableKeysIndex(DerivationStrategyBase strategy, DerivationFeature feature)
@@ -1190,6 +1195,29 @@ namespace NBXplorer
 					RefillAvailable(tx, strategy, feature);
 				}
 				tx.Commit();
+			});
+		}
+		
+		public Task<List<KeyPathInformation>> GetAvailableKeys(
+			DerivationStrategyBase derivationStrategy = null,
+			DerivationFeature? derivationFeature = null,
+			KeyPath keyPath = null,
+			Script scriptPubKey = null)
+		{
+			return _Engine.DoAsync(tx =>
+			{
+				tx.ValuesLazyLoadingIsOn = false;								
+				IEnumerable<KeyPathInformation> keyInfos;
+				var available = new Index($"{_Suffix}AvailableKeys", "");
+				
+				keyInfos = available.SelectForward<byte[]>(tx)
+					.Select(r => ToObject<KeyPathInformation>(r.Value))
+					.Where(r => derivationStrategy == null || r.DerivationStrategy == derivationStrategy)
+					.Where(r => derivationFeature == null || r.Feature == derivationFeature)
+					.Where(r => keyPath == null || r.KeyPath == keyPath)
+					.Where(r => scriptPubKey == null || r.ScriptPubKey == scriptPubKey)
+					;
+				return keyInfos.ToList();
 			});
 		}
 	}
