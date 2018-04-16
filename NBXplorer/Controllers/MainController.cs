@@ -130,6 +130,23 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/getderivations")] 
+		public async Task<IActionResult> GetDerivations(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase strategy = null,
+			[ModelBinder(BinderType = typeof(KeyPathModelBinder))]
+			KeyPath keyPath = null,
+			[ModelBinder(BinderType = typeof(ScriptModelBinder))]
+			Script scriptPubKey = null,
+			DerivationFeature? feature = null
+			)
+			var network = GetNetwork(cryptoCode);
+			var repo = RepositoryProvider.GetRepository(network);
+			var tracked = await repo.GetAvailableKeys(strategy, feature, keyPath, scriptPubKey);
+			return Json(tracked);
+		}
+		
+		[HttpGet]
 		[Route("cryptos/{cryptoCode}/status")]
 		public async Task<IActionResult> GetStatus(string cryptoCode)
 		{
