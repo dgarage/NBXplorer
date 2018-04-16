@@ -265,7 +265,28 @@ namespace NBXplorer
 				return null;
 			}
 		}
+		
+		public List<KeyPathInformation> GetDerivations(DerivationStrategyBase strategy = null, DerivationFeature? feature = null,
+			KeyPath keyPath = null, Script scriptPubKey = null, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetDerivationsAsync(strategy, feature, keyPath, scriptPubKey, cancellation).GetAwaiter().GetResult();
+		}
 
+		public Task<List<KeyPathInformation>> GetDerivationsAsync(DerivationStrategyBase strategy = null, DerivationFeature? feature = null,
+			KeyPath keyPath = null, Script scriptPubKey = null, CancellationToken cancellation = default(CancellationToken))
+		{
+			Dictionary<string, string> parameters = new Dictionary<string, string>();
+			if (strategy != null)
+				parameters.Add("strategy", strategy.ToString());
+			if (feature != null)
+				parameters.Add("feature", feature.ToString());
+			if (keyPath != null)
+				parameters.Add("keyPath", keyPath.ToString());
+			if (scriptPubKey != null)
+				parameters.Add("scriptPubKey", scriptPubKey.ToString());
+			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
+			return SendAsync<List<KeyPathInformation>>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/getderivations?" + query, null, cancellation);
+		}
 
 		public GetFeeRateResult GetFeeRate(int blockCount, CancellationToken cancellation = default(CancellationToken))
 		{
