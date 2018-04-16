@@ -1023,10 +1023,10 @@ namespace NBXplorer.Tests
 				}				
 				Assert.True(derivations.Count() > 0);
 
-				derivations = tester.Client.GetDerivations(pubkey, null, new KeyPath("29"));
+				derivations = tester.Client.GetDerivations(pubkey, null, new KeyPath("1"));
 				Assert.Single(derivations);
 				Assert.True(derivations[0].Feature == DerivationFeature.Direct);
-				Assert.Equal(new KeyPath("29"), derivations[0].KeyPath);
+				Assert.Equal(new KeyPath("1"), derivations[0].KeyPath);
 
 				var bitcoinAddress = pubkey.Derive(new KeyPath("0/0")).ScriptPubKey.GetDestinationAddress(tester.Network);
 				derivations = tester.Client.GetDerivations(null, null, null, bitcoinAddress.ScriptPubKey);
