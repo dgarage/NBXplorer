@@ -140,6 +140,7 @@ namespace NBXplorer.Controllers
 			Script scriptPubKey = null,
 			DerivationFeature? feature = null
 			)
+		{
 			var network = GetNetwork(cryptoCode);
 			var repo = RepositoryProvider.GetRepository(network);
 			var tracked = await repo.GetAvailableKeys(strategy, feature, keyPath, scriptPubKey);
