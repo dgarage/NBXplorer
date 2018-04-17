@@ -13,6 +13,8 @@ It currently supports:
 * Bitcoin
 * Litecoin
 * Dogecoin
+* Dash
+* Polis
 * BCash (also known as Bitcoin Cash)
 
 ## Prerequisite
@@ -77,7 +79,7 @@ NBXplorer supports configuration through command line arguments, configuration f
 ### Configuration file
 
 If you are not using standard install for bitcoind, you will have to change the configuration file:
-In Windows it is located on 
+In Windows it is located on
 
 ```
 C:\Users\<user>\AppData\Roaming\NBXplorer\<network>\settings.config
