@@ -1006,6 +1006,38 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanGetDerivations()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				tester.Client.Track(pubkey);
+				List<KeyPathInformation> derivations;
+
+				derivations = tester.Client.GetDerivations(pubkey);
+				Assert.NotNull(derivations);				
+				foreach (var d in derivations)
+				{
+					Assert.Equal(pubkey, d.DerivationStrategy);
+				}				
+				Assert.True(derivations.Count() > 0);
+
+				derivations = tester.Client.GetDerivations(pubkey, null, new KeyPath("1"));
+				Assert.Single(derivations);
+				Assert.True(derivations[0].Feature == DerivationFeature.Direct);
+				Assert.Equal(new KeyPath("1"), derivations[0].KeyPath);
+
+				var bitcoinAddress = pubkey.Derive(new KeyPath("0/0")).ScriptPubKey.GetDestinationAddress(tester.Network);
+				derivations = tester.Client.GetDerivations(null, null, null, bitcoinAddress.ScriptPubKey);
+				Assert.Single(derivations);
+				Assert.Equal(bitcoinAddress.ScriptPubKey, derivations[0].ScriptPubKey);
+				Assert.Equal(new KeyPath("0/0"), derivations[0].KeyPath);
+				Assert.True(derivations[0].Feature == DerivationFeature.Deposit);
+			}
+		}
+		
+		[Fact]
 		public void CanTrackDirect()
 		{
 			using(var tester = ServerTester.Create())
