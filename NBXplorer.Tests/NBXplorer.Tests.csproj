@@ -3,7 +3,7 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    
+
     <PackageReference Include="NBitcoin" Version="4.1.0.13" />
     <PackageReference Include="NBitcoin.TestFramework" Version="1.5.4" />
 	  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.7.0" />

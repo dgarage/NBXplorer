@@ -13,6 +13,7 @@ namespace NBXplorer
 			InitDogecoin(chainType);
 			InitBCash(chainType);
 			InitDash(chainType);
+			InitPolis(chainType);
 			ChainType = chainType;
 			foreach(var chain in _Networks.Values)
 			{
