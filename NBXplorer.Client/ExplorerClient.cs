@@ -265,7 +265,16 @@ namespace NBXplorer
 				return null;
 			}
 		}
+		
+		public async Task<KeyPathInformation[]> GetKeyInformationsAsync(Script script, CancellationToken cancellation = default(CancellationToken))
+		{
+			return await SendAsync<KeyPathInformation[]>(HttpMethod.Get, null, "v1/cryptos/{0}/scripts/" + script.ToHex(), new[] { CryptoCode }, cancellation).ConfigureAwait(false);
+		}
 
+		public KeyPathInformation[] GetKeyInformations(Script script, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetKeyInformationsAsync(script, cancellation).GetAwaiter().GetResult();
+		}
 
 		public GetFeeRateResult GetFeeRate(int blockCount, CancellationToken cancellation = default(CancellationToken))
 		{
