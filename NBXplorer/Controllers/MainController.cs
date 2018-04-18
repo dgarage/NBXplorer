@@ -136,19 +136,10 @@ namespace NBXplorer.Controllers
 		{
 			var network = GetNetwork(cryptoCode);
 			var repo = RepositoryProvider.GetRepository(network);
-			var scripts = new Script[] { script };
-			var keyInformations = repo.GetKeyInformations(scripts);
-			var result = new List<KeyPathInformation>();
-			foreach (var keyInfoByScripts in keyInformations)
-			{
-				foreach (var keyInfo in keyInfoByScripts.Value)
-				{
-					result.Add(keyInfo);
-				}
-			}
-			if (result.Count == 0)
-				return NotFound();
-			return Json(result.ToArray());
+			var result = repo.GetKeyInformations(new [] { script })
+                           .SelectMany(k => k.Value)
+                           .ToArray();
+			return Json(result);
 		}
 		
 		[HttpGet]
