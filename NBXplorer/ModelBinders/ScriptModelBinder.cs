@@ -33,8 +33,7 @@ namespace NBXplorer.ModelBinders
 				bindingContext.Model = null;
 				return Task.CompletedTask;
 			}
-
-			// var value = new Script(key);
+			
 			var value = new Script(Encoders.Hex.DecodeData(key));
 
 			bindingContext.Result = ModelBindingResult.Success(value);
