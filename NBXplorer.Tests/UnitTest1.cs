@@ -1004,7 +1004,32 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0"), path);
 			}
 		}
+		
+		[Fact]
+		public void CanGetKeyInformations()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				tester.Client.Track(pubkey);							
 
+				KeyPathInformation[] keyinfos;
+				var script = pubkey.Derive(new KeyPath("0/0")).ScriptPubKey;
+
+				keyinfos = tester.Client.GetKeyInformations(script);
+				Assert.NotNull(keyinfos);
+				Assert.True(keyinfos.Length > 0);
+				foreach (var k in keyinfos)
+				{
+					Assert.Equal(pubkey, k.DerivationStrategy);
+					Assert.Equal(script, k.ScriptPubKey);
+					Assert.Equal(new KeyPath("0/0"), k.KeyPath);
+					Assert.Equal(DerivationFeature.Deposit, k.Feature);
+				}				
+			}
+		}
+		
 		[Fact]
 		public void CanTrackDirect()
 		{
