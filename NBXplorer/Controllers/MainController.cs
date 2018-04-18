@@ -128,7 +128,20 @@ namespace NBXplorer.Controllers
 			repo.CancelReservation(strategy, keyPaths);
 			return Ok();
 		}
-
+		
+		[HttpGet]
+		[Route("cryptos/{cryptoCode}/scripts/{script}")] 
+		public IActionResult GetKeyInformations(string cryptoCode,
+			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
+		{
+			var network = GetNetwork(cryptoCode);
+			var repo = RepositoryProvider.GetRepository(network);
+			var result = repo.GetKeyInformations(new [] { script })
+                           .SelectMany(k => k.Value)
+                           .ToArray();
+			return Json(result);
+		}
+		
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/status")]
 		public async Task<IActionResult> GetStatus(string cryptoCode)
