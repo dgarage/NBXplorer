@@ -241,7 +241,7 @@ namespace NBXplorer
 					try
 					{
 						blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
-						if(blockchainInfo != null && _Network.DefaultSettings.ChainType == ChainType.Regtest)
+						if(blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest)
 						{
 							if(await WarmupBlockchain())
 							{
@@ -467,7 +467,7 @@ namespace NBXplorer
 					{
 						node.VersionHandshake(handshakeTimeout.Token);
 						handshaked = true;
-						var loadChainTimeout = _Network.DefaultSettings.ChainType == ChainType.Regtest ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(15);
+						var loadChainTimeout = _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(15);
 						if(_Chain.Height < 5)
 							loadChainTimeout = TimeSpan.FromDays(7); // unlimited
 
@@ -577,7 +577,7 @@ namespace NBXplorer
 		{
 			if(blockchainInfo.InitialBlockDownload.HasValue)
 				return blockchainInfo.InitialBlockDownload.Value;
-			if(blockchainInfo.MedianTime.HasValue && _Network.DefaultSettings.ChainType != ChainType.Regtest)
+			if(blockchainInfo.MedianTime.HasValue && _Network.NBitcoinNetwork.NetworkType != NetworkType.Regtest)
 			{
 				var time = NBitcoin.Utils.UnixTimeToDateTime(blockchainInfo.MedianTime.Value);
 				// 5 month diff? probably synching...

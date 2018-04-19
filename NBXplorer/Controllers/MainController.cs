@@ -164,7 +164,7 @@ namespace NBXplorer.Controllers
 			GetNetworkInfoResponse networkInfo = networkInfoAsync == null ? null : await networkInfoAsync;
 			var status = new StatusResult()
 			{
-				ChainType = network.DefaultSettings.ChainType,
+				NetworkType = network.NBitcoinNetwork.NetworkType,
 				CryptoCode = network.CryptoCode,
 				Version = typeof(MainController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version,
 				SupportedCryptoCodes = Waiters.All().Select(w => w.Network.CryptoCode).ToArray(),

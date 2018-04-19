@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NBitcoin;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -6,16 +7,11 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitLitecoin(ChainType chainType)
+		private void InitLitecoin(NetworkType networkType)
 		{
-			NBitcoin.Altcoins.Litecoin.EnsureRegistered();
-			Add(new NBXplorerNetwork()
+			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Litecoin.Instance, networkType)
 			{
-				MinRPCVersion = 140200,
-				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.Litecoin.Mainnet:
-								  chainType == ChainType.Test ? NBitcoin.Altcoins.Litecoin.Testnet :
-								  chainType == ChainType.Regtest ? NBitcoin.Altcoins.Litecoin.Regtest : throw new NotSupportedException(chainType.ToString()),
-				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType)
+				MinRPCVersion = 140200
 			});
 		}
 

@@ -18,7 +18,7 @@ namespace NBXplorer.Configuration
 	{
 		protected override CommandLineApplication CreateCommandLineApplicationCore()
 		{
-			var provider = new NBXplorerNetworkProvider(ChainType.Main);
+			var provider = new NBXplorerNetworkProvider(NetworkType.Mainnet);
 			var chains = string.Join(",", provider.GetAll().Select(n => n.CryptoCode.ToLowerInvariant()).ToArray());
 			CommandLineApplication app = new CommandLineApplication(true)
 			{
@@ -78,7 +78,7 @@ namespace NBXplorer.Configuration
 			return Path.Combine(chainDir, fileName);
 		}
 
-		public static ChainType GetChainType(IConfiguration conf)
+		public static NetworkType GetNetworkType(IConfiguration conf)
 		{
 			var network = conf.GetOrDefault<string>("network", null);
 			if(network != null)
@@ -88,10 +88,10 @@ namespace NBXplorer.Configuration
 				{
 					throw new ConfigException($"Invalid network parameter '{network}'");
 				}
-				return n.ToChainType();
+				return n.NetworkType;
 			}
-			var net = conf.GetOrDefault<bool>("regtest", false) ? ChainType.Regtest :
-						conf.GetOrDefault<bool>("testnet", false) ? ChainType.Test : ChainType.Main;
+			var net = conf.GetOrDefault<bool>("regtest", false) ? NetworkType.Regtest :
+						conf.GetOrDefault<bool>("testnet", false) ? NetworkType.Testnet : NetworkType.Mainnet;
 
 			return net;
 		}
@@ -99,13 +99,14 @@ namespace NBXplorer.Configuration
 		protected override string GetDefaultConfigurationFileTemplate(IConfiguration conf)
 		{
 			var settings = GetDefaultSettings(conf);
+			var networkType = GetNetworkType(conf);
 			StringBuilder builder = new StringBuilder();
 			builder.AppendLine("####Common Commands####");
 			builder.AppendLine("####If Bitcoin Core is running with default settings, you should not need to modify this file####");
 			builder.AppendLine("####All those options can be passed by through command like arguments (ie `-port=19382`)####");
 
 
-			foreach(var network in new NBXplorerNetworkProvider(settings.ChainType).GetAll())
+			foreach(var network in new NBXplorerNetworkProvider(networkType).GetAll())
 			{
 				var cryptoCode = network.CryptoCode.ToLowerInvariant();
 				builder.AppendLine("## This is the RPC Connection to your node");
@@ -129,7 +130,7 @@ namespace NBXplorer.Configuration
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");
 			builder.AppendLine("## What crypto currencies is supported");
-			var chains = string.Join(',', new NBXplorerNetworkProvider(ChainType.Main)
+			var chains = string.Join(',', new NBXplorerNetworkProvider(NetworkType.Mainnet)
 				.GetAll()
 				.Select(c => c.CryptoCode.ToLowerInvariant())
 				.ToArray());
@@ -143,13 +144,13 @@ namespace NBXplorer.Configuration
 			builder.AppendLine("####Server Commands####");
 			builder.AppendLine("#port=" + settings.DefaultPort);
 			builder.AppendLine("#bind=127.0.0.1");
-			builder.AppendLine($"#{settings.ChainType.ToNetwork().Name.ToLowerInvariant()}=1");
+			builder.AppendLine($"#{networkType.ToString().ToLowerInvariant()}=1");
 			return builder.ToString();
 		}
 
 		private NBXplorerDefaultSettings GetDefaultSettings(IConfiguration conf)
 		{
-			return NBXplorerDefaultSettings.GetDefaultSettings(GetChainType(conf));
+			return NBXplorerDefaultSettings.GetDefaultSettings(GetNetworkType(conf));
 		}
 
 		protected override IPEndPoint GetDefaultEndpoint(IConfiguration conf)

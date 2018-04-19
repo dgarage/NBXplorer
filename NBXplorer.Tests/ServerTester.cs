@@ -66,7 +66,7 @@ namespace NBXplorer.Tests
 				if(!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
 
-				var cryptoSettings = new NBXplorerNetworkProvider(ChainType.Regtest).GetFromCryptoCode(CryptoCode);
+				var cryptoSettings = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode(CryptoCode);
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, directory);
 
 

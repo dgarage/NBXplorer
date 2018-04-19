@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NBitcoin;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -6,16 +7,11 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitDogecoin(ChainType chainType)
+		private void InitDogecoin(NetworkType networkType)
 		{
-			NBitcoin.Altcoins.Dogecoin.EnsureRegistered();
-			Add(new NBXplorerNetwork()
+			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Dogecoin.Instance, networkType)
 			{
 				MinRPCVersion = 140200,
-				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.Dogecoin.Mainnet :
-								  chainType == ChainType.Test ? NBitcoin.Altcoins.Dogecoin.Testnet :
-								  chainType == ChainType.Regtest ? NBitcoin.Altcoins.Dogecoin.Regtest : throw new NotSupportedException(chainType.ToString()),
-				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType),
 				ChainLoadingTimeout = TimeSpan.FromHours(1),
 				SupportCookieAuthentication = false
 			});

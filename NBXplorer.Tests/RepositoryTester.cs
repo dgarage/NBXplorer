@@ -20,7 +20,7 @@ namespace NBXplorer.Tests
 		{
 			_Name = name;
 			ServerTester.DeleteRecursivelyWithMagicDust(name);
-			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(ChainType.Regtest), 
+			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(NetworkType.Regtest), 
 											   new Configuration.ExplorerConfiguration()
 											   {
 												   DataDir = name,
@@ -33,7 +33,7 @@ namespace NBXplorer.Tests
 													   }
 												   }
 											   });
-			_Repository = _Provider.GetRepository(new NBXplorerNetworkProvider(ChainType.Regtest).GetFromCryptoCode("BTC"));
+			_Repository = _Provider.GetRepository(new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode("BTC"));
 		}
 
 		public void Dispose()

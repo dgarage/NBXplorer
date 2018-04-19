@@ -88,10 +88,10 @@ namespace NBXplorer.Configuration
 
 		public ExplorerConfiguration LoadArgs(IConfiguration config)
 		{
-			NetworkProvider = new NBXplorerNetworkProvider(DefaultConfiguration.GetChainType(config));
-			var defaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(NetworkProvider.ChainType);
+			NetworkProvider = new NBXplorerNetworkProvider(DefaultConfiguration.GetNetworkType(config));
+			var defaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(NetworkProvider.NetworkType);
 
-			Logs.Configuration.LogInformation("Network: " + NetworkProvider.ChainType.ToString());
+			Logs.Configuration.LogInformation("Network: " + NetworkProvider.NetworkType.ToString());
 			var supportedChains = config.GetOrDefault<string>("chains", "btc")
 									  .Split(',', StringSplitOptions.RemoveEmptyEntries)
 									  .Select(t => t.ToUpperInvariant());
@@ -130,7 +130,7 @@ namespace NBXplorer.Configuration
 				throw new ConfigException("mingapsize should be equal or lower than maxgapsize");
 			if(!Directory.Exists(BaseDataDir))
 				Directory.CreateDirectory(BaseDataDir);
-			DataDir = Path.Combine(BaseDataDir, NetworkProvider.ChainType.ToNetwork().Name);
+			DataDir = Path.Combine(BaseDataDir, NBXplorerDefaultSettings.GetFolderName(NetworkProvider.NetworkType));
 			if(!Directory.Exists(DataDir))
 				Directory.CreateDirectory(DataDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);

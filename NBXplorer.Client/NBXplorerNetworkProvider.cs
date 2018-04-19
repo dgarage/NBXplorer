@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NBitcoin;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -6,24 +7,25 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		public NBXplorerNetworkProvider(ChainType chainType)
+		public NBXplorerNetworkProvider(NetworkType networkType)
 		{
-			InitBitcoin(chainType);
-			InitLitecoin(chainType);
-			InitDogecoin(chainType);
-			InitBCash(chainType);
-			InitDash(chainType);
+			InitBitcoin(networkType);
+			InitLitecoin(networkType);
+			InitDogecoin(networkType);
+			InitBCash(networkType);
+			InitDash(networkType);
 			InitPolis(chainType);
-			ChainType = chainType;
+			NetworkType = networkType;
 			foreach(var chain in _Networks.Values)
 			{
 				chain.DerivationStrategyFactory = new DerivationStrategy.DerivationStrategyFactory(chain.NBitcoinNetwork);
 			}
 		}
 
-		public ChainType ChainType
+		public NetworkType NetworkType
 		{
-			get; set;
+			get;
+			private set;
 		}
 
 		public NBXplorerNetwork GetFromCryptoCode(string cryptoCode)

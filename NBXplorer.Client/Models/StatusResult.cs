@@ -62,7 +62,7 @@ namespace NBXplorer.Models
 			set;
 		}
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-		public ChainType ChainType
+		public NetworkType NetworkType
 		{
 			get;
 			set;

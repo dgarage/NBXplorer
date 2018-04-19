@@ -11,24 +11,24 @@ namespace NBXplorer.Tests
 		{
 			//CryptoCode = "LTC";
 			//nodeDownloadData = NodeDownloadData.Litecoin.v0_15_1;
-			//Network = NBitcoin.Altcoins.Litecoin.Regtest;
+			//Network = NBitcoin.Altcoins.Litecoin.Instance.Regtest;
 			//RPCSupportSegwit = false;
 
 			//CryptoCode = "BCH";
 			//nodeDownloadData = NodeDownloadData.BCash.v0_16_2;
-			//Network = NBitcoin.Altcoins.BCash.Regtest;
+			//Network = NBitcoin.Altcoins.BCash.Instance.Regtest;
 			//RPCSupportSegwit = false;
 
 			//Tests of DOGE are broken because it outpoint locking seems to work differently
 			//CryptoCode = "DOGE";
 			//nodeDownloadData = NodeDownloadData.Dogecoin.v1_10_0;
-			//Network = NBitcoin.Altcoins.Dogecoin.Regtest;
+			//Network = NBitcoin.Altcoins.Dogecoin.Instance.Regtest;
 			//RPCSupportSegwit = false;
 			//RPCStringAmount = false;
 
 			//CryptoCode = "DASH";
 			//nodeDownloadData = NodeDownloadData.Dash.v0_12_2;
-			//Network = NBitcoin.Altcoins.Dash.Regtest;
+			//Network = NBitcoin.Altcoins.Dash.Instance.Regtest;
 			//RPCSupportSegwit = false;
 			
 			//CryptoCode = "Polis";

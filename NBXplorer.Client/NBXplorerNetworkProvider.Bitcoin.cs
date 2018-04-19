@@ -7,15 +7,11 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitBitcoin(ChainType chainType)
+		private void InitBitcoin(NetworkType networkType)
 		{
-			Add(new NBXplorerNetwork()
+			Add(new NBXplorerNetwork(NBitcoin.Bitcoin.Instance, networkType)
 			{
-				MinRPCVersion = 150000,
-				NBitcoinNetwork = chainType == ChainType.Main ? Network.Main :
-								  chainType == ChainType.Test ? Network.TestNet :
-								  chainType == ChainType.Regtest ? Network.RegTest : throw new NotSupportedException(chainType.ToString()),
-				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType)
+				MinRPCVersion = 150000
 			});
 		}
 

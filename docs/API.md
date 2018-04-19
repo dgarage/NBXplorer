@@ -179,7 +179,7 @@ Returns:
    "isFullySynched":true,
    "chainHeight":103,
    "syncHeight":103,
-   "chainType":"Regtest",
+   "networkType":"Regtest",
    "cryptoCode":"BTC",
    "supportedCryptoCodes":[  
       "BTC"

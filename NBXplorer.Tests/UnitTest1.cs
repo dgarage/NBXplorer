@@ -677,7 +677,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(1.0, status.BitcoinStatus.VerificationProgress);
 				Assert.NotNull(status.Version);
 				Assert.Equal(tester.CryptoCode, status.CryptoCode);
-				Assert.Equal(ChainType.Regtest, status.ChainType);
+				Assert.Equal(NetworkType.Regtest, status.NetworkType);
 				Assert.Equal(tester.CryptoCode, status.SupportedCryptoCodes[0]);
 				Assert.Single(status.SupportedCryptoCodes);
 			}

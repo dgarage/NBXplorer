@@ -9,10 +9,16 @@ namespace NBXplorer
 {
 	public class NBXplorerNetwork
 	{
-
+		public NBXplorerNetwork(INetworkSet networkSet, NBitcoin.NetworkType networkType)
+		{
+			NBitcoinNetwork = networkSet.GetNetwork(networkType);
+			CryptoCode = networkSet.CryptoCode;
+			DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(networkType);
+		}
 		public Network NBitcoinNetwork
 		{
-			get; set;
+			get;
+			private set;
 		}
 		
 		public int MinRPCVersion
@@ -22,15 +28,13 @@ namespace NBXplorer
 		}
 		public string CryptoCode
 		{
-			get
-			{
-				return NBitcoinNetwork.NetworkSet.CryptoCode;
-			}
+			get;
+			private set;
 		}
 		public NBXplorerDefaultSettings DefaultSettings
 		{
 			get;
-			set;
+			private set;
 		}
 
 		public DerivationStrategy.DerivationStrategyFactory DerivationStrategyFactory
