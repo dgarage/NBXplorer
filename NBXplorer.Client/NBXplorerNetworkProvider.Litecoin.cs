@@ -11,7 +11,6 @@ namespace NBXplorer
 			NBitcoin.Altcoins.Litecoin.EnsureRegistered();
 			Add(new NBXplorerNetwork()
 			{
-				CryptoCode = "LTC",
 				MinRPCVersion = 140200,
 				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.Litecoin.Mainnet:
 								  chainType == ChainType.Test ? NBitcoin.Altcoins.Litecoin.Testnet :
@@ -22,7 +21,7 @@ namespace NBXplorer
 
 		public NBXplorerNetwork GetLTC()
 		{
-			return GetFromCryptoCode("LTC");
+			return GetFromCryptoCode(NBitcoin.Altcoins.Litecoin.Instance.CryptoCode);
 		}
 	}
 }

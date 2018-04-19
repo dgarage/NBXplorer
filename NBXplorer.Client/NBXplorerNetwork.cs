@@ -22,8 +22,10 @@ namespace NBXplorer
 		}
 		public string CryptoCode
 		{
-			get;
-			set;
+			get
+			{
+				return NBitcoinNetwork.NetworkSet.CryptoCode;
+			}
 		}
 		public NBXplorerDefaultSettings DefaultSettings
 		{

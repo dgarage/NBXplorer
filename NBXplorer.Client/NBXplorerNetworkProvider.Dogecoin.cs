@@ -11,7 +11,6 @@ namespace NBXplorer
 			NBitcoin.Altcoins.Dogecoin.EnsureRegistered();
 			Add(new NBXplorerNetwork()
 			{
-				CryptoCode = "DOGE",
 				MinRPCVersion = 140200,
 				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.Dogecoin.Mainnet :
 								  chainType == ChainType.Test ? NBitcoin.Altcoins.Dogecoin.Testnet :
@@ -24,7 +23,7 @@ namespace NBXplorer
 
 		public NBXplorerNetwork GetDOGE()
 		{
-			return GetFromCryptoCode("DOGE");
+			return GetFromCryptoCode(NBitcoin.Altcoins.Dogecoin.Instance.CryptoCode);
 		}
 	}
 }

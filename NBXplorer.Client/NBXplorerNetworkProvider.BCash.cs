@@ -11,7 +11,6 @@ namespace NBXplorer
 			NBitcoin.Altcoins.BCash.EnsureRegistered();
 			Add(new NBXplorerNetwork()
 			{
-				CryptoCode = "BCH",
 				MinRPCVersion = 140200,
 				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.BCash.Mainnet:
 								  chainType == ChainType.Test ? NBitcoin.Altcoins.BCash.Testnet :
@@ -22,7 +21,7 @@ namespace NBXplorer
 
 		public NBXplorerNetwork GetBCH()
 		{
-			return GetFromCryptoCode("BCH");
+			return GetFromCryptoCode(NBitcoin.Altcoins.BCash.Instance.CryptoCode);
 		}
 	}
 }

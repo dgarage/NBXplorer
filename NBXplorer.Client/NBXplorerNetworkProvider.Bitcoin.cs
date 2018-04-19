@@ -11,7 +11,6 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork()
 			{
-				CryptoCode = "BTC",
 				MinRPCVersion = 150000,
 				NBitcoinNetwork = chainType == ChainType.Main ? Network.Main :
 								  chainType == ChainType.Test ? Network.TestNet :
@@ -22,7 +21,7 @@ namespace NBXplorer
 
 		public NBXplorerNetwork GetBTC()
 		{
-			return GetFromCryptoCode("BTC");
+			return GetFromCryptoCode(NBitcoin.Bitcoin.Instance.CryptoCode);
 		}
 	}
 }

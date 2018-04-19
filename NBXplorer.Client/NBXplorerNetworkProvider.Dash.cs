@@ -11,7 +11,6 @@ namespace NBXplorer
 			NBitcoin.Altcoins.Dash.EnsureRegistered();
 			Add(new NBXplorerNetwork()
 			{
-				CryptoCode = "DASH",
 				MinRPCVersion = 120000,
 				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.Dash.Mainnet :
 								  chainType == ChainType.Test ? NBitcoin.Altcoins.Dash.Testnet :
@@ -22,7 +21,7 @@ namespace NBXplorer
 
 		public NBXplorerNetwork GetDASH()
 		{
-			return GetFromCryptoCode("DASH");
+			return GetFromCryptoCode(NBitcoin.Altcoins.Dash.Instance.CryptoCode);
 		}
 	}
 }
