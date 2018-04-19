@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NBitcoin;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -6,23 +7,17 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitPolis(ChainType chainType)
+		private void InitPolis(NetworkType networkType)
 		{
-			NBitcoin.Altcoins.Polis.EnsureRegistered();
-			Add(new NBXplorerNetwork()
+			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Polis.Instance, networkType)
 			{
-				CryptoCode = "POLIS",
-				MinRPCVersion = 1030000,
-				NBitcoinNetwork = chainType == ChainType.Main ? NBitcoin.Altcoins.Polis.Mainnet :
-								  chainType == ChainType.Test ? NBitcoin.Altcoins.Polis.Testnet :
-								  chainType == ChainType.Regtest ? NBitcoin.Altcoins.Polis.Regtest : throw new NotSupportedException(chainType.ToString()),
-				DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(chainType)
+				MinRPCVersion = 1030000
 			});
 		}
 
 		public NBXplorerNetwork GetPOLIS()
 		{
-			return GetFromCryptoCode("POLIS");
+			return GetFromCryptoCode(NBitcoin.Altcoins.Polis.Instance.CryptoCode);
 		}
 	}
 }
