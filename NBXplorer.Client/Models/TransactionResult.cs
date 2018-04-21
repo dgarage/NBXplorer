@@ -20,6 +20,18 @@ namespace NBXplorer.Models
 			}
 		}
 
+		uint256 _BlockId;
+		public uint256 BlockId
+		{
+			get
+			{
+				return _BlockId;
+			}
+			set
+			{
+				_BlockId = value;
+			}
+		}
 
 		Transaction _Transaction;
 		public Transaction Transaction

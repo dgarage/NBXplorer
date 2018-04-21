@@ -812,6 +812,7 @@ namespace NBXplorer.Tests
 				var tx = tester.Client.GetTransaction(utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.NotNull(tx);
 				Assert.Equal(0, tx.Confirmations);
+				Assert.Null(tx.BlockId);
 				Assert.Equal(utxo.Unconfirmed.UTXOs[0].Outpoint.Hash, tx.Transaction.GetHash());
 				Assert.Equal(unconfTimestamp, tx.Timestamp);
 
@@ -862,6 +863,7 @@ namespace NBXplorer.Tests
 				Assert.NotNull(tx);
 				Assert.Equal(unconfTimestamp, tx.Timestamp);
 				Assert.Equal(1, tx.Confirmations);
+				Assert.NotNull(tx.BlockId);
 				Assert.Equal(utxo.Confirmed.UTXOs[0].Outpoint.Hash, tx.Transaction.GetHash());
 				tester.RPC.Generate(1);
 
@@ -871,6 +873,7 @@ namespace NBXplorer.Tests
 
 				tx = tester.Client.GetTransaction(tx.Transaction.GetHash());
 				Assert.Equal(2, tx.Confirmations);
+				Assert.NotNull(tx.BlockId);
 
 				var outpoint01 = utxo.Confirmed.UTXOs[0].Outpoint;
 
@@ -887,6 +890,7 @@ namespace NBXplorer.Tests
 
 				tx = tester.Client.GetTransaction(tx.Transaction.GetHash());
 				Assert.Equal(3, tx.Confirmations);
+				Assert.NotNull(tx.BlockId);
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo, false);
 				Assert.True(!utxo.HasChanges);
