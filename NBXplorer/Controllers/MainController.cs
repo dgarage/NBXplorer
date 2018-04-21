@@ -345,7 +345,7 @@ namespace NBXplorer.Controllers
 
 			var conf = confBlock == null ? 0 : chain.Tip.Height - confBlock.Height + 1;
 
-			return new TransactionResult() { Confirmations = conf, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.HashBlock, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
 		}
 
 		[HttpPost]
