@@ -16,6 +16,7 @@ It currently supports:
 * Dash
 * Polis
 * BCash (also known as Bitcoin Cash)
+* BGold (also known as Bitcoin Gold)
 
 ## Prerequisite
 

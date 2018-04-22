@@ -13,6 +13,7 @@ namespace NBXplorer
 			InitLitecoin(networkType);
 			InitDogecoin(networkType);
 			InitBCash(networkType);
+			InitBGold(networkType);
 			InitDash(networkType);
 			InitPolis(networkType);
 			NetworkType = networkType;
