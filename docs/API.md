@@ -153,6 +153,7 @@ Returns:
 
 ```
 {  
+   "blockId": "00000000000000000013c8848a401c396c1d3c196acb754aa5fe78ea246002d8", # Might be null
    "confirmations":1,
    "transaction":"02000000013acdd9a91a171185dccd8081d590cf5b8f3e68a89d5788c8c04672a2fb81f7960000000049483045022100c35863810697bbe560ca8b604f2b6dd6a08a05f773e13fa03883d2b0c2032d4f022036384099bc14feebcb386b905c1b9e57defe27779dc17338d8c14ea45867e48c01feffffff02280210240100000017a9141d7d417303386d2d9837de2b95166dd8554052b98700e1f505000000001976a9144ec8c45a3f1bed21a57b62f8eaec93a33c25b33688ac67000000",
    "height":100, # Might be null
@@ -212,6 +213,23 @@ Returns:
 ```
 
 Note: `redeem` is returning the segwit redeem if the derivation scheme is a P2SH-P2WSH or P2WSH, or the p2sh redeem if just a p2sh.
+
+## Get ExtPubKey from scriptPubKey
+
+HTTP GET v1/cryptos/{cryptoCode}/scripts/{script}
+
+Returns:
+```
+[
+    {  
+     "feature":"Direct",
+     "derivationStrategy":"tpubD6NzVbkrYhZ4XMQSsvfmMmZkVtLgNjhT4wybUXvMLZhThnXHhLn6YWvDsHMK38FvA8JPpfSjtiBHz4yVh3DHB172VmZ4kCawkana9PirYEi-[legacy]",
+     "keyPath":"0",
+     "scriptPubKey":"76a914b7acd30d08dc9c9f3081730c69526280b226501e88ac",
+     "redeem":null
+   }
+]
+```
 
 ## Get Unspent Transaction Outputs (UTXOs)
 
