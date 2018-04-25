@@ -184,7 +184,9 @@ namespace NBXplorer.Tests
 					var feeRate = tester.Client.GetFeeRate(1, fallbackFeeRate).FeeRate;
 
 					builder.SendEstimatedFees(feeRate);
+					builder.SetConsensusFactory(tester.Network);
 					var tx = builder.BuildTransaction(true);
+					Assert.True(builder.Verify(tx));
 					Assert.True(tester.Client.Broadcast(tx).Success);
 
 					utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
