@@ -2,31 +2,41 @@ version: "3"
 
 services:
   nbxplorer:
+    restart: always
     ports: 
-      - 80:32838
-    expose:
-      - 32838
+      - 32838:32838
     build:
       context: .
     environment:
-      NBXPLORER_NETWORK: regtest
+      NBXPLORER_NETWORK: ${NBITCOIN_NETWORK:-regtest}
       NBXPLORER_BIND: 0.0.0.0:32838
       NBXPLORER_NOAUTH: 1
-      NBXPLORER_BTCRPCURL: http://bitcoind:49372/
-      NBXPLORER_BTCRPCUSER: ceiwHEbqWI83
-      NBXPLORER_BTCRPCPASSWORD: DwubwWsoo3
-      NBXPLORER_BTCNODEENDPOINT: bitcoind:8332
+      NBXPLORER_CHAINS: "btc"
+      NBXPLORER_BTCRPCURL: http://bitcoind:43782/
+      NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
+    volumes:
+      - "nbxplorer_datadir:/datadir"
+      - "bitcoin_datadir:/root/.bitcoin"
     links:
       - bitcoind
 
   bitcoind:
-    image: nicolasdorier/docker-bitcoin:0.15.0.1
+    restart: always
+    container_name: btcpayserver_bitcoind
+    image: nicolasdorier/docker-bitcoin:0.16.0
     environment:
-      BITCOIN_EXTRA_ARGS: "regtest=1\nrpcport=49372\nport=8332"
-      BITCOIN_RPC_USER: ceiwHEbqWI83
-      BITCOIN_RPC_PASSWORD: DwubwWsoo3
+      BITCOIN_EXTRA_ARGS: |
+        rpcport=43782
+        ${NBITCOIN_NETWORK:-regtest}=1
+        port=39388
+        whitelist=0.0.0.0/0
     expose:
-      - "49372"
-      - "8332"
-    ports:
-      - 49372:49372
+    - "43782"
+    - "39388"
+    volumes:
+    - "bitcoin_datadir:/data"
+
+    
+volumes:
+  nbxplorer_datadir: 
+  bitcoin_datadir: 
