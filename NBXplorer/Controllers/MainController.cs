@@ -67,6 +67,10 @@ namespace NBXplorer.Controllers
 		public async Task<GetFeeRateResult> GetFeeRate(int blockCount, string cryptoCode)
 		{
 			var network = GetNetwork(cryptoCode);
+			if(!network.SupportEstimatesSmartFee)
+			{
+				throw new NBXplorerError(400, "fee-estimation-unavailable", $"{cryptoCode} does not support estimatesmartfee").AsException();
+			}
 			var waiter = GetWaiter(network);
 			var result = await waiter.RPC.SendCommandAsync("estimatesmartfee", blockCount);
 			var obj = (JObject)result.Result;

@@ -13,7 +13,8 @@ namespace NBXplorer
 			{
 				MinRPCVersion = 140200,
 				ChainLoadingTimeout = TimeSpan.FromHours(1),
-				SupportCookieAuthentication = false
+				SupportCookieAuthentication = false,
+				SupportEstimatesSmartFee = false
 			});
 		}
 

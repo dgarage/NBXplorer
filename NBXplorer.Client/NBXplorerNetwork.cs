@@ -53,6 +53,11 @@ namespace NBXplorer
 			get;
 			set;
 		} = TimeSpan.FromMinutes(15);
+		public bool SupportEstimatesSmartFee
+		{
+			get;
+			set;
+		} = true;
 
 		public override string ToString()
 		{
