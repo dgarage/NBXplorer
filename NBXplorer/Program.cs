@@ -25,7 +25,7 @@ namespace NBXplorer
 		public static void Main(string[] args)
 		{
 			var processor = new ConsoleLoggerProcessor();
-			Logs.Configure(new FuncLoggerFactory(i => new CustomerConsoleLogger(i, (a, b) => true, false, processor)));
+			Logs.Configure(new FuncLoggerFactory(i => new CustomerConsoleLogger(i, (a, b) => true, null, processor)));
 			IWebHost host = null;
 			try
 			{
@@ -43,7 +43,6 @@ namespace NBXplorer
 					.UseKestrel()
 					.UseIISIntegration()
 					.UseConfiguration(conf)
-					.UseApplicationInsights()
 					.ConfigureLogging(l =>
 					{
 						l.AddFilter("Microsoft", LogLevel.Error);

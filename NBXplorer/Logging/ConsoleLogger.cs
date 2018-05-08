@@ -1,12 +1,13 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
-using Microsoft.Extensions.Logging.Console.Internal;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions.Internal;
+using Microsoft.Extensions.Logging.Console;
+using Microsoft.Extensions.Logging.Console.Internal;
 
 namespace NBXplorer.Logging
 {
@@ -19,7 +20,7 @@ namespace NBXplorer.Logging
 		}
 		public ILogger CreateLogger(string categoryName)
 		{
-			return new CustomerConsoleLogger(categoryName, (a, b) => true, false, _Processor);
+			return new CustomerConsoleLogger(categoryName, (a, b) => true, null, _Processor);
 		}
 
 		public void Dispose()
@@ -53,11 +54,16 @@ namespace NBXplorer.Logging
 		}
 
 		public CustomerConsoleLogger(string name, Func<string, LogLevel, bool> filter, bool includeScopes)
-			: this(name, filter, includeScopes, new ConsoleLoggerProcessor())
+			: this(name, filter, includeScopes ? new LoggerExternalScopeProvider() : null, new ConsoleLoggerProcessor())
 		{
 		}
 
-		internal CustomerConsoleLogger(string name, Func<string, LogLevel, bool> filter, bool includeScopes, ConsoleLoggerProcessor loggerProcessor)
+		internal CustomerConsoleLogger(string name, Func<string, LogLevel, bool> filter, IExternalScopeProvider scopeProvider)
+			: this(name, filter, scopeProvider, new ConsoleLoggerProcessor())
+		{
+		}
+
+		internal CustomerConsoleLogger(string name, Func<string, LogLevel, bool> filter, IExternalScopeProvider scopeProvider, ConsoleLoggerProcessor loggerProcessor)
 		{
 			if(name == null)
 			{
@@ -66,8 +72,7 @@ namespace NBXplorer.Logging
 
 			Name = name;
 			Filter = filter ?? ((category, logLevel) => true);
-			IncludeScopes = includeScopes;
-
+			ScopeProvider = scopeProvider;
 			_queueProcessor = loggerProcessor;
 
 			if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -114,14 +119,19 @@ namespace NBXplorer.Logging
 			}
 		}
 
-		public bool IncludeScopes
+		public string Name
+		{
+			get;
+		}
+
+		internal IExternalScopeProvider ScopeProvider
 		{
 			get; set;
 		}
 
-		public string Name
+		public bool DisableColors
 		{
-			get;
+			get; set;
 		}
 
 		public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
@@ -172,10 +182,7 @@ namespace NBXplorer.Logging
 			while(lenAfter++ < 18)
 				logBuilder.Append(" ");
 			// scope information
-			if(IncludeScopes)
-			{
-				GetScopeInformation(logBuilder);
-			}
+			GetScopeInformation(logBuilder);
 
 			if(!string.IsNullOrEmpty(message))
 			{
@@ -220,18 +227,15 @@ namespace NBXplorer.Logging
 
 		public bool IsEnabled(LogLevel logLevel)
 		{
+			if(logLevel == LogLevel.None)
+			{
+				return false;
+			}
+
 			return Filter(Name, logLevel);
 		}
 
-		public IDisposable BeginScope<TState>(TState state)
-		{
-			if(state == null)
-			{
-				throw new ArgumentNullException(nameof(state));
-			}
-
-			return ConsoleLogScope.Push(Name, state);
-		}
+		public IDisposable BeginScope<TState>(TState state) => ScopeProvider?.Push(state) ?? NullScope.Instance;
 
 		private static string GetLogLevelString(LogLevel logLevel)
 		{
@@ -256,6 +260,11 @@ namespace NBXplorer.Logging
 
 		private ConsoleColors GetLogLevelConsoleColors(LogLevel logLevel)
 		{
+			if(DisableColors)
+			{
+				return new ConsoleColors(null, null);
+			}
+
 			// We must explicitly set the background color if we are setting the foreground color,
 			// since just setting one can look bad on the users console.
 			switch(logLevel)
@@ -277,30 +286,25 @@ namespace NBXplorer.Logging
 			}
 		}
 
-		private void GetScopeInformation(StringBuilder builder)
+		private void GetScopeInformation(StringBuilder stringBuilder)
 		{
-			var current = ConsoleLogScope.Current;
-			string scopeLog = string.Empty;
-			var length = builder.Length;
-
-			while(current != null)
+			var scopeProvider = ScopeProvider;
+			if(scopeProvider != null)
 			{
-				if(length == builder.Length)
-				{
-					scopeLog = $"=> {current}";
-				}
-				else
-				{
-					scopeLog = $"=> {current} ";
-				}
+				var initialLength = stringBuilder.Length;
 
-				builder.Insert(length, scopeLog);
-				current = current.Parent;
-			}
-			if(builder.Length > length)
-			{
-				builder.Insert(length, _messagePadding);
-				builder.AppendLine();
+				scopeProvider.ForEachScope((scope, state) =>
+				{
+					var (builder, length) = state;
+					var first = length == builder.Length;
+					builder.Append(first ? "=> " : " => ").Append(scope);
+				}, (stringBuilder, initialLength));
+
+				if(stringBuilder.Length > initialLength)
+				{
+					stringBuilder.Insert(initialLength, _messagePadding);
+					stringBuilder.AppendLine();
+				}
 			}
 		}
 

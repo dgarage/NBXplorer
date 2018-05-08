@@ -20,8 +20,8 @@ It currently supports:
 
 ## Prerequisite
 
-* Install [.NET Core 2.0](https://www.microsoft.com/net/core)
-* Bitcoin Core instance synched and running, at least 0.13.1. (0.14.1 if you want the segwit goodness coming)
+* Install [.NET Core 2.1](https://www.microsoft.com/net/download/dotnet-core/sdk-2.1.300-rc1)
+* Bitcoin Core instance synched and running (at least 0.16.0).
 
 ## API Specification
 

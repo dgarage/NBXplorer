@@ -1,12 +1,13 @@
-FROM microsoft/aspnetcore-build:2.0.6-2.1.101-stretch AS builder
+FROM microsoft/dotnet:2.1.300-rc1-sdk-alpine3.7 AS builder
 WORKDIR /source
 COPY NBXplorer/NBXplorer.csproj NBXplorer/NBXplorer.csproj
 # Cache some dependencies
 RUN cd NBXplorer && dotnet restore && cd ..
 COPY . .
-RUN cd NBXplorer && dotnet publish --output /app/ --configuration Release
+RUN cd NBXplorer && \
+    dotnet publish --output /app/ --configuration Release
 
-FROM microsoft/aspnetcore:2.0.6-stretch
+FROM microsoft/dotnet:2.1.0-rc1-aspnetcore-runtime-alpine3.7
 WORKDIR /app
 
 RUN mkdir /datadir

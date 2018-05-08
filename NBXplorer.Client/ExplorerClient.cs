@@ -314,6 +314,11 @@ namespace NBXplorer
 		private static readonly HttpClient SharedClient = new HttpClient();
 		internal HttpClient Client = SharedClient;
 
+		public void SetClient(HttpClient client)
+		{
+			Client = client;
+		}
+
 		private readonly NBXplorerNetwork _Network;
 		public NBXplorerNetwork Network
 		{
