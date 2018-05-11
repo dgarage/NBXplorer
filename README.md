@@ -17,6 +17,7 @@ It currently supports:
 * Polis
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
+* Monacoin
 
 ## Prerequisite
 
