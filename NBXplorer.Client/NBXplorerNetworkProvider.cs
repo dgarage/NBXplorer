@@ -16,6 +16,7 @@ namespace NBXplorer
 			InitBGold(networkType);
 			InitDash(networkType);
 			InitPolis(networkType);
+			InitMonacoin(networkType);
 			NetworkType = networkType;
 			foreach(var chain in _Networks.Values)
 			{

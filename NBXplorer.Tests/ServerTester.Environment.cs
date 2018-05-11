@@ -41,6 +41,11 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.BGold.Instance.Regtest;
 			//RPCSupportSegwit = false;
 			
+			//CryptoCode = "MONA";
+			//nodeDownloadData = NodeDownloadData.Monacoin.v0_15_1;
+			//Network = NBitcoin.Altcoins.Monacoin.Instance.Regtest;
+			//RPCSupportSegwit = false;
+
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
 			Network = NBitcoin.Network.RegTest;
