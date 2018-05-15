@@ -604,6 +604,38 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void GenerateMultiMultisigDerivationSchemes()
+		{
+			var network = Network.TestNet;
+			var factory = new DerivationStrategyFactory(network);
+			Random rand = new Random();
+			for(int i = 0; i < 10; i++)
+			{
+				var req1 = rand.Next(1, 3);
+				var keys1Count = rand.Next(req1, 3);
+				var keys1 = Enumerable.Range(0, keys1Count).Select(_ => new ExtKey().Neuter().GetWif(network)).ToArray();
+
+				var req2 = rand.Next(1, 7);
+				var keys2Count = rand.Next(req2, 7);
+				var keys2 = Enumerable.Range(0, keys2Count).Select(_ => new ExtKey().Neuter().GetWif(network)).ToArray();
+
+				StringBuilder scheme = new StringBuilder();
+				scheme.Append($"{req1}-of-");
+				scheme.Append(string.Join("-", keys1.OfType<object>().ToArray()));
+				scheme.Append("-and-");
+				scheme.Append($"{req2}-of-");
+				scheme.Append(string.Join("-", keys2.OfType<object>().ToArray()));
+				scheme.Append("-[p2sh]");
+				var derivationScheme = factory.Parse(scheme.ToString());
+
+				// Derive 0/0
+				var derivation = derivationScheme.GetLineFor(DerivationFeature.Deposit).Derive(new KeyPath(0));
+				var redeem = derivation.Redeem;
+				var scriptPubKey = derivation.ScriptPubKey;
+			}
+		}
+
+		[Fact]
 		public void CanParseDerivationScheme()
 		{
 			var network = Network.Main;
@@ -655,6 +687,13 @@ namespace NBXplorer.Tests
 			generated = Generate(multiP2WSHP2SH);
 			Assert.IsType<ScriptId>(generated.ScriptPubKey.GetDestination());
 			Assert.NotNull(PayToMultiSigTemplate.Instance.ExtractScriptPubKeyParameters(generated.Redeem));
+
+			var multimultiP2WSHP2SH = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-and-1-of-{tata}-[p2sh]");
+			var multimulti = Assert.IsType<MultisigAndMultisigDerivationStrategy>(Assert.IsType<P2WSHDerivationStrategy>(multimultiP2WSHP2SH.Inner).Inner);
+			Assert.False(multimulti.IsLegacy);
+			Assert.True(multimulti.LexicographicOrder);
+			Assert.Equal($"2-of-{toto}-{tata}-and-1-of-{tata}-[p2sh]", multimultiP2WSHP2SH.ToString());
+			Assert.Equal($"2-of-{toto}-{tata}-and-1-of-{tata}", multimulti.ToString());
 		}
 
 		private static Derivation Generate(DerivationStrategyBase strategy)
@@ -1010,15 +1049,15 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0"), path);
 			}
 		}
-		
+
 		[Fact]
 		public void CanGetKeyInformations()
 		{
-			using (var tester = ServerTester.Create())
+			using(var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
-				tester.Client.Track(pubkey);							
+				tester.Client.Track(pubkey);
 
 				KeyPathInformation[] keyinfos;
 				var script = pubkey.Derive(new KeyPath("0/0")).ScriptPubKey;
@@ -1026,16 +1065,16 @@ namespace NBXplorer.Tests
 				keyinfos = tester.Client.GetKeyInformations(script);
 				Assert.NotNull(keyinfos);
 				Assert.True(keyinfos.Length > 0);
-				foreach (var k in keyinfos)
+				foreach(var k in keyinfos)
 				{
 					Assert.Equal(pubkey, k.DerivationStrategy);
 					Assert.Equal(script, k.ScriptPubKey);
 					Assert.Equal(new KeyPath("0/0"), k.KeyPath);
 					Assert.Equal(DerivationFeature.Deposit, k.Feature);
-				}				
+				}
 			}
 		}
-		
+
 		[Fact]
 		public void CanTrackDirect()
 		{
