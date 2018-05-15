@@ -21,7 +21,7 @@ namespace NBXplorer.DerivationStrategy
 			get; set;
 		}
 
-		static readonly Comparer<PubKey> LexicographicComparer = Comparer<PubKey>.Create((a, b) => Comparer<string>.Default.Compare(a?.ToHex(), b?.ToHex()));
+		internal static readonly Comparer<PubKey> LexicographicComparer = Comparer<PubKey>.Create((a, b) => Comparer<string>.Default.Compare(a?.ToHex(), b?.ToHex()));
 
 		public BitcoinExtPubKey[] Keys
 		{
@@ -59,11 +59,6 @@ namespace NBXplorer.DerivationStrategy
 		public bool IsLegacy
 		{
 			get; private set;
-		}
-
-		private void WriteBytes(MemoryStream ms, byte[] v)
-		{
-			ms.Write(v, 0, v.Length);
 		}
 
 		public override Derivation Derive(KeyPath keyPath)

@@ -55,6 +55,7 @@ namespace NBXplorer.DerivationStrategy
 		}
 
 		readonly Regex MultiSigRegex = new Regex("^([0-9]{1,2})-of(-[A-Za-z0-9]+)+$");
+
 		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
 		public DerivationStrategyBase Parse(string str)
 		{
@@ -82,23 +83,59 @@ namespace NBXplorer.DerivationStrategy
 				Legacy = legacy,
 				P2SH = p2sh
 			};
+
+			var splitted = str.Split(new[] { "-and-" }, StringSplitOptions.RemoveEmptyEntries);
+			if(splitted.Length == 2)
+			{
+				var match1 = MultiSigRegex.Match(splitted[0]);
+				var match2 = MultiSigRegex.Match(splitted[1]);
+				if(match1.Success && match2.Success)
+				{
+					options = options ?? new DerivationStrategyOptions();
+
+					var noTag = new DerivationStrategyOptions();
+					DerivationStrategyBase derivationStrategy = new MultisigAndMultisigDerivationStrategy(
+						(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match1)).Inner,
+						(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match2)).Inner,
+						options.Legacy);
+					if(options.Legacy)
+						return new P2SHDerivationStrategy(derivationStrategy, false);
+
+					if(!_Network.Consensus.SupportSegwit)
+						throw new InvalidOperationException("This crypto currency does not support segwit");
+					derivationStrategy = new P2WSHDerivationStrategy(derivationStrategy);
+					if(options.P2SH)
+					{
+						derivationStrategy = new P2SHDerivationStrategy(derivationStrategy, true);
+					}
+					return derivationStrategy;
+				}
+			}
+
+
 			var match = MultiSigRegex.Match(str);
 			if(match.Success)
 			{
-				var sigCount = int.Parse(match.Groups[1].Value);
-				var pubKeys = match.Groups
-									.OfType<Group>()
-									.Skip(2)
-									.SelectMany(g => g.Captures.OfType<Capture>())
-									.Select(g => new BitcoinExtPubKey(g.Value.Substring(1), Network))
-									.ToArray();
-				return CreateMultiSigDerivationStrategy(pubKeys, sigCount, options);
+				return CreateMultisigFromMatch(options, match);
 			}
 			else
 			{
 				var key = _Network.Parse<BitcoinExtPubKey>(str);
 				return CreateDirectDerivationStrategy(key, options);
 			}
+
+		}
+
+		private DerivationStrategyBase CreateMultisigFromMatch(DerivationStrategyOptions options, Match match)
+		{
+			var sigCount = int.Parse(match.Groups[1].Value);
+			var pubKeys = match.Groups
+								.OfType<Group>()
+								.Skip(2)
+								.SelectMany(g => g.Captures.OfType<Capture>())
+								.Select(g => new BitcoinExtPubKey(g.Value.Substring(1), Network))
+								.ToArray();
+			return CreateMultiSigDerivationStrategy(pubKeys, sigCount, options);
 		}
 
 		/// <summary>
