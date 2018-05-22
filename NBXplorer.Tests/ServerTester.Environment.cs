@@ -46,6 +46,11 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Monacoin.Instance.Regtest;
 			//RPCSupportSegwit = false;
 
+			//CryptoCode = "FTC";
+			//nodeDownloadData = NodeDownloadData.Feathercoin.v0_16_0;
+			//Network = NBitcoin.Altcoins.Feathercoin.Instance.Regtest;
+			//RPCSupportSegwit = false;
+
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
 			Network = NBitcoin.Network.RegTest;

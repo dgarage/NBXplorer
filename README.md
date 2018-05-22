@@ -18,6 +18,7 @@ It currently supports:
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
 * Monacoin
+* Feathercoin
 
 ## Prerequisite
 
