@@ -1,0 +1,54 @@
+version: "3"    
+
+services:
+  postgres:
+    image:  postgres:9.6.5
+    ports:
+      - "39382:5432"
+    expose:
+      - "5432"
+    links:
+      - bitcoind
+      - litecoind
+  bitcoind:
+    image: nicolasdorier/docker-bitcoin:0.16.0
+    environment:
+      BITCOIN_EXTRA_ARGS: |
+        rpcuser=ceiwHEbqWI83
+        rpcpassword=DwubwWsoo3
+        regtest=1
+        server=1
+        rpcport=43782
+        port=39388
+        whitelist=0.0.0.0/0
+    ports: 
+      - "43792:43782"
+      - "43793:39388"
+    expose:
+      - "43782" # RPC
+      - "39388" # P2P
+    volumes:
+      - "nbxplorer_tests_bitcoin_datadir:/data"
+  litecoind:
+    image: nicolasdorier/docker-litecoin:0.15.1
+    environment:
+      BITCOIN_EXTRA_ARGS: |
+        rpcuser=ceiwHEbqWI83
+        rpcpassword=DwubwWsoo3
+        regtest=1
+        server=1
+        rpcport=43782
+        port=39388
+        whitelist=0.0.0.0/0
+    ports: 
+      - "43713:43782"
+      - "43714:39388"
+    expose:
+      - "43782" # RPC
+      - "39388" # P2P
+    volumes:
+      - "nbxplorer_tests_litecoin_datadir:/data"
+
+volumes:
+    nbxplorer_tests_litecoin_datadir:
+    nbxplorer_tests_bitcoin_datadir:

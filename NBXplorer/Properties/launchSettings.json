@@ -1,0 +1,27 @@
+{
+    "profiles": {
+        "Docker-Regtest": {
+            "commandName": "Project",
+            "environmentVariables": {
+                "NBXPLORER_NETWORK": "regtest",
+                "NBXPLORER_POSTGRES": "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer",
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "NBXPLORER_CHAINS": "btc,ltc",
+
+                "NBXPLORER_BTCNODEENDPOINT": "127.0.0.1:43793",
+                "NBXPLORER_BTCRPCURL": "http://127.0.0.1:43792/",
+                "NBXPLORER_BTCRPCUSER": "ceiwHEbqWI83",
+                "NBXPLORER_BTCRPCPASSWORD": "DwubwWsoo3",
+
+                "NBXPLORER_LTCNODEENDPOINT": "127.0.0.1:43714",
+                "NBXPLORER_LTCRPCURL": "http://127.0.0.1:43713/",
+                "NBXPLORER_LTCRPCUSER": "ceiwHEbqWI83",
+                "NBXPLORER_LTCRPCPASSWORD": "DwubwWsoo3",
+
+                "NBXPLORER_NOAUTH": "0",
+                "ASPNETCORE_URLS": "http://127.0.0.1:14152/"
+            },
+            "applicationUrl": "http://127.0.0.1:14152/"
+        }
+    }
+}
