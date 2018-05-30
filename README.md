@@ -19,6 +19,7 @@ It currently supports:
 * BGold (also known as Bitcoin Gold)
 * Monacoin
 * Feathercoin
+* Ufo
 
 ## Prerequisite
 
