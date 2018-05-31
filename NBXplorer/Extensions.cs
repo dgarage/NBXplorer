@@ -26,6 +26,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using Microsoft.AspNetCore.Authentication;
 using NBXplorer.Authentication;
+using NBXplorer.DB;
 
 namespace NBXplorer
 {
@@ -162,6 +163,15 @@ namespace NBXplorer
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<BitcoinDWaitersAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
+
+			services.TryAddSingleton<NBXplorerContextFactory>(o =>
+			{
+				var opts = o.GetRequiredService<ExplorerConfiguration>();
+				NBXplorerContextFactory dbContext = null;
+				Logs.Configuration.LogInformation($"Postgres DB used ({opts.PostgresConnectionString})");
+				dbContext = new NBXplorerContextFactory(opts.PostgresConnectionString);
+				return dbContext;
+			});
 
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 
