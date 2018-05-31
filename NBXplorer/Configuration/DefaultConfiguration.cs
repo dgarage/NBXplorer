@@ -30,7 +30,7 @@ namespace NBXplorer.Configuration
 			app.Option("--testnet | -testnet", $"Use testnet", CommandOptionType.BoolValue);
 			app.Option("--regtest | -regtest", $"Use regtest", CommandOptionType.BoolValue);
 			app.Option("--chains", $"Chains to support comma separated (default: btc, available: {chains})", CommandOptionType.SingleValue);
-
+			app.Option("--postgres", $"Connection string to postgres database (default: sqlite is used)", CommandOptionType.SingleValue);
 			foreach(var network in provider.GetAll())
 			{
 				var crypto = network.CryptoCode.ToLowerInvariant();

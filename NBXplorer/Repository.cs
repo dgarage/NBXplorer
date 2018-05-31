@@ -1,5 +1,4 @@
-﻿using DBreeze;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using NBitcoin.Crypto;
@@ -15,14 +14,13 @@ using NBXplorer.Models;
 using System.Threading.Tasks;
 using System.Threading;
 using NBitcoin.DataEncoders;
-using DBreeze.Utils;
 using System.Runtime.Serialization;
 using Newtonsoft.Json;
-using DBreeze.Exceptions;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using static NBXplorer.RepositoryProvider;
 using static NBXplorer.Repository;
+using NBXplorer.DB;
 
 namespace NBXplorer
 {
@@ -73,280 +71,20 @@ namespace NBXplorer
 
 	public class RepositoryProvider : IDisposable
 	{
-		internal class CustomThreadPool : IDisposable
-		{
-			CancellationTokenSource _Cancel = new CancellationTokenSource();
-			TaskCompletionSource<bool> _Exited;
-			int _ExitedCount = 0;
-			Thread[] _Threads;
-			Exception _UnhandledException;
-			BlockingCollection<(Action, TaskCompletionSource<object>)> _Actions = new BlockingCollection<(Action, TaskCompletionSource<object>)>(new ConcurrentQueue<(Action, TaskCompletionSource<object>)>());
-
-			public CustomThreadPool(int threadCount, string threadName)
-			{
-				if(threadCount <= 0)
-					throw new ArgumentOutOfRangeException(nameof(threadCount));
-				_Exited = new TaskCompletionSource<bool>();
-				_Threads = Enumerable.Range(0, threadCount).Select(_ => new Thread(RunLoop) { Name = threadName }).ToArray();
-				foreach(var t in _Threads)
-					t.Start();
-			}
-
-			public void Do(Action act)
-			{
-				DoAsync(act).GetAwaiter().GetResult();
-			}
-
-			public T Do<T>(Func<T> act)
-			{
-				return DoAsync(act).GetAwaiter().GetResult();
-			}
-
-			public async Task<T> DoAsync<T>(Func<T> act)
-			{
-				TaskCompletionSource<object> done = new TaskCompletionSource<object>();
-				_Actions.Add((() =>
-				{
-					try
-					{
-						done.TrySetResult(act());
-					}
-					catch(Exception ex) { done.TrySetException(ex); }
-				}
-				, done));
-				return (T)(await done.Task.ConfigureAwait(false));
-			}
-
-			public Task DoAsync(Action act)
-			{
-				return DoAsync<object>(() =>
-				{
-					act();
-					return null;
-				});
-			}
-
-			void RunLoop()
-			{
-				try
-				{
-					foreach(var act in _Actions.GetConsumingEnumerable(_Cancel.Token))
-					{
-						act.Item1();
-					}
-				}
-				catch(OperationCanceledException) when(_Cancel.IsCancellationRequested) { }
-				catch(Exception ex)
-				{
-					_Cancel.Cancel();
-					_UnhandledException = ex;
-					Logs.Explorer.LogError(ex, "Unexpected exception thrown by Repository");
-				}
-				if(Interlocked.Increment(ref _ExitedCount) == _Threads.Length)
-				{
-					foreach(var action in _Actions)
-					{
-						try
-						{
-							action.Item2.TrySetCanceled();
-						}
-						catch { }
-					}
-					_Exited.TrySetResult(true);
-				}
-			}
-
-			public void Dispose()
-			{
-				_Cancel.Cancel();
-				_Exited.Task.GetAwaiter().GetResult();
-			}
-		}
-		internal class EngineAccessor : IDisposable
-		{
-			private DBreezeEngine _Engine;
-			private CustomThreadPool _Pool;
-			Timer _Renew;
-			string directory;
-			public EngineAccessor(string directory)
-			{
-				this.directory = directory;
-				try
-				{
-					_Pool = new CustomThreadPool(1, "Repository");
-					RenewEngine();
-				}
-				catch { Dispose(); throw; }
-				_Renew = new Timer((o) =>
-				{
-					try
-					{
-						RenewEngine();
-					}
-					catch { }
-				});
-				_Renew.Change(0, (int)TimeSpan.FromSeconds(60).TotalMilliseconds);
-			}
-
-			private void RenewEngine()
-			{
-				_Pool.Do(() =>
-				{
-					DisposeEngine();
-					int tried = 0;
-					while(true)
-					{
-						try
-						{
-							_Engine = new DBreezeEngine(directory);
-							break;
-						}
-						catch when(tried < 5)
-						{
-							tried++;
-							Thread.Sleep(5000);
-						}
-					}
-					_Tx = _Engine.GetTransaction();
-				});
-			}
-
-			private void DisposeEngine()
-			{
-				if(_Tx != null)
-				{
-					try
-					{
-						_Tx.Dispose();
-					}
-					catch { }
-					_Tx = null;
-				}
-				if(_Engine != null)
-				{
-					try
-					{
-						_Engine.Dispose();
-					}
-					catch { }
-					_Engine = null;
-				}
-			}
-
-			DBreeze.Transactions.Transaction _Tx;
-			public void Do(Action<DBreeze.Transactions.Transaction> act)
-			{
-				AssertNotDisposed();
-				_Pool.Do(() =>
-				{
-					AssertNotDisposed();
-					RetryIfFailed(() =>
-					{
-						act(_Tx);
-					});
-				});
-			}
-
-			void RetryIfFailed(Action act)
-			{
-				try
-				{
-					act();
-				}
-				catch(Exception ex)
-				{
-					Logs.Explorer.LogError(ex, "Unexpected DBreeze error");
-					RenewEngine();
-					act();
-				}
-			}
-
-			T RetryIfFailed<T>(Func<T> act)
-			{
-				try
-				{
-					return act();
-				}
-				catch(DBreezeException)
-				{
-					RenewEngine();
-					return act();
-				}
-			}
-
-			public Task DoAsync(Action<DBreeze.Transactions.Transaction> act)
-			{
-				AssertNotDisposed();
-				return _Pool.DoAsync(() =>
-				{
-					AssertNotDisposed();
-					RetryIfFailed(() =>
-					{
-						act(_Tx);
-					});
-				});
-			}
-
-			public Task<T> DoAsync<T>(Func<DBreeze.Transactions.Transaction, T> act)
-			{
-				AssertNotDisposed();
-				return _Pool.DoAsync(() =>
-				{
-					AssertNotDisposed();
-					return RetryIfFailed(() =>
-					{
-						return act(_Tx);
-					});
-				});
-			}
-
-			public T Do<T>(Func<DBreeze.Transactions.Transaction, T> act)
-			{
-				AssertNotDisposed();
-				return _Pool.Do<T>(() =>
-				{
-					AssertNotDisposed();
-					return RetryIfFailed(() =>
-					{
-						return act(_Tx);
-					});
-				});
-			}
-
-			void AssertNotDisposed()
-			{
-				if(_Disposed)
-					throw new ObjectDisposedException("EngineAccessor");
-			}
-			bool _Disposed;
-			public void Dispose()
-			{
-				if(!_Disposed)
-				{
-					_Disposed = true;
-					if(_Renew != null)
-						_Renew.Dispose();
-					_Pool.DoAsync(() => DisposeEngine()).GetAwaiter().GetResult();
-					_Pool.Dispose();
-				}
-			}
-		}
-
-		EngineAccessor _Engine;
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
-
-		public RepositoryProvider(NBXplorerNetworkProvider networks, ExplorerConfiguration configuration)
+		NBXplorerContextFactory _ContextFactory;
+		public RepositoryProvider(NBXplorerContextFactory contextFactory, NBXplorerNetworkProvider networks, ExplorerConfiguration configuration)
 		{
 			var directory = Path.Combine(configuration.DataDir, "db");
 			if(!Directory.Exists(directory))
 				Directory.CreateDirectory(directory);
-			_Engine = new EngineAccessor(directory);
+			_ContextFactory = contextFactory;
 			foreach(var net in networks.GetAll())
 			{
 				var settings = configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
 				if(settings != null)
 				{
-					var repo = new Repository(_Engine, net);
+					var repo = new Repository(_ContextFactory, net);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
@@ -367,7 +105,7 @@ namespace NBXplorer
 
 		public void Dispose()
 		{
-			_Engine.Dispose();
+
 		}
 	}
 
@@ -377,16 +115,14 @@ namespace NBXplorer
 
 		public void Ping()
 		{
-			_Engine.Do((tx) =>
-			{
-			});
 		}
 
 		public void CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)
 		{
 			if(keyPaths.Length == 0)
 				return;
-			_Engine.Do(tx =>
+
+			using(var tx = _ContextFactory.CreateContext())
 			{
 				bool needCommit = false;
 				var featuresPerKeyPaths = Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>()
@@ -413,8 +149,8 @@ namespace NBXplorer
 					}
 				}
 				if(needCommit)
-					tx.Commit();
-			});
+					tx.SaveChanges();
+			}
 		}
 
 		class Index
@@ -435,38 +171,38 @@ namespace NBXplorer
 				get; set;
 			}
 
-			public DBreeze.DataTypes.Row<string, T> Select<T>(DBreeze.Transactions.Transaction tx, int index)
+			public GenericRow<T> Select<T>(NBXplorerDBContext tx, int index)
 			{
-				return tx.Select<string, T>(TableName, $"{PrimaryKey}-{index:D10}");
+				return tx.Select<T>(TableName, $"{PrimaryKey}-{index:D10}");
 			}
 
-			public void RemoveKey(DBreeze.Transactions.Transaction tx, int index)
+			public void RemoveKey(NBXplorerDBContext tx, int index)
 			{
 				tx.RemoveKey(TableName, $"{PrimaryKey}-{index:D10}");
 			}
 
-			public void RemoveKey(DBreeze.Transactions.Transaction tx, string index)
+			public void RemoveKey(NBXplorerDBContext tx, string index)
 			{
 				tx.RemoveKey(TableName, $"{PrimaryKey}-{index}");
 			}
 
-			public IEnumerable<DBreeze.DataTypes.Row<string, T>> SelectForwardSkip<T>(DBreeze.Transactions.Transaction tx, int n)
+			public IEnumerable<GenericRow<T>> SelectForwardSkip<T>(NBXplorerDBContext tx, int n)
 			{
-				return tx.SelectForwardStartsWith<string, T>(TableName, PrimaryKey).Skip(n);
+				return tx.SelectForwardStartsWith<T>(TableName, PrimaryKey).Skip(n);
 			}
 
-			public void Insert<T>(DBreeze.Transactions.Transaction tx, int key, T value)
+			public void Insert<T>(NBXplorerDBContext tx, int key, T value)
 			{
 				tx.Insert(TableName, $"{PrimaryKey}-{key:D10}", value);
 			}
-			public void Insert<T>(DBreeze.Transactions.Transaction tx, string key, T value)
+			public void Insert<T>(NBXplorerDBContext tx, string key, T value)
 			{
 				tx.Insert(TableName, $"{PrimaryKey}-{key}", value);
 			}
 
-			public int Count(DBreeze.Transactions.Transaction tx)
+			public int Count(NBXplorerDBContext tx)
 			{
-				return tx.SelectForwardStartsWith<string, byte[]>(TableName, PrimaryKey).Count();
+				return tx.SelectForwardStartsWith<byte[]>(TableName, PrimaryKey).Count();
 			}
 		}
 
@@ -505,47 +241,47 @@ namespace NBXplorer
 			}
 		}
 
-		EngineAccessor _Engine;
-		internal Repository(EngineAccessor engineAccessor, NBXplorerNetwork network)
+		NBXplorerContextFactory _ContextFactory;
+		internal Repository(NBXplorerContextFactory contextFactory, NBXplorerNetwork network)
 		{
 			if(network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			Serializer = new Serializer(_Network.NBitcoinNetwork);
 			_Network = network;
-			_Engine = engineAccessor;
-			_Suffix = network.CryptoCode == "BTC" ? "" : network.CryptoCode;
+			_ContextFactory = contextFactory;
+			_Suffix = network.CryptoCode;
 		}
-		public string _Suffix;
+		string _Suffix;
 		public BlockLocator GetIndexProgress()
 		{
-			return _Engine.Do<BlockLocator>(tx =>
+			using(var tx = _ContextFactory.CreateContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
-				var existingRow = tx.Select<string, byte[]>($"{_Suffix}IndexProgress", "");
+				var existingRow = tx.Select<byte[]>($"{_Suffix}IndexProgress", "");
 				if(existingRow == null || !existingRow.Exists)
 					return null;
 				BlockLocator locator = new BlockLocator();
 				locator.FromBytes(existingRow.Value);
 				return locator;
-			});
+			}
 		}
 
 		public void SetIndexProgress(BlockLocator locator)
 		{
-			_Engine.Do(tx =>
+			using(var tx = _ContextFactory.CreateContext())
 			{
 				if(locator == null)
 					tx.RemoveKey($"{_Suffix}IndexProgress", "");
 				else
 					tx.Insert($"{_Suffix}IndexProgress", "", locator.ToBytes());
-				tx.Commit();
-			});
+				tx.SaveChanges();
+			}
 		}
 
-		public Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
+		public async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
-			return _Engine.DoAsync<KeyPathInformation>((tx) =>
+			using(var tx = _ContextFactory.CreateContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				var availableTable = GetAvailableKeysIndex(strategy, derivationFeature);
@@ -559,13 +295,13 @@ namespace NBXplorer
 					availableTable.RemoveKey(tx, (int)keyInfo.KeyPath.Indexes.Last());
 					reservedTable.Insert<byte[]>(tx, (int)keyInfo.KeyPath.Indexes.Last(), bytes);
 					RefillAvailable(tx, strategy, derivationFeature);
-					tx.Commit();
+					await tx.SaveChangesAsync();
 				}
 				return keyInfo;
-			});
+			}
 		}
 
-		private void RefillAvailable(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
+		private void RefillAvailable(NBXplorerDBContext tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
 			var availableTable = GetAvailableKeysIndex(strategy, derivationFeature);
 			var highestTable = GetHighestPathIndex(strategy, derivationFeature);
@@ -666,7 +402,7 @@ namespace NBXplorer
 				return result;
 			foreach(var batch in transactions.Batch(BatchSize))
 			{
-				_Engine.Do(tx =>
+				using(var tx = _ContextFactory.CreateContext())
 				{
 					var date = NBitcoin.Utils.DateTimeToUnixTime(now);
 					foreach(var btx in batch)
@@ -677,8 +413,8 @@ namespace NBXplorer
 						tx.Insert($"{_Suffix}tx-" + btx.GetHash().ToString(), key, value);
 						result.Add(ToSavedTransaction(key, value));
 					}
-					tx.Commit();
-				});
+					tx.SaveChanges();
+				}
 			}
 			return result;
 		}
@@ -703,14 +439,14 @@ namespace NBXplorer
 		public SavedTransaction[] GetSavedTransactions(uint256 txid)
 		{
 			List<SavedTransaction> saved = new List<SavedTransaction>();
-			_Engine.Do(tx =>
+			using(var tx = _ContextFactory.CreateContext())
 			{
-				foreach(var row in tx.SelectForward<string, byte[]>($"{_Suffix}tx-" + txid.ToString()))
+				foreach(var row in tx.SelectForward<byte[]>($"{_Suffix}tx-" + txid.ToString()))
 				{
 					SavedTransaction t = ToSavedTransaction(row.Key, row.Value);
 					saved.Add(t);
 				}
-			});
+			}
 			return saved.ToArray();
 		}
 
@@ -733,7 +469,7 @@ namespace NBXplorer
 				return result;
 			foreach(var batch in scripts.Batch(BatchSize))
 			{
-				_Engine.Do(tx =>
+				using(var tx = _ContextFactory.CreateContext())
 				{
 					tx.ValuesLazyLoadingIsOn = false;
 					foreach(var script in batch)
@@ -748,7 +484,7 @@ namespace NBXplorer
 											.ToArray();
 						result.AddRange(script, keyInfos);
 					}
-				});
+				}
 			}
 			return result;
 		}
@@ -787,7 +523,7 @@ namespace NBXplorer
 				return unzipped;
 			}
 		}
-		
+
 		public int MinPoolSize
 		{
 			get; set;
@@ -801,7 +537,7 @@ namespace NBXplorer
 		{
 			if(infos.Length == 0)
 				return;
-			_Engine.Do(tx =>
+			using(var tx = _ContextFactory.CreateContext())
 			{
 				foreach(var info in infos)
 				{
@@ -818,8 +554,8 @@ namespace NBXplorer
 						reservedIndex.RemoveKey(tx, index);
 					RefillAvailable(tx, info.DerivationStrategy, info.Feature);
 				}
-				tx.Commit();
-			});
+				tx.SaveChanges();
+			}
 		}
 
 		public TrackedTransaction[] GetTransactions(DerivationStrategyBase pubkey)
@@ -829,10 +565,10 @@ namespace NBXplorer
 			bool needUpdate = false;
 			Dictionary<uint256, long> firstSeenList = new Dictionary<uint256, long>();
 
-			var transactions = _Engine.Do(tx =>
+			var transactions = new List<TransactionMatchData>();
+			using(var tx = _ContextFactory.CreateContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
-				var result = new List<TransactionMatchData>();
 				foreach(var row in table.SelectForwardSkip<byte[]>(tx, 0))
 				{
 					if(row == null || !row.Exists)
@@ -846,7 +582,7 @@ namespace NBXplorer
 					var blockHash = row.Key.Split(':')[1];
 					if(blockHash.Length != 0)
 						data.BlockHash = new uint256(blockHash);
-					result.Add(data);
+					transactions.Add(data);
 
 					if(data.NeedUpdate)
 						needUpdate = true;
@@ -862,10 +598,8 @@ namespace NBXplorer
 					{
 						firstSeenList.Add(hash, data.FirstSeenTickCount);
 					}
-
 				}
-				return result;
-			});
+			}
 
 			foreach(var tx in transactions)
 			{
@@ -888,14 +622,14 @@ namespace NBXplorer
 											  .First();
 				}
 
-				_Engine.Do(tx =>
+				using(var tx = _ContextFactory.CreateContext())
 				{
 					foreach(var data in transactions.Where(t => t.NeedUpdate))
 					{
 						table.Insert(tx, data.GetRowKey(), data.ToBytes());
 					}
-					tx.Commit();
-				});
+					tx.SaveChanges();
+				}
 			}
 
 			return transactions.Select(c => new TrackedTransaction()
@@ -1134,7 +868,7 @@ namespace NBXplorer
 				return;
 			var groups = transactions.GroupBy(i => i.Match.DerivationStrategy);
 
-			_Engine.Do(tx =>
+			using(var tx = _ContextFactory.CreateContext())
 			{
 				foreach(var group in groups)
 				{
@@ -1156,8 +890,8 @@ namespace NBXplorer
 						table.Insert(tx, data.GetRowKey(), ms.ToArrayEfficient());
 					}
 				}
-				tx.Commit();
-			});
+				tx.SaveChanges();
+			}
 		}
 
 		private static Script[] GetScripts(TransactionMatch value)
@@ -1170,27 +904,27 @@ namespace NBXplorer
 			if(cleanList == null || cleanList.Count == 0)
 				return;
 			var table = GetTransactionsIndex(pubkey);
-			_Engine.Do(tx =>
+			using(var tx = _ContextFactory.CreateContext())
 			{
 				foreach(var tracked in cleanList)
 				{
 					var k = tracked.GetRowKey();
 					table.RemoveKey(tx, k);
 				}
-				tx.Commit();
-			});
+				tx.SaveChanges();
+			}
 		}
 
 		public void Track(DerivationStrategyBase strategy)
 		{
-			_Engine.Do(tx =>
+			using(var tx = _ContextFactory.CreateContext())
 			{
 				foreach(var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
 				{
 					RefillAvailable(tx, strategy, feature);
 				}
-				tx.Commit();
-			});
+				tx.SaveChanges();
+			}
 		}
 	}
 }

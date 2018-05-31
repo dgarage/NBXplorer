@@ -80,7 +80,11 @@ namespace NBXplorer.Configuration
 		{
 			get; set;
 		} = 30;
-
+		public string PostgresConnectionString
+		{
+			get;
+			private set;
+		}
 		public List<ChainConfiguration> ChainConfigurations
 		{
 			get; set;
@@ -126,6 +130,7 @@ namespace NBXplorer.Configuration
 			BaseDataDir = config.GetOrDefault<string>("datadir", Path.GetDirectoryName(defaultSettings.DefaultDataDirectory));
 			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);
 			MaxGapSize = config.GetOrDefault<int>("maxgapsize", 30);
+			PostgresConnectionString = config.GetOrDefault<string>("postgres", null);
 			if(MinGapSize >= MaxGapSize)
 				throw new ConfigException("mingapsize should be equal or lower than maxgapsize");
 			if(!Directory.Exists(BaseDataDir))

@@ -17,6 +17,8 @@ namespace NBXplorer
 			InitDash(networkType);
 			InitPolis(networkType);
 			InitMonacoin(networkType);
+			InitFeathercoin(networkType);
+			InitUfo(networkType);
 			NetworkType = networkType;
 			foreach(var chain in _Networks.Values)
 			{

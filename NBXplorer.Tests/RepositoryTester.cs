@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Microsoft.EntityFrameworkCore;
 using System.Text;
 
 namespace NBXplorer.Tests
@@ -20,7 +21,10 @@ namespace NBXplorer.Tests
 		{
 			_Name = name;
 			ServerTester.DeleteRecursivelyWithMagicDust(name);
-			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(NetworkType.Regtest), 
+
+			var dbFactory = new DB.NBXplorerContextFactory(Environment.GetEnvironmentVariable("TESTS_POSTGRES") ?? "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer");
+			dbFactory.CreateContext().Database.Migrate();
+			_Provider = new RepositoryProvider(dbFactory, new NBXplorerNetworkProvider(NetworkType.Regtest), 
 											   new Configuration.ExplorerConfiguration()
 											   {
 												   DataDir = name,

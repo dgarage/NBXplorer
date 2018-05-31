@@ -59,11 +59,11 @@ namespace NBXplorer
 				Dispose();
 			}
 		}
-		public Task<T> WaitNext<T>(CancellationToken cancellation = default(CancellationToken))
+		public Task<T> WaitNext<T>(CancellationToken cancellation = default)
 		{
 			return WaitNext<T>(o => true, cancellation);
 		}
-		public async Task<T> WaitNext<T>(Func<T, bool> predicate, CancellationToken cancellation = default(CancellationToken))
+		public async Task<T> WaitNext<T>(Func<T, bool> predicate, CancellationToken cancellation = default)
 		{
 			TaskCompletionSource<T> tcs = new TaskCompletionSource<T>();
 			var subscription = Subscribe<T>((a, b) => {
