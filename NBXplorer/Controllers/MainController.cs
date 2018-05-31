@@ -219,7 +219,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> ConnectWebSocket(
 			string cryptoCode,
 			bool includeTransaction = true,
-			CancellationToken cancellation = default(CancellationToken))
+			CancellationToken cancellation = default)
 		{
 			if(!HttpContext.WebSockets.IsWebSocketRequest)
 				return NotFound();

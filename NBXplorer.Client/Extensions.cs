@@ -89,7 +89,7 @@ namespace NBXplorer
 			return JsonConvert.DeserializeObject(data.ToString(), typeObject, settings);
 		}
 
-		public static async Task CloseSocket(this WebSocket socket, WebSocketCloseStatus status, string statusDescription, CancellationToken cancellation = default(CancellationToken))
+		public static async Task CloseSocket(this WebSocket socket, WebSocketCloseStatus status, string statusDescription, CancellationToken cancellation = default)
 		{
 			try
 			{

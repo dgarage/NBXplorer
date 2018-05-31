@@ -105,7 +105,7 @@ namespace NBXplorer
 			return ExtensionsClient.ParseNotificationMessage(str, _SerializerSettings);
 		}
 
-		public async Task Send<T>(T evt, CancellationToken cancellation = default(CancellationToken))
+		public async Task Send<T>(T evt, CancellationToken cancellation = default)
 		{
 			var typeName = ExtensionsClient.GetNotificationMessageTypeName(evt.GetType());
 			if(typeName == null)
