@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
@@ -15,9 +15,9 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="4.1.1.7" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="1.0.1.5" />
-		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.13" />
+		<PackageReference Include="NBitcoin" Version="4.1.1.9" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="1.0.1.6" />
+		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.14" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>
 
