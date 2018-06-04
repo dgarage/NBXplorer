@@ -580,7 +580,11 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanReserveAddress()
 		{
-			using(var tester = ServerTester.Create())
+			using(var tester = ServerTester.Create(opts: new ServerTester.Options()
+			{
+				MinGap = 10,
+				MaxGap = 20
+			}))
 			{
 				//WaitServerStarted not needed, just a sanity check
 				var bob = tester.CreateDerivationStrategy();
@@ -589,14 +593,14 @@ namespace NBXplorer.Tests
 				var utxo = tester.Client.GetUTXOs(bob, null, false); //Track things do not wait
 
 				var tasks = new List<Task<KeyPathInformation>>();
-				for(int i = 0; i < 100; i++)
+				for(int i = 0; i < 10; i++)
 				{
 					tasks.Add(tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, reserve: true));
 				}
 				Task.WaitAll(tasks.ToArray());
 
 				var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
-				Assert.Equal(99U, paths.Select(p => p.Key.Indexes.Last()).Max());
+				Assert.Equal(9U, paths.Select(p => p.Key.Indexes.Last()).Max());
 
 				tester.Client.CancelReservation(bob, new[] { new KeyPath("0/0") });
 				Assert.Equal(new KeyPath("0/0"), tester.Client.GetUnused(bob, DerivationFeature.Deposit).KeyPath);
@@ -1027,7 +1031,11 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanReserveDirectAddress()
 		{
-			using(var tester = ServerTester.Create())
+			using(var tester = ServerTester.Create(opts: new ServerTester.Options()
+			{
+				MinGap = 10,
+				MaxGap = 20
+			}))
 			{
 				//WaitServerStarted not needed, just a sanity check
 				var bob = tester.CreateDerivationStrategy();

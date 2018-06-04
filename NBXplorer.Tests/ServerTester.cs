@@ -27,11 +27,22 @@ namespace NBXplorer.Tests
 {
 	public partial class ServerTester : IDisposable
 	{
+		public class Options
+		{
+			public int MinGap
+			{
+				get; set;
+			} = 2;
+			public int MaxGap
+			{
+				get; set;
+			} = 4;
+		}
 		private readonly string _Directory;
 
-		public static ServerTester Create([CallerMemberNameAttribute]string caller = null)
+		public static ServerTester Create([CallerMemberNameAttribute]string caller = null, Options opts = null)
 		{
-			return new ServerTester(caller);
+			return new ServerTester(caller, opts);
 		}
 
 		public void Dispose()
@@ -55,8 +66,9 @@ namespace NBXplorer.Tests
 			get; set;
 		}
 
-		public ServerTester(string directory)
+		public ServerTester(string directory, Options opts)
 		{
+			opts = opts ?? new Options();
 			SetEnvironment();
 			try
 			{
@@ -100,8 +112,8 @@ namespace NBXplorer.Tests
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 				keyValues.Add(("cachechain", "0"));
 				keyValues.Add(("rpcnotest", "1"));
-				keyValues.Add(("mingapsize", "2"));
-				keyValues.Add(("maxgapsize", "4"));
+				keyValues.Add(("mingapsize", opts.MinGap.ToString()));
+				keyValues.Add(("maxgapsize", opts.MaxGap.ToString()));
 				keyValues.Add(("postgres", connectionString));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));

@@ -83,7 +83,7 @@ namespace NBXplorer.DB
 		public NBXplorerDBContext(DbContextOptions options) : base(options)
 		{
 		}
-
+		
 		public bool ValuesLazyLoadingIsOn
 		{
 			get; set;
@@ -100,7 +100,10 @@ namespace NBXplorer.DB
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
 			var query = $"UPDATE \"GenericTables\" " +
 						$"SET \"DeletedAt\" = now() " +
-				        $"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count}";
+				        $"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count} AND \"DeletedAt\" IS NULL";
+			if(ForceDelete)
+				query = $"DELETE FROM \"GenericTables\" " +
+						$"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count};";
 			var partitionKeyRowKeyParam = new NpgsqlParameter($"partitionKeyRowKey{_ToCommit.Count}", partitionKeyRowKey);
 			_ToCommit.Add((query, new DbParameter[] { partitionKeyRowKeyParam }));
 		}
@@ -111,9 +114,12 @@ namespace NBXplorer.DB
 		{
 			var partitionKeyRowKeyParam = new NpgsqlParameter($"partitionKeyRowKey{_ToCommit.Count}", PartitionKeyRowKey(partitionKey, rowKey));
 			var valueParam = new NpgsqlParameter($"value{_ToCommit.Count}", data);
+
+			var deletedAt = ForceDelete ? ", \"DeletedAt\" = NULL" : "WHERE \"GenericTables\".\"DeletedAt\" IS NULL";
+
 			_ToCommit.Add(($"INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\") " +
 				           $"VALUES (@partitionKeyRowKey{_ToCommit.Count}, @value{_ToCommit.Count}) " +
-			               $"ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"Value\" = @value{_ToCommit.Count} WHERE \"GenericTables\".\"DeletedAt\" IS NULL", new DbParameter[] { partitionKeyRowKeyParam, valueParam }));
+						   $"ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"Value\" = @value{_ToCommit.Count} {deletedAt}", new DbParameter[] { partitionKeyRowKeyParam, valueParam }));
 		}
 
 		private string PartitionKeyRowKey(string partitionKey, string rowKey)
@@ -154,7 +160,7 @@ namespace NBXplorer.DB
 		internal IEnumerable<GenericRow<TValue>> SelectForwardStartsWith<TValue>(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
-			var query = $"SELECT {Columns} FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey AND \"DeletedAt\" IS NULL";
+			var query = $"SELECT {Columns} FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey AND \"DeletedAt\" IS NULL ORDER BY \"PartitionKeyRowKey\"";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey + "%");
 			return QueryGenericRows<TValue>(query, partitionKeyParam);
 		}
@@ -245,6 +251,15 @@ namespace NBXplorer.DB
 
 		string Columns => ValuesLazyLoadingIsOn ? "\"PartitionKeyRowKey\"" : "\"PartitionKeyRowKey\", \"Value\"";
 
+		/// <summary>
+		/// If true, we delete or insert immediately (ignoring DeletedAt)
+		/// </summary>
+		public bool ForceDelete
+		{
+			get;
+			internal set;
+		}
+
 		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 		{
 			var isConfigured = optionsBuilder.Options.Extensions.OfType<RelationalOptionsExtension>().Any();
@@ -258,14 +273,14 @@ namespace NBXplorer.DB
 			builder.Entity<GenericTable>();
 		}
 
-		public void Commit()
+		public int Commit()
 		{
-			CommitAsync().GetAwaiter().GetResult();
+			return CommitAsync().GetAwaiter().GetResult();
 		}
-		public async Task CommitAsync()
+		public async Task<int> CommitAsync()
 		{
 			if(_ToCommit.Count == 0)
-				return;
+				return 0;
 			using(var command = Database.GetDbConnection().CreateCommand())
 			{
 				Database.OpenConnection();
@@ -277,8 +292,9 @@ namespace NBXplorer.DB
 					commands.AppendLine(";");
 				}
 				command.CommandText = commands.ToString();
-				await command.ExecuteNonQueryAsync();
+				var updated = await command.ExecuteNonQueryAsync();
 				_ToCommit.Clear();
+				return updated;
 			}
 		}
 	}

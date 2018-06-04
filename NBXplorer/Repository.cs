@@ -124,6 +124,7 @@ namespace NBXplorer
 
 			using(var tx = _ContextFactory.CreateContext())
 			{
+				tx.ForceDelete = true;
 				bool needCommit = false;
 				var featuresPerKeyPaths = Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>()
 				.Select(f => (Feature: f, Path: DerivationStrategyBase.GetKeyPath(f)))
@@ -281,27 +282,39 @@ namespace NBXplorer
 
 		public async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
-			TimeSpan delay = TimeSpan.FromMilliseconds(50);
+			var delay = TimeSpan.FromMilliseconds(50 + NBitcoin.RandomUtils.GetUInt32() % 100);
 			using(var tx = _ContextFactory.CreateContext())
+			using(var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
 			{
 				tx.ValuesLazyLoadingIsOn = false;
-				while(true)
+				while(!cts.IsCancellationRequested)
 				{
 					var availableTable = GetAvailableKeysIndex(strategy, derivationFeature);
 					var reservedTable = GetReservedKeysIndex(strategy, derivationFeature);
 					var bytes = availableTable.SelectForwardSkip<byte[]>(tx, n).FirstOrDefault()?.Value;
 					if(bytes == null)
-						return null;
+					{
+						await Task.Delay(delay);
+						continue;
+					}
 					var keyInfo = ToObject<KeyPathInformation>(bytes);
 					if(reserve)
 					{
+						await tx.CommitAsync();
 						availableTable.RemoveKey(tx, (int)keyInfo.KeyPath.Indexes.Last());
+						if(await tx.CommitAsync() == 0)
+						{
+							// We are not the one who took the available address, let's try again
+							await Task.Delay(delay);
+							continue;
+						}
 						reservedTable.Insert<byte[]>(tx, (int)keyInfo.KeyPath.Indexes.Last(), bytes);
 						RefillAvailable(tx, strategy, derivationFeature);
 						await tx.CommitAsync();
 					}
 					return keyInfo;
 				}
+				return null;
 			}
 		}
 
@@ -313,7 +326,6 @@ namespace NBXplorer
 			var currentlyAvailable = availableTable.Count(tx);
 			if(currentlyAvailable >= MinPoolSize)
 				return;
-
 			int highestGenerated = -1;
 			int generatedCount = 0;
 			var row = highestTable.Select<int>(tx, 0);
@@ -544,6 +556,7 @@ namespace NBXplorer
 				return;
 			using(var tx = _ContextFactory.CreateContext())
 			{
+				tx.ValuesLazyLoadingIsOn = false;
 				foreach(var info in infos)
 				{
 					var availableIndex = GetAvailableKeysIndex(info.DerivationStrategy, info.Feature);
@@ -924,6 +937,7 @@ namespace NBXplorer
 		{
 			using(var tx = _ContextFactory.CreateContext())
 			{
+				tx.ValuesLazyLoadingIsOn = false;
 				foreach(var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
 				{
 					RefillAvailable(tx, strategy, feature);
