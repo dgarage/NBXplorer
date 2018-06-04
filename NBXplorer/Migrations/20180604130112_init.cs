@@ -12,7 +12,8 @@ namespace NBXplorer.Migrations
                 columns: table => new
                 {
                     PartitionKeyRowKey = table.Column<string>(nullable: false),
-                    Value = table.Column<byte[]>(nullable: true)
+                    Value = table.Column<byte[]>(nullable: true),
+                    DeletedAt = table.Column<DateTimeOffset>(nullable: true)
                 },
                 constraints: table =>
                 {

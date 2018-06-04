@@ -67,6 +67,11 @@ namespace NBXplorer.DB
 		{
 			get; set;
 		}
+
+		public DateTimeOffset? DeletedAt
+		{
+			get; set;
+		}
 	}
 
 	public class NBXplorerDBContext : DbContext
@@ -93,7 +98,9 @@ namespace NBXplorer.DB
 		internal void RemoveKey(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
-			var query = $"DELETE FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count}";
+			var query = $"UPDATE \"GenericTables\" " +
+						$"SET \"DeletedAt\" = now() " +
+				        $"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count}";
 			var partitionKeyRowKeyParam = new NpgsqlParameter($"partitionKeyRowKey{_ToCommit.Count}", partitionKeyRowKey);
 			_ToCommit.Add((query, new DbParameter[] { partitionKeyRowKeyParam }));
 		}
@@ -104,7 +111,9 @@ namespace NBXplorer.DB
 		{
 			var partitionKeyRowKeyParam = new NpgsqlParameter($"partitionKeyRowKey{_ToCommit.Count}", PartitionKeyRowKey(partitionKey, rowKey));
 			var valueParam = new NpgsqlParameter($"value{_ToCommit.Count}", data);
-			_ToCommit.Add(($"INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\") VALUES (@partitionKeyRowKey{_ToCommit.Count}, @value{_ToCommit.Count}) ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"Value\" = @value{_ToCommit.Count}", new DbParameter[] { partitionKeyRowKeyParam, valueParam }));
+			_ToCommit.Add(($"INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\") " +
+				           $"VALUES (@partitionKeyRowKey{_ToCommit.Count}, @value{_ToCommit.Count}) " +
+			               $"ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"Value\" = @value{_ToCommit.Count} WHERE \"GenericTables\".\"DeletedAt\" IS NULL", new DbParameter[] { partitionKeyRowKeyParam, valueParam }));
 		}
 
 		private string PartitionKeyRowKey(string partitionKey, string rowKey)
@@ -130,7 +139,9 @@ namespace NBXplorer.DB
 		internal GenericRow<TValue> Select<TValue>(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
-			var query = $"SELECT {Columns} FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey LIMIT 1";
+			var query = $"SELECT {Columns} FROM \"GenericTables\" " +
+				        $"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey AND \"DeletedAt\" IS NULL " +
+						$"LIMIT 1";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
 			return QueryGenericRows<TValue>(query, partitionKeyParam).FirstOrDefault();
 		}
@@ -143,7 +154,7 @@ namespace NBXplorer.DB
 		internal IEnumerable<GenericRow<TValue>> SelectForwardStartsWith<TValue>(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
-			var query = $"SELECT {Columns} FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey";
+			var query = $"SELECT {Columns} FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey AND \"DeletedAt\" IS NULL";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey + "%");
 			return QueryGenericRows<TValue>(query, partitionKeyParam);
 		}
@@ -151,7 +162,8 @@ namespace NBXplorer.DB
 		internal int Count(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
-			var query = $"SELECT COUNT(*) FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey";
+			var query = $"SELECT COUNT(*) FROM \"GenericTables\" " +
+				$"WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey AND \"DeletedAt\" IS NULL";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey + "%");
 			using(var command = Database.GetDbConnection().CreateCommand())
 			{

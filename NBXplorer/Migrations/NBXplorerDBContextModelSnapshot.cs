@@ -16,13 +16,15 @@ namespace NBXplorer.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn)
-                .HasAnnotation("ProductVersion", "2.1.0-rc1-32029")
+                .HasAnnotation("ProductVersion", "2.1.0-rtm-30799")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             modelBuilder.Entity("NBXplorer.DB.GenericTable", b =>
                 {
                     b.Property<string>("PartitionKeyRowKey")
                         .ValueGeneratedOnAdd();
+
+                    b.Property<DateTimeOffset?>("DeletedAt");
 
                     b.Property<byte[]>("Value");
 
