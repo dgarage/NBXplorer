@@ -307,6 +307,7 @@ namespace NBXplorer
 
 		private void RefillAvailable(NBXplorerDBContext tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
+			tx.Commit();
 			var availableTable = GetAvailableKeysIndex(strategy, derivationFeature);
 			var highestTable = GetHighestPathIndex(strategy, derivationFeature);
 			var currentlyAvailable = availableTable.Count(tx);
@@ -556,10 +557,6 @@ namespace NBXplorer
 					row = reservedIndex.Select<byte[]>(tx, index);
 					if(row != null && row.Exists)
 						reservedIndex.RemoveKey(tx, index);
-				}
-				tx.Commit();
-				foreach(var info in infos)
-				{
 					RefillAvailable(tx, info.DerivationStrategy, info.Feature);
 				}
 				tx.Commit();
