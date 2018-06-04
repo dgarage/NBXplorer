@@ -87,6 +87,7 @@ namespace NBXplorer.Tests
 				User2.CreateRPCClient().Generate(101);
 				User1.Sync(User2, true);
 
+				var connectionString = Environment.GetEnvironmentVariable("TESTS_POSTGRES") ?? "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer" + RandomUtils.GetUInt64();
 				var datadir = Path.Combine(directory, "explorer");
 				DeleteRecursivelyWithMagicDust(datadir);
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
@@ -101,6 +102,7 @@ namespace NBXplorer.Tests
 				keyValues.Add(("rpcnotest", "1"));
 				keyValues.Add(("mingapsize", "2"));
 				keyValues.Add(("maxgapsize", "4"));
+				keyValues.Add(("postgres", connectionString));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 

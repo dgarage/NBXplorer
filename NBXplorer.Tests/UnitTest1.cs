@@ -759,7 +759,8 @@ namespace NBXplorer.Tests
 				Assert.False(result.HasChanges());
 
 				tester.RPC.Generate(1);
-				result = tester.Client.GetTransactions(pubkey, result);
+				var prev = result;
+				result = tester.Client.GetTransactions(pubkey, prev);
 				Assert.True(result.HasChanges());
 				Assert.Null(result.UnconfirmedTransactions.KnownBookmark);
 

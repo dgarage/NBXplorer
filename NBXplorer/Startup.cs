@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -17,6 +18,7 @@ using Microsoft.AspNetCore.Http.Features;
 using NBXplorer.Filters;
 using NBXplorer.Logging;
 using Microsoft.AspNetCore.Authentication;
+using NBXplorer.DB;
 
 namespace NBXplorer
 {
@@ -45,8 +47,9 @@ namespace NBXplorer
 				.AddNBXplorerAuthentication();
 		}
 
-		public void Configure(IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
+		public void Configure(NBXplorerContextFactory dbFactory, IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
 		{
+			dbFactory.CreateContext().Database.Migrate();
 			if(env.IsDevelopment())
 			{
 				app.UseDeveloperExceptionPage();

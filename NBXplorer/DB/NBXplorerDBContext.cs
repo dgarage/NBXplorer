@@ -35,7 +35,7 @@ namespace NBXplorer.DB
 			{
 				if(!_Set && FetchValue != null)
 				{
-					this.Value = FetchValue();
+					_Value = FetchValue();
 				}
 				return _Value;
 			}
@@ -99,12 +99,9 @@ namespace NBXplorer.DB
 
 		internal void Insert(string partitionKey, string rowKey, byte[] data)
 		{
-			Validate(partitionKey, rowKey);
-			GenericTables.Add(new GenericTable()
-			{
-				PartitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey),
-				Value = data
-			});
+			var partitionKeyRowKeyParam = new NpgsqlParameter("partitionKeyRowKey", PartitionKeyRowKey(partitionKey, rowKey));
+			var valueParam = new NpgsqlParameter("value", data);
+			Database.ExecuteSqlCommand("INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\") VALUES (@partitionKeyRowKey, @value) ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"Value\" = @value", new object[] { partitionKeyRowKeyParam, valueParam });
 		}
 
 		private string PartitionKeyRowKey(string partitionKey, string rowKey)
@@ -137,7 +134,7 @@ namespace NBXplorer.DB
 
 		internal IEnumerable<GenericRow<TValue>> SelectForward<TValue>(string partitionKey)
 		{
-			throw new NotImplementedException();
+			return SelectForwardStartsWith<TValue>(partitionKey, string.Empty);
 		}
 
 		internal IEnumerable<GenericRow<TValue>> SelectForwardStartsWith<TValue>(string partitionKey, string rowKey)
@@ -150,25 +147,30 @@ namespace NBXplorer.DB
 
 		private IEnumerable<GenericRow<TValue>> QueryGenericRows<TValue>(string query, params NpgsqlParameter[] parameters)
 		{
+			return QueryGenericRows<TValue>(query, !ValuesLazyLoadingIsOn, parameters);
+		}
+		private IEnumerable<GenericRow<TValue>> QueryGenericRows<TValue>(string query, bool fetchValue, params NpgsqlParameter[] parameters)
+		{
 			List<GenericRow<TValue>> rows = new List<GenericRow<TValue>>();
 			using(var command = Database.GetDbConnection().CreateCommand())
 			{
 				command.CommandText = query;
 				command.Parameters.AddRange(parameters);
 
-				var partitionKeyRowKey = parameters.FirstOrDefault(p=>p.ParameterName == "partitionKeyRowKey")?.Value?.ToString();
-
+				var partitionKeyRowKey = parameters.FirstOrDefault(p => p.ParameterName == "partitionKeyRowKey")?.Value?.ToString();
+				bool likePattern = partitionKeyRowKey.EndsWith('%');
 				Database.OpenConnection();
 				using(var result = (NpgsqlDataReader)command.ExecuteReader())
 				{
 					while(result.Read())
 					{
-						partitionKeyRowKey = partitionKeyRowKey ?? (string)result["PartitionKeyRowKey"];
+
+						partitionKeyRowKey = (likePattern ? null : partitionKeyRowKey) ?? (string)result["PartitionKeyRowKey"];
 						var row = new GenericRow<TValue>()
 						{
 							Key = partitionKeyRowKey.Split("@@")[1]
 						};
-						if(!ValuesLazyLoadingIsOn)
+						if(fetchValue)
 							row.Value = Convert<TValue>((byte[])result["Value"]);
 						else
 							row.FetchValue = FetchValue<TValue>(partitionKeyRowKey);
@@ -196,7 +198,7 @@ namespace NBXplorer.DB
 			{
 				var query = $"SELECT \"Value\" FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey";
 				var partitionKeyRowKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
-				var row = QueryGenericRows<TValue>(query, partitionKeyRowKeyParam).FirstOrDefault();
+				var row = QueryGenericRows<TValue>(query, true, partitionKeyRowKeyParam).FirstOrDefault();
 				if(row == null)
 					return default(TValue);
 				return row.Value;
@@ -207,6 +209,8 @@ namespace NBXplorer.DB
 		{
 			if(typeof(TValue) == typeof(byte[]))
 				return (TValue)(object)value;
+			if(typeof(TValue) == typeof(int))
+				return (TValue)(object)NBitcoin.Utils.ToInt32(value, 0, true);
 			return default(TValue);
 		}
 
