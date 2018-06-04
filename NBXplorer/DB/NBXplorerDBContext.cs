@@ -9,6 +9,8 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 using Npgsql;
+using System.Data.Common;
+using System.Text;
 
 namespace NBXplorer.DB
 {
@@ -91,17 +93,18 @@ namespace NBXplorer.DB
 		internal void RemoveKey(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
-
-			var query = $"DELETE FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey";
-			var partitionKeyRowKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
-			Database.ExecuteSqlCommand(query, partitionKeyRowKeyParam);
+			var query = $"DELETE FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count}";
+			var partitionKeyRowKeyParam = new NpgsqlParameter($"partitionKeyRowKey{_ToCommit.Count}", partitionKeyRowKey);
+			_ToCommit.Add((query, new DbParameter[] { partitionKeyRowKeyParam }));
 		}
+
+		List<(string, DbParameter[])> _ToCommit = new List<(string, DbParameter[])>();
 
 		internal void Insert(string partitionKey, string rowKey, byte[] data)
 		{
-			var partitionKeyRowKeyParam = new NpgsqlParameter("partitionKeyRowKey", PartitionKeyRowKey(partitionKey, rowKey));
-			var valueParam = new NpgsqlParameter("value", data);
-			Database.ExecuteSqlCommand("INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\") VALUES (@partitionKeyRowKey, @value) ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"Value\" = @value", new object[] { partitionKeyRowKeyParam, valueParam });
+			var partitionKeyRowKeyParam = new NpgsqlParameter($"partitionKeyRowKey{_ToCommit.Count}", PartitionKeyRowKey(partitionKey, rowKey));
+			var valueParam = new NpgsqlParameter($"value{_ToCommit.Count}", data);
+			_ToCommit.Add(($"INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\") VALUES (@partitionKeyRowKey{_ToCommit.Count}, @value{_ToCommit.Count}) ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"Value\" = @value{_ToCommit.Count}", new DbParameter[] { partitionKeyRowKeyParam, valueParam }));
 		}
 
 		private string PartitionKeyRowKey(string partitionKey, string rowKey)
@@ -143,6 +146,20 @@ namespace NBXplorer.DB
 			var query = $"SELECT {Columns} FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey + "%");
 			return QueryGenericRows<TValue>(query, partitionKeyParam);
+		}
+
+		internal int Count(string partitionKey, string rowKey)
+		{
+			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
+			var query = $"SELECT COUNT(*) FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey";
+			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey + "%");
+			using(var command = Database.GetDbConnection().CreateCommand())
+			{
+				Database.OpenConnection();
+				command.CommandText = query;
+				command.Parameters.Add(partitionKeyParam);
+				return (int)(long)command.ExecuteScalar();
+			}
 		}
 
 		private IEnumerable<GenericRow<TValue>> QueryGenericRows<TValue>(string query, params NpgsqlParameter[] parameters)
@@ -227,6 +244,30 @@ namespace NBXplorer.DB
 		{
 			base.OnModelCreating(builder);
 			builder.Entity<GenericTable>();
+		}
+
+		public void Commit()
+		{
+			CommitAsync().GetAwaiter().GetResult();
+		}
+		public async Task CommitAsync()
+		{
+			if(_ToCommit.Count == 0)
+				return;
+			using(var command = Database.GetDbConnection().CreateCommand())
+			{
+				Database.OpenConnection();
+				StringBuilder commands = new StringBuilder();
+				foreach(var commit in _ToCommit)
+				{
+					command.Parameters.AddRange(commit.Item2);
+					commands.Append(commit.Item1);
+					commands.AppendLine(";");
+				}
+				command.CommandText = commands.ToString();
+				await command.ExecuteNonQueryAsync();
+				_ToCommit.Clear();
+			}
 		}
 	}
 }

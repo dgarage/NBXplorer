@@ -149,7 +149,7 @@ namespace NBXplorer
 					}
 				}
 				if(needCommit)
-					tx.SaveChanges();
+					tx.Commit();
 			}
 		}
 
@@ -202,7 +202,7 @@ namespace NBXplorer
 
 			public int Count(NBXplorerDBContext tx)
 			{
-				return tx.SelectForwardStartsWith<byte[]>(TableName, PrimaryKey).Count();
+				return tx.Count(TableName, PrimaryKey);
 			}
 		}
 
@@ -275,29 +275,33 @@ namespace NBXplorer
 					tx.RemoveKey($"{_Suffix}IndexProgress", "");
 				else
 					tx.Insert($"{_Suffix}IndexProgress", "", locator.ToBytes());
-				tx.SaveChanges();
+				tx.Commit();
 			}
 		}
 
 		public async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
+			TimeSpan delay = TimeSpan.FromMilliseconds(50);
 			using(var tx = _ContextFactory.CreateContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
-				var availableTable = GetAvailableKeysIndex(strategy, derivationFeature);
-				var reservedTable = GetReservedKeysIndex(strategy, derivationFeature);
-				var bytes = availableTable.SelectForwardSkip<byte[]>(tx, n).FirstOrDefault()?.Value;
-				if(bytes == null)
-					return null;
-				var keyInfo = ToObject<KeyPathInformation>(bytes);
-				if(reserve)
+				while(true)
 				{
-					availableTable.RemoveKey(tx, (int)keyInfo.KeyPath.Indexes.Last());
-					reservedTable.Insert<byte[]>(tx, (int)keyInfo.KeyPath.Indexes.Last(), bytes);
-					RefillAvailable(tx, strategy, derivationFeature);
-					await tx.SaveChangesAsync();
+					var availableTable = GetAvailableKeysIndex(strategy, derivationFeature);
+					var reservedTable = GetReservedKeysIndex(strategy, derivationFeature);
+					var bytes = availableTable.SelectForwardSkip<byte[]>(tx, n).FirstOrDefault()?.Value;
+					if(bytes == null)
+						return null;
+					var keyInfo = ToObject<KeyPathInformation>(bytes);
+					if(reserve)
+					{
+						availableTable.RemoveKey(tx, (int)keyInfo.KeyPath.Indexes.Last());
+						reservedTable.Insert<byte[]>(tx, (int)keyInfo.KeyPath.Indexes.Last(), bytes);
+						RefillAvailable(tx, strategy, derivationFeature);
+						await tx.CommitAsync();
+					}
+					return keyInfo;
 				}
-				return keyInfo;
 			}
 		}
 
@@ -413,7 +417,7 @@ namespace NBXplorer
 						tx.Insert($"{_Suffix}tx-" + btx.GetHash().ToString(), key, value);
 						result.Add(ToSavedTransaction(key, value));
 					}
-					tx.SaveChanges();
+					tx.Commit();
 				}
 			}
 			return result;
@@ -552,9 +556,13 @@ namespace NBXplorer
 					row = reservedIndex.Select<byte[]>(tx, index);
 					if(row != null && row.Exists)
 						reservedIndex.RemoveKey(tx, index);
+				}
+				tx.Commit();
+				foreach(var info in infos)
+				{
 					RefillAvailable(tx, info.DerivationStrategy, info.Feature);
 				}
-				tx.SaveChanges();
+				tx.Commit();
 			}
 		}
 
@@ -628,7 +636,7 @@ namespace NBXplorer
 					{
 						table.Insert(tx, data.GetRowKey(), data.ToBytes());
 					}
-					tx.SaveChanges();
+					tx.Commit();
 				}
 			}
 
@@ -890,7 +898,7 @@ namespace NBXplorer
 						table.Insert(tx, data.GetRowKey(), ms.ToArrayEfficient());
 					}
 				}
-				tx.SaveChanges();
+				tx.Commit();
 			}
 		}
 
@@ -911,7 +919,7 @@ namespace NBXplorer
 					var k = tracked.GetRowKey();
 					table.RemoveKey(tx, k);
 				}
-				tx.SaveChanges();
+				tx.Commit();
 			}
 		}
 
@@ -923,7 +931,7 @@ namespace NBXplorer
 				{
 					RefillAvailable(tx, strategy, feature);
 				}
-				tx.SaveChanges();
+				tx.Commit();
 			}
 		}
 	}
