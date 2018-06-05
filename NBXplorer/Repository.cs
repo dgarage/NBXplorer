@@ -406,33 +406,27 @@ namespace NBXplorer
 					stream.ReadWrite(ref _TimeStamp);
 			}
 		}
-
-		public int BatchSize
-		{
-			get; set;
-		} = 100;
 		public async Task<List<SavedTransaction>> SaveTransactions(DateTimeOffset now, NBitcoin.Transaction[] transactions, uint256 blockHash)
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
 			if(transactions.Length == 0)
 				return result;
-			foreach(var batch in transactions.Batch(BatchSize))
+
+			using(var tx = _ContextFactory.CreateContext())
 			{
-				using(var tx = _ContextFactory.CreateContext())
+				var date = NBitcoin.Utils.DateTimeToUnixTime(now);
+				foreach(var btx in transactions)
 				{
-					var date = NBitcoin.Utils.DateTimeToUnixTime(now);
-					foreach(var btx in batch)
-					{
-						var timestamped = new TimeStampedTransaction(btx, date);
-						var key = blockHash == null ? "0" : blockHash.ToString();
-						var value = timestamped.ToBytes();
-						tx.Insert($"{_Suffix}tx-" + btx.GetHash().ToString(), key, value);
-						result.Add(ToSavedTransaction(key, value));
-					}
-					await tx.CommitAsync();
+					var timestamped = new TimeStampedTransaction(btx, date);
+					var key = blockHash == null ? "0" : blockHash.ToString();
+					var value = timestamped.ToBytes();
+					tx.Insert($"{_Suffix}tx-" + btx.GetHash().ToString(), key, value);
+					result.Add(ToSavedTransaction(key, value));
 				}
+				await tx.CommitAsync();
 			}
+
 			return result;
 		}
 
@@ -484,25 +478,24 @@ namespace NBXplorer
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
 			if(scripts.Length == 0)
 				return result;
-			foreach(var batch in scripts.Batch(BatchSize))
+
+			using(var tx = _ContextFactory.CreateContext())
 			{
-				using(var tx = _ContextFactory.CreateContext())
+				tx.ValuesLazyLoadingIsOn = false;
+				foreach(var script in scripts)
 				{
-					tx.ValuesLazyLoadingIsOn = false;
-					foreach(var script in batch)
-					{
-						var table = GetScriptsIndex(script);
-						var keyInfos = (await table.SelectForwardSkip<byte[]>(tx, 0))
-											.Select(r => ToObject<KeyPathInformation>(r.Value))
-											// Because xpub are mutable (several xpub map to same script)
-											// an attacker could generate lot's of xpub mapping to the same script
-											// and this would blow up here. This we take only 5 results max.
-											.Take(5)
-											.ToArray();
-						result.AddRange(script, keyInfos);
-					}
+					var table = GetScriptsIndex(script);
+					var keyInfos = (await table.SelectForwardSkip<byte[]>(tx, 0))
+										.Select(r => ToObject<KeyPathInformation>(r.Value))
+										// Because xpub are mutable (several xpub map to same script)
+										// an attacker could generate lot's of xpub mapping to the same script
+										// and this would blow up here. This we take only 5 results max.
+										.Take(5)
+										.ToArray();
+					result.AddRange(script, keyInfos);
 				}
 			}
+
 			return result;
 		}
 
