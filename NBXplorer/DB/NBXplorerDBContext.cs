@@ -55,52 +55,69 @@ namespace NBXplorer.DB
 		}
 	}
 
-	public class GenericTable
+	public class NBXplorerDBContext : IDisposable
 	{
-		[Key]
-		public string PartitionKeyRowKey
+		string _ConnectionString;
+		public NBXplorerDBContext(string connectionString)
 		{
-			get; set;
+			_ConnectionString = connectionString;
 		}
 
-		public byte[] Value
+		NpgsqlConnection _Connection;
+		private async Task<Npgsql.NpgsqlConnection> OpenConnection()
 		{
-			get; set;
+			if(_Connection != null)
+				return _Connection;
+			_Connection = new NpgsqlConnection(_ConnectionString);
+			await _Connection.OpenAsync();
+			return _Connection;
 		}
 
-		public DateTimeOffset? DeletedAt
-		{
-			get; set;
-		}
-	}
-
-	public class NBXplorerDBContext : DbContext
-	{
-		public NBXplorerDBContext()
-		{
-
-		}
-		public NBXplorerDBContext(DbContextOptions options) : base(options)
-		{
-		}
-		
 		public bool ValuesLazyLoadingIsOn
 		{
 			get; set;
 		} = true;
 
-		public DbSet<GenericTable> GenericTables
+		public void Migrate()
 		{
-			get; set;
+			var connString = new NpgsqlConnectionStringBuilder(_ConnectionString);
+			using(var connection = new NpgsqlConnection(connString.ConnectionString))
+			{
+				try
+				{
+					connection.Open();
+				}
+				catch(PostgresException ex) when(ex.SqlState == "3D000")
+				{
+					var oldDB = connString.Database;
+					connString.Database = null;
+					using(var createDBConnect = new NpgsqlConnection(connString.ConnectionString))
+					{
+						createDBConnect.Open();
+						var createDB = createDBConnect.CreateCommand();
+						// We need LC_CTYPE set to C to get proper indexing on the columns when making
+						// partial pattern queries on the primary key (LIKE operator)
+						createDB.CommandText = $"CREATE DATABASE \"{oldDB}\" " +
+							$"LC_COLLATE = 'C' " +
+							$"TEMPLATE=template0 " +
+							$"LC_CTYPE = 'C' " +
+							$"ENCODING = 'UTF8'";
+						createDB.ExecuteNonQuery();
+						connection.Open();
+					}
+				}
+				var command = connection.CreateCommand();
+				command.CommandText = $"CREATE TABLE IF NOT EXISTS \"GenericTables\" (\"PartitionKeyRowKey\" text PRIMARY KEY, \"Value\" bytea, \"DeletedAt\" timestamp)";
+				command.ExecuteNonQuery();
+			}
 		}
-
 
 		internal void RemoveKey(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
 			var query = $"UPDATE \"GenericTables\" " +
 						$"SET \"DeletedAt\" = now() " +
-				        $"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count} AND \"DeletedAt\" IS NULL";
+						$"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count} AND \"DeletedAt\" IS NULL";
 			if(ForceDelete)
 				query = $"DELETE FROM \"GenericTables\" " +
 						$"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count};";
@@ -118,7 +135,7 @@ namespace NBXplorer.DB
 			var deletedAt = ForceDelete ? ", \"DeletedAt\" = NULL" : "WHERE \"GenericTables\".\"DeletedAt\" IS NULL";
 
 			_ToCommit.Add(($"INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\") " +
-				           $"VALUES (@partitionKeyRowKey{_ToCommit.Count}, @value{_ToCommit.Count}) " +
+						   $"VALUES (@partitionKeyRowKey{_ToCommit.Count}, @value{_ToCommit.Count}) " +
 						   $"ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"Value\" = @value{_ToCommit.Count} {deletedAt}", new DbParameter[] { partitionKeyRowKeyParam, valueParam }));
 		}
 
@@ -146,7 +163,7 @@ namespace NBXplorer.DB
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
 			var query = $"SELECT {Columns} FROM \"GenericTables\" " +
-				        $"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey AND \"DeletedAt\" IS NULL " +
+						$"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey AND \"DeletedAt\" IS NULL " +
 						$"LIMIT 1";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
 			return QueryGenericRows<TValue>(query, partitionKeyParam).FirstOrDefault();
@@ -171,9 +188,8 @@ namespace NBXplorer.DB
 			var query = $"SELECT COUNT(*) FROM \"GenericTables\" " +
 				$"WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey AND \"DeletedAt\" IS NULL";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey + "%");
-			using(var command = Database.GetDbConnection().CreateCommand())
+			using(var command = OpenConnection().GetAwaiter().GetResult().CreateCommand())
 			{
-				Database.OpenConnection();
 				command.CommandText = query;
 				command.Parameters.Add(partitionKeyParam);
 				return (int)(long)command.ExecuteScalar();
@@ -187,14 +203,13 @@ namespace NBXplorer.DB
 		private IEnumerable<GenericRow<TValue>> QueryGenericRows<TValue>(string query, bool fetchValue, params NpgsqlParameter[] parameters)
 		{
 			List<GenericRow<TValue>> rows = new List<GenericRow<TValue>>();
-			using(var command = Database.GetDbConnection().CreateCommand())
+			using(var command = OpenConnection().GetAwaiter().GetResult().CreateCommand())
 			{
 				command.CommandText = query;
 				command.Parameters.AddRange(parameters);
 
 				var partitionKeyRowKey = parameters.FirstOrDefault(p => p.ParameterName == "partitionKeyRowKey")?.Value?.ToString();
 				bool likePattern = partitionKeyRowKey.EndsWith('%');
-				Database.OpenConnection();
 				using(var result = (NpgsqlDataReader)command.ExecuteReader())
 				{
 					while(result.Read())
@@ -214,17 +229,6 @@ namespace NBXplorer.DB
 				}
 			}
 			return rows;
-		}
-
-		private GenericRow<TValue> AsGenericRow<TValue>(GenericTable entity)
-		{
-			var splitted = entity.PartitionKeyRowKey.Split("@@");
-			return new GenericRow<TValue>()
-			{
-				Key = splitted[1],
-				Value = ValuesLazyLoadingIsOn ? default(TValue) : Convert<TValue>(entity.Value),
-				FetchValue = FetchValue<TValue>(entity.PartitionKeyRowKey)
-			};
 		}
 
 		private Func<TValue> FetchValue<TValue>(string partitionKeyRowKey)
@@ -260,19 +264,6 @@ namespace NBXplorer.DB
 			internal set;
 		}
 
-		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-		{
-			var isConfigured = optionsBuilder.Options.Extensions.OfType<RelationalOptionsExtension>().Any();
-			if(!isConfigured)
-				optionsBuilder.UseNpgsql("User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer");
-		}
-
-		protected override void OnModelCreating(ModelBuilder builder)
-		{
-			base.OnModelCreating(builder);
-			builder.Entity<GenericTable>();
-		}
-
 		public int Commit()
 		{
 			return CommitAsync().GetAwaiter().GetResult();
@@ -281,9 +272,8 @@ namespace NBXplorer.DB
 		{
 			if(_ToCommit.Count == 0)
 				return 0;
-			using(var command = Database.GetDbConnection().CreateCommand())
+			using(var command = (await OpenConnection()).CreateCommand())
 			{
-				Database.OpenConnection();
 				StringBuilder commands = new StringBuilder();
 				foreach(var commit in _ToCommit)
 				{
@@ -296,6 +286,11 @@ namespace NBXplorer.DB
 				_ToCommit.Clear();
 				return updated;
 			}
+		}
+
+		public void Dispose()
+		{
+			_Connection?.Dispose();
 		}
 	}
 }

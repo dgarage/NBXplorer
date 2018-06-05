@@ -16,9 +16,7 @@ namespace NBXplorer.DB
 
 		public NBXplorerDBContext CreateContext()
 		{
-			var builder = new DbContextOptionsBuilder<NBXplorerDBContext>();
-			ConfigureBuilder(builder);
-			return new NBXplorerDBContext(builder.Options);
+			return new NBXplorerDBContext(_ConnectionString);
 		}
 
 		public void ConfigureBuilder(DbContextOptionsBuilder builder)
