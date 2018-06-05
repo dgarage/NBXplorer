@@ -124,23 +124,23 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/cancelreservation")]
-		public IActionResult CancelReservation(string cryptoCode, [ModelBinder(BinderType = typeof(DestinationModelBinder))]
+		public async Task<IActionResult> CancelReservation(string cryptoCode, [ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths)
 		{
 			var network = GetNetwork(cryptoCode);
 			var repo = RepositoryProvider.GetRepository(network);
-			repo.CancelReservation(strategy, keyPaths);
+			await repo.CancelReservation(strategy, keyPaths);
 			return Ok();
 		}
 		
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/scripts/{script}")] 
-		public IActionResult GetKeyInformations(string cryptoCode,
+		public async Task<IActionResult> GetKeyInformations(string cryptoCode,
 			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
 		{
 			var network = GetNetwork(cryptoCode);
 			var repo = RepositoryProvider.GetRepository(network);
-			var result = repo.GetKeyInformations(new [] { script })
+			var result = (await repo.GetKeyInformations(new [] { script }))
                            .SelectMany(k => k.Value)
                            .ToArray();
 			return Json(result);
@@ -320,7 +320,7 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/transactions/{txId}")]
-		public IActionResult GetTransaction(
+		public async Task<IActionResult> GetTransaction(
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId,
 			bool includeTransaction = true,
@@ -328,7 +328,7 @@ namespace NBXplorer.Controllers
 		{
 			var network = GetNetwork(cryptoCode);
 			var chain = this.ChainProvider.GetChain(network);
-			var result = RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
+			var result = await RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if(result.Length == 0)
 				return NotFound();
 			return Json(ToTransactionResult(includeTransaction, chain, result));
@@ -354,7 +354,7 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationStrategy}")]
-		public IActionResult TrackWallet(
+		public async Task<IActionResult> TrackWallet(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase derivationStrategy)
@@ -362,7 +362,7 @@ namespace NBXplorer.Controllers
 			if(derivationStrategy == null)
 				return NotFound();
 			var network = GetNetwork(cryptoCode);
-			RepositoryProvider.GetRepository(network).Track(derivationStrategy);
+			await RepositoryProvider.GetRepository(network).Track(derivationStrategy);
 			return Ok();
 		}
 
@@ -393,7 +393,7 @@ namespace NBXplorer.Controllers
 				response = new GetTransactionsResponse();
 				int currentHeight = chain.Height;
 				response.Height = currentHeight;
-				var txs = GetAnnotatedTransactions(repo, chain, extPubKey);
+				var txs = await GetAnnotatedTransactions(repo, chain, extPubKey);
 				foreach(var item in new[]
 				{
 					new
@@ -505,7 +505,7 @@ namespace NBXplorer.Controllers
 			{
 				changes = new UTXOChanges();
 				changes.CurrentHeight = chain.Height;
-				var transactions = GetAnnotatedTransactions(repo, chain, extPubKey);
+				var transactions = await GetAnnotatedTransactions(repo, chain, extPubKey);
 				Func<Script[], bool[]> matchScript = (scripts) => scripts.Select(s => transactions.GetKeyPath(s) != null).ToArray();
 
 				var states = UTXOStateResult.CreateStates(matchScript,
@@ -530,7 +530,7 @@ namespace NBXplorer.Controllers
 			return changes;
 		}
 
-		private void CleanConflicts(Repository repo, DerivationStrategyBase extPubKey, AnnotatedTransactionCollection transactions)
+		private async Task CleanConflicts(Repository repo, DerivationStrategyBase extPubKey, AnnotatedTransactionCollection transactions)
 		{
 			var cleaned = transactions.DuplicatedTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
 			if(cleaned.Length != 0)
@@ -539,7 +539,7 @@ namespace NBXplorer.Controllers
 				{
 					_EventAggregator.Publish(new EvictedTransactionEvent(tx.Transaction.GetHash()));
 				}
-				repo.CleanTransactions(extPubKey, cleaned.ToList());
+				await repo.CleanTransactions(extPubKey, cleaned.ToList());
 			}
 		}
 
@@ -596,13 +596,13 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private AnnotatedTransactionCollection GetAnnotatedTransactions(Repository repo, ConcurrentChain chain, DerivationStrategyBase extPubKey)
+		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, ConcurrentChain chain, DerivationStrategyBase extPubKey)
 		{
-			var annotatedTransactions = new AnnotatedTransactionCollection(repo
-				.GetTransactions(extPubKey)
+			var annotatedTransactions = new AnnotatedTransactionCollection((await repo
+				.GetTransactions(extPubKey))
 				.Select(t => new AnnotatedTransaction(t, chain))
 				.ToList());
-			CleanConflicts(repo, extPubKey, annotatedTransactions);
+			await CleanConflicts(repo, extPubKey, annotatedTransactions);
 			return annotatedTransactions;
 		}
 
@@ -648,7 +648,7 @@ namespace NBXplorer.Controllers
 				if(extPubKey != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
 				{
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Trying to broadcast unconfirmed of the wallet");
-					var transactions = GetAnnotatedTransactions(repo, chain, extPubKey);
+					var transactions = await GetAnnotatedTransactions(repo, chain, extPubKey);
 					foreach(var existing in transactions.UnconfirmedTransactions.Values)
 					{
 						try

@@ -91,7 +91,7 @@ namespace NBXplorer
 					if(settings.Rescan)
 					{
 						Logs.Configuration.LogInformation($"Rescanning the {net.CryptoCode} chain...");
-						repo.SetIndexProgress(null);
+						repo.SetIndexProgress(null).GetAwaiter().GetResult();
 					}
 				}
 			}
@@ -117,7 +117,7 @@ namespace NBXplorer
 		{
 		}
 
-		public void CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)
+		public async Task CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)
 		{
 			if(keyPaths.Length == 0)
 				return;
@@ -140,7 +140,7 @@ namespace NBXplorer
 						foreach(var keyPath in group)
 						{
 							var key = (int)keyPath.Indexes.Last();
-							var data = reserved.Select<byte[]>(tx, key);
+							var data = await reserved.Select<byte[]>(tx, key);
 							if(data == null || !data.Exists)
 								continue;
 							reserved.RemoveKey(tx, key);
@@ -150,7 +150,7 @@ namespace NBXplorer
 					}
 				}
 				if(needCommit)
-					tx.Commit();
+					await tx.CommitAsync();
 			}
 		}
 
@@ -172,7 +172,7 @@ namespace NBXplorer
 				get; set;
 			}
 
-			public GenericRow<T> Select<T>(NBXplorerDBContext tx, int index)
+			public Task<GenericRow<T>> Select<T>(NBXplorerDBContext tx, int index)
 			{
 				return tx.Select<T>(TableName, $"{PrimaryKey}-{index:D10}");
 			}
@@ -187,9 +187,9 @@ namespace NBXplorer
 				tx.RemoveKey(TableName, $"{PrimaryKey}-{index}");
 			}
 
-			public IEnumerable<GenericRow<T>> SelectForwardSkip<T>(NBXplorerDBContext tx, int n)
+			public async Task<IEnumerable<GenericRow<T>>> SelectForwardSkip<T>(NBXplorerDBContext tx, int n)
 			{
-				return tx.SelectForwardStartsWith<T>(TableName, PrimaryKey).Skip(n);
+				return (await tx.SelectForwardStartsWith<T>(TableName, PrimaryKey)).Skip(n);
 			}
 
 			public void Insert<T>(NBXplorerDBContext tx, int key, T value)
@@ -254,12 +254,12 @@ namespace NBXplorer
 			_Suffix = network.CryptoCode;
 		}
 		string _Suffix;
-		public BlockLocator GetIndexProgress()
+		public async Task<BlockLocator> GetIndexProgress()
 		{
 			using(var tx = _ContextFactory.CreateContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
-				var existingRow = tx.Select<byte[]>($"{_Suffix}IndexProgress", "");
+				var existingRow = await tx.Select<byte[]>($"{_Suffix}IndexProgress", "");
 				if(existingRow == null || !existingRow.Exists)
 					return null;
 				BlockLocator locator = new BlockLocator();
@@ -268,7 +268,7 @@ namespace NBXplorer
 			}
 		}
 
-		public void SetIndexProgress(BlockLocator locator)
+		public async Task SetIndexProgress(BlockLocator locator)
 		{
 			using(var tx = _ContextFactory.CreateContext())
 			{
@@ -276,7 +276,7 @@ namespace NBXplorer
 					tx.RemoveKey($"{_Suffix}IndexProgress", "");
 				else
 					tx.Insert($"{_Suffix}IndexProgress", "", locator.ToBytes());
-				tx.Commit();
+				await tx.CommitAsync();
 			}
 		}
 
@@ -291,7 +291,7 @@ namespace NBXplorer
 				{
 					var availableTable = GetAvailableKeysIndex(strategy, derivationFeature);
 					var reservedTable = GetReservedKeysIndex(strategy, derivationFeature);
-					var bytes = availableTable.SelectForwardSkip<byte[]>(tx, n).FirstOrDefault()?.Value;
+					var bytes = (await availableTable.SelectForwardSkip<byte[]>(tx, n)).FirstOrDefault()?.Value;
 					if(bytes == null)
 					{
 						await Task.Delay(delay);
@@ -309,7 +309,7 @@ namespace NBXplorer
 							continue;
 						}
 						reservedTable.Insert<byte[]>(tx, (int)keyInfo.KeyPath.Indexes.Last(), bytes);
-						RefillAvailable(tx, strategy, derivationFeature);
+						await RefillAvailable(tx, strategy, derivationFeature);
 						await tx.CommitAsync();
 					}
 					return keyInfo;
@@ -318,9 +318,9 @@ namespace NBXplorer
 			}
 		}
 
-		private void RefillAvailable(NBXplorerDBContext tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
+		private async Task RefillAvailable(NBXplorerDBContext tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
-			tx.Commit();
+			await tx.CommitAsync();
 			var availableTable = GetAvailableKeysIndex(strategy, derivationFeature);
 			var highestTable = GetHighestPathIndex(strategy, derivationFeature);
 			var currentlyAvailable = availableTable.Count(tx);
@@ -328,7 +328,7 @@ namespace NBXplorer
 				return;
 			int highestGenerated = -1;
 			int generatedCount = 0;
-			var row = highestTable.Select<int>(tx, 0);
+			var row = await highestTable.Select<int>(tx, 0);
 			if(row != null && row.Exists)
 				highestGenerated = row.Value;
 			var feature = strategy.GetLineFor(derivationFeature);
@@ -411,7 +411,7 @@ namespace NBXplorer
 		{
 			get; set;
 		} = 100;
-		public List<SavedTransaction> SaveTransactions(DateTimeOffset now, NBitcoin.Transaction[] transactions, uint256 blockHash)
+		public async Task<List<SavedTransaction>> SaveTransactions(DateTimeOffset now, NBitcoin.Transaction[] transactions, uint256 blockHash)
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
@@ -430,7 +430,7 @@ namespace NBXplorer
 						tx.Insert($"{_Suffix}tx-" + btx.GetHash().ToString(), key, value);
 						result.Add(ToSavedTransaction(key, value));
 					}
-					tx.Commit();
+					await tx.CommitAsync();
 				}
 			}
 			return result;
@@ -453,12 +453,12 @@ namespace NBXplorer
 			}
 		}
 
-		public SavedTransaction[] GetSavedTransactions(uint256 txid)
+		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
 		{
 			List<SavedTransaction> saved = new List<SavedTransaction>();
 			using(var tx = _ContextFactory.CreateContext())
 			{
-				foreach(var row in tx.SelectForward<byte[]>($"{_Suffix}tx-" + txid.ToString()))
+				foreach(var row in (await tx.SelectForward<byte[]>($"{_Suffix}tx-" + txid.ToString())))
 				{
 					SavedTransaction t = ToSavedTransaction(row.Key, row.Value);
 					saved.Add(t);
@@ -479,7 +479,7 @@ namespace NBXplorer
 			return t;
 		}
 
-		public MultiValueDictionary<Script, KeyPathInformation> GetKeyInformations(Script[] scripts)
+		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
 			if(scripts.Length == 0)
@@ -492,7 +492,7 @@ namespace NBXplorer
 					foreach(var script in batch)
 					{
 						var table = GetScriptsIndex(script);
-						var keyInfos = table.SelectForwardSkip<byte[]>(tx, 0)
+						var keyInfos = (await table.SelectForwardSkip<byte[]>(tx, 0))
 											.Select(r => ToObject<KeyPathInformation>(r.Value))
 											// Because xpub are mutable (several xpub map to same script)
 											// an attacker could generate lot's of xpub mapping to the same script
@@ -550,7 +550,7 @@ namespace NBXplorer
 			get; set;
 		} = 30;
 
-		public void MarkAsUsed(KeyPathInformation[] infos)
+		public async Task MarkAsUsed(KeyPathInformation[] infos)
 		{
 			if(infos.Length == 0)
 				return;
@@ -562,21 +562,21 @@ namespace NBXplorer
 					var availableIndex = GetAvailableKeysIndex(info.DerivationStrategy, info.Feature);
 					var reservedIndex = GetReservedKeysIndex(info.DerivationStrategy, info.Feature);
 					var index = (int)info.KeyPath.Indexes.Last();
-					var row = availableIndex.Select<byte[]>(tx, index);
+					var row = await availableIndex.Select<byte[]>(tx, index);
 					if(row != null && row.Exists)
 					{
 						availableIndex.RemoveKey(tx, index);
 					}
-					row = reservedIndex.Select<byte[]>(tx, index);
+					row = await reservedIndex.Select<byte[]>(tx, index);
 					if(row != null && row.Exists)
 						reservedIndex.RemoveKey(tx, index);
-					RefillAvailable(tx, info.DerivationStrategy, info.Feature);
+					await RefillAvailable(tx, info.DerivationStrategy, info.Feature);
 				}
-				tx.Commit();
+				await tx.CommitAsync();
 			}
 		}
 
-		public TrackedTransaction[] GetTransactions(DerivationStrategyBase pubkey)
+		public async Task<TrackedTransaction[]> GetTransactions(DerivationStrategyBase pubkey)
 		{
 			var table = GetTransactionsIndex(pubkey);
 
@@ -587,7 +587,7 @@ namespace NBXplorer
 			using(var tx = _ContextFactory.CreateContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
-				foreach(var row in table.SelectForwardSkip<byte[]>(tx, 0))
+				foreach(var row in await table.SelectForwardSkip<byte[]>(tx, 0))
 				{
 					if(row == null || !row.Exists)
 						continue;
@@ -634,7 +634,7 @@ namespace NBXplorer
 			{
 				foreach(var data in transactions.Where(t => t.NeedUpdate && t.TransactionMatch == null))
 				{
-					data.TransactionMatch = this.GetMatches(data.Transaction)
+					data.TransactionMatch = (await this.GetMatches(data.Transaction))
 											  .Where(m => m.DerivationStrategy.Equals(pubkey))
 											  .Select(m => new TransactionMiniMatch(m))
 											  .First();
@@ -646,7 +646,7 @@ namespace NBXplorer
 					{
 						table.Insert(tx, data.GetRowKey(), data.ToBytes());
 					}
-					tx.Commit();
+					await tx.CommitAsync();
 				}
 			}
 
@@ -880,7 +880,7 @@ namespace NBXplorer
 			}
 		}
 
-		public void SaveMatches(DateTimeOffset now, MatchedTransaction[] transactions)
+		public async Task SaveMatches(DateTimeOffset now, MatchedTransaction[] transactions)
 		{
 			if(transactions.Length == 0)
 				return;
@@ -908,7 +908,7 @@ namespace NBXplorer
 						table.Insert(tx, data.GetRowKey(), ms.ToArrayEfficient());
 					}
 				}
-				tx.Commit();
+				await tx.CommitAsync();
 			}
 		}
 
@@ -917,7 +917,7 @@ namespace NBXplorer
 			return value.Outputs.Select(m => m.ScriptPubKey).Concat(value.Inputs.Select(m => m.ScriptPubKey)).ToArray();
 		}
 
-		public void CleanTransactions(DerivationStrategyBase pubkey, List<TrackedTransaction> cleanList)
+		public async Task CleanTransactions(DerivationStrategyBase pubkey, List<TrackedTransaction> cleanList)
 		{
 			if(cleanList == null || cleanList.Count == 0)
 				return;
@@ -929,20 +929,20 @@ namespace NBXplorer
 					var k = tracked.GetRowKey();
 					table.RemoveKey(tx, k);
 				}
-				tx.Commit();
+				await tx.CommitAsync();
 			}
 		}
 
-		public void Track(DerivationStrategyBase strategy)
+		public async Task Track(DerivationStrategyBase strategy)
 		{
 			using(var tx = _ContextFactory.CreateContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				foreach(var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
 				{
-					RefillAvailable(tx, strategy, feature);
+					await RefillAvailable(tx, strategy, feature);
 				}
-				tx.Commit();
+				await tx.CommitAsync();
 			}
 		}
 	}

@@ -31,13 +31,13 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
-		public void RepositoryCanTrackAddresses()
+		public async Task RepositoryCanTrackAddresses()
 		{
 			using(var tester = RepositoryTester.Create(true))
 			{
 				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
-				tester.Repository.Track(dummy);
-				RepositoryCanTrackAddressesCore(tester, dummy);
+				await tester.Repository.Track(dummy);
+				await RepositoryCanTrackAddressesCore(tester, dummy);
 			}
 		}
 
@@ -57,69 +57,69 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		private static void RepositoryCanTrackAddressesCore(RepositoryTester tester, DerivationStrategyBase dummy)
+		private static async Task RepositoryCanTrackAddressesCore(RepositoryTester tester, DerivationStrategyBase dummy)
 		{
-			var keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(0).ScriptPubKey);
+			var keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(0).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/0"), keyInfo.KeyPath);
 			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
 
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(1).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(1).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/1"), keyInfo.KeyPath);
 			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
 
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(29).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(29).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/29"), keyInfo.KeyPath);
 			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
 
 
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(29).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(29).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/29"), keyInfo.KeyPath);
 			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
 
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(30).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
 
-			tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/5")));
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(25).ScriptPubKey);
+			await tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/5")));
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(25).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/25"), keyInfo.KeyPath);
 			Assert.Equal(keyInfo.DerivationStrategy, dummy);
 
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(36).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(36).ScriptPubKey);
 			Assert.Null(keyInfo);
 
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
 
 			for(int i = 0; i < 10; i++)
 			{
-				tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/" + i)));
+				await tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/" + i)));
 			}
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
-			tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/10")));
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
+			await tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/10")));
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(39).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(39).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(41).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(41).ScriptPubKey);
 			Assert.Null(keyInfo);
 
 			//No op
-			tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/6")));
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(29).ScriptPubKey);
+			await tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/6")));
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(29).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/29"), keyInfo.KeyPath);
 			Assert.Equal(keyInfo.DerivationStrategy.ToString(), dummy.ToString());
-			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(30).ScriptPubKey);
+			keyInfo = await tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
 		}
 

@@ -53,7 +53,7 @@ namespace NBXplorer
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
 		}
 
-		public static IEnumerable<TransactionMatch> GetMatches(this Repository repository, Transaction tx)
+		public static async Task<IEnumerable<TransactionMatch>> GetMatches(this Repository repository, Transaction tx)
 		{
 			var matches = new Dictionary<DerivationStrategyBase, TransactionMatch>();
 			HashSet<Script> inputScripts = new HashSet<Script>();
@@ -75,7 +75,7 @@ namespace NBXplorer
 				scripts.Add(output.ScriptPubKey);
 			}
 
-			var keyInformations = repository.GetKeyInformations(scripts.ToArray());
+			var keyInformations = await repository.GetKeyInformations(scripts.ToArray());
 			foreach(var keyInfoByScripts in keyInformations)
 			{
 				foreach(var keyInfo in keyInfoByScripts.Value)

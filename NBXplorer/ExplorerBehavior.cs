@@ -73,11 +73,11 @@ namespace NBXplorer
 			}
 		}
 
-		protected override void AttachCore()
+		protected override async void AttachCore()
 		{
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
-			_CurrentLocation = Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
+			_CurrentLocation = await Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
 			var fork = Chain.FindFork(_CurrentLocation);
 			if(fork == null)
 			{
@@ -197,7 +197,7 @@ namespace NBXplorer
 				AskBlocks();
 			});
 
-			message.Message.IfPayloadIs<BlockPayload>(block =>
+			message.Message.IfPayloadIs<BlockPayload>(async block =>
 			{
 				block.Object.Header.PrecomputeHash(false, false);
 				Download o;
@@ -215,14 +215,14 @@ namespace NBXplorer
 
 						var matches =
 							block.Object.Transactions
-							.SelectMany(tx => Repository.GetMatches(tx))
+							.Select(tx => Repository.GetMatches(tx))
 							.ToArray();
-
+						await Task.WhenAll(matches);
 						var blockHash = block.Object.GetHash();
-						SaveMatches(matches, blockHash);
+						await SaveMatches(matches.SelectMany(m => m.Result).ToArray(), blockHash);
 						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 						if(!IsSynching() || blockHash.GetLow32() % 100 == 0)
-							Repository.SetIndexProgress(currentLocation);
+							await Repository.SetIndexProgress(currentLocation);
 						_EventAggregator.Publish(new Events.NewBlockEvent(this._Repository.Network.CryptoCode, blockHash));
 					}
 					if(_InFlights.Count == 0)
@@ -230,24 +230,24 @@ namespace NBXplorer
 				}
 			});
 
-			message.Message.IfPayloadIs<TxPayload>(txPayload =>
+			message.Message.IfPayloadIs<TxPayload>(async txPayload =>
 			{
-				var matches = Repository.GetMatches(txPayload.Object).ToArray();
-				SaveMatches(matches, null);
+				var matches = (await Repository.GetMatches(txPayload.Object)).ToArray();
+				await SaveMatches(matches, null);
 			});
 
 		}
 
-		private void SaveMatches(TransactionMatch[] matches, uint256 blockHash)
+		private async Task SaveMatches(TransactionMatch[] matches, uint256 blockHash)
 		{
 			DateTimeOffset now = DateTimeOffset.UtcNow;
-			Repository.MarkAsUsed(matches.SelectMany(m => m.Outputs).ToArray());
-			Repository.SaveMatches(now, matches.Select(m => new MatchedTransaction()
+			await Repository.MarkAsUsed(matches.SelectMany(m => m.Outputs).ToArray());
+			await Repository.SaveMatches(now, matches.Select(m => new MatchedTransaction()
 			{
 				BlockId = blockHash,
 				Match = m,
 			}).ToArray());
-			var saved = Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
+			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
 			for(int i = 0; i < matches.Length; i++)
 			{

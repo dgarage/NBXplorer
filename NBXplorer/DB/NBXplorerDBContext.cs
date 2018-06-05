@@ -37,7 +37,7 @@ namespace NBXplorer.DB
 			{
 				if(!_Set && FetchValue != null)
 				{
-					_Value = FetchValue();
+					_Value = FetchValue().GetAwaiter().GetResult();
 				}
 				return _Value;
 			}
@@ -48,7 +48,7 @@ namespace NBXplorer.DB
 			}
 		}
 
-		internal Func<TValue> FetchValue
+		internal Func<Task<TValue>> FetchValue
 		{
 			get;
 			set;
@@ -159,22 +159,22 @@ namespace NBXplorer.DB
 				Insert(partitionKey, rowKey, NBitcoin.Utils.ToBytes((uint)i, true));
 		}
 
-		internal GenericRow<TValue> Select<TValue>(string partitionKey, string rowKey)
+		internal async Task<GenericRow<TValue>> Select<TValue>(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
 			var query = $"SELECT {Columns} FROM \"GenericTables\" " +
 						$"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey AND \"DeletedAt\" IS NULL " +
 						$"LIMIT 1";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
-			return QueryGenericRows<TValue>(query, partitionKeyParam).FirstOrDefault();
+			return (await QueryGenericRows<TValue>(query, partitionKeyParam)).FirstOrDefault();
 		}
 
-		internal IEnumerable<GenericRow<TValue>> SelectForward<TValue>(string partitionKey)
+		internal Task<IEnumerable<GenericRow<TValue>>> SelectForward<TValue>(string partitionKey)
 		{
 			return SelectForwardStartsWith<TValue>(partitionKey, string.Empty);
 		}
 
-		internal IEnumerable<GenericRow<TValue>> SelectForwardStartsWith<TValue>(string partitionKey, string rowKey)
+		internal Task<IEnumerable<GenericRow<TValue>>> SelectForwardStartsWith<TValue>(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
 			var query = $"SELECT {Columns} FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey AND \"DeletedAt\" IS NULL ORDER BY \"PartitionKeyRowKey\"";
@@ -196,21 +196,21 @@ namespace NBXplorer.DB
 			}
 		}
 
-		private IEnumerable<GenericRow<TValue>> QueryGenericRows<TValue>(string query, params NpgsqlParameter[] parameters)
+		private Task<IEnumerable<GenericRow<TValue>>> QueryGenericRows<TValue>(string query, params NpgsqlParameter[] parameters)
 		{
 			return QueryGenericRows<TValue>(query, !ValuesLazyLoadingIsOn, parameters);
 		}
-		private IEnumerable<GenericRow<TValue>> QueryGenericRows<TValue>(string query, bool fetchValue, params NpgsqlParameter[] parameters)
+		private async Task<IEnumerable<GenericRow<TValue>>> QueryGenericRows<TValue>(string query, bool fetchValue, params NpgsqlParameter[] parameters)
 		{
 			List<GenericRow<TValue>> rows = new List<GenericRow<TValue>>();
-			using(var command = OpenConnection().GetAwaiter().GetResult().CreateCommand())
+			using(var command = (await OpenConnection()).CreateCommand())
 			{
 				command.CommandText = query;
 				command.Parameters.AddRange(parameters);
 
 				var partitionKeyRowKey = parameters.FirstOrDefault(p => p.ParameterName == "partitionKeyRowKey")?.Value?.ToString();
 				bool likePattern = partitionKeyRowKey.EndsWith('%');
-				using(var result = (NpgsqlDataReader)command.ExecuteReader())
+				using(var result = (NpgsqlDataReader)await command.ExecuteReaderAsync())
 				{
 					while(result.Read())
 					{
@@ -231,13 +231,13 @@ namespace NBXplorer.DB
 			return rows;
 		}
 
-		private Func<TValue> FetchValue<TValue>(string partitionKeyRowKey)
+		private Func<Task<TValue>> FetchValue<TValue>(string partitionKeyRowKey)
 		{
-			return () =>
+			return async () =>
 			{
 				var query = $"SELECT \"Value\" FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey";
 				var partitionKeyRowKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
-				var row = QueryGenericRows<TValue>(query, true, partitionKeyRowKeyParam).FirstOrDefault();
+				var row = (await QueryGenericRows<TValue>(query, true, partitionKeyRowKeyParam)).FirstOrDefault();
 				if(row == null)
 					return default(TValue);
 				return row.Value;
@@ -262,11 +262,6 @@ namespace NBXplorer.DB
 		{
 			get;
 			internal set;
-		}
-
-		public int Commit()
-		{
-			return CommitAsync().GetAwaiter().GetResult();
 		}
 		public async Task<int> CommitAsync()
 		{
