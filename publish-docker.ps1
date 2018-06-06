@@ -1,6 +1,2 @@
-$ver = [regex]::Match((Get-Content NBXplorer\NBXplorer.csproj), '<Version>([^<]+)<').Groups[1].Value
-git tag -a "v$ver" -m "$ver"
-git push --tags
-git tag -d "stable"
-git tag -a "stable" -m "stable"
-git push --tags --force
+docker build -t registry.gitlab.com/metacosa/silo/nbxplorer .
+docker push registry.gitlab.com/metacosa/silo/nbxplorer
