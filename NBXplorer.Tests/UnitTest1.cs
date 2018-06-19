@@ -267,6 +267,7 @@ namespace NBXplorer.Tests
 				tester.Client.Track(bob);
 				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 				Assert.NotNull(a1);
+				Assert.NotNull(a1.Address);
 				Assert.Equal(a1.ScriptPubKey, tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0).ScriptPubKey);
 				Assert.Equal(a1.ScriptPubKey, bob.Derive(new KeyPath("0/0")).ScriptPubKey);
 

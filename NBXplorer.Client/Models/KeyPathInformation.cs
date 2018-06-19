@@ -26,6 +26,10 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
+		public string Address
+		{
+			get; set;
+		}
 		public Script Redeem
 		{
 			get; set;
