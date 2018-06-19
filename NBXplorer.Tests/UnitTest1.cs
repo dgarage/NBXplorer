@@ -60,6 +60,17 @@ namespace NBXplorer.Tests
 				Assert.Throws<TaskCanceledException>(() => tester.Repository.TakeWalletLock(dummy, fastTimeout).GetAwaiter().GetResult());
 
 				Assert.True(await l.ReleaseLock());
+
+				l = await tester.Repository.TakeWalletLock(dummy, timeout);
+
+				var takingLock = tester.Repository.TakeWalletLock(dummy, timeout);
+
+				await Task.Delay(1000);
+
+				Assert.True(await l.ReleaseLock());
+
+				l = await takingLock;
+				Assert.True(await l.ReleaseLock());
 			}
 		}
 
