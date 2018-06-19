@@ -99,6 +99,32 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses")]
+		public KeyPathInformation GetKeyInformationFromKeyPath(
+			string cryptoCode,
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase strategy,
+			[ModelBinder(BinderType = typeof(KeyPathModelBinder))]
+			KeyPath keyPath)
+		{
+			if(strategy == null)
+				throw new ArgumentNullException(nameof(strategy));
+			if(keyPath == null)
+				throw new ArgumentNullException(nameof(keyPath));
+			var network = GetNetwork(cryptoCode);
+			var information = strategy.Derive(keyPath);
+			return new KeyPathInformation()
+			{
+				Address = information.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork).ToString(),
+				DerivationStrategy = strategy,
+				KeyPath = keyPath,
+				ScriptPubKey = information.ScriptPubKey,
+				Redeem = information.Redeem,
+				Feature = DerivationStrategyBase.GetFeature(keyPath)
+			};
+		}
+
+		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/unused")]
 		public async Task<KeyPathInformation> GetUnusedAddress(
 			string cryptoCode,
@@ -132,20 +158,20 @@ namespace NBXplorer.Controllers
 			await repo.CancelReservation(strategy, keyPaths);
 			return Ok();
 		}
-		
+
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/scripts/{script}")] 
+		[Route("cryptos/{cryptoCode}/scripts/{script}")]
 		public async Task<IActionResult> GetKeyInformations(string cryptoCode,
 			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
 		{
 			var network = GetNetwork(cryptoCode);
 			var repo = RepositoryProvider.GetRepository(network);
-			var result = (await repo.GetKeyInformations(new [] { script }))
-                           .SelectMany(k => k.Value)
-                           .ToArray();
+			var result = (await repo.GetKeyInformations(new[] { script }))
+						   .SelectMany(k => k.Value)
+						   .ToArray();
 			return Json(result);
 		}
-		
+
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/status")]
 		public async Task<IActionResult> GetStatus(string cryptoCode)

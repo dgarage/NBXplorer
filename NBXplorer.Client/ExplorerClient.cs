@@ -249,6 +249,16 @@ namespace NBXplorer
 			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/transactions?" + query, null, cancellation);
 		}
 
+		public KeyPathInformation GetKeyInformationFromKeyPath(DerivationStrategyBase strategy, KeyPath keyPath, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetKeyInformationFromKeyPathAsync(strategy, keyPath, cancellation).GetAwaiter().GetResult();
+		}
+
+		public Task<KeyPathInformation> GetKeyInformationFromKeyPathAsync(DerivationStrategyBase strategy, KeyPath keyPath, CancellationToken cancellation = default(CancellationToken))
+		{
+			return GetAsync<KeyPathInformation>($"v1/cryptos/{CryptoCode}/derivations/{strategy}/addresses?keyPath={keyPath}", null, cancellation);
+		}
+
 		public KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)
 		{
 			return GetUnusedAsync(strategy, feature, skip, reserve, cancellation).GetAwaiter().GetResult();

@@ -382,6 +382,24 @@ If you want all transactions of all derivation schemes of all crypto currencies,
 }
 ```
 
+## Getting address information from key path
+
+HTTP GET v1/cryptos/{CryptoCode}/derivations/{strategy}/addresses?keyPath={keyPath}
+
+Returns:
+
+```
+{  
+   "feature":"Direct",
+   "derivationStrategy":"tpubD6NzVbkrYhZ4XMQSsvfmMmZkVtLgNjhT4wybUXvMLZhThnXHhLn6YWvDsHMK38FvA8JPpfSjtiBHz4yVh3DHB172VmZ4kCawkana9PirYEi-[legacy]",
+   "keyPath":"0",
+   "scriptPubKey":"76a914b7acd30d08dc9c9f3081730c69526280b226501e88ac",
+   "address": "1HkBhA3rMD1WJTJ6XWHt5BkGNWTsyoQYMD",
+   "redeem":null
+}
+```
+
+
 ## Broadcast a transaction
 
 HTTP POST cryptos/{cryptoCode}/transactions
