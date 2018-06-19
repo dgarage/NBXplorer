@@ -73,7 +73,7 @@ namespace NBXplorer
 			for(int i = 0; i < tx.Inputs.Count; i++)
 			{
 				var input = tx.Inputs[i];
-				if(_KnownInputs.Contains(input.PrevOut) || 
+				if(_KnownInputs.Contains(input.PrevOut) ||
 					(!UTXOByOutpoint.ContainsKey(input.PrevOut) && SpentUTXOs.Contains(input.PrevOut)))
 				{
 					result = ApplyTransactionResult.Conflict;
@@ -84,20 +84,24 @@ namespace NBXplorer
 				return result;
 
 			var matches = MatchScript == null ? null : MatchScript(tx.Outputs.Select(o => o.ScriptPubKey).ToArray());
-			for(int i = 0; i < tx.Outputs.Count; i++)
+
+			// For dummy Lock UTXOs transaction, change UTXOs should not be considered spendable
+			if(!tx.IsLockUTXO())
 			{
-				var output = tx.Outputs[i];
-				var matched = matches == null ? true : matches[i];
-				if(matched)
+				for(int i = 0; i < tx.Outputs.Count; i++)
 				{
-					var outpoint = new OutPoint(hash, i);
-					if(UTXOByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
+					var output = tx.Outputs[i];
+					var matched = matches == null ? true : matches[i];
+					if(matched)
 					{
-						AddEvent(new UTXOEvent() { Received = true, Outpoint = outpoint, TxId = hash });
+						var outpoint = new OutPoint(hash, i);
+						if(UTXOByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
+						{
+							AddEvent(new UTXOEvent() { Received = true, Outpoint = outpoint, TxId = hash });
+						}
 					}
 				}
 			}
-
 			for(int i = 0; i < tx.Inputs.Count; i++)
 			{
 				var input = tx.Inputs[i];
@@ -118,7 +122,7 @@ namespace NBXplorer
 			get; set;
 		} = new MultiValueDictionary<OutPoint, uint256>();
 
-		
+
 
 		BookmarkProcessor _BookmarkProcessor = new BookmarkProcessor(32 + 32 + 32 + 4 + 1);
 
@@ -153,7 +157,7 @@ namespace NBXplorer
 				_BookmarkProcessor = _BookmarkProcessor.Clone()
 			};
 		}
-		
+
 
 		internal void ResetEvents()
 		{

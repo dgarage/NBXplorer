@@ -42,6 +42,28 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public async Task RepositoryCanLock()
+		{
+			using(var tester = RepositoryTester.Create(true))
+			{
+				var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token;
+				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
+				var l = await tester.Repository.TakeWalletLock(dummy, timeout);
+
+				var fastTimeout = new CancellationTokenSource(1).Token;
+				Assert.Throws<TaskCanceledException>(() => tester.Repository.TakeWalletLock(dummy, fastTimeout).GetAwaiter().GetResult());
+
+				Assert.True(await l.ReleaseLock());
+				Assert.False(await l.ReleaseLock());
+
+				l = await tester.Repository.TakeWalletLock(dummy, timeout);
+				Assert.Throws<TaskCanceledException>(() => tester.Repository.TakeWalletLock(dummy, fastTimeout).GetAwaiter().GetResult());
+
+				Assert.True(await l.ReleaseLock());
+			}
+		}
+
+		[Fact]
 		public void CanSerializeKeyPathFast()
 		{
 			using(var tester = RepositoryTester.Create(true))

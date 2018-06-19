@@ -53,6 +53,11 @@ namespace NBXplorer
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
 		}
 
+		public static bool IsLockUTXO(this Transaction tx)
+		{
+			return tx.Inputs.Any(i => i.ScriptSig.Length == 0);
+		}
+
 		public static async Task<IEnumerable<TransactionMatch>> GetMatches(this Repository repository, Transaction tx)
 		{
 			var matches = new Dictionary<DerivationStrategyBase, TransactionMatch>();

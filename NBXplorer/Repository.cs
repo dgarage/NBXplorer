@@ -154,7 +154,7 @@ namespace NBXplorer
 			}
 		}
 
-		class Index
+		internal class Index
 		{
 			public Index(string tableName, string primaryKey)
 			{
@@ -204,6 +204,16 @@ namespace NBXplorer
 			public int Count(NBXplorerDBContext tx)
 			{
 				return tx.Count(TableName, PrimaryKey);
+			}
+
+			internal Task<bool> ReleaseLock(NBXplorerDBContext tx)
+			{
+				return tx.ReleaseLock(TableName, PrimaryKey);
+			}
+
+			internal Task<bool> TakeLock(NBXplorerDBContext tx)
+			{
+				return tx.TakeLock(TableName, PrimaryKey);
 			}
 		}
 
@@ -277,6 +287,39 @@ namespace NBXplorer
 				else
 					tx.Insert($"{_Suffix}IndexProgress", "", locator.ToBytes());
 				await tx.CommitAsync();
+			}
+		}
+
+		public class DBLock
+		{
+			private Repository repository;
+			private Index index;
+
+			internal DBLock(Repository repository, Index index)
+			{
+				this.repository = repository;
+				this.index = index;
+			}
+
+			public async Task<bool> ReleaseLock()
+			{
+				using(var tx = repository._ContextFactory.CreateContext())
+				{
+					return await index.ReleaseLock(tx);
+				}
+			}
+		}
+
+		public async Task<DBLock> TakeWalletLock(DerivationStrategyBase strategy, CancellationToken cancellation = default(CancellationToken))
+		{
+			using(var tx = _ContextFactory.CreateContext())
+			{
+				var index = new Index($"{_Suffix}Locks", $"{strategy.GetHash()}");
+				while(!await index.TakeLock(tx))
+				{
+					await Task.Delay(500, cancellation);
+				}
+				return new DBLock(this, index);
 			}
 		}
 

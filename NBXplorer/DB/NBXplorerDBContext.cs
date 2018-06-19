@@ -139,6 +139,29 @@ namespace NBXplorer.DB
 						   $"ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"Value\" = @value{_ToCommit.Count} {deletedAt}", new DbParameter[] { partitionKeyRowKeyParam, valueParam }));
 		}
 
+		internal async Task<bool> TakeLock(string partitionKey, string rowKey)
+		{
+			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
+			var valueParam = new NpgsqlParameter($"value", new byte[0]);
+			using(var command = (await OpenConnection()).CreateCommand())
+			{
+				var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
+				command.Parameters.Add(partitionKeyParam);
+				command.Parameters.Add(valueParam);
+				command.CommandText = "INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\")  " +
+									  "VALUES (@partitionKeyRowKey, @value)";
+				try
+				{
+					await command.ExecuteNonQueryAsync();
+					return true;
+				}
+				catch(NpgsqlException ex) when (ex.Message.StartsWith("23505", StringComparison.OrdinalIgnoreCase))
+				{
+				}
+				return false;
+			}
+		}
+
 		private string PartitionKeyRowKey(string partitionKey, string rowKey)
 		{
 			Validate(partitionKey, rowKey);
@@ -167,6 +190,19 @@ namespace NBXplorer.DB
 						$"LIMIT 1";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
 			return (await QueryGenericRows<TValue>(query, partitionKeyParam)).FirstOrDefault();
+		}
+
+		internal async Task<bool> ReleaseLock(string partitionKey, string rowKey)
+		{
+			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
+			using(var command = (await OpenConnection()).CreateCommand())
+			{
+				var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
+				command.Parameters.Add(partitionKeyParam);
+				command.CommandText = "DELETE FROM \"GenericTables\" " +
+									  "WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey";
+				return await command.ExecuteNonQueryAsync() == 1;
+			}
 		}
 
 		internal Task<IEnumerable<GenericRow<TValue>>> SelectForward<TValue>(string partitionKey)
