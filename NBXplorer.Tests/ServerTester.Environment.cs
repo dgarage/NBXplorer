@@ -55,6 +55,11 @@ namespace NBXplorer.Tests
 			//nodeDownloadData = NodeDownloadData.Ufo.v0_16_0;
 			//Network = NBitcoin.Altcoins.Ufo.Instance.Regtest;
 			//RPCSupportSegwit = false;
+			
+			//CryptoCode = "VIA";
+			//nodeDownloadData = NodeDownloadData.Viacoin.v0_15_1;
+			//Network = NBitcoin.Altcoins.Viacoin.Instance.Regtest;
+			//RPCSupportSegwit = false;
 
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;

@@ -20,6 +20,7 @@ It currently supports:
 * Monacoin
 * Feathercoin
 * Ufo
+* Viacoin
 
 ## Prerequisite
 
