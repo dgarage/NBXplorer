@@ -68,8 +68,8 @@ HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balances
 
 ```json
 {
-   "spendable":149977400,
-   "total":149977400
+   "spendable":100000000,
+   "total":170000000
 }
 ```
 
