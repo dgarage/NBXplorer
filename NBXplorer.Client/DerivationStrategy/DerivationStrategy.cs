@@ -89,15 +89,27 @@ namespace NBXplorer.DerivationStrategy
 			{
 				var match1 = MultiSigRegex.Match(splitted[0]);
 				var match2 = MultiSigRegex.Match(splitted[1]);
-				if(match1.Success && match2.Success)
+				if(match1.Success)
 				{
 					options = options ?? new DerivationStrategyOptions();
 
 					var noTag = new DerivationStrategyOptions();
-					DerivationStrategyBase derivationStrategy = new MultisigAndMultisigDerivationStrategy(
-						(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match1)).Inner,
-						(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match2)).Inner,
-						options.Legacy);
+					DerivationStrategyBase derivationStrategy = null;
+					if(match2.Success)
+					{
+						derivationStrategy = new MultisigAndMultisigDerivationStrategy(
+							(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match1)).Inner,
+							(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match2)).Inner,
+							options.Legacy);
+					}
+					else
+					{
+						var key = _Network.Parse<BitcoinExtPubKey>(splitted[1]);
+						derivationStrategy = new MultisigPlusOneDerivationStrategy(
+							(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match1)).Inner,
+							((DirectDerivationStrategy)CreateDirectDerivationStrategy(key, noTag)),
+							options.Legacy);
+					}
 					if(options.Legacy)
 						return new P2SHDerivationStrategy(derivationStrategy, false);
 

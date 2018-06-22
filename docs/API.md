@@ -37,7 +37,8 @@ Here a documentation of the different derivation scheme supported:
 | Multi-sig P2WSH | 2-of-xpub1-xpub2 |
 | Multi-sig P2SH-P2WSH | 2-of-xpub1-xpub2-[p2sh] |
 | Multi-sig P2SH | 2-of-xpub1-xpub2-[legacy] |
-| Multi-sig-and-Multi-sig P2SH-P2WSH | 2-of-xpub1-xpub2-and-3-of-xpub3-xpub4-[p2sh] |
+| Multi-sig-and-Multi-sig P2SH-P2WSH | 2-of-xpub1-xpub2-and-1-of-xpub3-xpub4-[p2sh] |
+| Multi-sig-and-one P2SH-P2WSH | 2-of-xpub1-xpub2-and-xpub3-[p2sh] |
 
 For multisig, the public keys are ordered before generating the address by default for privacy reason, use `-[keeporder]` to disable it.
 
@@ -68,8 +69,8 @@ HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balances
 
 ```json
 {
-   "spendable":100000000,
-   "total":170000000
+   "spendable" : 100000000,
+   "total" : 170000000
 }
 ```
 

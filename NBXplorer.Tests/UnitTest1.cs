@@ -177,6 +177,30 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanLockUTXOs()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				var userExtKey = new ExtKey();
+				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter());
+				tester.Client.Track(userDerivationScheme);
+				var utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
+
+				// Send 1 BTC
+				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+
+				// Send 1 more BTC
+				newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+
+
+			}
+		}
+
+		[Fact]
 		public void CanEasilySpendUTXOs()
 		{
 			using(var tester = ServerTester.Create())
@@ -745,6 +769,10 @@ namespace NBXplorer.Tests
 			Assert.True(multimulti.LexicographicOrder);
 			Assert.Equal($"2-of-{toto}-{tata}-and-1-of-{tata}-[p2sh]", multimultiP2WSHP2SH.ToString());
 			Assert.Equal($"2-of-{toto}-{tata}-and-1-of-{tata}", multimulti.ToString());
+
+			var multioneP2WSHP2SH = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-and-{tata}-[p2sh]");
+			var multione = Assert.IsType<MultisigPlusOneDerivationStrategy>(Assert.IsType<P2WSHDerivationStrategy>(multioneP2WSHP2SH.Inner).Inner);
+			Assert.Equal($"2-of-{toto}-{tata}-and-{tata}", multione.ToString());
 		}
 
 		private static Derivation Generate(DerivationStrategyBase strategy)
