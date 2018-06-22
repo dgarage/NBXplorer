@@ -384,7 +384,7 @@ If you want all transactions of all derivation schemes of all crypto currencies,
 
 ## Getting address information from key path
 
-HTTP GET v1/cryptos/{CryptoCode}/derivations/{strategy}/addresses?keyPath={keyPath}
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses?keyPath={keyPath}
 
 Returns:
 
