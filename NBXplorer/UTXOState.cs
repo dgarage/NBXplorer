@@ -39,7 +39,7 @@ namespace NBXplorer
 			get; set;
 		} = new Dictionary<OutPoint, Coin>();
 
-		public Func<Script[], bool[]> MatchScript
+		public Func<Transaction, Script[], bool[]> MatchScript
 		{
 			get; set;
 		}
@@ -83,25 +83,22 @@ namespace NBXplorer
 			if(result == ApplyTransactionResult.Conflict)
 				return result;
 
-			var matches = MatchScript == null ? null : MatchScript(tx.Outputs.Select(o => o.ScriptPubKey).ToArray());
+			var matches = MatchScript == null ? null : MatchScript(tx, tx.Outputs.Select(o => o.ScriptPubKey).ToArray());
 
-			// For dummy Lock UTXOs transaction, change UTXOs should not be considered spendable
-			if(!tx.IsLockUTXO())
+			for(int i = 0; i < tx.Outputs.Count; i++)
 			{
-				for(int i = 0; i < tx.Outputs.Count; i++)
+				var output = tx.Outputs[i];
+				var matched = matches == null ? true : matches[i];
+				if(matched)
 				{
-					var output = tx.Outputs[i];
-					var matched = matches == null ? true : matches[i];
-					if(matched)
+					var outpoint = new OutPoint(hash, i);
+					if(UTXOByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
 					{
-						var outpoint = new OutPoint(hash, i);
-						if(UTXOByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
-						{
-							AddEvent(new UTXOEvent() { Received = true, Outpoint = outpoint, TxId = hash });
-						}
+						AddEvent(new UTXOEvent() { Received = true, Outpoint = outpoint, TxId = hash });
 					}
 				}
 			}
+
 			for(int i = 0; i < tx.Inputs.Count; i++)
 			{
 				var input = tx.Inputs[i];

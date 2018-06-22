@@ -506,6 +506,44 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balances")]
+		public async Task<GetBalanceResponse> GetBalance(
+			string cryptoCode,
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase derivationScheme)
+		{
+			var network = GetNetwork(cryptoCode);
+			var chain = ChainProvider.GetChain(network);
+			var repo = RepositoryProvider.GetRepository(network);
+
+			GetBalanceResponse response = new GetBalanceResponse();
+
+			var transactions = await GetAnnotatedTransactions(repo, chain, derivationScheme);
+
+			response.Spendable = CalculateBalance(transactions, true);
+			response.Total = CalculateBalance(transactions, false);
+
+			return response;
+		}
+
+		private Money CalculateBalance(AnnotatedTransactionCollection transactions, bool spendableOnly)
+		{
+			var changes = new UTXOChanges();
+			Func<Transaction, Script[], bool[]> matchScript = (tx, scripts) => scripts.Select(s => spendableOnly && tx.IsLockUTXO() ? false : transactions.GetKeyPath(s) != null).ToArray();
+
+			var states = UTXOStateResult.CreateStates(matchScript,
+														new HashSet<Bookmark>(),
+														transactions.UnconfirmedTransactions.Values.Select(c => c.Record.Transaction),
+														new HashSet<Bookmark>(),
+														transactions.ConfirmedTransactions.Values.Select(c => c.Record.Transaction));
+
+			changes.Confirmed = SetUTXOChange(states.Confirmed);
+			changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
+
+			return changes.GetUnspentCoins().Select(c => c.Amount).Sum();
+		}
+
+		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{extPubKey}/utxos")]
 		public async Task<UTXOChanges> GetUTXOs(
 			string cryptoCode,
@@ -532,7 +570,7 @@ namespace NBXplorer.Controllers
 				changes = new UTXOChanges();
 				changes.CurrentHeight = chain.Height;
 				var transactions = await GetAnnotatedTransactions(repo, chain, extPubKey);
-				Func<Script[], bool[]> matchScript = (scripts) => scripts.Select(s => transactions.GetKeyPath(s) != null).ToArray();
+				Func<Transaction, Script[], bool[]> matchScript = (tx, scripts) => scripts.Select(s => transactions.GetKeyPath(s) != null).ToArray();
 
 				var states = UTXOStateResult.CreateStates(matchScript,
 														unconfirmedBookmarks,

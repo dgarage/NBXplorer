@@ -204,6 +204,15 @@ namespace NBXplorer.Tests
 				Assert.Equal(2, utxos.GetUnspentCoins().Length);
 				for(int i = 0; i < 3; i++)
 				{
+					Money expected = i == 0 ? Money.Coins(2.0m) : 
+									 i == 1 ? Money.Coins(1.49977400m) : null;
+					if(expected != null)
+					{
+						var balance = tester.Client.GetBalance(userDerivationScheme);
+						Assert.Equal(expected, balance.Spendable);
+						Assert.Equal(expected, balance.Total);
+					}
+
 					var changeAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Change);
 					var coins = utxos.GetUnspentCoins();
 					var keys = utxos.GetKeys(userExtKey);
