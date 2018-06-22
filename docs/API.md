@@ -62,6 +62,25 @@ HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}
 
 Returns nothing.
 
+## Get balance
+
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balances
+
+```json
+{
+   "spendable":149977400,
+   "total":149977400
+}
+```
+
+`spendable` is what the customer can spend, it excludes the locked UTXO but include the change of the locked transaction. 
+
+`total` is what the balance would be if the locked UTXOs were effectively spent.
+
+If Alice has 2 coins of 1 BTC, if she wants to spend 0.3 BTC she will lock 1 coin of 1BTC and have a change of 0.7 BTC.
+
+`total` would be equal to 1.7 BTC, but `spendable` would be equal to 1 BTC.
+
 ## Query transactions
 
 Query all transactions of a `derivation scheme`.
