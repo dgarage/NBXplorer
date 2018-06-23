@@ -13,6 +13,7 @@ It currently supports:
 * Bitcoin
 * Litecoin
 * Dogecoin
+* Groestlcoin
 * Dash
 * Polis
 * BCash (also known as Bitcoin Cash)
