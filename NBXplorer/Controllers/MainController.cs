@@ -392,6 +392,89 @@ namespace NBXplorer.Controllers
 			return Ok();
 		}
 
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions")]
+		public async Task<TransactionMatch> LockUTXOs(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase derivationScheme,
+			string destination = null,
+			long amount = 0,
+			CancellationToken cancellation = default)
+		{
+			if(derivationScheme == null)
+				throw new ArgumentNullException(nameof(derivationScheme));
+			if(destination == null)
+				throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "Invalid destination address"));
+
+			var network = GetNetwork(cryptoCode);
+
+			BitcoinAddress destinationAddress = null;
+			try
+			{
+				destinationAddress = BitcoinAddress.Create(destination, network.NBitcoinNetwork);
+			}
+			catch
+			{
+				throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "Invalid destination address"));
+			}
+			var value = Money.Satoshis(amount);
+			if(value <= Money.Zero)
+				throw new NBXplorerException(new NBXplorerError(400, "invalid-amount", "amount should be equal or less than 0 satoshi"));
+
+			var chain = ChainProvider.GetChain(network);
+			var repo = RepositoryProvider.GetRepository(network);
+
+			var feeRate = await this.GetFeeRate(6, cryptoCode);
+			var change = await repo.GetUnused(derivationScheme, DerivationFeature.Change, 0, true);
+
+			Repository.DBLock walletLock = null;
+			try
+			{
+				walletLock = await repo.TakeWalletLock(derivationScheme, cancellation);
+				var changes = new UTXOChanges();
+				var transactions = await GetAnnotatedTransactions(repo, chain, derivationScheme, true);
+				Func<Transaction, Script[], bool[]> matchScript = (t, scripts) => scripts.Select(s => t.IsLockUTXO() ? false : transactions.GetKeyPath(s) != null).ToArray();
+
+				var states = UTXOStateResult.CreateStates(matchScript,
+															new HashSet<Bookmark>(),
+															transactions.UnconfirmedTransactions.Values.Select(c => c.Record.Transaction),
+															new HashSet<Bookmark>(),
+															transactions.ConfirmedTransactions.Values.Select(c => c.Record.Transaction));
+
+				changes.Confirmed = SetUTXOChange(states.Confirmed);
+				changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
+
+				var txBuilder = new TransactionBuilder();
+				txBuilder.SetConsensusFactory(network.NBitcoinNetwork);
+				txBuilder.AddCoins(changes.GetUnspentCoins());
+				txBuilder.Send(destinationAddress, value);
+				txBuilder.SetChange(change.ScriptPubKey);
+				txBuilder.SendEstimatedFees(feeRate.FeeRate);
+				txBuilder.Shuffle();
+				var tx = txBuilder.BuildTransaction(false);
+				tx.MarkLockUTXO();
+				var matches = await repo.GetMatches(tx);
+				await repo.SaveMatches(DateTimeOffset.UtcNow,
+					matches
+					.Select(m => new MatchedTransaction()
+					{
+						BlockId = null,
+						Match = m
+					})
+					.ToArray());
+				return matches.First();
+			}
+			catch(NotEnoughFundsException)
+			{
+				throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "Not enough funds for doing this transaction"));
+			}
+			finally
+			{
+				if(walletLock != null)
+					await walletLock.ReleaseLock();
+			}
+		}
+
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{extPubKey}/transactions")]
 		public async Task<GetTransactionsResponse> GetTransactions(
@@ -419,7 +502,7 @@ namespace NBXplorer.Controllers
 				response = new GetTransactionsResponse();
 				int currentHeight = chain.Height;
 				response.Height = currentHeight;
-				var txs = await GetAnnotatedTransactions(repo, chain, extPubKey);
+				var txs = await GetAnnotatedTransactions(repo, chain, extPubKey, false);
 				foreach(var item in new[]
 				{
 					new
@@ -505,6 +588,11 @@ namespace NBXplorer.Controllers
 			return result;
 		}
 
+		//[HttpPost]
+		//[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/")]
+		//public async Task<>
+
+
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balances")]
 		public async Task<GetBalanceResponse> GetBalance(
@@ -518,7 +606,7 @@ namespace NBXplorer.Controllers
 
 			GetBalanceResponse response = new GetBalanceResponse();
 
-			var transactions = await GetAnnotatedTransactions(repo, chain, derivationScheme);
+			var transactions = await GetAnnotatedTransactions(repo, chain, derivationScheme, true);
 
 			response.Spendable = CalculateBalance(transactions, true);
 			response.Total = CalculateBalance(transactions, false);
@@ -569,7 +657,7 @@ namespace NBXplorer.Controllers
 			{
 				changes = new UTXOChanges();
 				changes.CurrentHeight = chain.Height;
-				var transactions = await GetAnnotatedTransactions(repo, chain, extPubKey);
+				var transactions = await GetAnnotatedTransactions(repo, chain, extPubKey, false);
 				Func<Transaction, Script[], bool[]> matchScript = (tx, scripts) => scripts.Select(s => transactions.GetKeyPath(s) != null).ToArray();
 
 				var states = UTXOStateResult.CreateStates(matchScript,
@@ -660,10 +748,11 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, ConcurrentChain chain, DerivationStrategyBase extPubKey)
+		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, ConcurrentChain chain, DerivationStrategyBase extPubKey, bool includeLocks)
 		{
 			var annotatedTransactions = new AnnotatedTransactionCollection((await repo
 				.GetTransactions(extPubKey))
+				.Where(t => includeLocks || !t.Transaction.IsLockUTXO())
 				.Select(t => new AnnotatedTransaction(t, chain))
 				.ToList());
 			await CleanConflicts(repo, extPubKey, annotatedTransactions);
@@ -712,7 +801,7 @@ namespace NBXplorer.Controllers
 				if(extPubKey != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
 				{
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Trying to broadcast unconfirmed of the wallet");
-					var transactions = await GetAnnotatedTransactions(repo, chain, extPubKey);
+					var transactions = await GetAnnotatedTransactions(repo, chain, extPubKey, false);
 					foreach(var existing in transactions.UnconfirmedTransactions.Values)
 					{
 						try
