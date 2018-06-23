@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using NBitcoin.RPC;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -111,6 +112,20 @@ namespace NBXplorer
 			}
 			catch { }
 			finally { socket.Dispose(); }
+		}
+
+		public static async Task<uint256[]> EnsureGenerateAsync(this RPCClient client, int blockCount)
+		{
+			uint256[] blockIds = new uint256[blockCount];
+			int generated = 0;
+			while(generated < blockCount)
+			{
+				foreach(var id in await client.GenerateAsync(blockCount - generated).ConfigureAwait(false))
+				{
+					blockIds[generated++] = id;
+				}
+			}
+			return blockIds;
 		}
 
 		public static string GetNotificationMessageTypeName(Type type)

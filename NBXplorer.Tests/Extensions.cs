@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Linq;
 using NBXplorer.DerivationStrategy;
+using NBitcoin.RPC;
 
 namespace NBXplorer.Tests
 {
@@ -14,5 +15,11 @@ namespace NBXplorer.Tests
 		{
 			return repo.GetKeyInformations(new Script[] { script })[script].SingleOrDefault();
 		}
+
+		public static uint256[] EnsureGenerate(this RPCClient client, int blockCount)
+		{
+			return client.EnsureGenerateAsync(blockCount).GetAwaiter().GetResult();
+		}
 	}
+
 }

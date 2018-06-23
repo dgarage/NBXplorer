@@ -84,7 +84,7 @@ namespace NBXplorer.Tests
 				User1.Sync(Explorer, true);
 				Explorer.CreateRPCClient().Generate(1);
 				Explorer.Sync(User2, true);
-				User2.CreateRPCClient().Generate(101);
+				User2.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
 				User1.Sync(User2, true);
 
 				var datadir = Path.Combine(directory, "explorer");

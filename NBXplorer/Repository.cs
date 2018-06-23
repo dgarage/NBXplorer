@@ -607,9 +607,11 @@ namespace NBXplorer
 			{
 
 			}
-			public TimeStampedTransaction(byte[] hex)
+			public TimeStampedTransaction(Network network, byte[] hex)
 			{
-				this.ReadWrite(hex);
+				var stream = new BitcoinStream(hex);
+				stream.ConsensusFactory = network.Consensus.ConsensusFactory;
+				this.ReadWrite(stream);
 			}
 
 			public TimeStampedTransaction(Transaction tx, ulong timestamp)
@@ -675,7 +677,7 @@ namespace NBXplorer
 						var key = blockHash == null ? "0" : blockHash.ToString();
 						var value = timestamped.ToBytes();
 						tx.Insert($"{_Suffix}tx-" + btx.GetHash().ToString(), key, value);
-						result.Add(ToSavedTransaction(key, value));
+						result.Add(ToSavedTransaction(Network.NBitcoinNetwork, key, value));
 					}
 					tx.Commit();
 				});
@@ -707,19 +709,19 @@ namespace NBXplorer
 			{
 				foreach(var row in tx.SelectForward<string, byte[]>($"{_Suffix}tx-" + txid.ToString()))
 				{
-					SavedTransaction t = ToSavedTransaction(row.Key, row.Value);
+					SavedTransaction t = ToSavedTransaction(Network.NBitcoinNetwork, row.Key, row.Value);
 					saved.Add(t);
 				}
 			});
 			return saved.ToArray();
 		}
 
-		private static SavedTransaction ToSavedTransaction(string key, byte[] value)
+		private static SavedTransaction ToSavedTransaction(Network network, string key, byte[] value)
 		{
 			SavedTransaction t = new SavedTransaction();
 			if(key.Length != 1)
 				t.BlockHash = new uint256(key);
-			var timeStamped = new TimeStampedTransaction(value);
+			var timeStamped = new TimeStampedTransaction(network, value);
 			t.Transaction = timeStamped.Transaction;
 			t.Timestamp = NBitcoin.Utils.UnixTimeToDateTime(timeStamped.TimeStamp);
 			t.Transaction.PrecomputeHash(true, false);
@@ -839,7 +841,7 @@ namespace NBXplorer
 						continue;
 					MemoryStream ms = new MemoryStream(row.Value);
 					BitcoinStream bs = new BitcoinStream(ms, false);
-
+					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
 					TransactionMatchData data = new TransactionMatchData();
 					bs.ReadWrite(ref data);
 					data.Transaction.PrecomputeHash(true, true);
@@ -1144,6 +1146,7 @@ namespace NBXplorer
 						var ticksCount = now.UtcTicks;
 						var ms = new MemoryStream();
 						BitcoinStream bs = new BitcoinStream(ms, true);
+						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
 						TransactionMatchData data = new TransactionMatchData()
 						{
 							Transaction = value.Match.Transaction,
