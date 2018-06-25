@@ -181,22 +181,72 @@ namespace NBXplorer.Tests
 		{
 			using(var tester = ServerTester.Create())
 			{
-				var userExtKey = new ExtKey();
-				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter());
-				tester.Client.Track(userDerivationScheme);
-				var utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
+				var bob = new Key().GetWif(tester.Network).GetAddress();
+				var aliceExtKey = new ExtKey();
+				var alice = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(aliceExtKey.Neuter(), new DerivationStrategyOptions() { P2SH = true });
+				tester.Client.Track(alice);
 
-				// Send 1 BTC
-				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+				var utxo = tester.Client.GetUTXOs(alice, null);
+				// Send two coins of 1 BTC
+				var newAddress = tester.Client.GetUnused(alice, DerivationFeature.Direct, reserve: true);
 				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
-				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+				utxo = tester.Client.GetUTXOs(alice, utxo);
 
-				// Send 1 more BTC
-				newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+				newAddress = tester.Client.GetUnused(alice, DerivationFeature.Direct, reserve: true);
 				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
-				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+				utxo = tester.Client.GetUTXOs(alice, utxo);
 
+				utxo = tester.Client.GetUTXOs(alice, null);
+				Assert.Equal(2, tester.Client.GetUTXOs(alice, null).GetUnspentCoins().Length);
 
+				var ex = Assert.Throws<NBXplorerException>(() => tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
+				{
+					Destination = bob.ToString(),
+					Amount = Money.Coins(3),
+					FeeRate = new FeeRate(Money.Satoshis(1), 1)
+				}));
+				Assert.Equal("not-enough-funds", ex.Error.Code);
+				ex = Assert.Throws<NBXplorerException>(() => tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
+				{
+					Destination = bob.ToString(),
+					Amount = Money.Coins(3)
+				}));
+				Assert.Equal("fee-estimation-unavailable", ex.Error.Code);
+
+				var locked = tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
+				{
+					Destination = bob.ToString(),
+					Amount = Money.Coins(0.4m),
+					FeeRate = new FeeRate(Money.Satoshis(1), 1)
+				});
+
+				Assert.Single(locked.SpentCoins);
+				Assert.Equal(Money.Coins(1.0m), locked.SpentCoins[0].Value);
+				Assert.NotNull(locked.ChangeInformation);
+				Assert.True(locked.ChangeInformation.Value.Almost(Money.Coins(0.6m), 0.001m));
+
+				// Because one whole bitcoin is locked, we should not have enough fund
+				ex = Assert.Throws<NBXplorerException>(() => tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
+				{
+					Destination = bob.ToString(),
+					Amount = Money.Coins(1.01m),
+					FeeRate = new FeeRate(Money.Satoshis(1), 1)
+				}));
+				Assert.Equal("not-enough-funds", ex.Error.Code);
+
+				// We have only 1 coins left
+				var balance = tester.Client.GetBalance(alice);
+				Assert.Equal(Money.Coins(1), balance.Spendable);
+				// But really, we are left with our earlier change + this coin
+				Assert.Equal(Money.Coins(1) + locked.ChangeInformation.Value, balance.Total);
+
+				// Only the two transactions should show
+				var transactions = tester.Client.GetTransactions(alice, null);
+				Assert.Equal(2, transactions.UnconfirmedTransactions.Transactions.Count);
+
+				// We should have only 1 UTXO left
+				utxo = tester.Client.GetUTXOs(alice, null);
+				Assert.Single(utxo.GetUnspentCoins());
 			}
 		}
 
@@ -228,7 +278,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(2, utxos.GetUnspentCoins().Length);
 				for(int i = 0; i < 3; i++)
 				{
-					Money expected = i == 0 ? Money.Coins(2.0m) : 
+					Money expected = i == 0 ? Money.Coins(2.0m) :
 									 i == 1 ? Money.Coins(1.49977400m) : null;
 					if(expected != null)
 					{

@@ -55,7 +55,11 @@ namespace NBXplorer
 
 		public static bool IsLockUTXO(this Transaction tx)
 		{
-			return tx.Inputs.Any(i => i.ScriptSig.Length == 0);
+			return tx.Inputs.Count >= 1 && tx.Inputs[0].PrevOut.N == uint.MaxValue && tx.Inputs[0].PrevOut.Hash == uint256.One;
+		}
+		public static void MarkLockUTXO(this Transaction tx)
+		{
+			tx.Inputs.Insert(0, new TxIn(new OutPoint(uint256.One, uint.MaxValue)));
 		}
 
 		public static async Task<IEnumerable<TransactionMatch>> GetMatches(this Repository repository, Transaction tx)

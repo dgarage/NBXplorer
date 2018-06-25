@@ -12,6 +12,7 @@ namespace NBXplorer
 	{
 		Confirmed,
 		Unconfirmed,
+		Lock,
 		Orphan
 	}
 	public class AnnotatedTransaction
