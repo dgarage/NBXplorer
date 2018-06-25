@@ -394,16 +394,15 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions")]
-		public async Task<TransactionMatch> LockUTXOs(string cryptoCode,
+		public async Task<LockUTXOsResponse> LockUTXOs(string cryptoCode,
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase derivationScheme,
-			string destination = null,
-			long amount = 0,
+			[FromBody] LockUTXOsRequest request,
 			CancellationToken cancellation = default)
 		{
 			if(derivationScheme == null)
 				throw new ArgumentNullException(nameof(derivationScheme));
-			if(destination == null)
+			if(request?.Destination == null)
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "Invalid destination address"));
 
 			var network = GetNetwork(cryptoCode);
@@ -411,20 +410,23 @@ namespace NBXplorer.Controllers
 			BitcoinAddress destinationAddress = null;
 			try
 			{
-				destinationAddress = BitcoinAddress.Create(destination, network.NBitcoinNetwork);
+				destinationAddress = BitcoinAddress.Create(request.Destination, network.NBitcoinNetwork);
 			}
 			catch
 			{
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "Invalid destination address"));
 			}
-			var value = Money.Satoshis(amount);
-			if(value <= Money.Zero)
+			if(request.Amount == null || request.Amount <= Money.Zero)
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-amount", "amount should be equal or less than 0 satoshi"));
+
+			var firstAddress = derivationScheme.Derive(new KeyPath("0")).ScriptPubKey;
+			if(!firstAddress.IsPayToScriptHash && !firstAddress.IsWitness)
+				throw new NBXplorerException(new NBXplorerError(400, "invalid-derivationScheme", "Only P2SH or segwit derivation schemes are supported"));
 
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
 
-			var feeRate = await this.GetFeeRate(6, cryptoCode);
+			var feeRate = request.FeeRate ?? (await this.GetFeeRate(6, cryptoCode)).FeeRate;
 			var change = await repo.GetUnused(derivationScheme, DerivationFeature.Change, 0, true);
 
 			Repository.DBLock walletLock = null;
@@ -444,14 +446,55 @@ namespace NBXplorer.Controllers
 				changes.Confirmed = SetUTXOChange(states.Confirmed);
 				changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
 
+				// TODO: We might want to cache this as the Derive operation is computionally expensive
+				var unspentCoins = changes.GetUnspentCoins()
+					   .Select(c => Task.Run(() => c.ToScriptCoin(derivationScheme.Derive(transactions.GetKeyPath(c.ScriptPubKey)).Redeem)))
+						 .Select(t => t.Result)
+						 .ToArray();
+
 				var txBuilder = new TransactionBuilder();
 				txBuilder.SetConsensusFactory(network.NBitcoinNetwork);
-				txBuilder.AddCoins(changes.GetUnspentCoins());
-				txBuilder.Send(destinationAddress, value);
+				txBuilder.AddCoins(unspentCoins);
+				txBuilder.Send(destinationAddress, request.Amount);
 				txBuilder.SetChange(change.ScriptPubKey);
-				txBuilder.SendEstimatedFees(feeRate.FeeRate);
+				txBuilder.SendEstimatedFees(feeRate);
 				txBuilder.Shuffle();
 				var tx = txBuilder.BuildTransaction(false);
+
+				LockUTXOsResponse result = new LockUTXOsResponse();
+				var spentCoins = txBuilder.FindSpentCoins(tx).OfType<ScriptCoin>().ToArray();
+				result.SpentCoins = spentCoins.Select(r => new LockUTXOsResponse.SpentCoin()
+					{
+						KeyPath = transactions.GetKeyPath(r.ScriptPubKey),
+						Outpoint = r.Outpoint,
+						Value= r.Amount
+					})
+					.ToArray();
+				foreach(var input in tx.Inputs)
+				{
+					var coin = spentCoins.Single(s => s.Outpoint == input.PrevOut);
+					if(coin.RedeemType == RedeemType.P2SH)
+					{
+						input.ScriptSig = new Script(Op.GetPushOp(coin.Redeem.ToBytes()));
+					}
+					else if(coin.RedeemType == RedeemType.WitnessV0)
+					{
+						input.WitScript = new Script(Op.GetPushOp(coin.Redeem.ToBytes()));
+						if(coin.IsP2SH)
+							input.ScriptSig = new Script(Op.GetPushOp(coin.Redeem.WitHash.ScriptPubKey.ToBytes()));
+					}
+				}
+				result.Transaction = tx.Clone();
+
+				var changeOutput = tx.Outputs.Where(c => c.ScriptPubKey == change.ScriptPubKey).FirstOrDefault();
+				if(result.Transaction.Outputs.Count > 1 && changeOutput != null)
+				{
+					result.ChangeInformation = new LockUTXOsResponse.ChangeInfo()
+					{
+						KeyPath = change.KeyPath,
+						Value = changeOutput.Value
+					};
+				}
 				tx.MarkLockUTXO();
 				var matches = await repo.GetMatches(tx);
 				await repo.SaveMatches(DateTimeOffset.UtcNow,
@@ -462,7 +505,7 @@ namespace NBXplorer.Controllers
 						Match = m
 					})
 					.ToArray());
-				return matches.First();
+				return result;
 			}
 			catch(NotEnoughFundsException)
 			{
@@ -657,8 +700,8 @@ namespace NBXplorer.Controllers
 			{
 				changes = new UTXOChanges();
 				changes.CurrentHeight = chain.Height;
-				var transactions = await GetAnnotatedTransactions(repo, chain, extPubKey, false);
-				Func<Transaction, Script[], bool[]> matchScript = (tx, scripts) => scripts.Select(s => transactions.GetKeyPath(s) != null).ToArray();
+				var transactions = await GetAnnotatedTransactions(repo, chain, extPubKey, true);
+				Func<Transaction, Script[], bool[]> matchScript = (tx, scripts) => scripts.Select(s => tx.IsLockUTXO() ? false : transactions.GetKeyPath(s) != null).ToArray();
 
 				var states = UTXOStateResult.CreateStates(matchScript,
 														unconfirmedBookmarks,

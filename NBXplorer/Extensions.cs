@@ -55,7 +55,7 @@ namespace NBXplorer
 
 		public static bool IsLockUTXO(this Transaction tx)
 		{
-			return tx.Inputs.Count <= 1 && tx.Inputs[0].PrevOut.N == uint.MaxValue && tx.Inputs[0].PrevOut.Hash == uint256.One;
+			return tx.Inputs.Count >= 1 && tx.Inputs[0].PrevOut.N == uint.MaxValue && tx.Inputs[0].PrevOut.Hash == uint256.One;
 		}
 		public static void MarkLockUTXO(this Transaction tx)
 		{

@@ -285,7 +285,16 @@ namespace NBXplorer
 				return null;
 			}
 		}
-		
+
+		public LockUTXOsResponse LockUTXOs(DerivationStrategyBase derivationScheme, LockUTXOsRequest request, CancellationToken cancellation = default)
+		{
+			return LockUTXOsAsync(derivationScheme, request, cancellation).GetAwaiter().GetResult();
+		}
+		public Task<LockUTXOsResponse> LockUTXOsAsync(DerivationStrategyBase derivationScheme, LockUTXOsRequest request, CancellationToken cancellation = default)
+		{
+			return SendAsync<LockUTXOsResponse>(HttpMethod.Post, request, $"v1/cryptos/{CryptoCode}/derivations/{derivationScheme}/transactions", null, cancellation);
+		}
+
 		public async Task<KeyPathInformation[]> GetKeyInformationsAsync(Script script, CancellationToken cancellation = default)
 		{
 			return await SendAsync<KeyPathInformation[]>(HttpMethod.Get, null, "v1/cryptos/{0}/scripts/" + script.ToHex(), new[] { CryptoCode }, cancellation).ConfigureAwait(false);
