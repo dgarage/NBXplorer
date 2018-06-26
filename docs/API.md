@@ -306,6 +306,45 @@ Result:
 
 This call does not returns conflicted unconfirmed UTXOs.
 
+## Create transaction
+
+Create a transaction for sending funds to an address and lock the selected UTXOs.
+
+HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions
+
+Can throw error `not-enough-funds` or `fee-estimation-unavailable`.
+
+Request:
+
+```
+{
+  "amount":40000000,
+  "destination":"mjkuTBMFAD6RjuCF1Gd7zacfvuDtw5rHEP",
+  # feeRate is optional, specifying it will override default fee estimation
+  "feeRate":1
+}
+```
+
+Response:
+
+```
+{  
+   "spentCoins":[  
+      {  
+         "keyPath":"0",
+         "value":100000000,
+         "outpoint":"310adef458f690a4241e29691d1890d18d4b30026930fac5fdfe996276a293a501000000"
+      }
+   ],
+   # Be careful, changeInformation can be null if no change is needed
+   "changeInformation":{  
+      "keyPath":"1/1",
+      "value":59999832
+   },
+   "transaction":"0100000001310adef458f690a4241e29691d1890d18d4b30026930fac5fdfe996276a293a5010000001716001476c33e147aa7960e309a6a9bafd6c5e66fd9c70affffffff02005a6202000000001976a9142e83f4230fd4514d386c8f0a9874cc20dcadb75988ac588693030000000017a914759d298c66a2dafb726ffc4a110b97f35daedfdb8700000000"
+}
+```
+
 ## Notifications via websocket
 
 NBXplorer implements real-time notification via websocket supports for new block or transaction.
