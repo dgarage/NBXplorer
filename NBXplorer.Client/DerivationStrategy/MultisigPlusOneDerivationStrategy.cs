@@ -89,7 +89,7 @@ namespace NBXplorer.DerivationStrategy
 
 		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
 		{
-			return new MultisigAndMultisigDerivationStrategy((MultisigDerivationStrategy)Multisig.GetLineFor(keyPath), (MultisigDerivationStrategy)One.GetLineFor(keyPath), IsLegacy)
+			return new MultisigPlusOneDerivationStrategy((MultisigDerivationStrategy)Multisig.GetLineFor(keyPath), (DirectDerivationStrategy)One.GetLineFor(keyPath), IsLegacy)
 			{
 				LexicographicOrder = LexicographicOrder
 			};

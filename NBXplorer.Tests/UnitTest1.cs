@@ -823,6 +823,7 @@ namespace NBXplorer.Tests
 			var multioneP2WSHP2SH = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-and-{tata}-[p2sh]");
 			var multione = Assert.IsType<MultisigPlusOneDerivationStrategy>(Assert.IsType<P2WSHDerivationStrategy>(multioneP2WSHP2SH.Inner).Inner);
 			Assert.Equal($"2-of-{toto}-{tata}-and-{tata}", multione.ToString());
+			multione.GetLineFor(new KeyPath(0));
 		}
 
 		private static Derivation Generate(DerivationStrategyBase strategy)
