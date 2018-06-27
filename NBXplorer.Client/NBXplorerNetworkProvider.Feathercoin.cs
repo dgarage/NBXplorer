@@ -11,8 +11,7 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Feathercoin.Instance, networkType)
 			{
-				MinRPCVersion = 160000,
-				SupportCookieAuthentication = false
+				MinRPCVersion = 160000
 			});
 		}
 
