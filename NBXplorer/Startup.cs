@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Http.Features;
 using NBXplorer.Filters;
 using NBXplorer.Logging;
 using Microsoft.AspNetCore.Authentication;
+using NBXplorer.Authentication;
 
 namespace NBXplorer
 {
@@ -45,8 +46,13 @@ namespace NBXplorer
 				.AddNBXplorerAuthentication();
 		}
 
-		public void Configure(IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
+		public void Configure(IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider,
+			// Need this hack to force the creation of the cookie now, and not after the first request
+			IOptions<BasicAuthenticationOptions> unused)
 		{
+			// Need this hack to force the creation of the cookie now, and not after the first request
+			unused.Value.Validate();
+			
 			if(env.IsDevelopment())
 			{
 				app.UseDeveloperExceptionPage();
