@@ -331,7 +331,7 @@ Response:
 {  
    "spentCoins":[  
       {  
-         "keyPath":"0",
+         "keyPath":"0/1",
          "value":100000000,
          "outpoint":"310adef458f690a4241e29691d1890d18d4b30026930fac5fdfe996276a293a501000000"
       }
