@@ -277,7 +277,10 @@ Result:
 
       ],
       "spentOutpoints":[  
-         "87cf1bd27f7f5218c659b450ff5aa4cc4f183446059112921b8e2f35f9a6fc1900000000"
+         { 
+            "hash": "87cf1bd27f7f5218c659b450ff5aa4cc4f183446059112921b8e2f35f9a6fc19",
+            "index": 0
+         }
       ],
       "hasChanges":true
    },
@@ -287,7 +290,10 @@ Result:
       "utxOs":[  
          {  
             "feature":"Deposit",
-            "outpoint":"87cf1bd27f7f5218c659b450ff5aa4cc4f183446059112921b8e2f35f9a6fc1900000000",
+            "outpoint":{ 
+              "hash": "87cf1bd27f7f5218c659b450ff5aa4cc4f183446059112921b8e2f35f9a6fc19",
+              "index": 0
+            },
             "scriptPubKey":"76a91456a7162c9c4906a9590c363c3c0e69ab741a87ab88ac",
             "value":100000000,
             "keyPath":"0/0",
@@ -333,7 +339,10 @@ Response:
       {  
          "keyPath":"0/1",
          "value":100000000,
-         "outpoint":"310adef458f690a4241e29691d1890d18d4b30026930fac5fdfe996276a293a501000000"
+         "outpoint":{ 
+            "hash": "310adef458f690a4241e29691d1890d18d4b30026930fac5fdfe996276a293a5",
+            "index": 1
+         }
       }
    ],
    # Be careful, changeInformation can be null if no change is needed
