@@ -2,7 +2,7 @@
 
 # NBXplorer
 
-A minimalist UTXO tracker for HD Wallets, currently supporting btc and ltc.
+A minimalist UTXO tracker for HD Wallets.
 The goal is to have a flexible, .NET based UTXO tracker for HD wallets.
 The explorer supports only P2PKH derivation for now but will be able to support more complex generation in near future. (m-n, segwit, p2sh)
 
