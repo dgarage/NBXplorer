@@ -57,60 +57,22 @@ namespace NBXplorer.DB
 
 	public class NBXplorerDBContext : IDisposable
 	{
-		string _ConnectionString;
-		public NBXplorerDBContext(string connectionString)
+		NBXplorerContextFactory _Parent;
+		public NBXplorerDBContext(NBXplorerContextFactory parent, NpgsqlConnection connection)
 		{
-			_ConnectionString = connectionString;
+			_Parent = parent;
+			Connection = connection;
 		}
 
-		NpgsqlConnection _Connection;
-		private async Task<Npgsql.NpgsqlConnection> OpenConnection()
+		public NpgsqlConnection Connection
 		{
-			if(_Connection != null)
-				return _Connection;
-			_Connection = new NpgsqlConnection(_ConnectionString);
-			await _Connection.OpenAsync();
-			return _Connection;
+			get; set;
 		}
 
 		public bool ValuesLazyLoadingIsOn
 		{
 			get; set;
 		} = true;
-
-		public void Migrate()
-		{
-			var connString = new NpgsqlConnectionStringBuilder(_ConnectionString);
-			using(var connection = new NpgsqlConnection(connString.ConnectionString))
-			{
-				try
-				{
-					connection.Open();
-				}
-				catch(PostgresException ex) when(ex.SqlState == "3D000")
-				{
-					var oldDB = connString.Database;
-					connString.Database = null;
-					using(var createDBConnect = new NpgsqlConnection(connString.ConnectionString))
-					{
-						createDBConnect.Open();
-						var createDB = createDBConnect.CreateCommand();
-						// We need LC_CTYPE set to C to get proper indexing on the columns when making
-						// partial pattern queries on the primary key (LIKE operator)
-						createDB.CommandText = $"CREATE DATABASE \"{oldDB}\" " +
-							$"LC_COLLATE = 'C' " +
-							$"TEMPLATE=template0 " +
-							$"LC_CTYPE = 'C' " +
-							$"ENCODING = 'UTF8'";
-						createDB.ExecuteNonQuery();
-						connection.Open();
-					}
-				}
-				var command = connection.CreateCommand();
-				command.CommandText = $"CREATE TABLE IF NOT EXISTS \"GenericTables\" (\"PartitionKeyRowKey\" text PRIMARY KEY, \"Value\" bytea, \"DeletedAt\" timestamp)";
-				command.ExecuteNonQuery();
-			}
-		}
 
 		internal void RemoveKey(string partitionKey, string rowKey)
 		{
@@ -143,7 +105,7 @@ namespace NBXplorer.DB
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
 			var valueParam = new NpgsqlParameter($"value", new byte[0]);
-			using(var command = (await OpenConnection()).CreateCommand())
+			using(var command = Connection.CreateCommand())
 			{
 				var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
 				command.Parameters.Add(partitionKeyParam);
@@ -195,7 +157,7 @@ namespace NBXplorer.DB
 		internal async Task<bool> ReleaseLock(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
-			using(var command = (await OpenConnection()).CreateCommand())
+			using(var command = Connection.CreateCommand())
 			{
 				var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
 				command.Parameters.Add(partitionKeyParam);
@@ -224,7 +186,7 @@ namespace NBXplorer.DB
 			var query = $"SELECT COUNT(*) FROM \"GenericTables\" " +
 				$"WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey AND \"DeletedAt\" IS NULL";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey + "%");
-			using(var command = OpenConnection().GetAwaiter().GetResult().CreateCommand())
+			using(var command = Connection.CreateCommand())
 			{
 				command.CommandText = query;
 				command.Parameters.Add(partitionKeyParam);
@@ -239,7 +201,7 @@ namespace NBXplorer.DB
 		private async Task<IEnumerable<GenericRow<TValue>>> QueryGenericRows<TValue>(string query, bool fetchValue, params NpgsqlParameter[] parameters)
 		{
 			List<GenericRow<TValue>> rows = new List<GenericRow<TValue>>();
-			using(var command = (await OpenConnection()).CreateCommand())
+			using(var command = Connection.CreateCommand())
 			{
 				command.CommandText = query;
 				command.Parameters.AddRange(parameters);
@@ -303,7 +265,7 @@ namespace NBXplorer.DB
 		{
 			if(_ToCommit.Count == 0)
 				return 0;
-			using(var command = (await OpenConnection()).CreateCommand())
+			using(var command = Connection.CreateCommand())
 			{
 				StringBuilder commands = new StringBuilder();
 				foreach(var commit in _ToCommit)
@@ -321,7 +283,7 @@ namespace NBXplorer.DB
 
 		public void Dispose()
 		{
-			_Connection?.Dispose();
+			_Parent.Return(Connection);
 		}
 	}
 }

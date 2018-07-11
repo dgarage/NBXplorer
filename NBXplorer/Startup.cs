@@ -49,7 +49,7 @@ namespace NBXplorer
 
 		public void Configure(NBXplorerContextFactory dbFactory, IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider)
 		{
-			dbFactory.CreateContext().Migrate();
+			dbFactory.Migrate();
 			if(env.IsDevelopment())
 			{
 				app.UseDeveloperExceptionPage();

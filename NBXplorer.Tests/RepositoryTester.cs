@@ -23,7 +23,7 @@ namespace NBXplorer.Tests
 			ServerTester.DeleteRecursivelyWithMagicDust(name);
 
 			var dbFactory = new DB.NBXplorerContextFactory(Environment.GetEnvironmentVariable("TESTS_POSTGRES") ?? "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorerr");
-			dbFactory.CreateContext().Migrate();
+			dbFactory.Migrate();
 			_Provider = new RepositoryProvider(dbFactory, new NBXplorerNetworkProvider(NetworkType.Regtest), 
 											   new Configuration.ExplorerConfiguration()
 											   {

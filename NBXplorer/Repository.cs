@@ -122,7 +122,7 @@ namespace NBXplorer
 			if(keyPaths.Length == 0)
 				return;
 
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				tx.ForceDelete = true;
 				bool needCommit = false;
@@ -266,7 +266,7 @@ namespace NBXplorer
 		string _Suffix;
 		public async Task<BlockLocator> GetIndexProgress()
 		{
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				var existingRow = await tx.Select<byte[]>($"{_Suffix}IndexProgress", "");
@@ -280,7 +280,7 @@ namespace NBXplorer
 
 		public async Task SetIndexProgress(BlockLocator locator)
 		{
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				if(locator == null)
 					tx.RemoveKey($"{_Suffix}IndexProgress", "");
@@ -303,7 +303,7 @@ namespace NBXplorer
 
 			public async Task<bool> ReleaseLock()
 			{
-				using(var tx = repository._ContextFactory.CreateContext())
+				using(var tx = await repository._ContextFactory.GetContext())
 				{
 					return await index.ReleaseLock(tx);
 				}
@@ -312,7 +312,7 @@ namespace NBXplorer
 
 		public async Task<DBLock> TakeWalletLock(DerivationStrategyBase strategy, CancellationToken cancellation = default(CancellationToken))
 		{
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				var index = new Index($"{_Suffix}Locks", $"{strategy.GetHash()}");
 				while(!await index.TakeLock(tx))
@@ -326,7 +326,7 @@ namespace NBXplorer
 		public async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
 			var delay = TimeSpan.FromMilliseconds(50 + NBitcoin.RandomUtils.GetUInt32() % 100);
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			using(var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
 			{
 				tx.ValuesLazyLoadingIsOn = false;
@@ -457,7 +457,7 @@ namespace NBXplorer
 			if(transactions.Length == 0)
 				return result;
 
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				var date = NBitcoin.Utils.DateTimeToUnixTime(now);
 				foreach(var btx in transactions)
@@ -494,7 +494,7 @@ namespace NBXplorer
 		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
 		{
 			List<SavedTransaction> saved = new List<SavedTransaction>();
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				foreach(var row in (await tx.SelectForward<byte[]>($"{_Suffix}tx-" + txid.ToString())))
 				{
@@ -523,7 +523,7 @@ namespace NBXplorer
 			if(scripts.Length == 0)
 				return result;
 
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				foreach(var script in scripts)
@@ -596,7 +596,7 @@ namespace NBXplorer
 		{
 			if(infos.Length == 0)
 				return;
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				foreach(var info in infos)
@@ -626,7 +626,7 @@ namespace NBXplorer
 			Dictionary<uint256, long> firstSeenList = new Dictionary<uint256, long>();
 
 			var transactions = new List<TransactionMatchData>();
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				foreach(var row in await table.SelectForwardSkip<byte[]>(tx, 0))
@@ -682,7 +682,7 @@ namespace NBXplorer
 											  .First();
 				}
 
-				using(var tx = _ContextFactory.CreateContext())
+				using(var tx = await _ContextFactory.GetContext())
 				{
 					foreach(var data in transactions.Where(t => t.NeedUpdate))
 					{
@@ -928,7 +928,7 @@ namespace NBXplorer
 				return;
 			var groups = transactions.GroupBy(i => i.Match.DerivationStrategy);
 
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				foreach(var group in groups)
 				{
@@ -964,7 +964,7 @@ namespace NBXplorer
 			if(cleanList == null || cleanList.Count == 0)
 				return;
 			var table = GetTransactionsIndex(pubkey);
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				foreach(var tracked in cleanList)
 				{
@@ -977,7 +977,7 @@ namespace NBXplorer
 
 		public async Task Track(DerivationStrategyBase strategy)
 		{
-			using(var tx = _ContextFactory.CreateContext())
+			using(var tx = await _ContextFactory.GetContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				foreach(var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
