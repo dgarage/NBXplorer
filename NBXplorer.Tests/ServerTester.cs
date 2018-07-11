@@ -37,6 +37,11 @@ namespace NBXplorer.Tests
 			{
 				get; set;
 			} = 4;
+
+			public int FallbackFeeRate
+			{
+				get; set;
+			} = -1;
 		}
 		private readonly string _Directory;
 
@@ -110,6 +115,7 @@ namespace NBXplorer.Tests
 				keyValues.Add(("verbose", "1"));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcauth", Explorer.GetRPCAuth()));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
+				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}fallbackfeerate", opts.FallbackFeeRate.ToString()));
 				keyValues.Add(("cachechain", "0"));
 				keyValues.Add(("rpcnotest", "1"));
 				keyValues.Add(("mingapsize", opts.MinGap.ToString()));
@@ -136,16 +142,23 @@ namespace NBXplorer.Tests
 				RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(CryptoCode);
 				var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
 				Network = nbxnetwork.NBitcoinNetwork;
-				var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 				Host.Start();
 
 				_Client = new ExplorerClient(nbxnetwork, Address);
-				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
+				_Client.SetCookieAuth(Path.Combine(ExplorerConfiguration.DataDir, ".cookie"));
 			}
 			catch
 			{
 				Dispose();
 				throw;
+			}
+		}
+
+		public ExplorerConfiguration ExplorerConfiguration
+		{
+			get
+			{
+				return (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 			}
 		}
 

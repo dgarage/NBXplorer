@@ -33,6 +33,7 @@ namespace NBXplorer.Controllers
 	{
 		JsonSerializerSettings _SerializerSettings;
 		public MainController(
+			ExplorerConfiguration config,
 			RepositoryProvider repositoryProvider,
 			ChainProvider chainProvider,
 			EventAggregator eventAggregator,
@@ -44,6 +45,7 @@ namespace NBXplorer.Controllers
 			_SerializerSettings = jsonOptions.Value.SerializerSettings;
 			_EventAggregator = eventAggregator;
 			Waiters = waiters.Instance;
+			ExplorerConfiguration = config;
 		}
 
 		EventAggregator _EventAggregator;
@@ -51,6 +53,10 @@ namespace NBXplorer.Controllers
 		public BitcoinDWaiters Waiters
 		{
 			get; set;
+		}
+		public ExplorerConfiguration ExplorerConfiguration
+		{
+			get;
 		}
 		public RepositoryProvider RepositoryProvider
 		{
@@ -76,13 +82,22 @@ namespace NBXplorer.Controllers
 			var obj = (JObject)result.Result;
 			var feeRateProperty = obj.Property("feerate");
 			var rate = feeRateProperty == null ? (decimal)-1 : obj["feerate"].Value<decimal>();
-			if(rate == -1)
+			FeeRate feeRate = rate == -1 ? GetDefaultFeeRate(cryptoCode) : new FeeRate(Money.Coins(Math.Round(rate / 1000, 8)), 1);
+			if(feeRate == null)
+			{
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
+			}
+
 			return new GetFeeRateResult()
 			{
-				FeeRate = new FeeRate(Money.Coins(Math.Round(rate / 1000, 8)), 1),
+				FeeRate = feeRate,
 				BlockCount = obj["blocks"].Value<int>()
 			};
+		}
+
+		private FeeRate GetDefaultFeeRate(string cryptoCode)
+		{
+			return ExplorerConfiguration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode.Equals(cryptoCode, StringComparison.OrdinalIgnoreCase))?.FallbackFeeRate;
 		}
 
 		private BitcoinDWaiter GetWaiter(NBXplorerNetwork network)
@@ -464,11 +479,11 @@ namespace NBXplorer.Controllers
 				LockUTXOsResponse result = new LockUTXOsResponse();
 				var spentCoins = txBuilder.FindSpentCoins(tx).OfType<ScriptCoin>().ToArray();
 				result.SpentCoins = spentCoins.Select(r => new LockUTXOsResponse.SpentCoin()
-					{
-						KeyPath = transactions.GetKeyPath(r.ScriptPubKey),
-						Outpoint = r.Outpoint,
-						Value= r.Amount
-					})
+				{
+					KeyPath = transactions.GetKeyPath(r.ScriptPubKey),
+					Outpoint = r.Outpoint,
+					Value = r.Amount
+				})
 					.ToArray();
 				foreach(var input in tx.Inputs)
 				{

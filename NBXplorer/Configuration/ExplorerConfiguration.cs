@@ -42,6 +42,11 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public FeeRate FallbackFeeRate
+		{
+			get;
+			set;
+		}
 	}
 	public class ExplorerConfiguration
 	{
@@ -119,6 +124,8 @@ namespace NBXplorer.Configuration
 					chainConfiguration.NodeEndpoint = DefaultConfiguration.ConvertToEndpoint(config.GetOrDefault<string>($"{network.CryptoCode}.node.endpoint", "127.0.0.1"), network.NBitcoinNetwork.DefaultPort);
 					chainConfiguration.StartHeight = config.GetOrDefault<int>($"{network.CryptoCode}.startheight", -1);
 
+					var feeRate = config.GetOrDefault<int>($"{network.CryptoCode}.fallbackfeerate", -1);
+					chainConfiguration.FallbackFeeRate = feeRate == -1 ? null : new FeeRate(Money.Satoshis(feeRate), 1);
 					ChainConfigurations.Add(chainConfiguration);
 				}
 			}
@@ -147,7 +154,7 @@ namespace NBXplorer.Configuration
 		{
 			return ChainConfigurations.Any(c => network.CryptoCode == c.CryptoCode);
 		}
-		
+
 		public bool CacheChain
 		{
 			get;

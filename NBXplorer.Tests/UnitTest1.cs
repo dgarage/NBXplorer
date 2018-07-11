@@ -1151,6 +1151,12 @@ namespace NBXplorer.Tests
 
 				var ex = Assert.Throws<NBXplorerException>(() => tester.Client.GetFeeRate(5));
 				Assert.Equal("fee-estimation-unavailable", ex.Error.Code);
+
+				var oneSatPerByte = new FeeRate(Money.Satoshis(1), 1);
+				tester.ExplorerConfiguration.ChainConfigurations[0].FallbackFeeRate = oneSatPerByte;
+
+				var fee = tester.Client.GetFeeRate(5);
+				Assert.Equal(oneSatPerByte, fee.FeeRate);
 			}
 		}
 
