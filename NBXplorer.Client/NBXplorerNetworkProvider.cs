@@ -13,12 +13,14 @@ namespace NBXplorer
 			InitLitecoin(networkType);
 			InitDogecoin(networkType);
 			InitBCash(networkType);
+			InitGroestlcoin(networkType);
 			InitBGold(networkType);
 			InitDash(networkType);
 			InitPolis(networkType);
 			InitMonacoin(networkType);
 			InitFeathercoin(networkType);
 			InitUfo(networkType);
+			InitViacoin(networkType);
 			NetworkType = networkType;
 			foreach(var chain in _Networks.Values)
 			{

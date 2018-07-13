@@ -268,15 +268,15 @@ namespace NBXplorer
 		{
 			if(node.State == NodeState.HandShaked)
 			{
-				Logs.Explorer.LogInformation($"Handshaked Bitcoin node");
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Handshaked node");
 				node.SendMessageAsync(new SendHeadersPayload());
 				node.SendMessageAsync(new MempoolPayload());
 				AskBlocks();
 			}
 			if(node.State == NodeState.Offline)
-				Logs.Explorer.LogInformation($"Closed connection with Bitcoin node");
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Closed connection with node");
 			if(node.State == NodeState.Failed)
-				Logs.Explorer.LogError($"Connection with Bitcoin unexpectedly failed: {node.DisconnectReason.Reason}");
+				Logs.Explorer.LogError($"{Network.CryptoCode}: Connection unexpectedly failed: {node.DisconnectReason.Reason}");
 		}
 	}
 }

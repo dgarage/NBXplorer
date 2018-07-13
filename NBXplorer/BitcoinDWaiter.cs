@@ -544,10 +544,10 @@ namespace NBXplorer
 
 		private async Task<bool> WarmupBlockchain()
 		{
-			if(await _RPC.GetBlockCountAsync() < 100)
+			if(await _RPC.GetBlockCountAsync() < _Network.NBitcoinNetwork.Consensus.CoinbaseMaturity)
 			{
-				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Less than 100 blocks, mining some block for regtest");
-				await _RPC.GenerateAsync(101);
+				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Less than {_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity} blocks, mining some block for regtest");
+				await _RPC.EnsureGenerateAsync(_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity + 1);
 				return true;
 			}
 			else

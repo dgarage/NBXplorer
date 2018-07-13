@@ -527,7 +527,7 @@ namespace NBXplorer.Tests
 				utxoBob = tester.Client.GetUTXOs(bobPubKey, utxoBob);
 				Assert.NotNull(utxoAlice.Unconfirmed.KnownBookmark);
 
-				tester.RPC.Generate(1);
+				tester.RPC.EnsureGenerate(1);
 
 				utxoAlice = tester.Client.GetUTXOs(alicePubKey, utxoAlice);
 				utxoBob = tester.Client.GetUTXOs(bobPubKey, utxoBob);
@@ -544,7 +544,7 @@ namespace NBXplorer.Tests
 				utxoAlice = tester.Client.GetUTXOs(alicePubKey, utxoAlice, false);
 				Assert.NotNull(utxoAlice.Unconfirmed.KnownBookmark);
 
-				tester.RPC.Generate(1);
+				tester.RPC.EnsureGenerate(1);
 
 				utxoAlice = tester.Client.GetUTXOs(alicePubKey, utxoAlice);
 				utxoBob = tester.Client.GetUTXOs(bobPubKey, utxoBob);
@@ -584,7 +584,7 @@ namespace NBXplorer.Tests
 				events.NextEvent(Timeout);
 				var utxo = tester.Client.GetUTXOs(pubkey, null);
 
-				tester.RPC.Generate(1);
+				tester.RPC.EnsureGenerate(1);
 
 				var prev = utxo;
 				utxo = tester.Client.GetUTXOs(pubkey, prev);
@@ -639,7 +639,7 @@ namespace NBXplorer.Tests
 						break;
 				}
 
-				tester.RPC.Generate(1);
+				tester.RPC.EnsureGenerate(1);
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Confirmed.UTXOs);
@@ -888,9 +888,9 @@ namespace NBXplorer.Tests
 				result = tester.Client.GetTransactions(pubkey, result, false);
 				Assert.False(result.HasChanges());
 
-				tester.RPC.Generate(1);
-				var prev = result;
-				result = tester.Client.GetTransactions(pubkey, prev);
+				tester.RPC.EnsureGenerate(1);
+				result = tester.Client.GetTransactions(pubkey, result);
+
 				Assert.True(result.HasChanges());
 				Assert.Null(result.UnconfirmedTransactions.KnownBookmark);
 
@@ -935,7 +935,7 @@ namespace NBXplorer.Tests
 				// We receive money
 				var fundingTx = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
-				tester.RPC.Generate(1);
+				tester.RPC.EnsureGenerate(1);
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Confirmed.UTXOs);
 
@@ -971,7 +971,7 @@ namespace NBXplorer.Tests
 				var gettingUTXO = tester.Client.GetUTXOsAsync(pubkey, utxo);
 				var txId = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				utxo = gettingUTXO.GetAwaiter().GetResult();
-				Assert.Equal(103, utxo.CurrentHeight);
+				Assert.Equal(tester.Network.Consensus.CoinbaseMaturity + 3, utxo.CurrentHeight);
 
 				Assert.NotNull(utxo.Confirmed.KnownBookmark);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
@@ -988,7 +988,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(utxo.Unconfirmed.UTXOs[0].Outpoint.Hash, tx.Transaction.GetHash());
 				Assert.Equal(unconfTimestamp, tx.Timestamp);
 
-				tester.RPC.Generate(1);
+				tester.RPC.EnsureGenerate(1);
 				var prevUtxo = utxo;
 				utxo = tester.Client.GetUTXOs(pubkey, prevUtxo);
 				Assert.Null(utxo.Unconfirmed.KnownBookmark);
@@ -1037,7 +1037,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(1, tx.Confirmations);
 				Assert.NotNull(tx.BlockId);
 				Assert.Equal(utxo.Confirmed.UTXOs[0].Outpoint.Hash, tx.Transaction.GetHash());
-				tester.RPC.Generate(1);
+				tester.RPC.EnsureGenerate(1);
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Confirmed.UTXOs);
@@ -1054,7 +1054,7 @@ namespace NBXplorer.Tests
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Empty(utxo.Confirmed.UTXOs);
 				Assert.Equal(new KeyPath("0/2"), utxo.Unconfirmed.UTXOs[0].KeyPath);
-				tester.RPC.Generate(1);
+				tester.RPC.EnsureGenerate(1);
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Single(utxo.Confirmed.UTXOs);
@@ -1081,7 +1081,7 @@ namespace NBXplorer.Tests
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo, false);
 				Assert.False(utxo.HasChanges);
-				tester.RPC.Generate(1);
+				tester.RPC.EnsureGenerate(1);
 
 				utxo = tester.Client.GetUTXOs(pubkey, before01Spend, utxo.Unconfirmed.Bookmark);
 				Assert.True(utxo.Unconfirmed.HasChanges);
@@ -1123,10 +1123,11 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanTopologicalSortTx()
 		{
+#pragma warning disable CS0618 // Type or member is obsolete
 			var tx1 = new Transaction() { Outputs = { new TxOut(Money.Zero, new Key()) } };
 			var tx2 = new Transaction() { Inputs = { new TxIn(new OutPoint(tx1, 0)) } };
 			var tx3 = new Transaction() { Inputs = { new TxIn(new OutPoint(tx2, 0)) } };
-
+#pragma warning restore CS0618 // Type or member is obsolete
 			var arr = new[] { tx2, tx1, tx3 };
 			var expected = new[] { tx1, tx2, tx3 };
 			var actual = arr.TopologicalSort().ToArray();
@@ -1139,7 +1140,7 @@ namespace NBXplorer.Tests
 			using(var tester = ServerTester.Create())
 			{
 				tester.Client.WaitServerStarted();
-				var tx = new Transaction();
+				var tx = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
 				tx.Outputs.Add(new TxOut(Money.Coins(1.0m), new Key()));
 				var funded = tester.User1.CreateRPCClient().FundRawTransaction(tx);
 				var signed = tester.User1.CreateRPCClient().SignRawTransaction(funded.Transaction);

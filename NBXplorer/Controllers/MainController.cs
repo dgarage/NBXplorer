@@ -837,10 +837,12 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase extPubKey)
 		{
-			var tx = new Transaction();
+			var network = GetNetwork(cryptoCode);
+
+			var tx = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
 			var stream = new BitcoinStream(Request.Body, false);
 			tx.ReadWrite(stream);
-			var network = GetNetwork(cryptoCode);
+
 			var waiter = this.Waiters.GetWaiter(network);
 			if(!waiter.RPCAvailable)
 				throw RPCUnavailable();
