@@ -734,7 +734,7 @@ namespace NBXplorer.Tests
 			var network = Network.TestNet;
 			var factory = new DerivationStrategyFactory(network);
 			Random rand = new Random();
-			for(int i = 0; i < 10; i++)
+			for(int i = 0; i < 3; i++)
 			{
 				var req1 = rand.Next(1, 3);
 				var keys1Count = rand.Next(req1, 3);
@@ -742,22 +742,37 @@ namespace NBXplorer.Tests
 
 				var req2 = rand.Next(1, 7);
 				var keys2Count = rand.Next(req2, 7);
-				var keys2 = Enumerable.Range(0, keys2Count).Select(_ => new ExtKey().Neuter().GetWif(network)).ToArray();
+				var hs = new ExtKey().Neuter().GetWif(network);
 
 				StringBuilder scheme = new StringBuilder();
 				scheme.Append($"{req1}-of-");
 				scheme.Append(string.Join("-", keys1.OfType<object>().ToArray()));
 				scheme.Append("-and-");
-				scheme.Append($"{req2}-of-");
-				scheme.Append(string.Join("-", keys2.OfType<object>().ToArray()));
+				scheme.Append(hs);
 				scheme.Append("-[p2sh]");
 				var derivationScheme = factory.Parse(scheme.ToString());
 
+				Logs.Tester.LogInformation("scheme: " + scheme.ToString());
 				// Derive 0/0
 				var derivation = derivationScheme.GetLineFor(DerivationFeature.Deposit).Derive(new KeyPath(0));
+
+				Logs.Tester.LogInformation("segwit redeem: " + derivation.Redeem.ToString());
+				Logs.Tester.LogInformation("segwit redeem (hex): " + derivation.Redeem.ToHex());
 				var redeem = derivation.Redeem;
+
+				var p2psh = new Coin(new OutPoint(), new TxOut() { ScriptPubKey = derivation.ScriptPubKey }).ToScriptCoin(derivation.Redeem).GetP2SHRedeem();
+
+				Logs.Tester.LogInformation("p2sh redeem: " + p2psh.ToString());
+				Logs.Tester.LogInformation("p2sh redeem (hex): " + p2psh.ToHex());
+
+				Logs.Tester.LogInformation("scriptPubKey: " + derivation.ScriptPubKey.ToString());
+				Logs.Tester.LogInformation("scriptPubKey (hex): " + derivation.ScriptPubKey.ToHex());
 				var scriptPubKey = derivation.ScriptPubKey;
+				Logs.Tester.LogInformation("---------");
 			}
+
+			// Uncomment this to see the logs in test output
+			// throw new Exception();
 		}
 
 		[Fact]
