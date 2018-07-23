@@ -99,6 +99,15 @@ namespace NBXplorer.Configuration
 		{
 			NetworkProvider = new NBXplorerNetworkProvider(DefaultConfiguration.GetNetworkType(config));
 			var defaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(NetworkProvider.NetworkType);
+			BaseDataDir = config.GetOrDefault<string>("datadir", null);
+			if(BaseDataDir == null)
+			{
+				BaseDataDir = Path.GetDirectoryName(defaultSettings.DefaultDataDirectory);
+				if(!Directory.Exists(BaseDataDir))
+					Directory.CreateDirectory(BaseDataDir);
+				if(!Directory.Exists(defaultSettings.DefaultDataDirectory))
+					Directory.CreateDirectory(defaultSettings.DefaultDataDirectory);
+			}
 
 			Logs.Configuration.LogInformation("Network: " + NetworkProvider.NetworkType.ToString());
 			var supportedChains = config.GetOrDefault<string>("chains", "btc")
@@ -134,7 +143,6 @@ namespace NBXplorer.Configuration
 				throw new ConfigException($"Invalid chains {invalidChains}");
 
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
-			BaseDataDir = config.GetOrDefault<string>("datadir", Path.GetDirectoryName(defaultSettings.DefaultDataDirectory));
 			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);
 			MaxGapSize = config.GetOrDefault<int>("maxgapsize", 30);
 			PostgresConnectionString = config.GetOrDefault<string>("postgres", null);

@@ -15,7 +15,7 @@ namespace NBXplorer
 			{
 				var settings = new NBXplorerDefaultSettings();
 				_Settings.Add(networkType, settings);
-				settings.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", GetFolderName(networkType));
+				settings.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", GetFolderName(networkType), false);
 				settings.DefaultConfigurationFile = Path.Combine(settings.DefaultDataDirectory, "settings.config");
 				settings.DefaultCookieFile = Path.Combine(settings.DefaultDataDirectory, ".cookie");
 				settings.DefaultPort = (networkType == NetworkType.Mainnet ? 24444 :
