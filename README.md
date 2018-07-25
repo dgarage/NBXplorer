@@ -25,7 +25,7 @@ It currently supports:
 
 ## Prerequisite
 
-* Install [.NET Core 2.1](https://www.microsoft.com/net/download/dotnet-core)
+* Install [.NET Core 2.1](https://www.microsoft.com/net/download)
 * Bitcoin Core instance synched and running (at least 0.16.0).
 
 ## API Specification
