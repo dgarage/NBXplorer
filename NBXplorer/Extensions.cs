@@ -118,26 +118,21 @@ namespace NBXplorer
 
 		public class ConfigureCookieFileBasedConfiguration : IConfigureNamedOptions<BasicAuthenticationOptions>
 		{
-			ExplorerConfiguration _Configuration;
-			public ConfigureCookieFileBasedConfiguration(ExplorerConfiguration configuration)
+			CookieRepository _CookieRepo;
+			public ConfigureCookieFileBasedConfiguration(CookieRepository cookieRepo)
 			{
-				_Configuration = configuration;
+				_CookieRepo = cookieRepo;
 			}
 
 			public void Configure(string name, BasicAuthenticationOptions options)
 			{
 				if(name == "Basic")
 				{
-					if(!_Configuration.NoAuthentication)
+					var creds = _CookieRepo.GetCredentials();
+					if(creds != null)
 					{
-						var cookieFile = Path.Combine(_Configuration.DataDir, ".cookie");
-						var pass = new uint256(RandomUtils.GetBytes(32));
-						var user = "__cookie__";
-						var cookieStr = user + ":" + pass;
-						File.WriteAllText(cookieFile, cookieStr);
-
-						options.Username = user;
-						options.Password = pass.ToString();
+						options.Username = creds.UserName;
+						options.Password = creds.Password;
 					}
 				}
 			}
@@ -168,6 +163,7 @@ namespace NBXplorer
 			services.AddSingleton<IConfigureOptions<MvcJsonOptions>, MVCConfigureOptions>();
 			services.TryAddSingleton<ChainProvider>();
 
+			services.TryAddSingleton<CookieRepository>();
 			services.TryAddSingleton<RepositoryProvider>();
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<BitcoinDWaitersAccessor>();
