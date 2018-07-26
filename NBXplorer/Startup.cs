@@ -47,19 +47,15 @@ namespace NBXplorer
 		}
 
 		public void Configure(IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider,
-			// Need this hack to force the creation of the cookie now, and not after the first request
-			IOptions<BasicAuthenticationOptions> unused)
+			CookieRepository cookieRepository)
 		{
-			// Need this hack to force the creation of the cookie now, and not after the first request
-			unused.Value.Validate();
-			
+			cookieRepository.Initialize();
 			if(env.IsDevelopment())
 			{
 				app.UseDeveloperExceptionPage();
 			}
 
 			Logs.Configure(loggerFactory);
-
 			app.UseAuthentication();
 			app.UseWebSockets();
 			app.UseMvc();
