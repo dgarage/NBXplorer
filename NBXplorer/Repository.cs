@@ -182,9 +182,9 @@ namespace NBXplorer
 				tx.RemoveKey(TableName, $"{PrimaryKey}-{index:D10}");
 			}
 
-			public void RemoveKey(NBXplorerDBContext tx, string index)
+			public void RemoveKey(NBXplorerDBContext tx, string key)
 			{
-				tx.RemoveKey(TableName, $"{PrimaryKey}-{index}");
+				tx.RemoveKey(TableName, $"{PrimaryKey}-{key}");
 			}
 
 			public async Task<IEnumerable<GenericRow<T>>> SelectForwardSkip<T>(NBXplorerDBContext tx, int n)
@@ -240,6 +240,11 @@ namespace NBXplorer
 		Index GetTransactionsIndex(DerivationStrategyBase derivation)
 		{
 			return new Index($"{_Suffix}Transactions", $"{derivation.GetHash()}");
+		}
+
+		Index GetCancellableMachesIndex(string key)
+		{
+			return new Index($"{_Suffix}ReservedMatches", key);
 		}
 
 		NBXplorerNetwork _Network;
@@ -924,17 +929,45 @@ namespace NBXplorer
 			}
 		}
 
-		public async Task SaveMatches(DateTimeOffset now, MatchedTransaction[] transactions)
+		public class CancellableMatches
+		{
+			public string Key
+			{
+				get; set;
+			}
+			public class CancellableMatchGroup
+			{
+				public DerivationStrategyBase Key
+				{
+					get; set;
+				}
+				public List<String> RowKeys
+				{
+					get; set;
+				} = new List<string>();
+			}
+			public List<CancellableMatchGroup> Groups
+			{
+				get; set;
+			} = new List<CancellableMatchGroup>();
+
+		}
+
+		public async Task<CancellableMatches> SaveMatches(DateTimeOffset now, MatchedTransaction[] transactions, bool cancellableMatches = false)
 		{
 			if(transactions.Length == 0)
-				return;
+				return null;
 			var groups = transactions.GroupBy(i => i.Match.DerivationStrategy);
-
+			CancellableMatches cancellable = new CancellableMatches();
+			cancellable.Key = Encoders.Hex.EncodeData(RandomUtils.GetBytes(20));
 			using(var tx = await _ContextFactory.GetContext())
 			{
 				foreach(var group in groups)
 				{
 					var table = GetTransactionsIndex(group.Key);
+					var g = new CancellableMatches.CancellableMatchGroup();
+					cancellable.Groups.Add(g);
+					g.Key = group.Key;
 					foreach(var value in group)
 					{
 						var ticksCount = now.UtcTicks;
@@ -950,11 +983,42 @@ namespace NBXplorer
 							BlockHash = value.BlockId
 						};
 						bs.ReadWrite(data);
-						table.Insert(tx, data.GetRowKey(), ms.ToArrayEfficient());
+						var rowKey = data.GetRowKey();
+						g.RowKeys.Add(rowKey);
+						table.Insert(tx, rowKey, ms.ToArrayEfficient());
 					}
+				}
+
+				if(cancellableMatches)
+				{
+					var table = GetCancellableMachesIndex(cancellable.Key);
+					table.Insert(tx, string.Empty, ToBytes(cancellable));
 				}
 				await tx.CommitAsync();
 			}
+			return cancellable;
+		}
+
+		public async Task<bool> CancelMatches(string key)
+		{
+			using(var tx = await _ContextFactory.GetContext())
+			{
+				var table = GetCancellableMachesIndex(key);
+				var bytes = (await table.SelectForwardSkip<byte[]>(tx, 0)).FirstOrDefault();
+				if(bytes == null)
+					return false;
+				var cancellable = ToObject<CancellableMatches>(bytes.Value);
+				table.RemoveKey(tx, string.Empty);
+
+				foreach(var group in cancellable.Groups)
+				{
+					var tableTx = GetTransactionsIndex(group.Key);
+					foreach(var keyTx in group.RowKeys)
+						tableTx.RemoveKey(tx, keyTx);
+				}
+				await tx.CommitAsync();
+			}
+			return true;
 		}
 
 		private static Script[] GetScripts(TransactionMatch value)

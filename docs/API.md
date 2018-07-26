@@ -335,6 +335,7 @@ Response:
 
 ```
 {  
+	"unlockId": "67a8a18412ef4a73e072b793bf37b19c2c7207d5",
    "spentCoins":[  
       {  
          "keyPath":"0/1",
@@ -353,6 +354,14 @@ Response:
    "transaction":"0100000001310adef458f690a4241e29691d1890d18d4b30026930fac5fdfe996276a293a5010000001716001476c33e147aa7960e309a6a9bafd6c5e66fd9c70affffffff02005a6202000000001976a9142e83f4230fd4514d386c8f0a9874cc20dcadb75988ac588693030000000017a914759d298c66a2dafb726ffc4a110b97f35daedfdb8700000000"
 }
 ```
+
+## Unlock UTXOs
+
+While Create Transaction is locking UTXOs, this operation can unlock them via the `unlockId`.
+
+HTTP POST v1/cryptos/{cryptoCode}/locks/{unlockId}/cancel
+
+Return 404 if `unlockId` is not found, else returns 200.
 
 ## Notifications via websocket
 

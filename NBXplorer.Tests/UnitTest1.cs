@@ -247,6 +247,14 @@ namespace NBXplorer.Tests
 				// We should have only 1 UTXO left
 				utxo = tester.Client.GetUTXOs(alice, null);
 				Assert.Single(utxo.GetUnspentCoins());
+
+				// Let's cancel
+				Assert.True(tester.Client.UnlockUTXOs(locked.UnlockId));
+				Assert.False(tester.Client.UnlockUTXOs(locked.UnlockId));
+
+				// We should have 2 utxo now!
+				utxo = tester.Client.GetUTXOs(alice, null);
+				Assert.Equal(2, utxo.GetUnspentCoins().Length);
 			}
 		}
 

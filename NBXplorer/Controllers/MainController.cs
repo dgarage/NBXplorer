@@ -408,6 +408,19 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
+		[Route("cryptos/{cryptoCode}/locks/{unlockId}/cancel")]
+		public async Task<IActionResult> UnlockUTXOs(string cryptoCode, string unlockId)
+		{
+			var network = GetNetwork(cryptoCode);
+			var repo = RepositoryProvider.GetRepository(network);
+			if(await repo.CancelMatches(unlockId))
+				return Ok();
+			else
+				return NotFound("unlockId not found");
+		}
+
+
+		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions")]
 		public async Task<LockUTXOsResponse> LockUTXOs(string cryptoCode,
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
@@ -512,14 +525,15 @@ namespace NBXplorer.Controllers
 				}
 				tx.MarkLockUTXO();
 				var matches = await repo.GetMatches(tx);
-				await repo.SaveMatches(DateTimeOffset.UtcNow,
+				var cancellableMatch = await repo.SaveMatches(DateTimeOffset.UtcNow,
 					matches
 					.Select(m => new MatchedTransaction()
 					{
 						BlockId = null,
 						Match = m
 					})
-					.ToArray());
+					.ToArray(), true);
+				result.UnlockId = cancellableMatch.Key;
 				return result;
 			}
 			catch(NotEnoughFundsException)

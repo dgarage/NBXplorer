@@ -36,6 +36,11 @@ namespace NBXplorer.Models
 				get; set;
 			}
 		}
+		public string UnlockId
+		{
+			get;
+			set;
+		}
 		public SpentCoin[] SpentCoins
 		{
 			get; set;
