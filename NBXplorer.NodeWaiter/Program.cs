@@ -20,10 +20,13 @@ namespace NBXplorer.NodeWaiter
 			using(CancellationTokenSource stop = new CancellationTokenSource())
 			using(CancelOnExit(stop))
 			{
-
-
 				var provider = new CommandLineExConfigurationProvider(args, CreateCommandLineApplication);
 				provider.Load();
+
+				if(!provider.TryGet("help", out var unused))
+				{
+					return 1;
+				}
 				if(!provider.TryGet("chains", out var chains))
 				{
 					chains = "btc";
@@ -38,17 +41,22 @@ namespace NBXplorer.NodeWaiter
 
 				var supportedChains = chains
 									  .Split(',', StringSplitOptions.RemoveEmptyEntries)
-									  .Select(t => GetNetwork(networkProvider, t, validChains))
+									  .Select(t => GetNetwork(provider, networkProvider, t, validChains))
 									  .ToList();
 
+				var wait = TimeSpan.FromSeconds(1);
 				while(true)
 				{
 					if(await AreSynchedAndStarted(supportedChains, stop.Token))
 					{
 						return 0;
 					}
-					Write($"----------");
-					await Task.Delay(TimeSpan.FromMinutes(1), stop.Token);
+					Write($"-----trying again in {(int)wait.TotalSeconds} seconds-----");
+					await Task.Delay(wait, stop.Token);
+					if(wait < TimeSpan.FromMinutes(5))
+						wait = TimeSpan.FromTicks(2 * wait.Ticks);
+					else
+						wait = TimeSpan.FromMinutes(5);
 				}
 			}
 		}
@@ -108,12 +116,18 @@ namespace NBXplorer.NodeWaiter
 			}
 		}
 
-		private static ExplorerClient GetNetwork(NBXplorerNetworkProvider networkProvider, string cryptoCode, string validValues)
+		private static ExplorerClient GetNetwork(CommandLineExConfigurationProvider config, NBXplorerNetworkProvider networkProvider, string cryptoCode, string validValues)
 		{
 			var network = networkProvider.GetFromCryptoCode(cryptoCode.ToUpperInvariant());
 			if(network == null)
 				throw new NotSupportedException($"{cryptoCode} in --chains is not supported, valid value: {validValues}");
-			return new ExplorerClient(network);
+
+			Uri uri = null;
+			if(!config.TryGet($"explorerurl", out var uriStr))
+				uri = network.DefaultSettings.DefaultUrl;
+			else
+				uri = new Uri(uriStr, UriKind.Absolute);
+			return new ExplorerClient(network, uri);
 		}
 
 		private static NetworkType GetNetworkType(string network)
@@ -143,6 +157,7 @@ namespace NBXplorer.NodeWaiter
 			app.HelpOption("-? | -h | --help");
 			app.Option("-n | --network", $"Set the network among (mainnet,testnet,regtest) (default: mainnet)", CommandOptionType.SingleValue);
 			app.Option("--chains", $"Chains to support comma separated (default: btc, available: {chains})", CommandOptionType.SingleValue);
+			app.Option($"--explorerurl", "The url to nbxplorer instance", CommandOptionType.SingleValue);
 			return app;
 		}
 	}
