@@ -94,7 +94,8 @@ namespace NBXplorer.NodeWaiter
 					}
 					else if(status.BitcoinStatus != null && status.BitcoinStatus.IsSynched)
 					{
-						Write($"{client.CryptoCode}: Is synched");
+						Write($"{client.CryptoCode}: Is fully synched");
+						return true;
 					}
 					else if(status.BitcoinStatus == null)
 					{
