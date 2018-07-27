@@ -23,7 +23,7 @@ namespace NBXplorer.NodeWaiter
 				var provider = new CommandLineExConfigurationProvider(args, CreateCommandLineApplication);
 				provider.Load();
 
-				if(!provider.TryGet("help", out var unused))
+				if(provider.TryGet("help", out var unused))
 				{
 					return 1;
 				}
