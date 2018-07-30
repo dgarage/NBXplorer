@@ -53,9 +53,8 @@ namespace NBXplorer.NodeWaiter
 					}
 					Write($"-----trying again in {(int)wait.TotalSeconds} seconds-----");
 					await Task.Delay(wait, stop.Token);
-					if(wait < TimeSpan.FromMinutes(5))
-						wait = TimeSpan.FromTicks(2 * wait.Ticks);
-					else
+					wait = TimeSpan.FromTicks(2 * wait.Ticks);
+					if(wait > TimeSpan.FromMinutes(5))
 						wait = TimeSpan.FromMinutes(5);
 				}
 			}
