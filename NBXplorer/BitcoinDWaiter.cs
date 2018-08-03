@@ -467,13 +467,13 @@ namespace NBXplorer
 							using(var cts1 = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 							{
 								cts1.CancelAfter(loadChainTimeout);
-								await node.SynchronizeSlimChain(_Chain, cancellationToken: cts1.Token);
+								node.SynchronizeSlimChain(_Chain, cancellationToken: cts1.Token);
 							}
 						}
 						catch // Timeout happens with SynchronizeChain, if so, throw away the cached chain
 						{
 							_Chain.ResetToGenesis();
-							await node.SynchronizeSlimChain(_Chain, cancellationToken: cancellation);
+							node.SynchronizeSlimChain(_Chain, cancellationToken: cancellation);
 						}
 
 
