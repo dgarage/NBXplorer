@@ -245,9 +245,9 @@ namespace NBXplorer.Controllers
 						await server.Send(new Models.NewBlockEvent()
 						{
 							CryptoCode = o.CryptoCode,
-							Hash = block.HashBlock,
+							Hash = block.Hash,
 							Height = block.Height,
-							PreviousBlockHash = block?.Previous.HashBlock
+							PreviousBlockHash = block?.Previous
 						});
 					}
 				}
@@ -270,7 +270,7 @@ namespace NBXplorer.Controllers
 					{
 						CryptoCode = o.CryptoCode,
 						DerivationStrategy = o.Match.DerivationStrategy,
-						BlockId = blockHeader?.HashBlock,
+						BlockId = blockHeader?.Hash,
 						TransactionData = ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
 						Inputs = o.Match.Inputs,
 						Outputs = o.Match.Outputs
@@ -334,7 +334,7 @@ namespace NBXplorer.Controllers
 			return Json(ToTransactionResult(includeTransaction, chain, result));
 		}
 
-		private TransactionResult ToTransactionResult(bool includeTransaction, ConcurrentChain chain, Repository.SavedTransaction[] result)
+		private TransactionResult ToTransactionResult(bool includeTransaction, SlimChain chain, Repository.SavedTransaction[] result)
 		{
 			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
 			var oldest = result
@@ -347,9 +347,9 @@ namespace NBXplorer.Controllers
 						.Where(r => r != null)
 						.FirstOrDefault();
 
-			var conf = confBlock == null ? 0 : chain.Tip.Height - confBlock.Height + 1;
+			var conf = confBlock == null ? 0 : chain.Height - confBlock.Height + 1;
 
-			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.HashBlock, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
 		}
 
 		[HttpPost]
@@ -596,7 +596,7 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private AnnotatedTransactionCollection GetAnnotatedTransactions(Repository repo, ConcurrentChain chain, DerivationStrategyBase extPubKey)
+		private AnnotatedTransactionCollection GetAnnotatedTransactions(Repository repo, SlimChain chain, DerivationStrategyBase extPubKey)
 		{
 			var annotatedTransactions = new AnnotatedTransactionCollection(repo
 				.GetTransactions(extPubKey)
