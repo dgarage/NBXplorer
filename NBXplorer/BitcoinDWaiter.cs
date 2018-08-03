@@ -536,7 +536,7 @@ namespace NBXplorer
 				if(_Configuration.CacheChain && File.Exists(slimCachePath))
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
-					using(var file = new FileStream($"{suffix}chain-slim.dat", FileMode.Open, FileAccess.Read, FileShare.None, 1024 * 1024))
+					using(var file = new FileStream(slimCachePath, FileMode.Open, FileAccess.Read, FileShare.None, 1024 * 1024))
 					{
 						_Chain.Load(file);
 					}
