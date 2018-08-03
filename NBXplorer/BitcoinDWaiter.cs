@@ -550,7 +550,7 @@ namespace NBXplorer
 		{
 			foreach(var block in chain.ToEnumerable(false))
 			{
-				_Chain.TrySetTip(block.HashBlock, block.Previous?.HashBlock);
+				_Chain.TrySetTip(block.HashBlock, block.Previous?.HashBlock ?? uint256.Zero);
 			}
 			await SaveChainInCache();
 		}
