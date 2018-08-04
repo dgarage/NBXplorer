@@ -353,6 +353,7 @@ namespace NBXplorer
 			{
 				SaveChainInCache();
 			}
+			GC.Collect();
 			await LoadGroup();
 		}
 
