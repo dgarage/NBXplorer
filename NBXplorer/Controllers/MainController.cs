@@ -327,8 +327,6 @@ namespace NBXplorer.Controllers
 			HashSet<uint256> txIds,
 			bool track = true)
 		{
-			Logs.Explorer.LogWarning("SaveTransactionsIds");
-
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
 			if (txIds == null || txIds.Count == 0)
@@ -346,8 +344,7 @@ namespace NBXplorer.Controllers
 				repo.Track(strategy);
 
 			foreach (var txid in txIds)
-			{
-				Logs.Explorer.LogWarning($"{txid}");
+			{				
 				try
 				{
 					var txInfo = await waiter.RPC.GetRawTransactionInfoAsync(txid);
