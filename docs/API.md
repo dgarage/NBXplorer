@@ -149,6 +149,10 @@ Optional Parameters:
 
 * `includeTransaction` includes the hex of the transaction, not only information (default: true)
 
+Error codes:
+
+* HTTP 404: Transaction not found
+
 Returns:
 
 ```
@@ -194,6 +198,11 @@ Returns:
 
 HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses/unused
 
+Error codes:
+
+* HTTP 404: `cryptoCode-not-supported`
+* HTTP 400: `strategy-not-found`
+
 Optional parameters:
 
 * `feature`: Use `Deposit` to get a deposit address (`0/x`), `Change` to get a change address (`1/x`), or `Direct` to get `x` (default: `Deposit`)
@@ -218,6 +227,10 @@ Note: `redeem` is returning the segwit redeem if the derivation scheme is a P2SH
 
 HTTP GET v1/cryptos/{cryptoCode}/scripts/{script}
 
+Error codes:
+
+* HTTP 404: `cryptoCode-not-supported`
+
 Returns:
 ```
 [
@@ -240,6 +253,10 @@ Optional parameters:
 * `unconfirmedBookmarks` bookmarks known by the client of UTXOs which have not yet been mined.
 * `confirmedBookmarks` bookmarks known by the client of UTXOs which have been mined.
 * `longPolling` blocks the call until a change happens since the passed bookmarks (default: false)
+
+Error:
+
+* HTTP 404: `cryptoCode-not-supported`
 
 Result:
 
@@ -387,6 +404,11 @@ Body:
 
 Raw bytes of the transaction.
 
+Error codes:
+
+* HTTP 404: `cryptoCode-not-supported`
+* HTTP 400: `rpc-unavailable`
+
 Returns:
 
 ```
@@ -403,6 +425,14 @@ Returns:
 HTTP GET cryptos/{cryptoCode}/fees/{blockCount}
 
 Get expected fee rate for being confirmed in `blockCount` blocks.
+
+Error codes:
+
+* HTTP 400: `fee-estimation-unavailable`
+* HTTP 404: `cryptoCode-not-supported`
+* HTTP 400: `rpc-unavailable`
+
+Returns:
 
 ```
 {
