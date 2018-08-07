@@ -410,7 +410,7 @@ namespace NBXplorer.Controllers
 			if(await repo.CancelMatches(unlockId))
 				return Ok();
 			else
-				return NotFound("unlockId not found");
+				return NotFound("unlockid-not-found");
 		}
 
 

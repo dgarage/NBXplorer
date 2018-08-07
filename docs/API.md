@@ -335,7 +335,13 @@ Create a transaction for sending funds to an address and lock the selected UTXOs
 
 HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions
 
-Can throw error `not-enough-funds` or `fee-estimation-unavailable`.
+Error codes:
+
+* HTTP 400: `invalid-destination`
+* HTTP 400: `invalid-amount`
+* HTTP 400: `invalid-derivationScheme`
+* HTTP 400: `fee-estimation-unavailable`
+* HTTP 400: `not-enough-funds`
 
 Request:
 
@@ -378,7 +384,10 @@ While Create Transaction is locking UTXOs, this operation can unlock them via th
 
 HTTP POST v1/cryptos/{cryptoCode}/locks/{unlockId}/cancel
 
-Return 404 if `unlockId` is not found, else returns 200.
+Error codes:
+
+* HTTP 404: `unlockid-not-found`
+* HTTP 404: `cryptoCode-not-supported`
 
 ## Notifications via websocket
 
