@@ -95,7 +95,7 @@ namespace NBXplorer
 		RPCClient _RPC;
 		NBXplorerNetwork _Network;
 		ExplorerConfiguration _Configuration;
-		ConcurrentChain _Chain;
+		SlimChain _Chain;
 		private Repository _Repository;
 		EventAggregator _EventAggregator;
 
@@ -103,7 +103,7 @@ namespace NBXplorer
 			RPCClient rpc,
 			ExplorerConfiguration configuration,
 			NBXplorerNetwork network,
-			ConcurrentChain chain,
+			SlimChain chain,
 			Repository repository,
 			EventAggregator eventAggregator)
 		{
@@ -333,7 +333,7 @@ namespace NBXplorer
 		{
 			if(_Group != null)
 				return;
-			_Chain.SetTip(_Chain.Genesis);
+			_Chain.ResetToGenesis();
 			if(_Configuration.CacheChain)
 				LoadChainFromCache();
 			var heightBefore = _Chain.Height;
@@ -353,6 +353,7 @@ namespace NBXplorer
 			{
 				SaveChainInCache();
 			}
+			GC.Collect();
 			await LoadGroup();
 		}
 
@@ -372,12 +373,7 @@ namespace NBXplorer
 						Mode = AddressManagerBehaviorMode.None
 					},
 					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode).StartHeight },
-					new ChainBehavior(_Chain)
-					{
-						CanRespondToGetHeaders = false,
-						SkipPoWCheck = true,
-						StripHeader = true
-					},
+					new SlimChainBehavior(_Chain),
 					new PingPongBehavior()
 				}
 			});
@@ -428,17 +424,13 @@ namespace NBXplorer
 		private void SaveChainInCache()
 		{
 			var suffix = _Network.CryptoCode == "BTC" ? "" : _Network.CryptoCode;
-			var cachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain-stripped.dat");
-			var cachePathTemp = Path.Combine(_Configuration.DataDir, $"{suffix}chain-stripped.dat.temp");
+			var cachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain-slim.dat");
+			var cachePathTemp = Path.Combine(_Configuration.DataDir, $"{suffix}chain-slim.dat.temp");
 
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Saving chain to cache...");
 			using(var fs = new FileStream(cachePathTemp, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 1024))
 			{
-				_Chain.WriteTo(fs, new ConcurrentChain.ChainSerializationFormat()
-				{
-					SerializeBlockHeader = false,
-					SerializePrecomputedBlockHash = true
-				});
+				_Chain.Save(fs);
 				fs.Flush();
 			}
 
@@ -471,24 +463,18 @@ namespace NBXplorer
 						if(_Chain.Height < 5)
 							loadChainTimeout = TimeSpan.FromDays(7); // unlimited
 
-						var synchronizeOptions = new SynchronizeChainOptions()
-						{
-							SkipPoWCheck = true,
-							StripHeaders = true
-						};
-
 						try
 						{
 							using(var cts1 = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 							{
 								cts1.CancelAfter(loadChainTimeout);
-								node.SynchronizeChain(_Chain, synchronizeOptions, cancellationToken: cts1.Token);
+								node.SynchronizeSlimChain(_Chain, cancellationToken: cts1.Token);
 							}
 						}
 						catch // Timeout happens with SynchronizeChain, if so, throw away the cached chain
 						{
-							_Chain.SetTip(_Chain.Genesis);
-							node.SynchronizeChain(_Chain, synchronizeOptions, cancellationToken: cancellation);
+							_Chain.ResetToGenesis();
+							node.SynchronizeSlimChain(_Chain, cancellationToken: cancellation);
 						}
 
 
@@ -519,7 +505,9 @@ namespace NBXplorer
 				if(_Configuration.CacheChain && File.Exists(legacyCachePath))
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
-					_Chain.Load(File.ReadAllBytes(legacyCachePath), _Network.NBitcoinNetwork);
+					var chain = new ConcurrentChain(_Network.NBitcoinNetwork);
+					chain.Load(File.ReadAllBytes(legacyCachePath), _Network.NBitcoinNetwork);
+					LoadSlimAndSaveToSlimFormat(chain);
 					File.Delete(legacyCachePath);
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
 					return;
@@ -531,15 +519,41 @@ namespace NBXplorer
 				if(_Configuration.CacheChain && File.Exists(cachePath))
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
-					_Chain.Load(File.ReadAllBytes(cachePath), _Network.NBitcoinNetwork, new ConcurrentChain.ChainSerializationFormat()
+					var chain = new ConcurrentChain(_Network.NBitcoinNetwork);
+					chain.Load(File.ReadAllBytes(cachePath), _Network.NBitcoinNetwork, new ConcurrentChain.ChainSerializationFormat()
 					{
 						SerializeBlockHeader = false,
 						SerializePrecomputedBlockHash = true,
 					});
+					LoadSlimAndSaveToSlimFormat(chain);
+					File.Delete(cachePath);
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
 					return;
 				}
 			}
+
+			{
+				var slimCachePath = Path.Combine(_Configuration.DataDir, $"{suffix}chain-slim.dat");
+				if(_Configuration.CacheChain && File.Exists(slimCachePath))
+				{
+					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from cache...");
+					using(var file = new FileStream(slimCachePath, FileMode.Open, FileAccess.Read, FileShare.None, 1024 * 1024))
+					{
+						_Chain.Load(file);
+					}
+					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Height: " + _Chain.Height);
+					return;
+				}
+			}
+		}
+
+		private void LoadSlimAndSaveToSlimFormat(ConcurrentChain chain)
+		{
+			foreach(var block in chain.ToEnumerable(false))
+			{
+				_Chain.TrySetTip(block.HashBlock, block.Previous?.HashBlock);
+			}
+			SaveChainInCache();
 		}
 
 		private async Task<bool> WarmupBlockchain()
@@ -559,7 +573,7 @@ namespace NBXplorer
 				{
 					header = await _RPC.GetBlockHeaderAsync(hash);
 				}
-				catch(RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+				catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
 				{
 					header = (await _RPC.GetBlockAsync(hash)).Header;
 				}

@@ -21,7 +21,7 @@ namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
-		public ExplorerBehavior(Repository repo, ConcurrentChain chain, EventAggregator eventAggregator)
+		public ExplorerBehavior(Repository repo, SlimChain chain, EventAggregator eventAggregator)
 		{
 			if(repo == null)
 				throw new ArgumentNullException(nameof(repo));
@@ -42,10 +42,10 @@ namespace NBXplorer
 			}
 		}
 
-		private readonly ConcurrentChain _Chain;
+		private readonly SlimChain _Chain;
 		private readonly Repository _Repository;
 
-		public ConcurrentChain Chain
+		public SlimChain Chain
 		{
 			get
 			{
@@ -93,8 +93,8 @@ namespace NBXplorer
 			if(StartHeight > Chain.Height)
 				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight should not be above the current tip");
 			return StartHeight == -1 ?
-				Chain.Tip.GetLocator() :
-				Chain.GetBlock(StartHeight).GetLocator();
+				Chain.GetTipLocator() :
+				Chain.GetLocator(StartHeight);
 		}
 
 
@@ -104,18 +104,17 @@ namespace NBXplorer
 			var node = AttachedNode;
 			if(node == null || node.State != NodeState.HandShaked)
 				return;
-			var pendingTip = node.Behaviors.Find<ChainBehavior>().PendingTip;
-			if(pendingTip == null || pendingTip.Height < node.PeerVersion.StartHeight)
+			if(Chain.Height < node.PeerVersion.StartHeight)
 				return;
 			if(_InFlights.Count != 0)
 				return;
 			var currentLocation = _CurrentLocation;
 			var currentBlock = Chain.FindFork(currentLocation);
 			if(currentBlock.Height < StartHeight)
-				currentBlock = Chain.GetBlock(StartHeight) ?? pendingTip;
+				currentBlock = Chain.GetBlock(StartHeight) ?? Chain.TipBlock;
 
 			//Up to date
-			if(pendingTip.HashBlock == currentBlock.HashBlock)
+			if(Chain.TipBlock.Hash == currentBlock.Hash)
 				return;
 
 			
@@ -123,7 +122,7 @@ namespace NBXplorer
 				.Select(i => Chain.GetBlock(i + currentBlock.Height + 1))
 				.Where(_ => _ != null)
 				.Take(40)
-				.Select(b => new InventoryVector(node.AddSupportedOptions(InventoryType.MSG_BLOCK), b.HashBlock))
+				.Select(b => new InventoryVector(node.AddSupportedOptions(InventoryType.MSG_BLOCK), b.Hash))
 				.Where(b => _InFlights.TryAdd(b.Hash, new Download()))
 				.ToArray();
 
@@ -203,10 +202,9 @@ namespace NBXplorer
 				Download o;
 				if(_InFlights.ContainsKey(block.Object.GetHash()))
 				{
-					var blockHeader = Chain.GetBlock(block.Object.GetHash());
-					if(blockHeader == null)
+					var currentLocation = Chain.GetLocator(block.Object.GetHash());
+					if(currentLocation == null)
 						return;
-					var currentLocation = blockHeader.GetLocator();
 					_CurrentLocation = currentLocation;
 					if(_InFlights.TryRemove(block.Object.GetHash(), out o))
 					{
@@ -261,7 +259,7 @@ namespace NBXplorer
 			if(location == null)
 				return true;
 			var fork = Chain.FindFork(location);
-			return Chain.Tip.Height - fork.Height > 10;
+			return Chain.Height - fork.Height > 10;
 		}
 
 		private void AttachedNode_StateChanged(Node node, NodeState oldState)
@@ -269,7 +267,6 @@ namespace NBXplorer
 			if(node.State == NodeState.HandShaked)
 			{
 				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Handshaked node");
-				node.SendMessageAsync(new SendHeadersPayload());
 				node.SendMessageAsync(new MempoolPayload());
 				AskBlocks();
 			}

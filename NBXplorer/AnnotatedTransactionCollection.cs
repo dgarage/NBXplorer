@@ -21,7 +21,7 @@ namespace NBXplorer
 		{
 
 		}
-		public AnnotatedTransaction(TrackedTransaction tracked, ChainBase chain)
+		public AnnotatedTransaction(TrackedTransaction tracked, SlimChain chain)
 		{
 			Record = tracked;
 			if(tracked.BlockHash == null)

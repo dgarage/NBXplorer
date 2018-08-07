@@ -72,12 +72,12 @@ namespace NBXplorer.Controllers
 		[Route("cryptos/{cryptoCode}/fees/{blockCount}")]
 		public async Task<GetFeeRateResult> GetFeeRate(int blockCount, string cryptoCode)
 		{
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, true);
 			if(!network.SupportEstimatesSmartFee)
 			{
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"{cryptoCode} does not support estimatesmartfee").AsException();
 			}
-			var waiter = GetWaiter(network);
+			var waiter = Waiters.GetWaiter(network);
 			var result = await waiter.RPC.SendCommandAsync("estimatesmartfee", blockCount);
 			var obj = (JObject)result.Result;
 			var feeRateProperty = obj.Property("feerate");
@@ -100,19 +100,6 @@ namespace NBXplorer.Controllers
 			return ExplorerConfiguration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode.Equals(cryptoCode, StringComparison.OrdinalIgnoreCase))?.FallbackFeeRate;
 		}
 
-		private BitcoinDWaiter GetWaiter(NBXplorerNetwork network)
-		{
-			var waiter = Waiters.GetWaiter(network);
-			if(!waiter.RPCAvailable)
-				throw RPCUnavailable();
-			return waiter;
-		}
-
-		private static NBXplorerException RPCUnavailable()
-		{
-			return new NBXplorerError(400, "rpc-unavailable", $"The RPC interface is currently not available.").AsException();
-		}
-
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses")]
 		public KeyPathInformation GetKeyInformationFromKeyPath(
@@ -126,7 +113,7 @@ namespace NBXplorer.Controllers
 				throw new ArgumentNullException(nameof(strategy));
 			if(keyPath == null)
 				throw new ArgumentNullException(nameof(keyPath));
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var information = strategy.Derive(keyPath);
 			return new KeyPathInformation()
 			{
@@ -148,7 +135,7 @@ namespace NBXplorer.Controllers
 		{
 			if(strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var repository = RepositoryProvider.GetRepository(network);
 			try
 			{
@@ -168,7 +155,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> CancelReservation(string cryptoCode, [ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths)
 		{
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
 			await repo.CancelReservation(strategy, keyPaths);
 			return Ok();
@@ -179,7 +166,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> GetKeyInformations(string cryptoCode,
 			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
 		{
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
 			var result = (await repo.GetKeyInformations(new[] { script }))
 						   .SelectMany(k => k.Value)
@@ -191,7 +178,7 @@ namespace NBXplorer.Controllers
 		[Route("cryptos/{cryptoCode}/status")]
 		public async Task<IActionResult> GetStatus(string cryptoCode)
 		{
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var waiter = Waiters.GetWaiter(network);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
@@ -244,7 +231,7 @@ namespace NBXplorer.Controllers
 			return Json(status);
 		}
 
-		private NBXplorerNetwork GetNetwork(string cryptoCode)
+		private NBXplorerNetwork GetNetwork(string cryptoCode, bool checkRPC)
 		{
 			if(cryptoCode == null)
 				throw new ArgumentNullException(nameof(cryptoCode));
@@ -252,6 +239,13 @@ namespace NBXplorer.Controllers
 			var network = Waiters.GetWaiter(cryptoCode)?.Network;
 			if(network == null)
 				throw new NBXplorerException(new NBXplorerError(404, "cryptoCode-not-supported", $"{cryptoCode} is not supported"));
+
+			if(checkRPC)
+			{
+				var waiter = Waiters.GetWaiter(network);
+				if(waiter == null || !waiter.RPCAvailable)
+					throw new NBXplorerError(400, "rpc-unavailable", $"The RPC interface is currently not available.").AsException();
+			}
 			return network;
 		}
 
@@ -265,7 +259,7 @@ namespace NBXplorer.Controllers
 			if(!HttpContext.WebSockets.IsWebSocketRequest)
 				return NotFound();
 
-			GetNetwork(cryptoCode); // Internally check if cryptoCode is correct
+			GetNetwork(cryptoCode, false); // Internally check if cryptoCode is correct
 
 			string listenAllDerivationSchemes = null;
 			var listenedBlocks = new ConcurrentDictionary<string, string>();
@@ -286,9 +280,9 @@ namespace NBXplorer.Controllers
 						await server.Send(new Models.NewBlockEvent()
 						{
 							CryptoCode = o.CryptoCode,
-							Hash = block.HashBlock,
+							Hash = block.Hash,
 							Height = block.Height,
-							PreviousBlockHash = block?.Previous.HashBlock
+							PreviousBlockHash = block?.Previous
 						});
 					}
 				}
@@ -311,7 +305,7 @@ namespace NBXplorer.Controllers
 					{
 						CryptoCode = o.CryptoCode,
 						DerivationStrategy = o.Match.DerivationStrategy,
-						BlockId = blockHeader?.HashBlock,
+						BlockId = blockHeader?.Hash,
 						TransactionData = ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
 						Inputs = o.Match.Inputs,
 						Outputs = o.Match.Outputs
@@ -367,7 +361,7 @@ namespace NBXplorer.Controllers
 			bool includeTransaction = true,
 			string cryptoCode = null)
 		{
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var chain = this.ChainProvider.GetChain(network);
 			var result = await RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if(result.Length == 0)
@@ -375,7 +369,7 @@ namespace NBXplorer.Controllers
 			return Json(ToTransactionResult(includeTransaction, chain, result));
 		}
 
-		private TransactionResult ToTransactionResult(bool includeTransaction, ConcurrentChain chain, Repository.SavedTransaction[] result)
+		private TransactionResult ToTransactionResult(bool includeTransaction, SlimChain chain, Repository.SavedTransaction[] result)
 		{
 			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
 			var oldest = result
@@ -388,9 +382,9 @@ namespace NBXplorer.Controllers
 						.Where(r => r != null)
 						.FirstOrDefault();
 
-			var conf = confBlock == null ? 0 : chain.Tip.Height - confBlock.Height + 1;
+			var conf = confBlock == null ? 0 : chain.Height - confBlock.Height + 1;
 
-			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.HashBlock, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
 		}
 
 		[HttpPost]
@@ -402,7 +396,7 @@ namespace NBXplorer.Controllers
 		{
 			if(derivationStrategy == null)
 				return NotFound();
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			await RepositoryProvider.GetRepository(network).Track(derivationStrategy);
 			return Ok();
 		}
@@ -411,7 +405,7 @@ namespace NBXplorer.Controllers
 		[Route("cryptos/{cryptoCode}/locks/{unlockId}/cancel")]
 		public async Task<IActionResult> UnlockUTXOs(string cryptoCode, string unlockId)
 		{
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
 			if(await repo.CancelMatches(unlockId))
 				return Ok();
@@ -433,7 +427,7 @@ namespace NBXplorer.Controllers
 			if(request?.Destination == null)
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "Invalid destination address"));
 
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 
 			BitcoinAddress destinationAddress = null;
 			try
@@ -564,7 +558,7 @@ namespace NBXplorer.Controllers
 		{
 			if(extPubKey == null)
 				throw new ArgumentNullException(nameof(extPubKey));
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
 			var waitingTransaction = longPolling ? WaitingTransaction(extPubKey) : Task.FromResult(false);
@@ -672,7 +666,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase derivationScheme)
 		{
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
 
@@ -719,7 +713,7 @@ namespace NBXplorer.Controllers
 			confirmedBookmarks = confirmedBookmarks ?? new HashSet<Bookmark>();
 			if(extPubKey == null)
 				throw new ArgumentNullException(nameof(extPubKey));
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, false);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
 			var waitingTransaction = longPolling ? WaitingTransaction(extPubKey) : Task.FromResult(false);
@@ -820,7 +814,7 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, ConcurrentChain chain, DerivationStrategyBase extPubKey, bool includeLocks)
+		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, SlimChain chain, DerivationStrategyBase extPubKey, bool includeLocks)
 		{
 			var annotatedTransactions = new AnnotatedTransactionCollection((await repo
 				.GetTransactions(extPubKey))
@@ -851,15 +845,13 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase extPubKey)
 		{
-			var network = GetNetwork(cryptoCode);
+			var network = GetNetwork(cryptoCode, true);
 
 			var tx = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
 			var stream = new BitcoinStream(Request.Body, false);
 			tx.ReadWrite(stream);
 
 			var waiter = this.Waiters.GetWaiter(network);
-			if(!waiter.RPCAvailable)
-				throw RPCUnavailable();
 			var repo = RepositoryProvider.GetRepository(network);
 			var chain = ChainProvider.GetChain(network);
 			RPCException rpcEx = null;

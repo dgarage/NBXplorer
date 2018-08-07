@@ -9,22 +9,22 @@ namespace NBXplorer
 {
 	public class ChainProvider
 	{
-		Dictionary<string, ConcurrentChain> _Chains = new Dictionary<string, ConcurrentChain>();
+		Dictionary<string, SlimChain> _Chains = new Dictionary<string, SlimChain>();
 		public ChainProvider(ExplorerConfiguration configuration)
 		{
 			foreach(var net in configuration.NetworkProvider.GetAll().Where(n => configuration.Supports(n)))
 			{
-				_Chains.Add(net.CryptoCode, new ConcurrentChain(net.NBitcoinNetwork));
+				_Chains.Add(net.CryptoCode, new SlimChain(net.NBitcoinNetwork.GenesisHash));
 			}
 		}
 
-		public ConcurrentChain GetChain(NBXplorerNetwork network)
+		public SlimChain GetChain(NBXplorerNetwork network)
 		{
 			return GetChain(network.CryptoCode);
 		}
-		public ConcurrentChain GetChain(string network)
+		public SlimChain GetChain(string network)
 		{
-			_Chains.TryGetValue(network, out ConcurrentChain concurrent);
+			_Chains.TryGetValue(network, out SlimChain concurrent);
 			return concurrent;
 		}
 	}
