@@ -518,7 +518,7 @@ namespace NBXplorer.Controllers
 					};
 				}
 				tx.MarkLockUTXO();
-				var matches = await repo.GetMatches(tx);
+				var matches = (await repo.GetMatches(tx)).Where(m => m.DerivationStrategy == derivationScheme).ToArray();
 				var cancellableMatch = await repo.SaveMatches(DateTimeOffset.UtcNow,
 					matches
 					.Select(m => new MatchedTransaction()
