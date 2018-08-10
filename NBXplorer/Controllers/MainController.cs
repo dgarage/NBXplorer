@@ -311,7 +311,62 @@ namespace NBXplorer.Controllers
 			finally { subscriptions.Dispose(); await server.DisposeAsync(cancellation); }
 			return new EmptyResult();
 		}
+		
+		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{strategy}/transactions/savetxids")] 		
+		public async Task<SaveTransactionsResult> SaveTransactionsIds(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
+			DerivationStrategyBase strategy,
+			[ModelBinder(BinderType = typeof(UInts256ModelBinding))]
+			HashSet<uint256> txIds,
+			bool track = true)
+		{
+			if (strategy == null)
+				throw new ArgumentNullException(nameof(strategy));
+			if (txIds == null || txIds.Count == 0)
+				throw new ArgumentException(nameof(txIds));
 
+			var network = GetNetwork(cryptoCode);
+			var waiter = Waiters.GetWaiter(network);
+			if (!waiter.RPCAvailable)
+				throw RPCUnavailable();
+
+			var repo = RepositoryProvider.GetRepository(network);
+			var now = DateTimeOffset.UtcNow;
+
+			if (track)
+				repo.Track(strategy);
+
+			foreach (var txid in txIds)
+			{				
+				try
+				{
+					var txInfo = await waiter.RPC.GetRawTransactionInfoAsync(txid);
+					var blockHash = txInfo.BlockHash;
+					var txTime = txInfo.TransactionTime == null ? now : txInfo.TransactionTime.Value;
+					repo.SaveTransactions(txTime, new Transaction[] { txInfo.Transaction }, blockHash);
+					var matches = repo.GetMatches(txInfo.Transaction);
+					if (matches.Count() > 0)
+					{						
+						var matchedTxs = matches.Select(t => new MatchedTransaction() { BlockId = blockHash, Match = t }).ToArray();
+						if (matchedTxs.Length > 0)						
+							repo.SaveMatches(txTime, matchedTxs);						
+					}
+				}
+				catch (RPCException rpcEx)
+				{
+					Logs.Explorer.LogWarning($"{network.CryptoCode}: Transaction {txid} RPC getrawtransaction failed. (Code: {rpcEx.RPCCode}, Message: {rpcEx.RPCCodeMessage}, Details: {rpcEx.Message} )");
+					return new SaveTransactionsResult(false)
+					{
+						RPCCode = rpcEx.RPCCode,
+						RPCCodeMessage = rpcEx.RPCCodeMessage,
+						RPCMessage = rpcEx.Message
+					};					
+				}
+			}
+			return new SaveTransactionsResult(true);
+		}		
+		
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/transactions/{txId}")]
 		public IActionResult GetTransaction(

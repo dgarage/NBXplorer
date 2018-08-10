@@ -210,6 +210,19 @@ namespace NBXplorer
 		{
 			return SendAsync<string>(HttpMethod.Post, keyPaths, "v1/cryptos/{0}/derivations/{1}/addresses/cancelreservation", new[] { CryptoCode, strategy.ToString() }, cancellation);
 		}
+		
+		public SaveTransactionsResult SaveTransactionsIds(DerivationStrategyBase strategy, uint256[] txIds, bool track = true, CancellationToken cancellation = default) //@@@
+		{
+			return SaveTransactionsIdsAsync(strategy, txIds, track, cancellation).GetAwaiter().GetResult();
+		}
+		public Task<SaveTransactionsResult> SaveTransactionsIdsAsync(DerivationStrategyBase strategy, uint256[] txIds, bool track = true, CancellationToken cancellation = default) // @@@
+		{			
+			Dictionary<string, string> parameters = new Dictionary<string, string>();
+			parameters.Add("txIds", String.Join(",", txIds.Select(t => t.ToString())));
+			parameters.Add("track", track.ToString());
+			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());			
+			return SendAsync<SaveTransactionsResult>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/transactions/savetxids?" + query, null, cancellation);		
+		}
 
 		public StatusResult GetStatus(CancellationToken cancellation = default)
 		{
