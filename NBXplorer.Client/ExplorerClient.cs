@@ -249,6 +249,18 @@ namespace NBXplorer
 			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/transactions?" + query, null, cancellation);
 		}
 
+		public Task RescanAsync(RescanRequest rescanRequest, CancellationToken cancellation = default)
+		{
+			if(rescanRequest == null)
+				throw new ArgumentNullException(nameof(rescanRequest));
+			return SendAsync<byte[]>(HttpMethod.Post, rescanRequest, $"v1/cryptos/{CryptoCode}/rescan", null, cancellation);
+		}
+
+		public void Rescan(RescanRequest rescanRequest, CancellationToken cancellation = default)
+		{
+			RescanAsync(rescanRequest, cancellation).GetAwaiter().GetResult();
+		}
+
 		public KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)
 		{
 			return GetUnusedAsync(strategy, feature, skip, reserve, cancellation).GetAwaiter().GetResult();

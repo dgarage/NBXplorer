@@ -26,6 +26,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using Microsoft.AspNetCore.Authentication;
 using NBXplorer.Authentication;
+using NBitcoin.DataEncoders;
 
 namespace NBXplorer
 {
@@ -50,6 +51,33 @@ namespace NBXplorer
 		{
 			var data = Encoding.UTF8.GetBytes(derivation.ToString());
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
+		}
+
+		public static async Task<Transaction> GetRawTransactionAsync(this RPCClient client, uint256 txid, uint256 blockId, bool throwIfNotFound = true)
+		{
+			var response = await client.SendCommandAsync(new RPCRequest(RPCOperations.getrawtransaction, new object[] { txid, false, blockId }), throwIfNotFound).ConfigureAwait(false);
+			if(throwIfNotFound)
+				response.ThrowIfError();
+			if(response.Error != null && response.Error.Code == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
+				return null;
+
+			response.ThrowIfError();
+			var tx = client.Network.Consensus.ConsensusFactory.CreateTransaction();
+			tx.ReadWrite(Encoders.Hex.DecodeData(response.Result.ToString()));
+			return tx;
+		}
+		public static async Task<DateTimeOffset?> GetBlockTimeAsync(this RPCClient client, uint256 blockId, bool throwIfNotFound = true)
+		{
+			var response = await client.SendCommandAsync(new RPCRequest("getblockheader", new object[] { blockId }), throwIfNotFound).ConfigureAwait(false);
+			if(throwIfNotFound)
+				response.ThrowIfError();
+			if(response.Error != null && response.Error.Code == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
+				return null;
+			if(response.Result["time"] != null)
+			{
+				return NBitcoin.Utils.UnixTimeToDateTime((uint)response.Result["time"]);
+			}
+			return null;
 		}
 
 		public static IEnumerable<TransactionMatch> GetMatches(this Repository repository, Transaction tx)

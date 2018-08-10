@@ -787,6 +787,59 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanRescan()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted(Timeout);
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+
+				var txId1 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
+				var txId2 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
+				var txId3 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
+				var txId4 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
+				var tx4 = tester.RPC.GetRawTransaction(txId4);
+				var blockId = tester.RPC.Generate(1)[0];
+				var blockId2 = tester.RPC.Generate(1)[0];
+
+				tester.Client.Track(pubkey);
+
+				var utxos = tester.Client.GetUTXOs(pubkey, null, false);
+				Assert.Empty(utxos.Confirmed.UTXOs);
+
+				for(int i = 0; i < 2; i++)
+				{
+					tester.Client.Rescan(new RescanRequest()
+					{
+						Transactions =
+						{
+							new RescanRequest.TransactionToRescan() { BlockId = blockId, TransactionId = txId1 },
+							new RescanRequest.TransactionToRescan() { BlockId = blockId2, TransactionId = txId2 }, // should fail because wrong block
+							new RescanRequest.TransactionToRescan() {  TransactionId = txId3 },  // should fail because no -txindex, but RPC remember wallet transactions :(
+							new RescanRequest.TransactionToRescan() { BlockId = blockId, Transaction = tx4 },  // should find it
+						}
+					});
+
+					utxos = tester.Client.GetUTXOs(pubkey, null, false);
+					foreach(var txid in new[] { txId1, txId4, txId3 })
+					{
+						Assert.Contains(utxos.Confirmed.UTXOs, u => u.AsCoin().Outpoint.Hash == txid);
+						var tx = tester.Client.GetTransaction(txid);
+						Assert.Equal(2, tx.Confirmations);
+					}
+					Assert.Equal(3, tester.Client.GetTransactions(pubkey, null, false).ConfirmedTransactions.Transactions.Count);
+					foreach(var utxo in utxos.Confirmed.UTXOs)
+						Assert.Equal(2, utxo.Confirmations);
+					foreach(var txid in new[] { txId2 })
+					{
+						Assert.DoesNotContain(utxos.Confirmed.UTXOs, u => u.AsCoin().Outpoint.Hash == txid);
+					}
+				}
+			}
+		}
+
+		[Fact]
 		public void CanTrack()
 		{
 			using(var tester = ServerTester.Create())
@@ -1011,15 +1064,15 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0"), path);
 			}
 		}
-		
+
 		[Fact]
 		public void CanGetKeyInformations()
 		{
-			using (var tester = ServerTester.Create())
+			using(var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
-				tester.Client.Track(pubkey);							
+				tester.Client.Track(pubkey);
 
 				KeyPathInformation[] keyinfos;
 				var script = pubkey.Derive(new KeyPath("0/0")).ScriptPubKey;
@@ -1027,16 +1080,16 @@ namespace NBXplorer.Tests
 				keyinfos = tester.Client.GetKeyInformations(script);
 				Assert.NotNull(keyinfos);
 				Assert.True(keyinfos.Length > 0);
-				foreach (var k in keyinfos)
+				foreach(var k in keyinfos)
 				{
 					Assert.Equal(pubkey, k.DerivationStrategy);
 					Assert.Equal(script, k.ScriptPubKey);
 					Assert.Equal(new KeyPath("0/0"), k.KeyPath);
 					Assert.Equal(DerivationFeature.Deposit, k.Feature);
-				}				
+				}
 			}
 		}
-		
+
 		[Fact]
 		public void CanTrackDirect()
 		{

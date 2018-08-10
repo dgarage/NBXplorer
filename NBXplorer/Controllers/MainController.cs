@@ -119,20 +119,20 @@ namespace NBXplorer.Controllers
 			repo.CancelReservation(strategy, keyPaths);
 			return Ok();
 		}
-		
+
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/scripts/{script}")] 
+		[Route("cryptos/{cryptoCode}/scripts/{script}")]
 		public IActionResult GetKeyInformations(string cryptoCode,
 			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
 		{
 			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
-			var result = repo.GetKeyInformations(new [] { script })
-                           .SelectMany(k => k.Value)
-                           .ToArray();
+			var result = repo.GetKeyInformations(new[] { script })
+						   .SelectMany(k => k.Value)
+						   .ToArray();
 			return Json(result);
 		}
-		
+
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/status")]
 		public async Task<IActionResult> GetStatus(string cryptoCode)
@@ -471,6 +471,88 @@ namespace NBXplorer.Controllers
 				result.Add(new TransactionInformationMatch() { Index = i, KeyPath = keyPath, Value = outputs[i].Value });
 			}
 			return result;
+		}
+
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/rescan")]
+		public async Task<IActionResult> Rescan(string cryptoCode, [FromBody]RescanRequest rescanRequest)
+		{
+			if(rescanRequest == null)
+				throw new ArgumentNullException(nameof(rescanRequest));
+			if(rescanRequest?.Transactions == null)
+				throw new NBXplorerException(new NBXplorerError(400, "transactions-missing", "You must specify 'transactions'"));
+
+			bool willFetchTransactions = rescanRequest.Transactions.Any(t => t.Transaction == null);
+			bool needTxIndex = rescanRequest.Transactions.Any(t => t.Transaction == null && t.BlockId == null);
+			var network = GetNetwork(cryptoCode, willFetchTransactions);
+
+			var rpc = Waiters.GetWaiter(cryptoCode).RPC.PrepareBatch();
+			var repo = RepositoryProvider.GetRepository(network);
+
+			var fetchingTransactions = rescanRequest
+				.Transactions
+				.Select(t => FetchTransaction(rpc, t))
+				.ToArray();
+
+			await rpc.SendBatchAsync();
+			await Task.WhenAll(fetchingTransactions);
+
+			var transactions = fetchingTransactions.Select(t => t.GetAwaiter().GetResult())
+												   .Where(tx => tx.Transaction != null)
+												   .ToArray();
+
+			foreach(var txs in transactions.GroupBy(t => t.BlockId, t => (t.Transaction, t.BlockTime))
+											.OrderBy(t => t.First().BlockTime))
+			{
+				repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), txs.Key);
+				foreach(var tx in txs)
+				{
+					var matches = repo.GetMatches(tx.Transaction).Select(m => new MatchedTransaction() { BlockId = txs.Key, Match = m }).ToArray();
+					repo.SaveMatches(tx.BlockTime, matches);
+				}
+			}
+
+			return Ok();
+		}
+
+		async Task<(uint256 BlockId, Transaction Transaction, DateTimeOffset BlockTime)> FetchTransaction(RPCClient rpc, RescanRequest.TransactionToRescan transaction)
+		{
+			if(transaction.Transaction != null)
+			{
+				if(transaction.BlockId == null)
+					throw new NBXplorerException(new NBXplorerError(400, "block-id-missing", "You must specify 'transactions[].blockId' if you specified 'transactions[].transaction'"));
+				var blockTime = await rpc.GetBlockTimeAsync(transaction.BlockId, false);
+				if(blockTime == null)
+					return (null, null, default);
+				return (transaction.BlockId, transaction.Transaction, blockTime.Value);
+			}
+			else if(transaction.TransactionId != null)
+			{
+				if(transaction.BlockId != null)
+				{
+					var getTx = rpc.GetRawTransactionAsync(transaction.TransactionId, transaction.BlockId, false);
+					var blockTime = await rpc.GetBlockTimeAsync(transaction.BlockId, false);
+					if(blockTime == null)
+						return (null, null, default);
+					return (transaction.BlockId, await getTx, blockTime.Value);
+				}
+				else
+				{
+					try
+					{
+						var txInfo = await rpc.GetRawTransactionInfoAsync(transaction.TransactionId);
+						return (txInfo.BlockHash, txInfo.Transaction, txInfo.BlockTime.Value);
+					}
+					catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
+					{
+						return (null, null, default);
+					}
+				}
+			}
+			else
+			{
+				throw new NBXplorerException(new NBXplorerError(400, "transaction-id-missing", "You must specify 'transactions[].transactionId' or 'transactions[].transaction'"));
+			}
 		}
 
 		[HttpGet]
