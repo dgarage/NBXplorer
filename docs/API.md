@@ -376,7 +376,7 @@ Then you will receive such notifications when a transaction is impacting the `de
 
 If you want all transactions of all derivation schemes of BTC, send this to the WebSocket:
 
-```json
+```
 {
   "type": "subscribetransaction",
   "data": {
@@ -387,7 +387,7 @@ If you want all transactions of all derivation schemes of BTC, send this to the 
 
 If you want all transactions of all derivation schemes of all crypto currencies, send this to the WebSocket:
 
-```json
+```
 {
   "type": "subscribetransaction",
   "data": {
@@ -432,7 +432,7 @@ HTTP POST v1/cryptos/{cryptoCode}/rescan
 
 Body:
 
-```json
+```
 {  
    "transactions":[  
 	  # Specify the blockId and transactionId to scan. Your node must not be pruned for this to work.
