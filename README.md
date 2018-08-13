@@ -168,8 +168,9 @@ If you receive a 404 or timeout then Postman cannot see the endpoint
 * are you using the correct Port ? 
 * are you running postman on localhost ?
 
+## Client API
 A better documentation is on the way, for now the only documentation is the client API in C# on [nuget](https://www.nuget.org/packages/NBxplorer.Client).
-The `ExplorerClient` classes allows you to query unused address, and the UTXO of a HD PubKey.
+The `ExplorerClient` classes allows you to query unused addresses, and the UTXO of an HD PubKey.
 You can take a look at [the tests](https://github.com/dgarage/NBXplorer/blob/master/NBXplorer.Tests/UnitTest1.cs) to see how it works.
 
 There is a simple use case documented on [Blockchain Programming in C#](https://programmingblockchain.gitbooks.io/programmingblockchain/content/wallet/web-api.html).
