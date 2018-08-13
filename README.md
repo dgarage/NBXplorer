@@ -102,11 +102,12 @@ You can change the location of the configuration file with the `--conf=pathToCon
 
 ### Command line parameters
 
-####From Source (.NET Core SDK required)
-The same settings as above, for example: `dotnet run NBXplorer.dll --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939`
+#### From Source (.NET Core SDK required)
+The same settings as above, e.g.
+```dotnet run NBXplorer.dll --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939```
 
-####From Built DLL
-dotnet NBXplorer.dll --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939`
+#### From Built DLL (.NET Core Runtime required)
+```dotnet NBXplorer.dll --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939```
 
 ### Environment variables
 
