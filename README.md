@@ -148,9 +148,10 @@ You can test the NBXplorer API quickly and easily using Postman as follows :
 * Back in Postman paste the `__cookie__` part of your cookie file into username (whatever comes before the :)
 * Paste the Hex string (after the : ) into the password box
 * Click the Update Request button in Postman - this will force Postman to generate the correct HTTP headers based on your cookie details
-* You should now see a new entry in the Headers section with a Key of *Authorization* and Value of *Basic xxxxxxxxx* where the string after basic will be your Base64 encoded username and password.
+* You should now see a new entry in the Headers section with a Key of *Authorization* and Value of *Basic xxxxxxxxx* where the string after `Basic` will be your Base64 encoded username and password.
 
 You are now ready to test the API - it is easiest to start with something simple such as the fees endpoint e.g.
+
 ```http://localhost:24444/v1/cryptos/btc/fees/3```
 
 this should return a JSON payload e.g.
@@ -161,7 +162,7 @@ this should return a JSON payload e.g.
 }
 
 #### Troubleshooting
-If you receive a 401 Unauthorized then your cookie data is not working. Check you are using the current cookie by opening the cookie file again - also check the date/time of the cookie file  to ensure it is the latest cookie (generated when you launched NBXplorer).
+If you receive a 401 Unauthorized then your cookie data is not working. Check you are using the current cookie by opening the cookie file again - also check the date/time of the cookie file to ensure it is the latest cookie (generated when you launched NBXplorer).
 
 If you receive a 404 or timeout then Postman cannot see the endpoint
 * are you using the correct Port ? 
