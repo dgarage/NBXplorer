@@ -182,6 +182,7 @@ namespace NBXplorer
 
 		private async Task StartPruneLoop(CancellationToken token, AutoResetEvent tick)
 		{
+			int prune = _ChainConfiguration.PruneBeforeHeight.Value;
 			try
 			{
 				while(!token.IsCancellationRequested)
@@ -190,12 +191,14 @@ namespace NBXplorer
 					{
 						try
 						{
-							var pruned = (int)(await RPC.SendCommandAsync("pruneblockchain", new object[] { _ChainConfiguration.PruneBeforeHeight.Value })).Result;
+							var pruned = (int)(await RPC.SendCommandAsync("pruneblockchain", new object[] { prune })).Result;
+							Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Successfully pruned at height {prune}");
 							if(pruned == _ChainConfiguration.PruneBeforeHeight.Value)
 							{
-								Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Successfully pruned at height {pruned}");
+								Logs.Configuration.LogInformation($"{_Network.CryptoCode}: The blocks are now pruned up to the expected height");
 								break;
 							}
+							prune = _ChainConfiguration.PruneBeforeHeight.Value;
 						}
 						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_MISC_ERROR && ex.Message == "Cannot prune blocks because node is not in prune mode.")
 						{
@@ -204,6 +207,13 @@ namespace NBXplorer
 						}
 						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_MISC_ERROR && ex.Message == "Blockchain is too short for pruning.")
 						{
+						}
+						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_INVALID_PARAMETER)
+						// Blockchain is shorter than the attempted prune height.
+						{
+							var info = await RPC.GetBlockchainInfoAsyncEx();
+							prune = Math.Max(0, info.Blocks - 288); // MIN_BLOCKS_TO_KEEP
+							continue;
 						}
 						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
 						{
