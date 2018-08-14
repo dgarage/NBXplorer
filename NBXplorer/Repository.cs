@@ -403,11 +403,11 @@ namespace NBXplorer
 						foreach(var keyPath in group)
 						{
 							var key = (int)keyPath.Indexes.Last();
-							var data = reserved.Select<byte[]>(key);
-							if(data == null || !data.Exists)
+							var data = reserved.SelectBytes(key);
+							if(data == null)
 								continue;
 							reserved.RemoveKey(key);
-							available.Insert(key, data.Value);
+							available.Insert(key, data);
 							needCommit = true;
 						}
 					}
@@ -437,14 +437,12 @@ namespace NBXplorer
 				get; set;
 			}
 
-			public DBreeze.DataTypes.Row<string, T> Select<T>(int index)
+			public byte[] SelectBytes(int index)
 			{
-				return tx.Select<string, T>(TableName, $"{PrimaryKey}-{index:D10}");
-			}
-
-			public void RemoveKey(int index)
-			{
-				tx.RemoveKey(TableName, $"{PrimaryKey}-{index:D10}");
+				var bytes = tx.Select<string, byte[]>(TableName, $"{PrimaryKey}-{index:D10}");
+				if(bytes == null || !bytes.Exists)
+					return null;
+				return bytes.Value;
 			}
 
 			public void RemoveKey(string index)
@@ -452,23 +450,41 @@ namespace NBXplorer
 				tx.RemoveKey(TableName, $"{PrimaryKey}-{index}");
 			}
 
-			public IEnumerable<DBreeze.DataTypes.Row<string, T>> SelectForwardSkip<T>(int n)
-			{
-				return tx.SelectForwardStartsWith<string, T>(TableName, PrimaryKey).Skip(n);
-			}
-
-			public void Insert<T>(int key, T value)
-			{
-				tx.Insert(TableName, $"{PrimaryKey}-{key:D10}", value);
-			}
-			public void Insert<T>(string key, T value)
+			public void Insert(string key, byte[] value)
 			{
 				tx.Insert(TableName, $"{PrimaryKey}-{key}", value);
+			}
+
+			public (string Key, byte[] Value)[] SelectForwardSkip(int n)
+			{
+				return tx.SelectForwardStartsWith<string, byte[]>(TableName, PrimaryKey).Skip(n).Select(c => (c.Key, c.Value)).ToArray();
 			}
 
 			public int Count()
 			{
 				return tx.SelectForwardStartsWith<string, byte[]>(TableName, PrimaryKey).Count();
+			}
+
+			public void Insert(int key, byte[] value)
+			{
+				Insert($"{key:D10}", value);
+			}
+			public void RemoveKey(int index)
+			{
+				RemoveKey($"{index:D10}");
+			}
+			public int? SelectInt(int index)
+			{
+				var bytes = SelectBytes(index);
+				if(bytes == null)
+					return null;
+				bytes[0] = (byte)(bytes[0] & ~0x80);
+				return (int)NBitcoin.Utils.ToUInt32(bytes, false);
+			}
+			public void Insert(int key, int value)
+			{
+				var bytes = NBitcoin.Utils.ToBytes((uint)value, false);
+				Insert(key, bytes);
 			}
 		}
 
@@ -552,14 +568,14 @@ namespace NBXplorer
 				tx.ValuesLazyLoadingIsOn = false;
 				var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
 				var reservedTable = GetReservedKeysIndex(tx, strategy, derivationFeature);
-				var bytes = availableTable.SelectForwardSkip<byte[]>(n).FirstOrDefault()?.Value;
-				if(bytes == null)
+				var rows = availableTable.SelectForwardSkip(n);
+				if(rows.Length == 0)
 					return null;
-				var keyInfo = ToObject<KeyPathInformation>(bytes);
+				var keyInfo = ToObject<KeyPathInformation>(rows[0].Value);
 				if(reserve)
 				{
 					availableTable.RemoveKey((int)keyInfo.KeyPath.Indexes.Last());
-					reservedTable.Insert<byte[]>((int)keyInfo.KeyPath.Indexes.Last(), bytes);
+					reservedTable.Insert((int)keyInfo.KeyPath.Indexes.Last(), rows[0].Value);
 					RefillAvailable(tx, strategy, derivationFeature);
 					tx.Commit();
 				}
@@ -575,11 +591,8 @@ namespace NBXplorer
 			if(currentlyAvailable >= MinPoolSize)
 				return;
 
-			int highestGenerated = -1;
 			int generatedCount = 0;
-			var row = highestTable.Select<int>(0);
-			if(row != null && row.Exists)
-				highestGenerated = row.Value;
+			int highestGenerated = highestTable.SelectInt(0) ?? -1;
 			var feature = strategy.GetLineFor(derivationFeature);
 			while(currentlyAvailable + generatedCount < MaxPoolSize)
 			{
@@ -743,7 +756,7 @@ namespace NBXplorer
 					foreach(var script in batch)
 					{
 						var table = GetScriptsIndex(tx, script);
-						var keyInfos = table.SelectForwardSkip<byte[]>(0)
+						var keyInfos = table.SelectForwardSkip(0)
 											.Select(r => ToObject<KeyPathInformation>(r.Value))
 											// Because xpub are mutable (several xpub map to same script)
 											// an attacker could generate lot's of xpub mapping to the same script
@@ -791,7 +804,7 @@ namespace NBXplorer
 				return unzipped;
 			}
 		}
-		
+
 		public int MinPoolSize
 		{
 			get; set;
@@ -812,14 +825,16 @@ namespace NBXplorer
 					var availableIndex = GetAvailableKeysIndex(tx, info.DerivationStrategy, info.Feature);
 					var reservedIndex = GetReservedKeysIndex(tx, info.DerivationStrategy, info.Feature);
 					var index = (int)info.KeyPath.Indexes.Last();
-					var row = availableIndex.Select<byte[]>(index);
-					if(row != null && row.Exists)
+					var bytes = availableIndex.SelectBytes(index);
+					if(bytes != null)
 					{
 						availableIndex.RemoveKey(index);
 					}
-					row = reservedIndex.Select<byte[]>(index);
-					if(row != null && row.Exists)
+					bytes = reservedIndex.SelectBytes(index);
+					if(bytes != null)
+					{
 						reservedIndex.RemoveKey(index);
+					}
 					RefillAvailable(tx, info.DerivationStrategy, info.Feature);
 				}
 				tx.Commit();
@@ -837,10 +852,8 @@ namespace NBXplorer
 				var table = GetTransactionsIndex(tx, pubkey);
 				tx.ValuesLazyLoadingIsOn = false;
 				var result = new List<TransactionMatchData>();
-				foreach(var row in table.SelectForwardSkip<byte[]>(0))
+				foreach(var row in table.SelectForwardSkip(0))
 				{
-					if(row == null || !row.Exists)
-						continue;
 					MemoryStream ms = new MemoryStream(row.Value);
 					BitcoinStream bs = new BitcoinStream(ms, false);
 					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
