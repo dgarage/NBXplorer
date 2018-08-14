@@ -197,10 +197,13 @@ namespace NBXplorer
 								break;
 							}
 						}
-						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_MISC_ERROR)
+						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_MISC_ERROR && ex.Message == "Cannot prune blocks because node is not in prune mode.")
 						{
 							Logs.Configuration.LogWarning($"{_Network.CryptoCode}: prunebeforeheight is set, but prune=1 is not set in the configuration of the full node");
 							break;
+						}
+						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_MISC_ERROR && ex.Message == "Blockchain is too short for pruning.")
+						{
 						}
 						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
 						{
