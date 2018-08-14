@@ -14,6 +14,7 @@ using System.Net;
 using NBitcoin.Protocol.Behaviors;
 using Microsoft.Extensions.Hosting;
 using NBXplorer.Events;
+using Newtonsoft.Json.Linq;
 
 namespace NBXplorer
 {
@@ -98,6 +99,7 @@ namespace NBXplorer
 		SlimChain _Chain;
 		private Repository _Repository;
 		EventAggregator _EventAggregator;
+		private readonly ChainConfiguration _ChainConfiguration;
 
 		public BitcoinDWaiter(
 			RPCClient rpc,
@@ -114,6 +116,7 @@ namespace NBXplorer
 			_Repository = repository;
 			State = BitcoinDWaiterState.NotStarted;
 			_EventAggregator = eventAggregator;
+			_ChainConfiguration = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
 		}
 		public NodeState NodeState
 		{
@@ -159,6 +162,7 @@ namespace NBXplorer
 		}
 		IDisposable _Subscription;
 		Task _Loop;
+		Task _Pruner;
 		CancellationTokenSource _Cts;
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
@@ -166,13 +170,62 @@ namespace NBXplorer
 				throw new ObjectDisposedException(nameof(BitcoinDWaiter));
 
 			_Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-			_Loop = StartLoop(_Cts.Token);
-			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(s => _Tick.Set());
+			_Loop = StartLoop(_Cts.Token, _Tick1);
+			_Pruner = _ChainConfiguration.PruneBeforeHeight.HasValue ? StartPruneLoop(_Cts.Token, _Tick2) : Task.CompletedTask;
+			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(s =>
+			{
+				_Tick1.Set();
+				_Tick2.Set();
+			});
 			return Task.CompletedTask;
 		}
-		AutoResetEvent _Tick = new AutoResetEvent(false);
 
-		private async Task StartLoop(CancellationToken token)
+		private async Task StartPruneLoop(CancellationToken token, AutoResetEvent tick)
+		{
+			try
+			{
+				while(!token.IsCancellationRequested)
+				{
+					if(RPCAvailable)
+					{
+						try
+						{
+							var pruned = (int)(await RPC.SendCommandAsync("pruneblockchain", new object[] { _ChainConfiguration.PruneBeforeHeight.Value })).Result;
+							if(pruned == _ChainConfiguration.PruneBeforeHeight.Value)
+							{
+								Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Successfully pruned at height {pruned}");
+								break;
+							}
+						}
+						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_MISC_ERROR)
+						{
+							Logs.Configuration.LogWarning($"{_Network.CryptoCode}: prunebeforeheight is set, but prune=1 is not set in the configuration of the full node");
+							break;
+						}
+						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+						{
+							Logs.Configuration.LogWarning($"{_Network.CryptoCode}: prunebeforeheight is set, but pruneblockchain is not supported by the full node");
+							break;
+						}
+						catch(Exception ex) when(!token.IsCancellationRequested)
+						{
+							Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled in prune loop");
+							await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(TimeSpan.FromSeconds(5.0), token));
+							continue;
+						}
+					}
+					await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(PrunePollingInterval, token));
+				}
+			}
+			catch when(token.IsCancellationRequested)
+			{
+			}
+		}
+
+		AutoResetEvent _Tick1 = new AutoResetEvent(false);
+		AutoResetEvent _Tick2 = new AutoResetEvent(false);
+
+		private async Task StartLoop(CancellationToken token, AutoResetEvent tick)
 		{
 			try
 			{
@@ -183,12 +236,12 @@ namespace NBXplorer
 						while(await StepAsync(token))
 						{
 						}
-						await Task.WhenAny(_Tick.WaitOneAsync(), Task.Delay(PollingInterval, token));
+						await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(PollingInterval, token));
 					}
 					catch(Exception ex) when(!token.IsCancellationRequested)
 					{
-						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled exception in BitcoinDWaiter");
-						await Task.WhenAny(_Tick.WaitOneAsync(), Task.Delay(TimeSpan.FromSeconds(5.0), token));
+						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled in prune loop");
+						await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(TimeSpan.FromSeconds(5.0), token));
 					}
 				}
 			}
@@ -206,10 +259,15 @@ namespace NBXplorer
 		{
 			get; set;
 		} = TimeSpan.FromMinutes(1.0);
+		public TimeSpan PrunePollingInterval
+		{
+			get; set;
+		} = TimeSpan.FromMinutes(10.0);
 
 		private void ConnectedNodes_Changed(object sender, NodeEventArgs e)
 		{
-			_Tick.Set();
+			_Tick1.Set();
+			_Tick2.Set();
 		}
 
 		public Task StopAsync(CancellationToken cancellationToken)
@@ -226,7 +284,20 @@ namespace NBXplorer
 			}
 			State = BitcoinDWaiterState.NotStarted;
 			_Chain = null;
-			_Tick.Set();
+			_Tick1.Set();
+			_Tick2.Set();
+			_Tick1.Dispose();
+			_Tick2.Dispose();
+			try
+			{
+				_Pruner.Wait();
+			}
+			catch { }
+			try
+			{
+				_Loop.Wait();
+			}
+			catch { }
 			return _Loop;
 		}
 
@@ -360,7 +431,7 @@ namespace NBXplorer
 		private async Task LoadGroup()
 		{
 			AddressManager manager = new AddressManager();
-			manager.Add(new NetworkAddress(GetEndpoint()), IPAddress.Loopback);
+			manager.Add(new NetworkAddress(_ChainConfiguration.NodeEndpoint), IPAddress.Loopback);
 			NodesGroup group = new NodesGroup(_Network.NBitcoinNetwork, new NodeConnectionParameters()
 			{
 				Services = NodeServices.Nothing,
@@ -372,7 +443,7 @@ namespace NBXplorer
 						PeersToDiscover = 1,
 						Mode = AddressManagerBehaviorMode.None
 					},
-					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode).StartHeight },
+					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = _ChainConfiguration.StartHeight },
 					new SlimChainBehavior(_Chain),
 					new PingPongBehavior()
 				}
@@ -397,11 +468,6 @@ namespace NBXplorer
 
 			group.ConnectedNodes.Added += ConnectedNodes_Changed;
 			group.ConnectedNodes.Removed += ConnectedNodes_Changed;
-		}
-
-		private IPEndPoint GetEndpoint()
-		{
-			return _Configuration.ChainConfigurations.Where(c => c.CryptoCode == Network.CryptoCode).Select(c => c.NodeEndpoint).FirstOrDefault();
 		}
 
 		private static async Task WaitConnected(NodesGroup group)
@@ -450,7 +516,7 @@ namespace NBXplorer
 				try
 				{
 					handshakeTimeout.CancelAfter(TimeSpan.FromSeconds(10));
-					using(var node = Node.Connect(_Network.NBitcoinNetwork, GetEndpoint(), new NodeConnectionParameters()
+					using(var node = Node.Connect(_Network.NBitcoinNetwork, _ChainConfiguration.NodeEndpoint, new NodeConnectionParameters()
 					{
 						UserAgent = userAgent,
 						ConnectCancellation = handshakeTimeout.Token,
