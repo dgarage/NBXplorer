@@ -340,7 +340,7 @@ Error codes:
 * HTTP 400: `invalid-destination`
 * HTTP 400: `invalid-amount`
 * HTTP 400: `invalid-derivationScheme`
-* HTTP 400: `fee-estimation-unavailable`
+* HTTP 503: `fee-estimation-unavailable`
 * HTTP 400: `not-enough-funds`
 
 Request:
@@ -514,7 +514,7 @@ Raw bytes of the transaction.
 Error codes:
 
 * HTTP 404: `cryptoCode-not-supported`
-* HTTP 400: `rpc-unavailable`
+* HTTP 503: `rpc-unavailable`
 
 Returns:
 
@@ -535,9 +535,9 @@ Get expected fee rate for being confirmed in `blockCount` blocks.
 
 Error codes:
 
-* HTTP 400: `fee-estimation-unavailable`
+* HTTP 503: `fee-estimation-unavailable`
 * HTTP 404: `cryptoCode-not-supported`
-* HTTP 400: `rpc-unavailable`
+* HTTP 503: `rpc-unavailable`
 
 Returns:
 

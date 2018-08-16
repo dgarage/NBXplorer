@@ -75,7 +75,7 @@ namespace NBXplorer.Controllers
 			var network = GetNetwork(cryptoCode, true);
 			if(!network.SupportEstimatesSmartFee)
 			{
-				throw new NBXplorerError(400, "fee-estimation-unavailable", $"{cryptoCode} does not support estimatesmartfee").AsException();
+				throw new NBXplorerError(503, "fee-estimation-unavailable", $"{cryptoCode} does not support estimatesmartfee").AsException();
 			}
 			var waiter = Waiters.GetWaiter(network);
 			var result = await waiter.RPC.SendCommandAsync("estimatesmartfee", blockCount);
@@ -85,7 +85,7 @@ namespace NBXplorer.Controllers
 			FeeRate feeRate = rate == -1 ? GetDefaultFeeRate(cryptoCode) : new FeeRate(Money.Coins(Math.Round(rate / 1000, 8)), 1);
 			if(feeRate == null)
 			{
-				throw new NBXplorerError(400, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
+				throw new NBXplorerError(503, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
 			}
 
 			return new GetFeeRateResult()
