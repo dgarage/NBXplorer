@@ -244,7 +244,7 @@ namespace NBXplorer.Controllers
 			{
 				var waiter = Waiters.GetWaiter(network);
 				if(waiter == null || !waiter.RPCAvailable)
-					throw new NBXplorerError(400, "rpc-unavailable", $"The RPC interface is currently not available.").AsException();
+					throw new NBXplorerError(503, "rpc-unavailable", $"The RPC interface is currently not available.").AsException();
 			}
 			return network;
 		}
