@@ -42,7 +42,8 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}rpcurl", $"The RPC server url (default: default rpc server depended on the network)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}startheight", $"The height where starting the scan (default: where your rpc server was synched when you first started this program)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
-				app.Option($"--{crypto}prunebeforeheight", $"Prune blocks before this height (default: -1, disabled)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}prunebeforeheight", $"If not set to -1, pruning get activated, it will prune the blocks before the specified height (default: -1)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}prunekeeponly", $"If not set to -1, pruning get activated, it will make sure only the specified number of blocks are kept (default: -1)", CommandOptionType.SingleValue);
 			}
 
 			app.Option("--maxgapsize", $"The maximum gap address count on which the explorer will track derivation schemes (default: 30)", CommandOptionType.SingleValue);
@@ -127,8 +128,10 @@ namespace NBXplorer.Configuration
 				builder.AppendLine($"#{cryptoCode}.startheight=-1");
 				builder.AppendLine("## rescan forces a rescan from startheight");
 				builder.AppendLine($"#{cryptoCode}.rescan=0");
-				builder.AppendLine("## prune blocks before this height");
+				builder.AppendLine("## If not set to -1, pruning get activated, it will prune the blocks before the specified height");
 				builder.AppendLine($"#{cryptoCode}.prunebeforeheight=-1");
+				builder.AppendLine("## If not set to -1, pruning get activated, it will make sure only the specified number of blocks are kept");
+				builder.AppendLine($"#{cryptoCode}.prunekeeponly=-1");
 			}
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");

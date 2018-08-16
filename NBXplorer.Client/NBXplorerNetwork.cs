@@ -59,6 +59,14 @@ namespace NBXplorer
 			set;
 		} = true;
 
+		/// <summary>
+		/// Minimum blocks to keep if pruning is activated
+		/// </summary>
+		public int MinBlocksToKeep
+		{
+			get; set;
+		} = 288;
+
 		public override string ToString()
 		{
 			return CryptoCode.ToString();

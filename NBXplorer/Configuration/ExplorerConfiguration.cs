@@ -47,6 +47,21 @@ namespace NBXplorer.Configuration
 			get;
 			internal set;
 		}
+
+		public int? PruneKeepOnly
+		{
+			get;
+			internal set;
+		}
+
+		public bool EnablePruning
+		{
+			get
+			{
+				return (PruneBeforeHeight.HasValue && PruneBeforeHeight.Value != -1) ||
+					   (PruneKeepOnly.HasValue && PruneKeepOnly.Value != -1);
+			}
+		}
 	}
 	public class ExplorerConfiguration
 	{
@@ -121,6 +136,11 @@ namespace NBXplorer.Configuration
 					var height = config.GetOrDefault<int>($"{network.CryptoCode}.prunebeforeheight", -1);
 					if(height != -1)
 						chainConfiguration.PruneBeforeHeight = height;
+
+					height = config.GetOrDefault<int>($"{network.CryptoCode}.prunekeeponly", -1);
+					if(height != -1)
+						chainConfiguration.PruneKeepOnly = height;
+
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
 					chainConfiguration.RPC = args.ConfigureRPCClient(network);
 					if((chainConfiguration.RPC.CredentialString.CookieFile != null || chainConfiguration.RPC.CredentialString.UseDefault) && !network.SupportCookieAuthentication)
