@@ -181,7 +181,7 @@ namespace NBXplorer
 
 		private async Task StartPruneLoop(CancellationToken token)
 		{
-			Logs.Configuration.LogWarning($"{_Network.CryptoCode}: Pruning enabled");
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Pruning enabled");
 			try
 			{
 				int lastPruned = -1;
@@ -230,8 +230,12 @@ namespace NBXplorer
 							await Task.Delay(TimeSpan.FromSeconds(5.0), token);
 							continue;
 						}
+						await Task.Delay(PrunePollingInterval, token);
 					}
-					await Task.Delay(PrunePollingInterval, token);
+					else
+					{
+						await Task.Delay(PollingInterval, token);
+					}
 				}
 			}
 			catch when(token.IsCancellationRequested)
