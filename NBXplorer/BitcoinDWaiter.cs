@@ -194,7 +194,7 @@ namespace NBXplorer
 					}
 					catch(Exception ex) when(!token.IsCancellationRequested)
 					{
-						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled in prune loop");
+						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled in Waiter loop");
 						await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(TimeSpan.FromSeconds(5.0), token));
 					}
 				}
@@ -213,10 +213,6 @@ namespace NBXplorer
 		{
 			get; set;
 		} = TimeSpan.FromMinutes(1.0);
-		public TimeSpan PrunePollingInterval
-		{
-			get; set;
-		} = TimeSpan.FromMinutes(60.0);
 
 		private void ConnectedNodes_Changed(object sender, NodeEventArgs e)
 		{
