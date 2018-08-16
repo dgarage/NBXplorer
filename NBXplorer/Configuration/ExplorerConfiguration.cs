@@ -42,26 +42,6 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
-		public int? PruneBeforeHeight
-		{
-			get;
-			internal set;
-		}
-
-		public int? PruneKeepOnly
-		{
-			get;
-			internal set;
-		}
-
-		public bool EnablePruning
-		{
-			get
-			{
-				return (PruneBeforeHeight.HasValue && PruneBeforeHeight.Value != -1) ||
-					   (PruneKeepOnly.HasValue && PruneKeepOnly.Value != -1);
-			}
-		}
 	}
 	public class ExplorerConfiguration
 	{
@@ -133,20 +113,6 @@ namespace NBXplorer.Configuration
 					var chainConfiguration = new ChainConfiguration();
 					chainConfiguration.Rescan = config.GetOrDefault<bool>($"{network.CryptoCode}.rescan", false);
 					chainConfiguration.CryptoCode = network.CryptoCode;
-					var height = config.GetOrDefault<int>($"{network.CryptoCode}.prunebeforeheight", -1);
-					if(height != -1)
-						chainConfiguration.PruneBeforeHeight = height;
-
-					var blocks = config.GetOrDefault<int>($"{network.CryptoCode}.prunekeeponly", -1);
-					if(blocks != -1)
-					{
-						chainConfiguration.PruneKeepOnly = blocks;
-						if(blocks < network.MinBlocksToKeep)
-						{
-							Logs.Configuration.LogWarning($"{network.CryptoCode}.prunekeeponly value is lower than the minimum block to keep for a pruned full node ({network.MinBlocksToKeep}). {network.MinBlocksToKeep} will be used instead of {blocks}.");
-							chainConfiguration.PruneKeepOnly = network.MinBlocksToKeep;
-						}
-					}
 
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
 					chainConfiguration.RPC = args.ConfigureRPCClient(network);

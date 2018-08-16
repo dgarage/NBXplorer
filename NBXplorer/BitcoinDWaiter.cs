@@ -162,7 +162,6 @@ namespace NBXplorer
 		}
 		IDisposable _Subscription;
 		Task _Loop;
-		Task _Pruner;
 		CancellationTokenSource _Cts;
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
@@ -171,76 +170,11 @@ namespace NBXplorer
 
 			_Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 			_Loop = StartLoop(_Cts.Token, _Tick);
-			_Pruner = _ChainConfiguration.EnablePruning ? StartPruneLoop(_Cts.Token) : Task.CompletedTask;
 			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(s =>
 			{
 				_Tick.Set();
 			});
 			return Task.CompletedTask;
-		}
-
-		private async Task StartPruneLoop(CancellationToken token)
-		{
-			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Pruning enabled");
-			try
-			{
-				int lastPruned = -1;
-				while(!token.IsCancellationRequested)
-				{
-					if(RPCAvailable)
-					{
-						try
-						{
-							var info = await RPC.GetBlockchainInfoAsyncEx();
-							int maxPruneHeight = info.Blocks - _Network.MinBlocksToKeep;
-							int pruneHeight = -1;
-							if(_ChainConfiguration.PruneBeforeHeight.HasValue)
-							{
-								pruneHeight = _ChainConfiguration.PruneBeforeHeight.Value;
-							}
-							if(_ChainConfiguration.PruneKeepOnly.HasValue)
-							{
-								pruneHeight = Math.Max(pruneHeight, info.Blocks - _ChainConfiguration.PruneKeepOnly.Value);
-							}
-							pruneHeight = Math.Min(pruneHeight, maxPruneHeight);
-							pruneHeight = Math.Max(pruneHeight, 0);
-							var pruned = (int)(await RPC.SendCommandAsync("pruneblockchain", new object[] { pruneHeight })).Result;
-							if(pruned != lastPruned && lastPruned != -1)
-							{
-								Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Pruned {pruned - lastPruned} blocks (Keeping {info.Blocks - pruned} blocks)");
-							}
-							lastPruned = pruned;
-						}
-						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_MISC_ERROR && ex.Message == "Cannot prune blocks because node is not in prune mode.")
-						{
-							Logs.Configuration.LogWarning($"{_Network.CryptoCode}: prunebeforeheight/prunekeeponly is set, but prune=1 is not set in the configuration of the full node");
-							break;
-						}
-						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_MISC_ERROR && ex.Message == "Blockchain is too short for pruning.")
-						{
-						}
-						catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
-						{
-							Logs.Configuration.LogWarning($"{_Network.CryptoCode}: prunebeforeheight/prunekeeponly is set, but pruneblockchain is not supported by the full node");
-							break;
-						}
-						catch(Exception ex) when(!token.IsCancellationRequested)
-						{
-							Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled in prune loop");
-							await Task.Delay(TimeSpan.FromSeconds(5.0), token);
-							continue;
-						}
-						await Task.Delay(PrunePollingInterval, token);
-					}
-					else
-					{
-						await Task.Delay(PollingInterval, token);
-					}
-				}
-			}
-			catch when(token.IsCancellationRequested)
-			{
-			}
 		}
 
 		AutoResetEvent _Tick = new AutoResetEvent(false);
@@ -305,11 +239,6 @@ namespace NBXplorer
 			_Chain = null;
 			_Tick.Set();
 			_Tick.Dispose();
-			try
-			{
-				_Pruner.Wait();
-			}
-			catch { }
 			try
 			{
 				_Loop.Wait();
