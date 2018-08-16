@@ -137,9 +137,16 @@ namespace NBXplorer.Configuration
 					if(height != -1)
 						chainConfiguration.PruneBeforeHeight = height;
 
-					height = config.GetOrDefault<int>($"{network.CryptoCode}.prunekeeponly", -1);
-					if(height != -1)
-						chainConfiguration.PruneKeepOnly = height;
+					var blocks = config.GetOrDefault<int>($"{network.CryptoCode}.prunekeeponly", -1);
+					if(blocks != -1)
+					{
+						chainConfiguration.PruneKeepOnly = blocks;
+						if(blocks < network.MinBlocksToKeep)
+						{
+							Logs.Configuration.LogWarning($"{network.CryptoCode}.prunekeeponly value is lower than the minimum block to keep for a pruned full node ({network.MinBlocksToKeep}). {network.MinBlocksToKeep} will be used instead of {blocks}.");
+							chainConfiguration.PruneKeepOnly = network.MinBlocksToKeep;
+						}
+					}
 
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
 					chainConfiguration.RPC = args.ConfigureRPCClient(network);
@@ -178,7 +185,7 @@ namespace NBXplorer.Configuration
 		{
 			return ChainConfigurations.Any(c => network.CryptoCode == c.CryptoCode);
 		}
-		
+
 		public bool CacheChain
 		{
 			get;
