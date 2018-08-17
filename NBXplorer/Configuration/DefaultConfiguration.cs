@@ -46,12 +46,17 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}prunekeeponly", $"If not set to -1, pruning get activated, it will make sure only the specified number of blocks are kept (default: -1)", CommandOptionType.SingleValue);
 			}
 
+			
+			app.Option("--asbcnstr", "Azure Service Bus Connection string. New Block and New Transaction messages will be pushed to queues when this values is set", CommandOptionType.SingleValue);
+			app.Option("--asbblockq", "Name of queue to push new block message to (default: newblock)", CommandOptionType.SingleValue);
+			app.Option("--asbtranq", "Name of queue to push new transaction message to (default: newtransaction)", CommandOptionType.SingleValue);
+			app.Option("--cachechain", $"Whether the chain of header is locally cached for faster startup (default: true)", CommandOptionType.SingleValue);
 			app.Option("--maxgapsize", $"The maximum gap address count on which the explorer will track derivation schemes (default: 30)", CommandOptionType.SingleValue);
 			app.Option("--mingapsize", $"The minimum gap address count on which the explorer will track derivation schemes (default: 20)", CommandOptionType.SingleValue);
-			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);
-			app.Option("--cachechain", $"Whether the chain of header is locally cached for faster startup (default: true)", CommandOptionType.SingleValue);
+			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);			
 			app.Option("--rpcnotest", $"Faster start because RPC connection testing skipped (default: false)", CommandOptionType.SingleValue);
 			app.Option("-v | --verbose", $"Verbose logs (default: true)", CommandOptionType.SingleValue);
+
 			return app;
 		}
 

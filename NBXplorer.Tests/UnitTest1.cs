@@ -1,6 +1,4 @@
-using NBXplorer.Logging;
 using NBitcoin;
-using NBitcoin.DataEncoders;
 using System;
 using System.Linq;
 using System.Threading;
@@ -8,17 +6,15 @@ using Xunit;
 using Xunit.Abstractions;
 using NBitcoin.RPC;
 using System.Text;
-using NBitcoin.Crypto;
 using System.Collections.Generic;
 using NBXplorer.DerivationStrategy;
 using System.Diagnostics;
 using NBXplorer.Models;
 using System.Threading.Tasks;
-using System.Text.RegularExpressions;
-using System.IO;
-using NBitcoin.Protocol;
-using NBXplorer.Configuration;
 using Newtonsoft.Json.Linq;
+using Microsoft.Azure.ServiceBus;
+using Microsoft.Azure.ServiceBus.Core;
+using Newtonsoft.Json;
 
 namespace NBXplorer.Tests
 {
@@ -307,6 +303,120 @@ namespace NBXplorer.Tests
 		}
 
 		CancellationToken Cancel => new CancellationTokenSource(5000).Token;
+
+
+		[Fact]
+		public async Task CanSendAzureServiceBusNewBlockEventMessage()
+		{
+
+			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.ConnectionString),"Please Set Azure Service Bus Connection string in TestConfig.cs AzureServiceBusTestConfig Class. ");
+
+			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.NewBlockQueue), "Please Set Azure Service Bus NewBlockQueue name in TestConfig.cs AzureServiceBusTestConfig Class. ");
+
+
+			
+			
+
+
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+
+				IQueueClient blockClient = new QueueClient(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewBlockQueue);
+
+				
+
+				//Retry 10 times 
+				var retryPolicy = new RetryExponential(new TimeSpan(0, 0, 0, 0, 500), new TimeSpan(0, 0, 1), 10);
+
+				var messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewBlockQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
+				Microsoft.Azure.ServiceBus.Message msg = null;
+				
+				//Clear any existing messages from queue
+				while (await messageReceiver.PeekAsync() != null)
+				{
+					// Batch the receive operation
+					var brokeredMessages = await messageReceiver.ReceiveAsync(300);
+				}
+				await messageReceiver.CloseAsync();		//Close queue , otherwise receiver will consume our test message
+
+
+				messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewBlockQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
+
+				//Create a new Block - AzureServiceBus broker will receive a message from EventAggregator and publish to queue
+				var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
+
+				msg = await messageReceiver.ReceiveAsync();
+
+				if (msg != null)
+				{
+					dynamic blockEvent = JsonConvert.DeserializeObject (Encoding.UTF8.GetString(msg.Body));
+					Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(), msg.MessageId.ToUpperInvariant());
+					Assert.Equal(expectedBlockId.ToString(), blockEvent.Hash.ToString());
+					Assert.NotEqual(0, Convert.ToInt32(blockEvent.Height));						
+				}
+				else
+				{
+					throw new Exception($"No message received on Azure Service Bus Block Queue : {AzureServiceBusTestConfig.NewBlockQueue} after 10 read attempts.");
+				}
+			}
+		}
+
+		[Fact]
+		public async Task CanSendAzureServiceBusNewTransactionEventMessage()
+		{
+			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.ConnectionString), "Please Set Azure Service Bus Connection string in TestConfig.cs AzureServiceBusTestConfig Class.");
+
+			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.NewTransactionQueue), "Please Set Azure Service Bus NewTransactionQueue name in TestConfig.cs AzureServiceBusTestConfig Class.");
+
+
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+
+				IQueueClient tranClient = new QueueClient(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewTransactionQueue);
+
+				//Retry 10 times 
+				var retryPolicy = new RetryExponential(new TimeSpan(0,0,0,0,500), new TimeSpan(0, 0, 1), 10);
+
+				//Check if message exists
+				var messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewTransactionQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
+				
+				//Clear any existing messages from the queue
+				while (await messageReceiver.PeekAsync() != null)
+				{
+					// Batch the receive operation
+					var brokeredMessages = await messageReceiver.ReceiveAsync(300);
+				}
+				await messageReceiver.CloseAsync();
+
+				messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewTransactionQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
+
+
+				//Create a new UTXO for our tracked key
+				tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+
+				Microsoft.Azure.ServiceBus.Message msg = null;
+				msg = await messageReceiver.ReceiveAsync();
+
+				if (msg != null)
+				{
+					dynamic txEvent = JsonConvert.DeserializeObject(Encoding.UTF8.GetString(msg.Body));
+					Assert.Equal(txEvent.DerivationStrategy.ToString(), pubkey.ToString());
+				}
+				else
+				{
+					throw new Exception($"No message received on Azure Service Bus Transaction Queue : {AzureServiceBusTestConfig.NewTransactionQueue} after 10 read attempts.");
+				}
+			}
+		}
+
 
 		[Fact]
 		public void CanUseWebSockets()
