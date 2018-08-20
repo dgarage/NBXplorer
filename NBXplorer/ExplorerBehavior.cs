@@ -21,13 +21,16 @@ namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
-		public ExplorerBehavior(Repository repo, SlimChain chain, EventAggregator eventAggregator)
+		public ExplorerBehavior(Repository repo, SlimChain chain, AddressPoolService addressPoolService, EventAggregator eventAggregator)
 		{
 			if(repo == null)
 				throw new ArgumentNullException(nameof(repo));
 			if(chain == null)
 				throw new ArgumentNullException(nameof(chain));
+			if(addressPoolService == null)
+				throw new ArgumentNullException(nameof(addressPoolService));
 			_Chain = chain;
+			AddressPoolService = addressPoolService;
 			_Repository = repo;
 			_EventAggregator = eventAggregator;
 		}
@@ -60,7 +63,7 @@ namespace NBXplorer
 
 		public override object Clone()
 		{
-			return new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = StartHeight };
+			return new ExplorerBehavior(_Repository, _Chain, AddressPoolService, _EventAggregator) { StartHeight = StartHeight };
 		}
 
 		Timer _Timer;
@@ -162,6 +165,10 @@ namespace NBXplorer
 			}
 		}
 
+		public AddressPoolService AddressPoolService
+		{
+			get;
+		}
 
 		BlockLocator _CurrentLocation;
 
@@ -240,11 +247,13 @@ namespace NBXplorer
 		{
 			DateTimeOffset now = DateTimeOffset.UtcNow;
 			Repository.MarkAsUsed(matches.SelectMany(m => m.Outputs).ToArray());
-			Repository.SaveMatches(now, matches.Select(m => new MatchedTransaction()
+			var matchedTransactions = matches.Select(m => new MatchedTransaction()
 			{
 				BlockId = blockHash,
 				Match = m,
-			}).ToArray());
+			}).ToArray();
+			Repository.SaveMatches(now, matchedTransactions);
+			AddressPoolService.RefillAddressPoolIfNeeded(Network, matchedTransactions);
 			var saved = Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
 			for(int i = 0; i < matches.Length; i++)

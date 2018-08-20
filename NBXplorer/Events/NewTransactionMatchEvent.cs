@@ -41,11 +41,7 @@ namespace NBXplorer.Events
 		{
 			var conf = (BlockId == null ? "Unconfirmed" : "Confirmed");
 
-			var strategy = Match.DerivationStrategy.ToString();
-			if(strategy.Length > 35)
-			{
-				strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
-			}
+			string strategy = Match.DerivationStrategy.ToPrettyStrategyString();
 			var txId = Match.Transaction.GetHash().ToString();
 			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
 			return $"{CryptoCode}: Money received in {strategy} in transaction {txId} ({conf})";

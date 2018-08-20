@@ -37,6 +37,7 @@ namespace NBXplorer.Controllers
 			ChainProvider chainProvider,
 			EventAggregator eventAggregator,
 			BitcoinDWaitersAccessor waiters,
+			AddressPoolServiceAccessor addressPoolService,
 			IOptions<MvcJsonOptions> jsonOptions)
 		{
 			RepositoryProvider = repositoryProvider;
@@ -44,6 +45,7 @@ namespace NBXplorer.Controllers
 			_SerializerSettings = jsonOptions.Value.SerializerSettings;
 			_EventAggregator = eventAggregator;
 			Waiters = waiters.Instance;
+			AddressPoolService = addressPoolService.Instance;
 		}
 
 		EventAggregator _EventAggregator;
@@ -51,6 +53,10 @@ namespace NBXplorer.Controllers
 		public BitcoinDWaiters Waiters
 		{
 			get; set;
+		}
+		public AddressPoolService AddressPoolService
+		{
+			get;
 		}
 		public RepositoryProvider RepositoryProvider
 		{
@@ -99,6 +105,15 @@ namespace NBXplorer.Controllers
 			try
 			{
 				var result = await repository.GetUnused(strategy, feature, skip, reserve);
+				if(reserve)
+				{
+					while(result == null && skip < repository.MinPoolSize)
+					{
+						await repository.RefillAddressPoolIfNeeded(strategy, feature);
+						result = await repository.GetUnused(strategy, feature, skip, reserve);
+					}
+					AddressPoolService.RefillAddressPoolIfNeeded(network, strategy, feature);
+				}
 				if(result == null)
 					throw new NBXplorerError(404, "strategy-not-found", $"This strategy is not tracked, or you tried to skip too much unused addresses").AsException();
 				return result;
@@ -348,7 +363,7 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationStrategy}")]
-		public IActionResult TrackWallet(
+		public async Task<IActionResult> TrackWallet(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DestinationModelBinder))]
 			DerivationStrategyBase derivationStrategy)
@@ -356,7 +371,11 @@ namespace NBXplorer.Controllers
 			if(derivationStrategy == null)
 				return NotFound();
 			var network = GetNetwork(cryptoCode, false);
-			RepositoryProvider.GetRepository(network).Track(derivationStrategy);
+			foreach(var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
+			{
+				await RepositoryProvider.GetRepository(network).RefillAddressPoolIfNeeded(derivationStrategy, feature, 1);
+				AddressPoolService.RefillAddressPoolIfNeeded(network, derivationStrategy, feature);
+			}
 			return Ok();
 		}
 
@@ -508,7 +527,9 @@ namespace NBXplorer.Controllers
 				foreach(var tx in txs)
 				{
 					var matches = repo.GetMatches(tx.Transaction).Select(m => new MatchedTransaction() { BlockId = txs.Key, Match = m }).ToArray();
+					repo.MarkAsUsed(matches.SelectMany(o => o.Match.Outputs).ToArray());
 					repo.SaveMatches(tx.BlockTime, matches);
+					AddressPoolService.RefillAddressPoolIfNeeded(network, matches);
 				}
 			}
 

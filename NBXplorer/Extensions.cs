@@ -27,6 +27,7 @@ using System.Threading;
 using Microsoft.AspNetCore.Authentication;
 using NBXplorer.Authentication;
 using NBitcoin.DataEncoders;
+using System.Text.RegularExpressions;
 
 namespace NBXplorer
 {
@@ -170,6 +171,8 @@ namespace NBXplorer
 			services.TryAddSingleton<CookieRepository>();
 			services.TryAddSingleton<RepositoryProvider>();
 			services.TryAddSingleton<EventAggregator>();
+			services.TryAddSingleton<AddressPoolServiceAccessor>();
+			services.AddSingleton<IHostedService, AddressPoolService>();
 			services.TryAddSingleton<BitcoinDWaitersAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
 
@@ -191,6 +194,16 @@ namespace NBXplorer
 				o.LoadArgs(conf);
 			});
 			return services;
+		}
+
+		internal static string ToPrettyStrategyString(this DerivationStrategyBase strat)
+		{
+			var strategy = strat.ToString();
+			if(strategy.Length > 35)
+			{
+				strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
+			}
+			return strategy;
 		}
 
 		internal class NoObjectModelValidator : IObjectModelValidator

@@ -42,6 +42,7 @@ namespace NBXplorer
 		Dictionary<string, BitcoinDWaiter> _Waiters;
 		public BitcoinDWaiters(
 							BitcoinDWaitersAccessor accessor,
+							AddressPoolServiceAccessor addressPool,
 								NBXplorerNetworkProvider networkProvider,
 							  ChainProvider chains,
 							  RepositoryProvider repositoryProvider,
@@ -62,6 +63,7 @@ namespace NBXplorer
 												networkProvider.GetFromCryptoCode(s.Network.CryptoCode),
 												s.Chain,
 												s.Repository,
+												addressPool.Instance,
 												eventAggregator))
 				.ToDictionary(s => s.Network.CryptoCode, s => s);
 		}
@@ -96,6 +98,7 @@ namespace NBXplorer
 		RPCClient _RPC;
 		NBXplorerNetwork _Network;
 		ExplorerConfiguration _Configuration;
+		private readonly AddressPoolService _AddressPoolService;
 		SlimChain _Chain;
 		private Repository _Repository;
 		EventAggregator _EventAggregator;
@@ -107,10 +110,14 @@ namespace NBXplorer
 			NBXplorerNetwork network,
 			SlimChain chain,
 			Repository repository,
+			AddressPoolService addressPoolService,
 			EventAggregator eventAggregator)
 		{
+			if(addressPoolService == null)
+				throw new ArgumentNullException(nameof(addressPoolService));
 			_RPC = rpc;
 			_Configuration = configuration;
+			_AddressPoolService = addressPoolService;
 			_Network = network;
 			_Chain = chain;
 			_Repository = repository;
@@ -385,7 +392,7 @@ namespace NBXplorer
 						PeersToDiscover = 1,
 						Mode = AddressManagerBehaviorMode.None
 					},
-					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = _ChainConfiguration.StartHeight },
+					new ExplorerBehavior(_Repository, _Chain, _AddressPoolService, _EventAggregator) { StartHeight = _ChainConfiguration.StartHeight },
 					new SlimChainBehavior(_Chain),
 					new PingPongBehavior()
 				}

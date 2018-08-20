@@ -104,7 +104,7 @@ namespace NBXplorer
 
 			public async Task<T> DoAsync<T>(Func<T> act)
 			{
-				TaskCompletionSource<object> done = new TaskCompletionSource<object>();
+				TaskCompletionSource<object> done = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
 				_Actions.Add((() =>
 				{
 					try
@@ -576,28 +576,33 @@ namespace NBXplorer
 				{
 					availableTable.RemoveKey((int)keyInfo.KeyPath.Indexes.Last());
 					reservedTable.Insert((int)keyInfo.KeyPath.Indexes.Last(), rows[0].Value);
-					RefillAvailable(tx, strategy, derivationFeature);
 					tx.Commit();
 				}
 				return keyInfo;
 			});
 		}
 
-		private void RefillAvailable(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
+		int GetAddressToGenerateCount(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
 			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
 			var highestTable = GetHighestPathIndex(tx, strategy, derivationFeature);
 			var currentlyAvailable = availableTable.Count();
 			if(currentlyAvailable >= MinPoolSize)
-				return;
+				return 0;
+			return Math.Max(0, MaxPoolSize - currentlyAvailable);
+		}
 
-			int generatedCount = 0;
+		private void RefillAvailable(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature, int toGenerate)
+		{
+			if(toGenerate <= 0)
+				return;
+			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
+			var highestTable = GetHighestPathIndex(tx, strategy, derivationFeature);
 			int highestGenerated = highestTable.SelectInt(0) ?? -1;
 			var feature = strategy.GetLineFor(derivationFeature);
-			while(currentlyAvailable + generatedCount < MaxPoolSize)
+			for(int i = 0; i < toGenerate; i++)
 			{
-				generatedCount++;
-				var index = highestGenerated + generatedCount;
+				var index = highestGenerated + i + 1;
 				var derivation = feature.Derive((uint)index);
 				var info = new KeyPathInformation()
 				{
@@ -611,8 +616,18 @@ namespace NBXplorer
 				GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{strategy.GetHash()}-{derivationFeature}", bytes);
 				availableTable.Insert(index, bytes);
 			}
-			if(generatedCount != 0)
-				highestTable.Insert(0, highestGenerated + generatedCount);
+			highestTable.Insert(0, highestGenerated + toGenerate);
+		}
+
+		public Task<int> RefillAddressPoolIfNeeded(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int maxAddreses = int.MaxValue)
+		{
+			return _Engine.DoAsync((tx) =>
+			{
+				var toGenerate = GetAddressToGenerateCount(tx, strategy, derivationFeature);
+				toGenerate = Math.Min(maxAddreses, toGenerate);
+				RefillAvailable(tx, strategy, derivationFeature, toGenerate);
+				return toGenerate;
+			});
 		}
 
 		class TimeStampedTransaction : IBitcoinSerializable
@@ -835,7 +850,6 @@ namespace NBXplorer
 					{
 						reservedIndex.RemoveKey(index);
 					}
-					RefillAvailable(tx, info.DerivationStrategy, info.Feature);
 				}
 				tx.Commit();
 			});
@@ -1195,18 +1209,6 @@ namespace NBXplorer
 				{
 					var k = tracked.GetRowKey();
 					table.RemoveKey(k);
-				}
-				tx.Commit();
-			});
-		}
-
-		public void Track(DerivationStrategyBase strategy)
-		{
-			_Engine.Do(tx =>
-			{
-				foreach(var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
-				{
-					RefillAvailable(tx, strategy, feature);
 				}
 				tx.Commit();
 			});
