@@ -161,6 +161,25 @@ this should return a JSON payload e.g.
     "blockCount": 3
 }
 
+## Message Brokers
+### Azure Service Bus
+Support has been added for Azure Service Bus as a message broker. Currently only 2 queues are supported
+
+* New Block
+* New Transaction
+
+Block messages are filtered based on the Crypto currency filter in the config file. All Transactions for registered Derivation Schemes will be reported. 
+
+To activate Azure Service Bus Mesages you should add an Azure Service Bus Connection string to your config file or on the command line. You can optionally specify the queue names, or they will be defaulted.
+
+#### Config Settings
+asbcnstr="[Your Azure Service Bus Connection string]"
+asbblockq="[Name of queue to send New Block message to]" (default : newblock)
+asbtranq="[Name of queue to send New Transaction message to]" (default: newtransaction)
+
+Payloads are JSON , defined in JBlock and JSimpleTransaction classes.
+
+
 #### Troubleshooting
 If you receive a 401 Unauthorized then your cookie data is not working. Check you are using the current cookie by opening the cookie file again - also check the date/time of the cookie file to ensure it is the latest cookie (generated when you launched NBXplorer).
 
