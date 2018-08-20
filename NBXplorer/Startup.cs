@@ -1,34 +1,22 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
-using Microsoft.AspNetCore.Mvc;
-using NBitcoin.JsonConverters;
-using Microsoft.Extensions.Options;
-using Microsoft.Net.Http.Headers;
-using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.AspNetCore.Http.Features;
-using NBXplorer.Filters;
 using NBXplorer.Logging;
-using Microsoft.AspNetCore.Authentication;
-using NBXplorer.Authentication;
+using Microsoft.Extensions.Hosting;
 
 namespace NBXplorer
 {
 	public class Startup
 	{
-		public Startup(IConfiguration conf, IHostingEnvironment env)
+		public Startup(IConfiguration conf, Microsoft.Extensions.Hosting.IHostingEnvironment env)
 		{
 			Configuration = conf;
 			_Env = env;
 		}
-		IHostingEnvironment _Env;
+		Microsoft.Extensions.Hosting.IHostingEnvironment _Env;
 		public IConfiguration Configuration
 		{
 			get;
@@ -38,15 +26,17 @@ namespace NBXplorer
 		{
 			services.AddNBXplorer();
 			services.ConfigureNBxplorer(Configuration);
+			services.AddMessageBrokers(Configuration);
 			services.AddMvcCore()
 				.AddJsonFormatters()
 				.AddAuthorization()
 				.AddFormatterMappings();
 			services.AddAuthentication("Basic")
 				.AddNBXplorerAuthentication();
+			
 		}
 
-		public void Configure(IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider,
+		public void Configure(IApplicationBuilder app, IServiceProvider prov, Microsoft.Extensions.Hosting.IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider,
 			CookieRepository cookieRepository)
 		{
 			cookieRepository.Initialize();

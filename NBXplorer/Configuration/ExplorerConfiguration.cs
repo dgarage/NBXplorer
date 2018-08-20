@@ -1,17 +1,12 @@
-﻿using System;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Linq;
-using System.Collections.Generic;
-using System.Text;
-using NBitcoin;
-using System.IO;
-using System.Net;
-using NBXplorer.Logging;
-using NBitcoin.Protocol;
-using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Ini;
+using NBXplorer.Logging;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
 
 namespace NBXplorer.Configuration
 {
@@ -144,6 +139,11 @@ namespace NBXplorer.Configuration
 				Directory.CreateDirectory(DataDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
+
+			AzureServiceBusBlockQueue = config.GetOrDefault<string>("asbblockq", "newblock");
+			AzureServiceBusTransactionQueue = config.GetOrDefault<string>("asbtranq", "newtransaction");
+			AzureServiceBusConnectionString = config.GetOrDefault<string>("asbcnstr", "");
+
 			return this;
 		}
 
@@ -158,6 +158,24 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public bool NoAuthentication
+		{
+			get;
+			set;
+		}
+
+		public string AzureServiceBusConnectionString
+		{
+			get;
+			set;
+		}
+
+		public string AzureServiceBusBlockQueue
+		{
+			get;
+			set;
+		}
+
+		public string AzureServiceBusTransactionQueue
 		{
 			get;
 			set;
