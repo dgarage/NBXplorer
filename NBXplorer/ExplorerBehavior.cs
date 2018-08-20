@@ -246,7 +246,6 @@ namespace NBXplorer
 		private void SaveMatches(TransactionMatch[] matches, uint256 blockHash)
 		{
 			DateTimeOffset now = DateTimeOffset.UtcNow;
-			Repository.MarkAsUsed(matches.SelectMany(m => m.Outputs).ToArray());
 			var matchedTransactions = matches.Select(m => new MatchedTransaction()
 			{
 				BlockId = blockHash,

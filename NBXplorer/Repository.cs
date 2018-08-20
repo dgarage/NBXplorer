@@ -829,32 +829,6 @@ namespace NBXplorer
 			get; set;
 		} = 30;
 
-		public void MarkAsUsed(KeyPathInformation[] infos)
-		{
-			if(infos.Length == 0)
-				return;
-			_Engine.Do(tx =>
-			{
-				foreach(var info in infos)
-				{
-					var availableIndex = GetAvailableKeysIndex(tx, info.DerivationStrategy, info.Feature);
-					var reservedIndex = GetReservedKeysIndex(tx, info.DerivationStrategy, info.Feature);
-					var index = (int)info.KeyPath.Indexes.Last();
-					var bytes = availableIndex.SelectBytes(index);
-					if(bytes != null)
-					{
-						availableIndex.RemoveKey(index);
-					}
-					bytes = reservedIndex.SelectBytes(index);
-					if(bytes != null)
-					{
-						reservedIndex.RemoveKey(index);
-					}
-				}
-				tx.Commit();
-			});
-		}
-
 		public TrackedTransaction[] GetTransactions(DerivationStrategyBase pubkey)
 		{
 
@@ -1171,8 +1145,25 @@ namespace NBXplorer
 				foreach(var group in groups)
 				{
 					var table = GetTransactionsIndex(tx, group.Key);
+
 					foreach(var value in group)
 					{
+						foreach(var info in value.Match.Outputs)
+						{
+							var availableIndex = GetAvailableKeysIndex(tx, group.Key, info.Feature);
+							var reservedIndex = GetReservedKeysIndex(tx, group.Key, info.Feature);
+							var index = (int)info.KeyPath.Indexes.Last();
+							var bytes = availableIndex.SelectBytes(index);
+							if(bytes != null)
+							{
+								availableIndex.RemoveKey(index);
+							}
+							bytes = reservedIndex.SelectBytes(index);
+							if(bytes != null)
+							{
+								reservedIndex.RemoveKey(index);
+							}
+						}
 						var ticksCount = now.UtcTicks;
 						var ms = new MemoryStream();
 						BitcoinStream bs = new BitcoinStream(ms, true);

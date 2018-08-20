@@ -90,7 +90,7 @@ namespace NBXplorer.Tests
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
 
-			tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/5")));
+			MarkAsUsed(tester.Repository, dummy, new KeyPath("1/5"));
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(25).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/25"), keyInfo.KeyPath);
@@ -105,11 +105,11 @@ namespace NBXplorer.Tests
 			for(int i = 0; i < 10; i++)
 			{
 				Assert.Equal(0, tester.Repository.RefillAddressPoolIfNeeded(dummy, DerivationFeature.Deposit).Result);
-				tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/" + i)));
+				MarkAsUsed(tester.Repository, dummy, new KeyPath("1/" + i));
 			}
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
-			tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/10")));
+			MarkAsUsed(tester.Repository, dummy, new KeyPath("1/10"));
 			Assert.Equal(11, tester.Repository.RefillAddressPoolIfNeeded(dummy, DerivationFeature.Deposit).Result);
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.NotNull(keyInfo);
@@ -121,7 +121,7 @@ namespace NBXplorer.Tests
 			Assert.Null(keyInfo);
 
 			//No op
-			tester.Repository.MarkAsUsed(CreateKeyPathInformation((DirectDerivationStrategy)dummy, new KeyPath("1/6")));
+			MarkAsUsed(tester.Repository, dummy, new KeyPath("1/6"));
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Change).Derive(29).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("1/29"), keyInfo.KeyPath);
@@ -130,9 +130,28 @@ namespace NBXplorer.Tests
 			Assert.Null(keyInfo);
 		}
 
-		private static KeyPathInformation[] CreateKeyPathInformation(DirectDerivationStrategy pubKey, KeyPath keyPath)
+		private static void MarkAsUsed(Repository repository, DerivationStrategyBase strat, KeyPath keyPath)
 		{
-			return new[] { new KeyPathInformation() { Feature = DerivationFeature.Deposit, DerivationStrategy = pubKey, KeyPath = keyPath } };
+			repository.SaveMatches(DateTimeOffset.UtcNow,
+				new[] {
+					new MatchedTransaction()
+					{
+						Match = new TransactionMatch()
+						{
+							DerivationStrategy = strat,
+							Transaction = repository.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction(),
+							Outputs = new List<KeyPathInformation>
+							{
+								new KeyPathInformation()
+								{
+									Feature = DerivationFeature.Deposit,
+									DerivationStrategy = strat,
+									KeyPath = keyPath
+								}
+							}
+						}
+					}
+				});
 		}
 
 		[Fact]

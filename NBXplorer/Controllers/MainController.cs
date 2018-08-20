@@ -527,7 +527,6 @@ namespace NBXplorer.Controllers
 				foreach(var tx in txs)
 				{
 					var matches = repo.GetMatches(tx.Transaction).Select(m => new MatchedTransaction() { BlockId = txs.Key, Match = m }).ToArray();
-					repo.MarkAsUsed(matches.SelectMany(o => o.Match.Outputs).ToArray());
 					repo.SaveMatches(tx.BlockTime, matches);
 					AddressPoolService.RefillAddressPoolIfNeeded(network, matches);
 				}
