@@ -1,23 +1,7 @@
-﻿using NBXplorer.DerivationStrategy;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace NBXplorer.Models
+﻿namespace NBXplorer.Models
 {
-    public class NewTransactionEventRequest
+	public class NewTransactionEventRequest : NewEventBase
     {
-		public NewTransactionEventRequest()
-		{
-
-		}
-		public string CryptoCode
-		{
-			get; set;
-		}
-		public string[] DerivationSchemes
-		{
-			get; set;
-		}
+		public string[] DerivationSchemes { get; set; }
 	}
 }

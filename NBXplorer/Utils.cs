@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -59,6 +60,24 @@ namespace NBXplorer
 				result.Add(elem.Key);
 			}
 			return result;
+		}
+
+		public static TransactionResult ToTransactionResult(bool includeTransaction, SlimChain chain, Repository.SavedTransaction[] result)
+		{
+			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
+			var oldest = result
+							.Where(o => o.Timestamp != noDate)
+							.OrderBy(o => o.Timestamp).FirstOrDefault() ?? result.First();
+
+			var confBlock = result
+						.Where(r => r.BlockHash != null)
+						.Select(r => chain.GetBlock(r.BlockHash))
+						.Where(r => r != null)
+						.FirstOrDefault();
+
+			var conf = confBlock == null ? 0 : chain.Height - confBlock.Height + 1;
+
+			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
 		}
 	}
 }

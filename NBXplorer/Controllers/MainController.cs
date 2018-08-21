@@ -1,29 +1,25 @@
-﻿using NBXplorer.Logging;
-using NBXplorer.ModelBinders;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NBitcoin;
-using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
+using NBXplorer.DerivationStrategy;
+using NBXplorer.Events;
+using NBXplorer.Logging;
+using NBXplorer.ModelBinders;
+using NBXplorer.Models;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Text;
+using System.Net.WebSockets;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using NBXplorer.DerivationStrategy;
-using NBXplorer.Models;
-using Microsoft.AspNetCore.Authorization;
-using Newtonsoft.Json.Linq;
-using NBXplorer.Events;
-using NBXplorer.Configuration;
-using System.Net.WebSockets;
-using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
-using System.Collections.Concurrent;
-using System.Reflection;
+using NBXplorer;
 
 namespace NBXplorer.Controllers
 {
@@ -265,7 +261,7 @@ namespace NBXplorer.Controllers
 						CryptoCode = o.CryptoCode,
 						DerivationStrategy = o.Match.DerivationStrategy,
 						BlockId = blockHeader?.Hash,
-						TransactionData = ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
+						TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
 						Inputs = o.Match.Inputs,
 						Outputs = o.Match.Outputs
 					});
@@ -325,25 +321,7 @@ namespace NBXplorer.Controllers
 			var result = RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if(result.Length == 0)
 				return NotFound();
-			return Json(ToTransactionResult(includeTransaction, chain, result));
-		}
-
-		private TransactionResult ToTransactionResult(bool includeTransaction, SlimChain chain, Repository.SavedTransaction[] result)
-		{
-			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
-			var oldest = result
-							.Where(o => o.Timestamp != noDate)
-							.OrderBy(o => o.Timestamp).FirstOrDefault() ?? result.First();
-
-			var confBlock = result
-						.Where(r => r.BlockHash != null)
-						.Select(r => chain.GetBlock(r.BlockHash))
-						.Where(r => r != null)
-						.FirstOrDefault();
-
-			var conf = confBlock == null ? 0 : chain.Height - confBlock.Height + 1;
-
-			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			return Json(Utils.ToTransactionResult(includeTransaction, chain, result));
 		}
 
 		[HttpPost]

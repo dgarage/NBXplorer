@@ -157,16 +157,6 @@ namespace NBXplorer
 			});
 		}
 
-		public static IServiceCollection AddMessageBrokers(this IServiceCollection services,IConfiguration config )
-		{
-			//There must be a better way to do this ! IoC container should be able to inject config.
-
-			if (!string.IsNullOrWhiteSpace(config["asbcnstr"]))
-				services.AddSingleton<IHostedService, AzureServiceBus>();
-
-			return services;
-		}
-
 
 		public static IServiceCollection AddNBXplorer(this IServiceCollection services)
 		{
@@ -184,7 +174,7 @@ namespace NBXplorer
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<BitcoinDWaitersAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
-			
+			services.AddSingleton<IHostedService, AzureServiceBus>();
 
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 

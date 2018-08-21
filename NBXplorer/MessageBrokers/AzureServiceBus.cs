@@ -27,8 +27,9 @@ namespace NBXplorer.MessageBrokers
 		IQueueClient			_queueBlk;
 		IQueueClient			_queueTran;
 		ExplorerConfiguration	_config;
+		JsonSerializerSettings _serializerSettings;
 
-		public AzureServiceBus(BitcoinDWaitersAccessor waiters, ChainProvider chainProvider,EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config)
+		public AzureServiceBus(BitcoinDWaitersAccessor waiters, ChainProvider chainProvider,EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, JsonSerializerSettings serializerSettings)
 		{ 
 			_EventAggregator = eventAggregator;			
 			ChainProvider = chainProvider;
@@ -36,6 +37,7 @@ namespace NBXplorer.MessageBrokers
 			_config = config.Value;
 			_queueBlk = new QueueClient(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockQueue);
 			_queueTran = new QueueClient(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionQueue);
+			_serializerSettings = serializerSettings;
 		}
 		
 		public async Task StartAsync(CancellationToken cancellationToken)
@@ -43,6 +45,12 @@ namespace NBXplorer.MessageBrokers
 			if (_Disposed)
 				throw new ObjectDisposedException(nameof(AzureServiceBus));
 
+			if (string.IsNullOrWhiteSpace(_config.AzureServiceBusConnectionString))
+			{
+				Logs.Explorer.LogInformation("[Azure Service Bus] No connection string configured - Azure service bus will not be used");
+				return;
+			}
+				
 
 			string listenAllDerivationSchemes	= null;
 			var	listenedBlocks					= new ConcurrentDictionary<string, string>();
@@ -57,18 +65,18 @@ namespace NBXplorer.MessageBrokers
 						return;
 					var block = chain.GetBlock(o.BlockId);
 					if (block != null)
-					{						
-						var jblock = new JBlock()
+					{
+						var nbe = new Models.NewBlockEvent()
 						{
 							CryptoCode = o.CryptoCode,
-							Hash = block.Hash.ToString(),
+							Hash = block.Hash,
 							Height = block.Height,
-							PreviousBlockHash = block?.Previous.ToString()
+							PreviousBlockHash = block?.Previous
 						};
 
-						var jsonBlock = JsonConvert.SerializeObject(jblock);
-						var message = new Message(Encoding.UTF8.GetBytes(jsonBlock));
-						message.MessageId = block.Hash.ToString();							//Used for duplicate detection, if required.
+						var bytes = Encoding.UTF8.GetBytes(nbe.ToJObject(_serializerSettings).ToString());
+						var message = new Message(bytes);
+						message.MessageId = block.Hash.ToString();			//Used for duplicate detection, if required.
 						await _queueBlk.SendAsync(message);
 					}
 				}
@@ -89,49 +97,21 @@ namespace NBXplorer.MessageBrokers
 						return;
 
 					var blockHeader = o.BlockId == null ? null : chain.GetBlock(o.BlockId);
-					var transactionData = ToTransactionResult(true, chain, new[] { o.SavedTransaction });
+					//var transactionData = ToTransactionResult(true, chain, new[] { o.SavedTransaction });
 
-					var inputs = new List<JInput>();
-					foreach (var ti in transactionData.Transaction.Inputs)
-					{
-						var ji = new JInput()
-						{
-							Address = ti.ScriptSig.Hash.ToString()
-						};
-						inputs.Add(ji);
-					};
-
-
-					var outputs = new List<JOutput>();
-
-					foreach(var to in transactionData.Transaction.Outputs)
-					{
-						var jo = new JOutput()
-						{
-							Address = to.ScriptPubKey.GetDestinationAddress(network.Network.NBitcoinNetwork).ToString(),
-							Value = to.Value.ToDecimal(MoneyUnit.Satoshi)
-						};
-
-						outputs.Add(jo);
-					}
-
-					var tx = new JSimpleTransaction()
+					var txe =  new Models.NewTransactionEvent()
 					{
 						CryptoCode = o.CryptoCode,
-						BlockId = blockHeader?.Hash.ToString(),
-						Confirmations = transactionData.Confirmations,
-						Height = transactionData.Height,
-						Timestamp = transactionData.Timestamp,
-						TotalOut = transactionData.Transaction.TotalOut.ToDecimal(MoneyUnit.Satoshi),
-						Version = transactionData.Transaction.Version,
-						Inputs = inputs,
-						Outputs = outputs,
-						DerivationStrategy = o.Match.DerivationStrategy.ToString()
+						DerivationStrategy = o.Match.DerivationStrategy,
+						BlockId = blockHeader?.Hash,
+						TransactionData = Utils.ToTransactionResult(true, chain, new[] { o.SavedTransaction }),
+						Inputs = o.Match.Inputs,
+						Outputs = o.Match.Outputs
 					};
 
+					var bytes = Encoding.UTF8.GetBytes(txe.ToJObject(_serializerSettings).ToString());
 
-					var jsonTran= JsonConvert.SerializeObject(tx);
-					var message = new Microsoft.Azure.ServiceBus.Message(Encoding.UTF8.GetBytes(jsonTran));
+					var message = new Microsoft.Azure.ServiceBus.Message(bytes);
 					message.MessageId = o.SavedTransaction.GetHashCode().ToString();
 					await _queueTran.SendAsync(message);
 				}

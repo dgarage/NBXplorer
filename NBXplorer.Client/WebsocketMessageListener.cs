@@ -5,6 +5,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NBXplorer.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -105,17 +106,18 @@ namespace NBXplorer
 			return ExtensionsClient.ParseNotificationMessage(str, _SerializerSettings);
 		}
 
-		public async Task Send<T>(T evt, CancellationToken cancellation = default)
+		public async Task Send(NewEventBase evt, CancellationToken cancellation = default)
 		{
-			var typeName = ExtensionsClient.GetNotificationMessageTypeName(evt.GetType());
-			if(typeName == null)
-				throw new InvalidOperationException($"{evt.GetType().Name} does not have an associated typeName");
-			JObject jobj = new JObject();
-			var serialized = JsonConvert.SerializeObject(evt, _SerializerSettings);
-			var data = JObject.Parse(serialized);
-			jobj.Add(new JProperty("type", new JValue(typeName)));
-			jobj.Add(new JProperty("data", data));
-			var bytes = UTF8.GetBytes(jobj.ToString());
+			//var typeName = ExtensionsClient.GetNotificationMessageTypeName(evt.GetType());
+			//if(typeName == null)
+			//	throw new InvalidOperationException($"{evt.GetType().Name} does not have an associated typeName");
+			//JObject jobj = new JObject();
+			//var serialized = JsonConvert.SerializeObject(evt, _SerializerSettings);
+			//var data = JObject.Parse(serialized);
+			//jobj.Add(new JProperty("type", new JValue(typeName)));
+			//jobj.Add(new JProperty("data", data
+			
+			var bytes = UTF8.GetBytes(evt.ToJObject(_SerializerSettings).ToString());
 
 			using(var cts = new CancellationTokenSource(5000))
 			{

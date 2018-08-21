@@ -1,20 +1,7 @@
-﻿using NBitcoin;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace NBXplorer.Models
+﻿namespace NBXplorer.Models
 {
-    public class NewBlockEventRequest
+	public class NewBlockEventRequest : NewEventBase
     {
-		public NewBlockEventRequest()
-		{
-
-		}
-
-		public String CryptoCode
-		{
-			get; set;
-		}
+		
 	}
 }
