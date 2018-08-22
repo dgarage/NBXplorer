@@ -103,6 +103,11 @@ namespace NBXplorer.Tests
 				keyValues.Add(("maxgapsize", "4"));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
+				keyValues.Add(("asbcnstr", AzureServiceBusTestConfig.ConnectionString));
+				keyValues.Add(("asbblockq", AzureServiceBusTestConfig.NewBlockQueue));
+				keyValues.Add(("asbtranq", AzureServiceBusTestConfig.NewTransactionQueue));
+				keyValues.Add(("asbblockt", AzureServiceBusTestConfig.NewBlockTopic));
+				keyValues.Add(("asbtrant", AzureServiceBusTestConfig.NewTransactionTopic));
 
 				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
 				Host = new WebHostBuilder()

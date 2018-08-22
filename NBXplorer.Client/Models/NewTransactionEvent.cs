@@ -6,7 +6,7 @@ using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Models
 {
-	public class NewTransactionEvent
+	public class NewTransactionEvent : NewEventBase
 	{
 		public uint256 BlockId
 		{
@@ -32,11 +32,7 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		} = new List<KeyPathInformation>();
-		public string CryptoCode
-		{
-			get;
-			set;
-		}
+
 
 		public TransactionMatch AsMatch()
 		{

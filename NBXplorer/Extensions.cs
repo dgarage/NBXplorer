@@ -28,6 +28,7 @@ using Microsoft.AspNetCore.Authentication;
 using NBXplorer.Authentication;
 using NBitcoin.DataEncoders;
 using System.Text.RegularExpressions;
+using NBXplorer.MessageBrokers;
 
 namespace NBXplorer
 {
@@ -175,6 +176,7 @@ namespace NBXplorer
 			services.AddSingleton<IHostedService, AddressPoolService>();
 			services.TryAddSingleton<BitcoinDWaitersAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
+			services.AddSingleton<IHostedService, AzureServiceBus>();
 
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 
