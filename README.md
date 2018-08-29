@@ -10,16 +10,16 @@ This explorer is not meant to be exposed on internet, but should be used as an i
 
 It currently supports:
 
-* Bitcoin
-* Litecoin
-* Dogecoin
-* Groestlcoin
-* Dash
-* Polis
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
-* Monacoin
+* Bitcoin
+* Dash
+* Dogecoin
 * Feathercoin
+* Groestlcoin
+* Litecoin
+* Monacoin
+* Polis
 * Ufo
 * Viacoin
 
