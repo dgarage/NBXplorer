@@ -280,7 +280,7 @@ namespace NBXplorer.Controllers
 						CryptoCode = o.CryptoCode,
 						DerivationStrategy = o.Match.DerivationStrategy,
 						BlockId = blockHeader?.Hash,
-						TransactionData = ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
+						TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
 						Inputs = o.Match.Inputs,
 						Outputs = o.Match.Outputs
 					});
@@ -340,25 +340,7 @@ namespace NBXplorer.Controllers
 			var result = RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if(result.Length == 0)
 				return NotFound();
-			return Json(ToTransactionResult(includeTransaction, chain, result));
-		}
-
-		private TransactionResult ToTransactionResult(bool includeTransaction, SlimChain chain, Repository.SavedTransaction[] result)
-		{
-			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
-			var oldest = result
-							.Where(o => o.Timestamp != noDate)
-							.OrderBy(o => o.Timestamp).FirstOrDefault() ?? result.First();
-
-			var confBlock = result
-						.Where(r => r.BlockHash != null)
-						.Select(r => chain.GetBlock(r.BlockHash))
-						.Where(r => r != null)
-						.FirstOrDefault();
-
-			var conf = confBlock == null ? 0 : chain.Height - confBlock.Height + 1;
-
-			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			return Json(Utils.ToTransactionResult(includeTransaction, chain, result));
 		}
 
 		[HttpPost]

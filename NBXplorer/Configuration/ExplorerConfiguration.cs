@@ -144,6 +144,13 @@ namespace NBXplorer.Configuration
 				Directory.CreateDirectory(DataDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
+
+			AzureServiceBusConnectionString = config.GetOrDefault<string>("asbcnstr", "");
+			AzureServiceBusBlockQueue = config.GetOrDefault<string>("asbblockq", "");
+			AzureServiceBusTransactionQueue = config.GetOrDefault<string>("asbtranq", "");
+			AzureServiceBusBlockTopic = config.GetOrDefault<string>("asbblockt", "");
+			AzureServiceBusTransactionTopic = config.GetOrDefault<string>("asbtrant", "");
+
 			return this;
 		}
 
@@ -158,6 +165,34 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public bool NoAuthentication
+		{
+			get;
+			set;
+		}
+		public string AzureServiceBusConnectionString
+		{
+			get;
+			set;
+		}
+
+		public string AzureServiceBusBlockQueue
+		{
+			get;
+			set;
+		}
+
+		public string AzureServiceBusBlockTopic
+		{
+			get;
+			set;
+		}
+
+		public string AzureServiceBusTransactionQueue
+		{
+			get;
+			set;
+		}
+		public string AzureServiceBusTransactionTopic
 		{
 			get;
 			set;
