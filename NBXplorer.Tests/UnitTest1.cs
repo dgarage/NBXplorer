@@ -731,7 +731,7 @@ namespace NBXplorer.Tests
 
 				tester.RPC.EnsureGenerate(1);
 
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.True(utxo.Confirmed.HasChanges);
 				Assert.Empty(utxo.Confirmed.SpentOutpoints);
