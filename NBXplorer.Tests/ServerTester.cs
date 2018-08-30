@@ -109,22 +109,22 @@ namespace NBXplorer.Tests
 				keyValues.Add(("transactionbroker.0.broker", "asb"));
 				keyValues.Add(("transactionbroker.0.connectionstring", AzureServiceBusTestConfig.ConnectionString));
 				keyValues.Add(("transactionbroker.0.endpoint", AzureServiceBusTestConfig.NewTransactionQueue));
-				keyValues.Add(("transactionbroker.0.broadcasttype", ((int)BroadcastType.Send).ToString()));
+				keyValues.Add(("transactionbroker.0.broadcasttype", "send"));
 
 				keyValues.Add(("transactionbroker.1.broker", "asb"));
 				keyValues.Add(("transactionbroker.1.connectionstring", AzureServiceBusTestConfig.ConnectionString));
 				keyValues.Add(("transactionbroker.1.endpoint", AzureServiceBusTestConfig.NewTransactionTopic));
-				keyValues.Add(("transactionbroker.1.broadcasttype", ((int)BroadcastType.Publish).ToString()));
+				keyValues.Add(("transactionbroker.1.broadcasttype", "publish"));
 
 				keyValues.Add(("blockbroker.0.broker", "asb"));
 				keyValues.Add(("blockbroker.0.connectionstring", AzureServiceBusTestConfig.ConnectionString));
 				keyValues.Add(("blockbroker.0.endpoint", AzureServiceBusTestConfig.NewBlockQueue));
-				keyValues.Add(("blockbroker.0.broadcasttype", ((int)BroadcastType.Send).ToString()));
+				keyValues.Add(("blockbroker.0.broadcasttype", "send"));
 
 				keyValues.Add(("blockbroker.1.broker", "asb"));
 				keyValues.Add(("blockbroker.1.connectionstring", AzureServiceBusTestConfig.ConnectionString));
 				keyValues.Add(("blockbroker.1.endpoint", AzureServiceBusTestConfig.NewBlockTopic));
-				keyValues.Add(("blockbroker.1.broadcasttype", ((int)BroadcastType.Publish).ToString()));
+				keyValues.Add(("blockbroker.1.broadcasttype", "publish"));
 
 				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
 				Host = new WebHostBuilder()

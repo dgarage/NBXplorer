@@ -193,9 +193,9 @@ namespace NBXplorer.Configuration
 					ConnectionString = configuration.GetOrDefault<string>($"{prefix}.{index}.connectionstring", ""),
 					Username = configuration.GetOrDefault<string>($"{prefix}.{index}.username", ""),
 					Password = configuration.GetOrDefault<string>($"{prefix}.{index}.password", ""),
-					BroadcastType =
-						configuration.GetOrDefault<BroadcastType>($"{prefix}.{index}.endspoint",
-							BroadcastType.Publish),
+					BroadcastType = 
+						configuration.GetOrDefault<string>($"{prefix}.{index}.broadcasttype", "publish") == "publish"? BroadcastType.Publish: BroadcastType.Send
+							
 				});
 			}
 
