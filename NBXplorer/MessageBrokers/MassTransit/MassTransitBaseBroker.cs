@@ -47,12 +47,15 @@ namespace NBXplorer.MessageBrokers.MassTransit
 		private void Init()
 		{
 			_bus = CreateBus();
-			if (!string.IsNullOrEmpty(_configuration.NewBlockEventEndpoint))
+			if (!string.IsNullOrEmpty(_configuration.Endpoint))
+			{
+
 				EndpointConvention.Map<NewBlockEvent>(
-					new Uri(_configuration.ConnectionString, _configuration.NewBlockEventEndpoint));
-			if (!string.IsNullOrEmpty(_configuration.NewTransactionEventEndpoint))
+					new Uri(_configuration.ConnectionString, _configuration.Endpoint));
 				EndpointConvention.Map<NewTransactionEvent>(new Uri(_configuration.ConnectionString,
-					_configuration.NewTransactionEventEndpoint));
+					_configuration.Endpoint));
+			}
+
 			_bus.Start();
 		}
 

@@ -45,7 +45,7 @@ namespace NBXplorer.Configuration
 			}
 			else
 			{
-				throw new NotSupportedException("Configuration value does not support time " + typeof(T).Name);
+				throw new NotSupportedException("Configuration value does not support type " + typeof(T).Name);
 			}
 		}
     }

@@ -9,9 +9,12 @@ using NBXplorer.Logging;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Internal;
+using NBXplorer.MessageBrokers.MassTransit;
 
 namespace NBXplorer.MessageBrokers
 {
@@ -89,12 +92,14 @@ namespace NBXplorer.MessageBrokers
 		IBrokerClient CreateClientTransaction()
 		{
 			var brokers = new List<IBrokerClient>();
-			if(!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
+
+			if (_config.TransactionEventBrokers != null && _config.TransactionEventBrokers.Any())
 			{
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionQueue))
-					brokers.Add(CreateAzureQueue(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionQueue));
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionTopic))
-					brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionTopic));
+				brokers.AddRange(_config.TransactionEventBrokers.Select(CreateFromBrokerConfiguration));
+			}
+			if (_config.BlockEventBrokers != null && _config.BlockEventBrokers.Any())
+			{
+				brokers.AddRange(_config.BlockEventBrokers.Select(CreateFromBrokerConfiguration));
 			}
 			return new CompositeBroker(brokers);
 		}
@@ -102,14 +107,41 @@ namespace NBXplorer.MessageBrokers
 		IBrokerClient CreateClientBlock()
 		{
 			var brokers = new List<IBrokerClient>();
-			if(!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
+
+			if (_config.BlockEventBrokers != null && _config.BlockEventBrokers.Any())
 			{
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockQueue))
-					brokers.Add(CreateAzureQueue(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockQueue));
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockTopic))
-					brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockTopic));
+				brokers.AddRange(_config.BlockEventBrokers.Select(CreateFromBrokerConfiguration));
 			}
 			return new CompositeBroker(brokers);
+		}
+
+		IBrokerClient CreateFromBrokerConfiguration(BrokerConfiguration configuration)
+		{
+			switch (configuration.Broker)
+			{
+				case "asb":
+					return configuration.BroadcastType == BroadcastType.Publish
+						? CreateAzureTopic(configuration.ConnectionString, configuration.Endpoint)
+						: CreateAzureQueue(configuration.ConnectionString, configuration.Endpoint);
+				case "mt-asb":
+					return CreateMassTransitClient(new MassTransitAzureServiceBusConfiguration()
+					{
+						Endpoint = configuration.Endpoint,
+						ConnectionString = new Uri(configuration.ConnectionString),
+						BroadcastType = configuration.BroadcastType
+					});
+				case "mt-rmq":
+					return CreateMassTransitClient(new MassTransitRabbitMessageQueueConfiguration()
+					{
+						Endpoint = configuration.Endpoint,
+						ConnectionString = new Uri(configuration.ConnectionString),
+						BroadcastType = configuration.BroadcastType,
+						Password = configuration.Password,
+						Username = configuration.Username
+					});
+				default:
+					throw  new ArgumentOutOfRangeException();
+			}
 		}
 
 		private IBrokerClient CreateAzureQueue(string connnectionString, string queueName)
@@ -120,6 +152,20 @@ namespace NBXplorer.MessageBrokers
 		private IBrokerClient CreateAzureTopic(string connectionString, string topicName)
 		{
 			return new AzureBroker(new TopicClient(connectionString, topicName), _serializerSettings);
+		}
+
+		public IBrokerClient CreateMassTransitClient(IMassTransitConfiguration configuration)
+		{
+			if (configuration is MassTransitAzureServiceBusConfiguration busConfiguration)
+			{
+				return new MassTransitAzureServiceBusBroker(_serializerSettings, busConfiguration);
+			}
+			else if (configuration is MassTransitRabbitMessageQueueConfiguration queueConfiguration)
+			{
+				return new MassTransitRabbitMessageQueueBroker(_serializerSettings, queueConfiguration);
+
+			}
+			throw new ArgumentOutOfRangeException();
 		}
 
 		public async Task StopAsync(CancellationToken cancellationToken)

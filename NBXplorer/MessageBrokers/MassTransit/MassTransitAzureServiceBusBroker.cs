@@ -5,14 +5,14 @@ using Newtonsoft.Json;
 
 namespace NBXplorer.MessageBrokers.MassTransit
 {
-	public class MassTransitAzureServiceBusBroker : MassTransitBaseBroker<MassTransitAzureServiceBusConfiugration>
+	public class MassTransitAzureServiceBusBroker : MassTransitBaseBroker<MassTransitAzureServiceBusConfiguration>
 	{
-		private readonly MassTransitAzureServiceBusConfiugration _configuration;
+		private readonly MassTransitAzureServiceBusConfiguration _configuration;
 		private readonly JsonSerializerSettings _jsonSerializerSettings;
 
 
 		public MassTransitAzureServiceBusBroker(JsonSerializerSettings jsonSerializerSettings,
-			MassTransitAzureServiceBusConfiugration configuration) : base(configuration)
+			MassTransitAzureServiceBusConfiguration configuration) : base(configuration)
 		{
 			_jsonSerializerSettings = jsonSerializerSettings;
 			_configuration = configuration;

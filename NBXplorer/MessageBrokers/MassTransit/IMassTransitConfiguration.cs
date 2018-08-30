@@ -6,7 +6,6 @@ namespace NBXplorer.MessageBrokers.MassTransit
 	{
 		Uri ConnectionString { get; set; }
 		BroadcastType BroadcastType { get; set; }
-		string NewTransactionEventEndpoint { get; set; }
-		string NewBlockEventEndpoint { get; set; }
+		string Endpoint { get; set; }
 	}
 }

@@ -12,6 +12,7 @@ using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Configuration.Ini;
+using NBXplorer.MessageBrokers.MassTransit;
 
 namespace NBXplorer.Configuration
 {
@@ -43,6 +44,8 @@ namespace NBXplorer.Configuration
 			set;
 		}
 	}
+
+	
 	public class ExplorerConfiguration
 	{
 		public string ConfigurationFile
@@ -145,12 +148,9 @@ namespace NBXplorer.Configuration
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 
-			AzureServiceBusConnectionString = config.GetOrDefault<string>("asbcnstr", "");
-			AzureServiceBusBlockQueue = config.GetOrDefault<string>("asbblockq", "");
-			AzureServiceBusTransactionQueue = config.GetOrDefault<string>("asbtranq", "");
-			AzureServiceBusBlockTopic = config.GetOrDefault<string>("asbblockt", "");
-			AzureServiceBusTransactionTopic = config.GetOrDefault<string>("asbtrant", "");
-
+			//TODO: set these from IConfiguration
+			TransactionEventBrokers = new List<BrokerConfiguration>();
+			BlockEventBrokers = new List<BrokerConfiguration>();
 			return this;
 		}
 
@@ -169,33 +169,20 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
-		public string AzureServiceBusConnectionString
-		{
-			get;
-			set;
-		}
-
-		public string AzureServiceBusBlockQueue
-		{
-			get;
-			set;
-		}
-
-		public string AzureServiceBusBlockTopic
-		{
-			get;
-			set;
-		}
-
-		public string AzureServiceBusTransactionQueue
-		{
-			get;
-			set;
-		}
-		public string AzureServiceBusTransactionTopic
-		{
-			get;
-			set;
-		}
+		
+		public IEnumerable<BrokerConfiguration> TransactionEventBrokers { get; set; }
+		public IEnumerable<BrokerConfiguration> BlockEventBrokers { get; set; }
 	}
+
+
+	public class BrokerConfiguration
+	{
+		public string Broker { get; set; }
+		public string ConnectionString { get; set; }
+		public string Username { get; set; }
+		public string Password { get; set; }
+		public BroadcastType BroadcastType { get; set; }
+		public string Endpoint { get; set; }
+	}
+
 }
