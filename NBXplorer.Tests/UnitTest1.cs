@@ -345,7 +345,7 @@ namespace NBXplorer.Tests
 			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.NewBlockSubscription), "Please Set Azure Service Bus NewBlock Subscription name in TestConfig.cs AzureServiceBusTestConfig Class. ");
 
 
-			using (var tester = ServerTester.Create())
+			using(var tester = ServerTester.Create())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -360,7 +360,10 @@ namespace NBXplorer.Tests
 				//We may have existing messages from other tests - push all message to a LIFO stack
 				var busMessages = new ConcurrentStack<Microsoft.Azure.ServiceBus.Message>();
 
-				var messageHandlerOptions = new MessageHandlerOptions((e) => { throw e.Exception; })
+				var messageHandlerOptions = new MessageHandlerOptions((e) =>
+				{
+					throw e.Exception;
+				})
 				{
 					// Maximum number of Concurrent calls to the callback `ProcessMessagesAsync`, set to 1 for simplicity.
 					// Set it according to how many messages the application wants to process in parallel.
@@ -372,7 +375,11 @@ namespace NBXplorer.Tests
 				};
 
 				//Service Bus Topic Message Handler
-				subscriptionClient.RegisterMessageHandler(async (m, t) => { busMessages.Push(m); await subscriptionClient.CompleteAsync(m.SystemProperties.LockToken); }, messageHandlerOptions);
+				subscriptionClient.RegisterMessageHandler(async (m, t) =>
+				{
+					busMessages.Push(m);
+					await subscriptionClient.CompleteAsync(m.SystemProperties.LockToken);
+				}, messageHandlerOptions);
 
 
 				//Test Service Bus Queue
@@ -383,7 +390,7 @@ namespace NBXplorer.Tests
 				Microsoft.Azure.ServiceBus.Message msg = null;
 
 				//Clear any existing messages from queue
-				while (await messageReceiver.PeekAsync() != null)
+				while(await messageReceiver.PeekAsync() != null)
 				{
 					// Batch the receive operation
 					var brokeredMessages = await messageReceiver.ReceiveAsync(300);
@@ -400,37 +407,25 @@ namespace NBXplorer.Tests
 				JsonSerializerSettings settings = new JsonSerializerSettings();
 				new Serializer(Network.RegTest).ConfigureSerializer(settings);
 
-				//Check Queue payload
-				if (msg != null)
-				{
-					Assert.Equal(msg.ContentType, typeof(NewBlockEvent).ToString());
+				Assert.True(msg != null, $"No message received on Azure Service Bus Block Queue : {AzureServiceBusTestConfig.NewBlockQueue} after 10 read attempts.");
 
-					var blockEventQ = JsonConvert.DeserializeObject<NewBlockEvent>(Encoding.UTF8.GetString(msg.Body), settings);
-					Assert.IsType<Models.NewBlockEvent>(blockEventQ);
-					Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(), msg.MessageId.ToUpperInvariant());
-					Assert.Equal(expectedBlockId, blockEventQ.Hash);
-					Assert.NotEqual(0, blockEventQ.Height);
-				}
-				else
-				{
-					throw new Exception($"No message received on Azure Service Bus Block Queue : {AzureServiceBusTestConfig.NewBlockQueue} after 10 read attempts.");
-				}
+				Assert.Equal(msg.ContentType, typeof(NewBlockEvent).ToString());
 
-				//Check Service Bus Topic Payload
-				if (busMessages.Count > 0)
-				{
-					Microsoft.Azure.ServiceBus.Message busMsg = null;
-					busMessages.TryPop(out busMsg);
-					var blockEventS = JsonConvert.DeserializeObject<Models.NewBlockEvent>(Encoding.UTF8.GetString(busMsg.Body), settings);
-					Assert.IsType<Models.NewBlockEvent>(blockEventS);
-					Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(), busMsg.MessageId.ToUpperInvariant());
-					Assert.Equal(expectedBlockId, blockEventS.Hash);
-					Assert.NotEqual(0, blockEventS.Height);
-				}
-				else
-				{
-					throw new Exception($"No message received on Azure Service Bus Block Topic : {AzureServiceBusTestConfig.NewBlockTopic}.");
-				}
+				var blockEventQ = JsonConvert.DeserializeObject<NewBlockEvent>(Encoding.UTF8.GetString(msg.Body), settings);
+				Assert.IsType<Models.NewBlockEvent>(blockEventQ);
+				Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(), msg.MessageId.ToUpperInvariant());
+				Assert.Equal(expectedBlockId, blockEventQ.Hash);
+				Assert.NotEqual(0, blockEventQ.Height);
+
+				await Task.Delay(1000);
+				Assert.True(busMessages.Count > 0, $"No message received on Azure Service Bus Block Topic : {AzureServiceBusTestConfig.NewBlockTopic}.");
+				Microsoft.Azure.ServiceBus.Message busMsg = null;
+				busMessages.TryPop(out busMsg);
+				var blockEventS = JsonConvert.DeserializeObject<Models.NewBlockEvent>(Encoding.UTF8.GetString(busMsg.Body), settings);
+				Assert.IsType<Models.NewBlockEvent>(blockEventS);
+				Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(), busMsg.MessageId.ToUpperInvariant());
+				Assert.Equal(expectedBlockId, blockEventS.Hash);
+				Assert.NotEqual(0, blockEventS.Height);
 			}
 		}
 
@@ -444,7 +439,7 @@ namespace NBXplorer.Tests
 			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.NewTransactionSubscription), "Please Set Azure Service Bus NewTransactionSubscription name in TestConfig.cs AzureServiceBusTestConfig Class.");
 
 
-			using (var tester = ServerTester.Create())
+			using(var tester = ServerTester.Create())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -458,7 +453,10 @@ namespace NBXplorer.Tests
 				//We may have existing messages from other tests - push all message to a LIFO stack
 				var busMessages = new ConcurrentStack<Microsoft.Azure.ServiceBus.Message>();
 
-				var messageHandlerOptions = new MessageHandlerOptions((e) => { throw e.Exception; })
+				var messageHandlerOptions = new MessageHandlerOptions((e) =>
+				{
+					throw e.Exception;
+				})
 				{
 					// Maximum number of Concurrent calls to the callback `ProcessMessagesAsync`, set to 1 for simplicity.
 					// Set it according to how many messages the application wants to process in parallel.
@@ -470,7 +468,11 @@ namespace NBXplorer.Tests
 				};
 
 				//Service Bus Topic Message Handler
-				subscriptionClient.RegisterMessageHandler(async (m, t) => { busMessages.Push(m); await subscriptionClient.CompleteAsync(m.SystemProperties.LockToken); }, messageHandlerOptions);
+				subscriptionClient.RegisterMessageHandler(async (m, t) =>
+				{
+					busMessages.Push(m);
+					await subscriptionClient.CompleteAsync(m.SystemProperties.LockToken);
+				}, messageHandlerOptions);
 
 				//Configure JSON custom serialization
 				JsonSerializerSettings settings = new JsonSerializerSettings();
@@ -482,7 +484,7 @@ namespace NBXplorer.Tests
 
 				//Setup Message Receiver and clear queue
 				var messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewTransactionQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
-				while (await messageReceiver.PeekAsync() != null)
+				while(await messageReceiver.PeekAsync() != null)
 				{
 					// Batch the receive operation
 					var brokeredMessages = await messageReceiver.ReceiveAsync(300);
@@ -500,29 +502,21 @@ namespace NBXplorer.Tests
 				Microsoft.Azure.ServiceBus.Message msg = null;
 				msg = await messageReceiver.ReceiveAsync();
 
-				if (msg != null)
-				{
-					var txEventQ = JsonConvert.DeserializeObject<NewTransactionEvent>(Encoding.UTF8.GetString(msg.Body), settings);
-					Assert.Equal(txEventQ.DerivationStrategy, pubkey);
-				}
-				else
-				{
-					throw new Exception($"No message received on Azure Service Bus Transaction Queue : {AzureServiceBusTestConfig.NewTransactionQueue} after 10 read attempts.");
-				}
+				Assert.True(msg != null, $"No message received on Azure Service Bus Transaction Queue : {AzureServiceBusTestConfig.NewTransactionQueue} after 10 read attempts.");
 
+				var txEventQ = JsonConvert.DeserializeObject<NewTransactionEvent>(Encoding.UTF8.GetString(msg.Body), settings);
+				Assert.Equal(txEventQ.DerivationStrategy, pubkey);
+
+				await Task.Delay(1000);
+				Assert.True(busMessages.Count > 0, $"No message received on Azure Service Bus Transaction Topic : {AzureServiceBusTestConfig.NewTransactionTopic}.");
 				//Check Service Bus Topic Payload
-				if (busMessages.Count > 0)
-				{
-					Microsoft.Azure.ServiceBus.Message busMsg = null;
-					busMessages.TryPop(out busMsg);
-					var blockEventS = JsonConvert.DeserializeObject<NewTransactionEvent>(Encoding.UTF8.GetString(busMsg.Body), settings);
-					Assert.IsType<NewTransactionEvent>(blockEventS);
-					Assert.Equal(blockEventS.DerivationStrategy, pubkey);
-				}
-				else
-				{
-					throw new Exception($"No message received on Azure Service Bus Transaction Topic : {AzureServiceBusTestConfig.NewTransactionTopic}.");
-				}
+
+				Microsoft.Azure.ServiceBus.Message busMsg = null;
+				busMessages.TryPop(out busMsg);
+				var blockEventS = JsonConvert.DeserializeObject<NewTransactionEvent>(Encoding.UTF8.GetString(busMsg.Body), settings);
+				Assert.IsType<NewTransactionEvent>(blockEventS);
+				Assert.Equal(blockEventS.DerivationStrategy, pubkey);
+
 			}
 		}
 		[Fact]

@@ -176,7 +176,7 @@ namespace NBXplorer
 			services.AddSingleton<IHostedService, AddressPoolService>();
 			services.TryAddSingleton<BitcoinDWaitersAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
-			services.AddSingleton<IHostedService, AzureServiceBus>();
+			services.AddSingleton<IHostedService, BrokerHostedService>();
 
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 
