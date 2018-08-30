@@ -723,16 +723,13 @@ namespace NBXplorer.Tests
 					utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
 					if(!utxo.HasChanges)
 						continue;
-					Assert.NotNull(utxo.Confirmed.KnownBookmark);
-					Assert.True(utxo.Unconfirmed.HasChanges);
-					Assert.Single(utxo.Unconfirmed.UTXOs);
 					if(new KeyPath($"0/{i}").Equals(utxo.Unconfirmed.UTXOs[0].KeyPath))
 						break;
 				}
 
 				tester.RPC.EnsureGenerate(1);
 
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.True(utxo.Confirmed.HasChanges);
 				Assert.Empty(utxo.Confirmed.SpentOutpoints);
