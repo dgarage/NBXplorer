@@ -148,9 +148,10 @@ namespace NBXplorer.Configuration
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 
-			//TODO: set these from IConfiguration
-			TransactionEventBrokers = new List<BrokerConfiguration>();
-			BlockEventBrokers = new List<BrokerConfiguration>();
+
+			TransactionEventBrokers = GetBrokerConfigurations("transactionbroker", config);
+			BlockEventBrokers = GetBrokerConfigurations("blockbroker", config);
+		
 			return this;
 		}
 
@@ -172,6 +173,34 @@ namespace NBXplorer.Configuration
 		
 		public IEnumerable<BrokerConfiguration> TransactionEventBrokers { get; set; }
 		public IEnumerable<BrokerConfiguration> BlockEventBrokers { get; set; }
+
+		private IEnumerable<BrokerConfiguration> GetBrokerConfigurations(string prefix, IConfiguration configuration)
+		{
+			var index = 0;
+			var result = new List<BrokerConfiguration>();
+			while (true)
+			{
+				var broker = configuration.GetOrDefault<string>($"{prefix}.{index}.broker", null);
+				if (broker == null)
+				{
+					break;
+				}
+
+				result.Add(new BrokerConfiguration()
+				{
+					Broker = broker,
+					Endpoint = configuration.GetOrDefault<string>($"{prefix}.{index}.endpoint", ""),
+					ConnectionString = configuration.GetOrDefault<string>($"{prefix}.{index}.connectionstring", ""),
+					Username = configuration.GetOrDefault<string>($"{prefix}.{index}.username", ""),
+					Password = configuration.GetOrDefault<string>($"{prefix}.{index}.password", ""),
+					BroadcastType =
+						configuration.GetOrDefault<BroadcastType>($"{prefix}.{index}.endspoint",
+							BroadcastType.Publish),
+				});
+			}
+
+			return result;
+		}
 	}
 
 
