@@ -18,7 +18,7 @@ namespace NBXplorer.MessageBrokers.MassTransit
 			_configuration = configuration;
 		}
 
-		protected override IBus CreateBus()
+		protected override IBusControl CreateBus()
 		{
 			return Bus.Factory.CreateUsingAzureServiceBus(cfg =>
 			{

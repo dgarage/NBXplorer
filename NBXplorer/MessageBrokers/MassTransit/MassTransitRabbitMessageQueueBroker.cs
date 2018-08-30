@@ -5,8 +5,8 @@ namespace NBXplorer.MessageBrokers.MassTransit
 {
 	public class MassTransitRabbitMessageQueueBroker : MassTransitBaseBroker<MassTransitRabbitMessageQueueConfiguration>
 	{
-		private readonly JsonSerializerSettings _jsonSerializerSettings;
 		private readonly MassTransitRabbitMessageQueueConfiguration _configuration;
+		private readonly JsonSerializerSettings _jsonSerializerSettings;
 
 		public MassTransitRabbitMessageQueueBroker(JsonSerializerSettings jsonSerializerSettings,
 			MassTransitRabbitMessageQueueConfiguration configuration) : base(configuration)
@@ -15,7 +15,7 @@ namespace NBXplorer.MessageBrokers.MassTransit
 			_configuration = configuration;
 		}
 
-		protected override IBus CreateBus()
+		protected override IBusControl CreateBus()
 		{
 			return Bus.Factory.CreateUsingRabbitMq(cfg =>
 			{

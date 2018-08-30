@@ -10,7 +10,7 @@ namespace NBXplorer.MessageBrokers.MassTransit
 	{
 		private readonly TConfiguration _configuration;
 
-		private IBus _bus;
+		private IBusControl _bus;
 
 
 		protected MassTransitBaseBroker(TConfiguration configuration)
@@ -39,9 +39,9 @@ namespace NBXplorer.MessageBrokers.MassTransit
 			await _bus.Publish(blockEvent);
 		}
 
-		public Task Close()
+		public async Task Close()
 		{
-			return Task.CompletedTask;
+			await _bus.StopAsync();
 		}
 
 		private void Init()
@@ -53,8 +53,9 @@ namespace NBXplorer.MessageBrokers.MassTransit
 			if (!string.IsNullOrEmpty(_configuration.NewTransactionEventEndpoint))
 				EndpointConvention.Map<NewTransactionEvent>(new Uri(_configuration.ConnectionString,
 					_configuration.NewTransactionEventEndpoint));
+			_bus.Start();
 		}
 
-		protected abstract IBus CreateBus();
+		protected abstract IBusControl CreateBus();
 	}
 }
