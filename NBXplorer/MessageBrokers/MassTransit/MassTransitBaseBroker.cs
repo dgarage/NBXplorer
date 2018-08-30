@@ -23,7 +23,7 @@ namespace NBXplorer.MessageBrokers.MassTransit
 		{
 			switch (_configuration.BroadcastType)
 			{
-				case BroadcastType.Pubish:
+				case BroadcastType.Publish:
 					await _bus.Publish(transactionEvent);
 					break;
 				case BroadcastType.Send:

@@ -2,7 +2,7 @@
 {
 	public enum BroadcastType
 	{
-		Pubish,
+		Publish,
 		Send
 	}
 }
