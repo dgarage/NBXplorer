@@ -2,7 +2,6 @@
 using System.Threading.Tasks;
 using MassTransit;
 using NBXplorer.Models;
-using Newtonsoft.Json;
 
 namespace NBXplorer.MessageBrokers.MassTransit
 {
@@ -10,7 +9,7 @@ namespace NBXplorer.MessageBrokers.MassTransit
 		where TConfiguration : IMassTransitConfiguration
 	{
 		private readonly TConfiguration _configuration;
-	
+
 		private IBus _bus;
 
 

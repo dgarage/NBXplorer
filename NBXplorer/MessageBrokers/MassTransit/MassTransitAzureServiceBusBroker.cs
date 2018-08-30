@@ -7,8 +7,8 @@ namespace NBXplorer.MessageBrokers.MassTransit
 {
 	public class MassTransitAzureServiceBusBroker : MassTransitBaseBroker<MassTransitAzureServiceBusConfiugration>
 	{
-		private readonly JsonSerializerSettings _jsonSerializerSettings;
 		private readonly MassTransitAzureServiceBusConfiugration _configuration;
+		private readonly JsonSerializerSettings _jsonSerializerSettings;
 
 
 		public MassTransitAzureServiceBusBroker(JsonSerializerSettings jsonSerializerSettings,

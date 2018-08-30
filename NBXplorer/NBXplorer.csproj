@@ -9,6 +9,9 @@
   </PropertyGroup>
   <ItemGroup>
 	<PackageReference Include="DBreeze" Version="1.87.0" />
+	<PackageReference Include="MassTransit" Version="5.1.4" />
+	<PackageReference Include="MassTransit.AzureServiceBus" Version="5.1.4" />
+	<PackageReference Include="MassTransit.RabbitMQ" Version="5.1.4" />
 	  <PackageReference Include="Microsoft.AspNetCore.App" Version="2.1.0" />
 	  <PackageReference Include="Microsoft.Azure.ServiceBus" Version="3.1.0" />
 	<PackageReference Include="NicolasDorier.CommandLine" Version="1.0.0.2" />
