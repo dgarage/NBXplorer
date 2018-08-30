@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace NBXplorer.MessageBrokers
 {
-    public class AzureBroker : IBrokerClient
+	public class AzureBroker : IBrokerClient
 	{
 		public AzureBroker(ISenderClient client, JsonSerializerSettings serializerSettings)
 		{
@@ -33,7 +33,7 @@ namespace NBXplorer.MessageBrokers
 			string jsonMsg = transactionEvent.ToJson(SerializerSettings);
 			var bytes = UTF8.GetBytes(jsonMsg);
 			var message = new Message(bytes);
-			message.MessageId = HashCode.Combine(transactionEvent.DerivationStrategy.ToString(), transactionEvent.TransactionData.Transaction.GetHash(), transactionEvent.TransactionData.BlockId).ToString();
+			message.MessageId = $"{transactionEvent.DerivationStrategy.GetHash()}-{transactionEvent.TransactionData.Transaction.GetHash()}-{(transactionEvent.TransactionData.BlockId?.ToString() ?? string.Empty)}).ToString()";
 			message.ContentType = transactionEvent.GetType().ToString();
 			await Client.SendAsync(message);
 		}
