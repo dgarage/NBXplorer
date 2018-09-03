@@ -162,40 +162,73 @@ this should return a JSON payload e.g.
 }
 
 ## Message Brokers
-### Azure Service Bus
-Support has been added for Azure Service Bus as a message broker. Currently 2 Queues and 2 Topics are supported
+Support has been added for multiple message brokers. 
 
-### Queues
+
+Current supported messages are:
 * New Block
 * New Transaction
 
-### Topics
-* New Block
-* New Transaction
+Payloads are JSON and map to `NewBlockEvent`, `NewTransactionEvent` in the `NBXplorer.Models` namespace. There is no support in NBXplorer client for Azure Service Bus at the current time. You will need to use the `Serializer` in `NBXplorer.Client` to De-serialize the objects or then implement your own JSON de-serializers for the custom types used in the payload.
 
+
+Supported Message Brokers:
+* Azure Service Bus
+* Azure Service Bus( via MassTransit)
+* RabbitMQ( via MassTransit)
 
 Filters should be applied on the client, if required. 
 
-To activate Azure Service Bus Mesages you should add an Azure Service Bus Connection string to your config file or on the command line.
-
-* To use queues you should specify the queue names you wish to use
-* To use topics you should specify the topic names you wish to use
-
-You can use both queues and topics at the same time.
-
-#### Config Settings
-
-If you use the Configuration file to setup your NBXplorer options:
+You can add an unlimited combination of brokers to all messages.
 
 ```ini
-asbcnstr=Your Azure Service Bus Connection string
-asbblockq=Name of queue to send New Block message to
-asbtranq=Name of queue to send New Transaction message to
-asbblockt=Name of topic to send New Block message to
-asbtrant=[Name of queue to send New Transaction message to
+##Azure Service Bus( not MassTransit) New Transaction to Topic
+transactionbroker.0.broker=asb
+transactionbroker.0.connectionstring=azureservicebusconnectionstring
+transactionbroker.0.endpoint=topicname
+transactionbroker.0.broadcasttype=publish
+
+##Azure Service Bus( via MassTransit) New Transaction to Topic
+transactionbroker.1.broker=mt-asb
+transactionbroker.1.connectionstring=azureservicebusconnectionstring2
+transactionbroker.1.endpoint=topicname
+transactionbroker.1.broadcasttype=publish
+
+##RabbitMq( via MassTransit) New Transaction Sent to Endpoint
+transactionbroker.2.broker=mt-rmq
+transactionbroker.2.connectionstring=rabbitmq://localhosy
+transactionbroker.2.endpoint=endpoint
+transactionbroker.2.broadcasttype=send
+transactionbroker.2.username=rmquser
+transactionbroker.2.password=rmqpass
+
+
+##Azure Service Bus( not MassTransit) New Block to Queue
+blockbroker.0.broker=asb
+blockbroker.0.connectionstring=azureservicebusconnectionstring
+blockbroker.0.endpoint=queuename
+blockbroker.0.broadcasttype=send
+
+##Azure Service Bus( via MassTransit) New Block to Queue
+blockbroker.1.broker=mt-asb
+blockbroker.1.connectionstring=azureservicebusconnectionstring2
+blockbroker.1.endpoint=queuename
+blockbroker.1.broadcasttype=send
+
+##RabbitMq( via MassTransit) New Block Published to Endpoint
+blockbroker.2.broker=mt-rmq
+blockbroker.2.connectionstring=rabbitmq://localhosy
+blockbroker.2.endpoint=endpoint
+blockbroker.2.broadcasttype=publish
+blockbroker.2.username=rmquser
+blockbroker.2.password=rmqpass
+
 ```
 
-Payloads are JSON and map to `NewBlockEvent`, `NewTransactionEvent` in the `NBXplorer.Models` namespace. There is no support in NBXplorer client for Azure Service Bus at the current time. You will need to use the `Serializer` in `NBXplorer.Client` to De-serialize the objects or then implement your own JSON de-serializers for the custom types used in the payload.
+### Azure Service Bus & Azure Service Bus( via MassTransit)
+Specifying `send` as the broadcasttype will utilize queues while `publish` will use topics.
+### RabbitMQ( via MassTransit)
+Rabbit Mq requires additional settings: username & password
 
 #### Troubleshooting
 If you receive a 401 Unauthorized then your cookie data is not working. Check you are using the current cookie by opening the cookie file again - also check the date/time of the cookie file to ensure it is the latest cookie (generated when you launched NBXplorer).
