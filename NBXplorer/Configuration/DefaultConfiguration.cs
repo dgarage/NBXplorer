@@ -44,11 +44,6 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
 			}
 
-			app.Option("--asbcnstr", "[For Azure Service Bus] Azure Service Bus Connection string. New Block and New Transaction messages will be pushed to queues when this values is set", CommandOptionType.SingleValue);
-			app.Option("--asbblockq", "[For Azure Service Bus] Name of Queue to push new block message to. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--asbtranq", "[For Azure Service Bus] Name of Queue to push new transaction message to. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--asbblockt", "[For Azure Service Bus] Name of Topic to push new block message to. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--asbtrant", "[For Azure Service Bus] Name of Topic to push new transaction message to. Leave blank to turn off", CommandOptionType.SingleValue);
 			app.Option("--maxgapsize", $"The maximum gap address count on which the explorer will track derivation schemes (default: 30)", CommandOptionType.SingleValue);
 			app.Option("--mingapsize", $"The minimum gap address count on which the explorer will track derivation schemes (default: 20)", CommandOptionType.SingleValue);
 			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);
@@ -152,13 +147,19 @@ namespace NBXplorer.Configuration
 			builder.AppendLine($"#{networkType.ToString().ToLowerInvariant()}=1");
 			builder.AppendLine();
 			builder.AppendLine();
-			builder.AppendLine("####Azure Service Bus####");
-			builder.AppendLine("## Azure Service Bus configuration - set connection string to use Service Bus. Set Queue and / or Topic names to publish message to queues / topics");
-			builder.AppendLine("#asbcnstr=Endpoint=sb://<yourdomain>.servicebus.windows.net/;SharedAccessKeyName=<your key name here>;SharedAccessKey=<your key here>");
-			builder.AppendLine("#asbblockq=<new block queue name>");
-			builder.AppendLine("#asbtranq=<new transaction queue name>");
-			builder.AppendLine("#asbblockt=<new block topic name>");
-			builder.AppendLine("#asbtrant=<new transaction topic name>");
+			
+			builder.AppendLine("####Broker Clients Configuration####");
+			builder.AppendLine("## Supports broadcasting block and transaction events to Azure Service Bus, Azure Service Bus( through MassTransit) and RabbitMQ(through MassTransit)");
+			builder.AppendLine("## Configure as many broker clients as you want, eventType can be 'blockBroker' or 'transactionBroker'");
+			builder.AppendLine("## configIndex starts at 0 for each eventType. Increment by 1 for each new broker config");
+			
+			builder.AppendLine("## <eventType>.<configIndex>.broker=<brokerType> ## brokertype can be 'asb', 'mt-asb' or 'mt-rmq'");
+			builder.AppendLine("## <eventType>.<configIndex>.connectionstring=<connectionstring>");
+			builder.AppendLine("## <eventType>.<configIndex>.username=<user>  ## only for mt-rmq broker types");
+			builder.AppendLine("## <eventType>.<configIndex>.password=<pass>  ## only for mt-rmq broker types");
+			builder.AppendLine("## <eventType>.<configIndex>.endpoint=<topic/endpoint/queue>");
+			builder.AppendLine("## <eventType>.<configIndex>.broadcasttype=<send/publish>");
+
 
 			return builder.ToString();
 		}
