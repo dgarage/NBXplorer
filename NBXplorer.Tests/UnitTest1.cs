@@ -177,6 +177,68 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanSpendFromUnconfirmed()
+		{
+			using(var tester = ServerTester.Create())
+			{
+				var satoshi = new Key().GetWif(tester.Network).GetAddress();
+				var aliceExtKey = new ExtKey();
+				var bobExtKey = new ExtKey();
+
+				var alice = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(aliceExtKey.Neuter(), new DerivationStrategyOptions() { P2SH = true });
+				tester.Client.Track(alice);
+
+				var bob = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(bobExtKey.Neuter(), new DerivationStrategyOptions() { P2SH = true });
+				tester.Client.Track(bob);
+
+				var aliceUtxo = tester.Client.GetUTXOs(alice, null);
+				// Send two coins of 1 BTC to Alice
+				var aliceAddress = tester.Client.GetUnused(alice, DerivationFeature.Direct, reserve: true);
+				tester.Explorer.CreateRPCClient().SendToAddress(aliceAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				aliceAddress = tester.Client.GetUnused(alice, DerivationFeature.Direct, reserve: true);
+				tester.Explorer.CreateRPCClient().SendToAddress(aliceAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				aliceUtxo = tester.Client.GetUTXOs(alice, aliceUtxo);
+
+				var aliceBalance = tester.Client.GetBalance(alice);
+				Assert.Equal(Money.Coins(2.0m), aliceBalance.Total);
+				Assert.Equal(Money.Coins(2.0m), aliceBalance.Spendable);
+
+				// Alice send 0.3 to bob
+				var bobAddress = tester.Client.GetUnused(bob, DerivationFeature.Direct, reserve: true);
+				var tx = tester.Client.LockUTXOs(alice, new LockUTXOsRequest() { Amount = Money.Coins(0.3m), Destination = bobAddress.Address, FeeRate = new FeeRate(100, 1) });
+
+				// Only locked, bob has nothing
+				var bobBalance = tester.Client.GetBalance(bob);
+				Assert.Equal(Money.Coins(0.0m), bobBalance.Total);
+				Assert.Equal(Money.Coins(0.0m), bobBalance.Spendable);
+				aliceBalance = tester.Client.GetBalance(alice);
+				Assert.True(aliceBalance.Spendable.Almost(Money.Coins(1.0m), 0.01m));
+				Assert.True(aliceBalance.Total.Almost(Money.Coins(1.7m), 0.01m));
+
+				var signed = tx.Sign(alice, aliceExtKey);
+				var broadcast = tester.Client.Broadcast(signed);
+				Assert.True(broadcast.Success);
+
+				while(true)
+				{
+					aliceUtxo = tester.Client.GetUTXOs(alice, aliceUtxo);
+					if(aliceUtxo.Unconfirmed.UTXOs.Any(u => u.Outpoint.Hash == signed.GetHash()))
+						break;
+				}
+
+				// Now it is broadcasted, bob has 0.3
+				bobBalance = tester.Client.GetBalance(bob);
+				Assert.Equal(Money.Coins(0.3m), bobBalance.Spendable);
+				Assert.Equal(Money.Coins(0.3m), bobBalance.Total);
+
+				// And alice 1.7 minus fees
+				aliceBalance = tester.Client.GetBalance(alice);
+				Assert.True(aliceBalance.Spendable.Almost(Money.Coins(1.7m), 0.01m));
+				Assert.True(aliceBalance.Total.Almost(Money.Coins(1.7m), 0.01m));
+			}
+		}
+
+		[Fact]
 		public void CanLockUTXOs()
 		{
 			using(var tester = ServerTester.Create())

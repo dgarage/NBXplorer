@@ -1,7 +1,9 @@
 ﻿using NBitcoin;
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Models
 {
@@ -54,6 +56,23 @@ namespace NBXplorer.Models
 		public Transaction Transaction
 		{
 			get; set;
+		}
+
+		public Transaction Sign(DerivationStrategyBase derivationScheme, ExtKey key)
+		{
+			var txBuilder = new TransactionBuilder();
+			txBuilder.AddCoins(SpentCoins.Select(s => CreateCoin(derivationScheme, s)).ToArray());
+			txBuilder.AddKeys(SpentCoins.Select(s => key.Derive(s.KeyPath).PrivateKey).ToArray());
+			return txBuilder.SignTransaction(Transaction);
+		}
+
+		ICoin CreateCoin(DerivationStrategyBase derivationStrategy, SpentCoin spent)
+		{
+			var derivation = derivationStrategy.Derive(spent.KeyPath);
+			ICoin coin = new Coin(spent.Outpoint, new TxOut(spent.Value, derivation.ScriptPubKey));
+			if(derivation.Redeem != null)
+				coin = ((Coin)coin).ToScriptCoin(derivation.Redeem);
+			return coin;
 		}
 	}
 }
