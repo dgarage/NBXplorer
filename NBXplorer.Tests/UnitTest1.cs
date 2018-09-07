@@ -231,10 +231,29 @@ namespace NBXplorer.Tests
 				Assert.Equal(Money.Coins(0.3m), bobBalance.Spendable);
 				Assert.Equal(Money.Coins(0.3m), bobBalance.Total);
 
-				// And alice 1.7 minus fees
+				// And Alice 1.7 minus fees
 				aliceBalance = tester.Client.GetBalance(alice);
 				Assert.True(aliceBalance.Spendable.Almost(Money.Coins(1.7m), 0.01m));
 				Assert.True(aliceBalance.Total.Almost(Money.Coins(1.7m), 0.01m));
+
+				// Now Bob sends 0.1 to satoshi
+				tx = tester.Client.LockUTXOs(bob, new LockUTXOsRequest() { Amount = Money.Coins(0.1m), Destination = satoshi.ToString(), FeeRate = new FeeRate(100, 1) });
+				signed = tx.Sign(bob, bobExtKey);
+				broadcast = tester.Client.Broadcast(signed);
+				Assert.True(broadcast.Success);
+
+				UTXOChanges bobUtxo = null;
+				while(true)
+				{
+					bobUtxo = tester.Client.GetUTXOs(bob, bobUtxo);
+					if(bobUtxo.Unconfirmed.UTXOs.Any(u => u.Outpoint.Hash == signed.GetHash()))
+						break;
+				}
+
+				// Now Bob has 0.2 minus fees
+				bobBalance = tester.Client.GetBalance(bob);
+				Assert.True(bobBalance.Spendable.Almost(Money.Coins(0.2m), 0.01m));
+				Assert.True(bobBalance.Total.Almost(Money.Coins(0.2m), 0.01m));
 			}
 		}
 
