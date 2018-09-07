@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NBXplorer.Tests", "NBXplore
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NBXplorer.Client", "NBXplorer.Client\NBXplorer.Client.csproj", "{D62CE99D-C25A-407F-8104-0BEFD12A3B5D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NBXplorer.NodeWaiter", "NBXplorer.NodeWaiter\NBXplorer.NodeWaiter.csproj", "{25C147ED-D4CD-4528-A5BD-EBA5258BE916}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NBXplorer.NodeWaiter", "NBXplorer.NodeWaiter\NBXplorer.NodeWaiter.csproj", "{25C147ED-D4CD-4528-A5BD-EBA5258BE916}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
