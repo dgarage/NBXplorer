@@ -74,9 +74,9 @@ HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balances
 }
 ```
 
-`spendable` is what the customer can spend, it excludes the locked UTXO but include the change of the locked transaction. 
+`spendable` is what the customer can spend, it excludes the locked UTXOs.
 
-`total` is what the balance would be if the locked UTXOs were effectively spent.
+`total` is what the balance would be if the transactions locking the UTXOs were effectively broadcasted.
 
 If Alice has 2 coins of 1 BTC, if she wants to spend 0.3 BTC she will lock 1 coin of 1BTC and have a change of 0.7 BTC.
 
