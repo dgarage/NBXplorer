@@ -212,7 +212,9 @@ namespace NBXplorer.Tests
 				Assert.Equal(Money.Coins(0.0m), bobBalance.Total);
 				Assert.Equal(Money.Coins(0.0m), bobBalance.Spendable);
 				aliceBalance = tester.Client.GetBalance(alice);
+				// Alice took a hit at her spendable coin, because a 1.0 UTXO is locked
 				Assert.True(aliceBalance.Spendable.Almost(Money.Coins(1.0m), 0.01m));
+				// If the transaction get broadcasted, she would have spent 0.3 BTC
 				Assert.True(aliceBalance.Total.Almost(Money.Coins(1.7m), 0.01m));
 
 				var signed = tx.Sign(alice, aliceExtKey);
