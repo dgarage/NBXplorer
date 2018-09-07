@@ -721,9 +721,9 @@ namespace NBXplorer.Tests
 				while(true)
 				{
 					utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
-					if(!utxo.HasChanges)
+					if(!utxo.HasChanges || utxo.Unconfirmed.UTXOs.Count == 0)
 						continue;
-					if(new KeyPath($"0/{i}").Equals(utxo.Unconfirmed.UTXOs[0].KeyPath))
+					if(utxo.Unconfirmed.UTXOs.Any(u => u.KeyPath == new KeyPath($"0/{i}")))
 						break;
 				}
 
