@@ -716,17 +716,13 @@ namespace NBXplorer.Tests
 					tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, $"0/{i + 1}"));
 					tester.SendToAddress(destination, coins);
 					addresses.Add(destination.ScriptPubKey);
+					while(true)
+					{
+						utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
+						if(utxo.Unconfirmed.UTXOs.Any(u => u.KeyPath == new KeyPath($"0/{i + 1}")))
+							break;
+					}
 				}
-
-				while(true)
-				{
-					utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
-					if(!utxo.HasChanges || utxo.Unconfirmed.UTXOs.Count == 0)
-						continue;
-					if(utxo.Unconfirmed.UTXOs.Any(u => u.KeyPath == new KeyPath($"0/{i}")))
-						break;
-				}
-
 				tester.RPC.EnsureGenerate(1);
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
