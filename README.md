@@ -13,12 +13,15 @@ It currently supports:
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
 * Bitcoin
+* ColossusXT
 * Dash
 * Dogecoin
 * Feathercoin
+* Gobyte
 * Groestlcoin
 * Litecoin
 * Monacoin
+* Monoeci
 * Polis
 * Ufo
 * Viacoin
