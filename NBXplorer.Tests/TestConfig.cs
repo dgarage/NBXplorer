@@ -7,7 +7,7 @@
 			get
 			{
 				//Put your service bus connection string here - requires READ / WRITE permissions
-				return "Endpoint=sb://prodwhalelend.servicebus.windows.net/;SharedAccessKeyName=nbxplorer;SharedAccessKey=p+QEv6F1E7znNuFYHtD6U86878mF7rx45NJBY7S3Jqs=";
+				return "";
 			}
 		}
 
