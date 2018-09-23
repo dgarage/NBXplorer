@@ -22,6 +22,7 @@ It currently supports:
 * Polis
 * Ufo
 * Viacoin
+* Zclassic
 
 ## Prerequisite
 

@@ -65,6 +65,15 @@ namespace NBXplorer.Tests
 			//nodeDownloadData = NodeDownloadData.Groestlcoin.v2_16_0;
 			//Network = NBitcoin.Altcoins.Groestlcoin.Instance.Regtest;
 
+			//CryptoCode = "ZCL";
+			//nodeDownloadData = NodeDownloadData.Zclassic.v1_0_14;
+			//Network = NBitcoin.Altcoins.Zclassic.Instance.Regtest;
+			//RPCSupportSegwit = false;
+
+			//CryptoCode = "BTX";
+			//nodeDownloadData = NodeDownloadData.Bitcore.v0_15_2;
+			//Network = NBitcoin.Altcoins.Bitcore.Instance.Regtest;
+
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
 			Network = NBitcoin.Network.RegTest;
