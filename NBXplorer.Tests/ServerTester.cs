@@ -106,6 +106,8 @@ namespace NBXplorer.Tests
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 
 
+				
+				//Azure configs
 				keyValues.Add(("transactionbroker.0.broker", "asb"));
 				keyValues.Add(("transactionbroker.0.connectionstring", AzureServiceBusTestConfig.ConnectionString));
 				keyValues.Add(("transactionbroker.0.endpoint", AzureServiceBusTestConfig.NewTransactionQueue));
@@ -125,6 +127,38 @@ namespace NBXplorer.Tests
 				keyValues.Add(("blockbroker.1.connectionstring", AzureServiceBusTestConfig.ConnectionString));
 				keyValues.Add(("blockbroker.1.endpoint", AzureServiceBusTestConfig.NewBlockTopic));
 				keyValues.Add(("blockbroker.1.broadcasttype", "publish"));
+				
+				
+				//MT RMQ Configs
+				keyValues.Add(("transactionbroker.2.broker", "mt-rmq"));
+				keyValues.Add(("transactionbroker.2.connectionstring", "rabbitmq://localhost"));
+				keyValues.Add(("transactionbroker.2.endpoint", "transactionmessage"));
+				keyValues.Add(("transactionbroker.2.broadcasttype", "send"));
+				keyValues.Add(("transactionbroker.2.username", "rabbitmq_user"));
+				keyValues.Add(("transactionbroker.2.password", "rabbitmq_password"));
+
+				keyValues.Add(("transactionbroker.3.broker", "mt-rmq"));
+				keyValues.Add(("transactionbroker.3.connectionstring", "rabbitmq://localhost"));
+				keyValues.Add(("transactionbroker.3.endpoint", "transactionevent"));
+				keyValues.Add(("transactionbroker.3.broadcasttype", "publish"));
+				keyValues.Add(("transactionbroker.3.username", "rabbitmq_user"));
+				keyValues.Add(("transactionbroker.3.password", "rabbitmq_password"));
+
+				keyValues.Add(("blockbroker.2.broker", "mt-rmq"));
+				keyValues.Add(("blockbroker.2.connectionstring", "rabbitmq://localhost"));
+				keyValues.Add(("blockbroker.2.endpoint", "blockmessage"));
+				keyValues.Add(("blockbroker.2.broadcasttype", "send"));
+				keyValues.Add(("blockbroker.2.username", "rabbitmq_user"));
+				keyValues.Add(("blockbroker.2.password", "rabbitmq_password"));
+
+				keyValues.Add(("blockbroker.3.broker", "mt-rmq"));
+				keyValues.Add(("blockbroker.3.connectionstring", "rabbitmq://localhost"));
+				keyValues.Add(("blockbroker.3.endpoint", "blockevent"));
+				keyValues.Add(("blockbroker.3.broadcasttype", "publish"));
+				keyValues.Add(("blockbroker.3.username", "rabbitmq_user"));
+				keyValues.Add(("blockbroker.3.password", "rabbitmq_password"));
+				
+				
 
 				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
 				Host = new WebHostBuilder()

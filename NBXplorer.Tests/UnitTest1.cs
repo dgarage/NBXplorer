@@ -15,6 +15,8 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MassTransit;
+using Microsoft.IdentityModel.Tokens;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -429,6 +431,202 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		
+		[Fact]
+		public async Task CanSendMassTransitRMQNewBlockEventMessage()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+
+				NewBlockEvent receivedEvent = null;
+				JsonSerializerSettings settings = new JsonSerializerSettings();
+
+				var bus = Bus.Factory.CreateUsingRabbitMq(cfg =>
+				{
+					var mqHost = cfg.Host(new Uri("rabbitmq://localhost"), host =>
+					{
+						host.Username("rabbitmq_user");
+						host.Password("rabbitmq_password");
+					});
+					cfg.ConfigureJsonDeserializer(settingsx => settings);
+					cfg.ConfigureJsonSerializer(settingsy => settings);
+					cfg.ReceiveEndpoint(mqHost, "blockevent", configurator =>
+					{
+						configurator.Handler<NewBlockEvent>(context =>
+						{
+							receivedEvent = context.Message;
+							return Task.CompletedTask;
+						});
+					});
+				});
+				bus.Start();
+
+				//Create a new Block - AzureServiceBus broker will receive a message from EventAggregator and publish to queue
+				var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
+
+				await Task.Delay(2000);
+
+				new Serializer(Network.RegTest).ConfigureSerializer(settings);
+
+				Assert.NotNull(receivedEvent);
+				Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(),
+					receivedEvent.Hash.ToString().ToUpperInvariant());
+				Assert.NotEqual(0, receivedEvent.Height);
+				bus.Stop();
+			}
+		}
+
+
+		[Fact]
+		public async Task CanSendMassTransitRMQNewBlockMessage()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+
+				NewBlockEvent receivedEvent = null;
+				JsonSerializerSettings settings = new JsonSerializerSettings();
+
+				var bus = Bus.Factory.CreateUsingRabbitMq(cfg =>
+				{
+					var mqHost = cfg.Host(new Uri("rabbitmq://localhost"), host =>
+					{
+						host.Username("rabbitmq_user");
+						host.Password("rabbitmq_password");
+					});
+					cfg.ConfigureJsonDeserializer(settingsx => settings);
+					cfg.ConfigureJsonSerializer(settingsy => settings);
+					cfg.ReceiveEndpoint(mqHost, "blockmessage", configurator =>
+					{
+						configurator.Handler<NewBlockEvent>(context =>
+						{
+							receivedEvent = context.Message;
+							return Task.CompletedTask;
+						});
+					});
+				});
+				bus.Start();
+
+				//Create a new Block - AzureServiceBus broker will receive a message from EventAggregator and publish to queue
+				var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
+
+				await Task.Delay(2000);
+
+				new Serializer(Network.RegTest).ConfigureSerializer(settings);
+
+				Assert.NotNull(receivedEvent);
+				Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(),
+					receivedEvent.Hash.ToString().ToUpperInvariant());
+				Assert.NotEqual(0, receivedEvent.Height);
+				bus.Stop();
+			}
+		}
+
+		[Fact]
+		public async Task CanSendMassTransitRMQNewTransactionEventMessage()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+
+				NewTransactionEvent receivedEvent = null;
+				JsonSerializerSettings settings = new JsonSerializerSettings();
+
+				var bus = Bus.Factory.CreateUsingRabbitMq(cfg =>
+				{
+					var mqHost = cfg.Host(new Uri("rabbitmq://localhost"), host =>
+					{
+						host.Username("rabbitmq_user");
+						host.Password("rabbitmq_password");
+					});
+					cfg.ConfigureJsonDeserializer(settingsx => settings);
+					cfg.ConfigureJsonSerializer(settingsy => settings);
+					cfg.ReceiveEndpoint(mqHost, "transactionevent", configurator =>
+					{
+						configurator.Handler<NewTransactionEvent>(context =>
+						{
+							receivedEvent = context.Message;
+							return Task.CompletedTask;
+						});
+					});
+				});
+				bus.Start();
+
+
+				//Create a new UTXO for our tracked key
+				tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+
+				await Task.Delay(2000);
+
+				new Serializer(Network.RegTest).ConfigureSerializer(settings);
+
+				Assert.NotNull(receivedEvent);
+				Assert.Equal(pubkey, receivedEvent.DerivationStrategy);
+
+				bus.Stop();
+			}
+		}
+
+
+		[Fact]
+		public async Task CanSendMassTransitRMQNewTransactionMessage()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+
+				NewTransactionEvent receivedEvent = null;
+				JsonSerializerSettings settings = new JsonSerializerSettings();
+
+				var bus = Bus.Factory.CreateUsingRabbitMq(cfg =>
+				{
+					var mqHost = cfg.Host(new Uri("rabbitmq://localhost"), host =>
+					{
+						host.Username("rabbitmq_user");
+						host.Password("rabbitmq_password");
+					});
+					cfg.ConfigureJsonDeserializer(settingsx => settings);
+					cfg.ConfigureJsonSerializer(settingsy => settings);
+					cfg.ReceiveEndpoint(mqHost, "transactionmessage", configurator =>
+					{
+						configurator.Handler<NewTransactionEvent>(context =>
+						{
+							receivedEvent = context.Message;
+							return Task.CompletedTask;
+						});
+					});
+				});
+				bus.Start();
+
+
+				//Create a new UTXO for our tracked key
+				tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+
+				await Task.Delay(2000);
+
+				new Serializer(Network.RegTest).ConfigureSerializer(settings);
+
+				Assert.NotNull(receivedEvent);
+				Assert.Equal(pubkey, receivedEvent.DerivationStrategy);
+
+				bus.Stop();
+			}
+		}
+
+		
 		[Fact]
 		public async Task CanSendAzureServiceBusNewTransactionEventMessage()
 		{

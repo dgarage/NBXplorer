@@ -36,7 +36,17 @@ namespace NBXplorer.MessageBrokers.MassTransit
 
 		public async Task Send(NewBlockEvent blockEvent)
 		{
-			await _bus.Publish(blockEvent);
+			switch (_configuration.BroadcastType)
+			{
+				case BroadcastType.Publish:
+					await _bus.Publish(blockEvent);
+					break;
+				case BroadcastType.Send:
+					await _bus.Send(blockEvent);
+					break;
+				default:
+					throw new ArgumentOutOfRangeException();
+			}
 		}
 
 		public async Task Close()
