@@ -35,7 +35,7 @@ namespace NBXplorer.DB
 		{
 			get
 			{
-				if(!_Set && FetchValue != null)
+				if (!_Set && FetchValue != null)
 				{
 					_Value = FetchValue().GetAwaiter().GetResult();
 				}
@@ -80,7 +80,7 @@ namespace NBXplorer.DB
 			var query = $"UPDATE \"GenericTables\" " +
 						$"SET \"DeletedAt\" = now() " +
 						$"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count} AND \"DeletedAt\" IS NULL";
-			if(ForceDelete)
+			if (ForceDelete)
 				query = $"DELETE FROM \"GenericTables\" " +
 						$"WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey{_ToCommit.Count};";
 			var partitionKeyRowKeyParam = new NpgsqlParameter($"partitionKeyRowKey{_ToCommit.Count}", partitionKeyRowKey);
@@ -105,22 +105,16 @@ namespace NBXplorer.DB
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
 			var valueParam = new NpgsqlParameter($"value", new byte[0]);
-			using(var command = Connection.CreateCommand())
+			using (var command = Connection.CreateCommand())
 			{
 				var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
 				command.Parameters.Add(partitionKeyParam);
 				command.Parameters.Add(valueParam);
-				command.CommandText = "INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\")  " +
-									  "VALUES (@partitionKeyRowKey, @value)";
-				try
-				{
-					await command.ExecuteNonQueryAsync();
-					return true;
-				}
-				catch(NpgsqlException ex) when (ex.Message.StartsWith("23505", StringComparison.OrdinalIgnoreCase))
-				{
-				}
-				return false;
+				command.CommandText = "INSERT INTO \"GenericTables\" ( \"PartitionKeyRowKey\", \"Value\", \"DeletedAt\") " +
+									  "VALUES (@partitionKeyRowKey, @value, now() + interval '5 minutes') " +
+									  "ON CONFLICT ( \"PartitionKeyRowKey\") DO UPDATE SET \"DeletedAt\" = (now() + interval '5 minutes') " +
+									  "WHERE (\"GenericTables\".\"PartitionKeyRowKey\" = @partitionKeyRowKey) AND (\"GenericTables\".\"DeletedAt\" IS NULL OR \"GenericTables\".\"DeletedAt\" < now());";
+				return await command.ExecuteNonQueryAsync() == 1;
 			}
 		}
 
@@ -132,15 +126,15 @@ namespace NBXplorer.DB
 
 		private static void Validate(string partitionKey, string rowKey)
 		{
-			if(partitionKey.Contains("@@", StringComparison.OrdinalIgnoreCase) || rowKey.Contains("@@", StringComparison.OrdinalIgnoreCase))
+			if (partitionKey.Contains("@@", StringComparison.OrdinalIgnoreCase) || rowKey.Contains("@@", StringComparison.OrdinalIgnoreCase))
 				throw new ArgumentException("PartitionKey or RowKey should not contains '@@'");
 		}
 
 		internal void Insert<T>(string partitionKey, string rowKey, T value)
 		{
-			if(value is byte[] b)
+			if (value is byte[] b)
 				Insert(partitionKey, rowKey, b);
-			else if(value is int i)
+			else if (value is int i)
 				Insert(partitionKey, rowKey, NBitcoin.Utils.ToBytes((uint)i, true));
 		}
 
@@ -157,7 +151,7 @@ namespace NBXplorer.DB
 		internal async Task<bool> ReleaseLock(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
-			using(var command = Connection.CreateCommand())
+			using (var command = Connection.CreateCommand())
 			{
 				var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
 				command.Parameters.Add(partitionKeyParam);
@@ -186,7 +180,7 @@ namespace NBXplorer.DB
 			var query = $"SELECT COUNT(*) FROM \"GenericTables\" " +
 				$"WHERE \"PartitionKeyRowKey\" LIKE @partitionKeyRowKey AND \"DeletedAt\" IS NULL";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey + "%");
-			using(var command = Connection.CreateCommand())
+			using (var command = Connection.CreateCommand())
 			{
 				command.CommandText = query;
 				command.Parameters.Add(partitionKeyParam);
@@ -201,16 +195,16 @@ namespace NBXplorer.DB
 		private async Task<IEnumerable<GenericRow<TValue>>> QueryGenericRows<TValue>(string query, bool fetchValue, params NpgsqlParameter[] parameters)
 		{
 			List<GenericRow<TValue>> rows = new List<GenericRow<TValue>>();
-			using(var command = Connection.CreateCommand())
+			using (var command = Connection.CreateCommand())
 			{
 				command.CommandText = query;
 				command.Parameters.AddRange(parameters);
 
 				var partitionKeyRowKey = parameters.FirstOrDefault(p => p.ParameterName == "partitionKeyRowKey")?.Value?.ToString();
 				bool likePattern = partitionKeyRowKey.EndsWith('%');
-				using(var result = (NpgsqlDataReader)await command.ExecuteReaderAsync())
+				using (var result = (NpgsqlDataReader)await command.ExecuteReaderAsync())
 				{
-					while(result.Read())
+					while (result.Read())
 					{
 
 						partitionKeyRowKey = (likePattern ? null : partitionKeyRowKey) ?? (string)result["PartitionKeyRowKey"];
@@ -218,7 +212,7 @@ namespace NBXplorer.DB
 						{
 							Key = partitionKeyRowKey.Split("@@")[1]
 						};
-						if(fetchValue)
+						if (fetchValue)
 							row.Value = Convert<TValue>((byte[])result["Value"]);
 						else
 							row.FetchValue = FetchValue<TValue>(partitionKeyRowKey);
@@ -236,7 +230,7 @@ namespace NBXplorer.DB
 				var query = $"SELECT \"Value\" FROM \"GenericTables\" WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey";
 				var partitionKeyRowKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
 				var row = (await QueryGenericRows<TValue>(query, true, partitionKeyRowKeyParam)).FirstOrDefault();
-				if(row == null)
+				if (row == null)
 					return default(TValue);
 				return row.Value;
 			};
@@ -244,9 +238,9 @@ namespace NBXplorer.DB
 
 		private TValue Convert<TValue>(byte[] value)
 		{
-			if(typeof(TValue) == typeof(byte[]))
+			if (typeof(TValue) == typeof(byte[]))
 				return (TValue)(object)value;
-			if(typeof(TValue) == typeof(int))
+			if (typeof(TValue) == typeof(int))
 				return (TValue)(object)NBitcoin.Utils.ToInt32(value, 0, true);
 			return default(TValue);
 		}
@@ -263,12 +257,12 @@ namespace NBXplorer.DB
 		}
 		public async Task<int> CommitAsync()
 		{
-			if(_ToCommit.Count == 0)
+			if (_ToCommit.Count == 0)
 				return 0;
-			using(var command = Connection.CreateCommand())
+			using (var command = Connection.CreateCommand())
 			{
 				StringBuilder commands = new StringBuilder();
-				foreach(var commit in _ToCommit)
+				foreach (var commit in _ToCommit)
 				{
 					command.Parameters.AddRange(commit.Item2);
 					commands.Append(commit.Item1);
