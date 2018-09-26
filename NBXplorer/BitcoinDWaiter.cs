@@ -241,7 +241,7 @@ namespace NBXplorer
 					try
 					{
 						blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
-						if(blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest)
+						if(blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest && !GetChainConfiguration().NoWarmup)
 						{
 							if(await WarmupBlockchain())
 							{
@@ -372,7 +372,7 @@ namespace NBXplorer
 						PeersToDiscover = 1,
 						Mode = AddressManagerBehaviorMode.None
 					},
-					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode).StartHeight },
+					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = GetChainConfiguration().StartHeight },
 					new SlimChainBehavior(_Chain),
 					new PingPongBehavior()
 				}
@@ -388,7 +388,7 @@ namespace NBXplorer
 			{
 				await task;
 			}
-			catch(Exception ex)
+			catch (Exception ex)
 			{
 				Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Failure to connect to the bitcoin node (P2P)");
 				throw;
@@ -397,6 +397,11 @@ namespace NBXplorer
 
 			group.ConnectedNodes.Added += ConnectedNodes_Changed;
 			group.ConnectedNodes.Removed += ConnectedNodes_Changed;
+		}
+
+		private ChainConfiguration GetChainConfiguration()
+		{
+			return _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
 		}
 
 		private IPEndPoint GetEndpoint()

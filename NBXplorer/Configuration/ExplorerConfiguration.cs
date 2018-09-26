@@ -47,6 +47,7 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public bool NoWarmup { get; set; }
 	}
 	public class ExplorerConfiguration
 	{
@@ -100,12 +101,12 @@ namespace NBXplorer.Configuration
 			NetworkProvider = new NBXplorerNetworkProvider(DefaultConfiguration.GetNetworkType(config));
 			var defaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(NetworkProvider.NetworkType);
 			BaseDataDir = config.GetOrDefault<string>("datadir", null);
-			if(BaseDataDir == null)
+			if (BaseDataDir == null)
 			{
 				BaseDataDir = Path.GetDirectoryName(defaultSettings.DefaultDataDirectory);
-				if(!Directory.Exists(BaseDataDir))
+				if (!Directory.Exists(BaseDataDir))
 					Directory.CreateDirectory(BaseDataDir);
-				if(!Directory.Exists(defaultSettings.DefaultDataDirectory))
+				if (!Directory.Exists(defaultSettings.DefaultDataDirectory))
 					Directory.CreateDirectory(defaultSettings.DefaultDataDirectory);
 			}
 
@@ -114,9 +115,9 @@ namespace NBXplorer.Configuration
 									  .Split(',', StringSplitOptions.RemoveEmptyEntries)
 									  .Select(t => t.ToUpperInvariant());
 			var validChains = new List<string>();
-			foreach(var network in NetworkProvider.GetAll())
+			foreach (var network in NetworkProvider.GetAll())
 			{
-				if(supportedChains.Contains(network.CryptoCode))
+				if (supportedChains.Contains(network.CryptoCode))
 				{
 					validChains.Add(network.CryptoCode);
 					var chainConfiguration = new ChainConfiguration();
@@ -124,7 +125,7 @@ namespace NBXplorer.Configuration
 					chainConfiguration.CryptoCode = network.CryptoCode;
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
 					chainConfiguration.RPC = args.ConfigureRPCClient(network);
-					if((chainConfiguration.RPC.CredentialString.CookieFile != null || chainConfiguration.RPC.CredentialString.UseDefault) && !network.SupportCookieAuthentication)
+					if ((chainConfiguration.RPC.CredentialString.CookieFile != null || chainConfiguration.RPC.CredentialString.UseDefault) && !network.SupportCookieAuthentication)
 					{
 						throw new ConfigException($"Chain {network.CryptoCode} does not support cookie file authentication,\n" +
 							$"Please use {network.CryptoCode.ToLowerInvariant()}rpcuser and {network.CryptoCode.ToLowerInvariant()}rpcpassword settings in NBXplorer" +
@@ -135,23 +136,24 @@ namespace NBXplorer.Configuration
 
 					var feeRate = config.GetOrDefault<int>($"{network.CryptoCode}.fallbackfeerate", -1);
 					chainConfiguration.FallbackFeeRate = feeRate == -1 ? null : new FeeRate(Money.Satoshis(feeRate), 1);
+					chainConfiguration.NoWarmup = config.GetOrDefault<bool>($"{network.CryptoCode}.nowarmup", false);
 					ChainConfigurations.Add(chainConfiguration);
 				}
 			}
 			var invalidChains = String.Join(',', supportedChains.Where(s => !validChains.Contains(s)).ToArray());
-			if(!string.IsNullOrEmpty(invalidChains))
+			if (!string.IsNullOrEmpty(invalidChains))
 				throw new ConfigException($"Invalid chains {invalidChains}");
 
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
 			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);
 			MaxGapSize = config.GetOrDefault<int>("maxgapsize", 30);
 			PostgresConnectionString = config.GetOrDefault<string>("postgres", null);
-			if(MinGapSize >= MaxGapSize)
+			if (MinGapSize >= MaxGapSize)
 				throw new ConfigException("mingapsize should be equal or lower than maxgapsize");
-			if(!Directory.Exists(BaseDataDir))
+			if (!Directory.Exists(BaseDataDir))
 				Directory.CreateDirectory(BaseDataDir);
 			DataDir = Path.Combine(BaseDataDir, NBXplorerDefaultSettings.GetFolderName(NetworkProvider.NetworkType));
-			if(!Directory.Exists(DataDir))
+			if (!Directory.Exists(DataDir))
 				Directory.CreateDirectory(DataDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
