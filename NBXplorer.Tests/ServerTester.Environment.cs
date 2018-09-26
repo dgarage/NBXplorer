@@ -65,6 +65,10 @@ namespace NBXplorer.Tests
 			//nodeDownloadData = NodeDownloadData.Groestlcoin.v2_16_0;
 			//Network = NBitcoin.Altcoins.Groestlcoin.Instance.Regtest;
 
+			//CryptoCode = "NAV";
+			//nodeDownloadData = NodeDownloadData.Viacoin.v4_3_0;
+			//Network = NBitcoin.Altcoins.Navcoin.Instance.Regtest;
+
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
 			Network = NBitcoin.Network.RegTest;
