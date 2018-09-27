@@ -354,8 +354,15 @@ namespace NBXplorer
 			if(_Group != null)
 				return;
 			_Chain.ResetToGenesis();
-			if(_Configuration.CacheChain)
+			if (_Configuration.CacheChain)
+			{
 				LoadChainFromCache();
+				if (!await HasBlock(_RPC, _Chain.Tip))
+				{
+					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: The cached chain contains a tip unknown to the node, dropping the cache...");
+					_Chain.ResetToGenesis();
+				}
+			}
 			var heightBefore = _Chain.Height;
 			using(var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 			{
@@ -375,6 +382,31 @@ namespace NBXplorer
 			}
 			GC.Collect();
 			await LoadGroup();
+		}
+
+		private async Task<bool> HasBlock(RPCClient rpc, uint256 tip)
+		{
+			try
+			{
+				await rpc.GetBlockHeaderAsync(tip);
+				return true;
+			}
+			catch (RPCException r) when (r.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+			{
+				try
+				{
+					await rpc.GetBlockAsync(tip);
+					return true;
+				}
+				catch
+				{
+					return false;
+				}
+			}
+			catch (RPCException r) when (r.RPCCode == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
+			{
+				return false;
+			}
 		}
 
 		private async Task LoadGroup()
