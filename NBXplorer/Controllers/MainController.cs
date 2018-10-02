@@ -713,7 +713,8 @@ namespace NBXplorer.Controllers
 			{
 				var utxo = utxos[i];
 				utxo.KeyPath = transactions.GetKeyPath(utxo.ScriptPubKey);
-				utxo.Feature = DerivationStrategyBase.GetFeature(utxo.KeyPath);
+				if(utxo.KeyPath != null)
+					utxo.Feature = DerivationStrategyBase.GetFeature(utxo.KeyPath);
 				var txHeight = transactions.GetByTxId(utxo.Outpoint.Hash)
 									.Select(t => t.Height)
 									.Where(h => h.HasValue)

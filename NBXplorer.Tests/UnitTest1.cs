@@ -887,7 +887,10 @@ namespace NBXplorer.Tests
 				var tx2 = tester.SendToAddress(address, Money.Coins(0.6m));
 				utxo = tester.Client.GetUTXOs(addressSource, utxo);
 				utxo2 = tester.Client.GetUTXOs(pubkey2, utxo);
+				Thread.Sleep(200);
 				Assert.NotEqual(utxo.Unconfirmed.UTXOs[0].Outpoint, utxo2.Unconfirmed.UTXOs[0].Outpoint);
+				Assert.Null(utxo.Unconfirmed.UTXOs[0].Feature);
+				Assert.NotNull(utxo2.Unconfirmed.UTXOs[0].Outpoint);
 			}
 		}
 

@@ -6,8 +6,8 @@ using System.Text;
 
 namespace NBXplorer.Models
 {
-    public class GetTransactionsResponse
-    {
+	public class GetTransactionsResponse
+	{
 		public int Height
 		{
 			get; set;
@@ -57,6 +57,7 @@ namespace NBXplorer.Models
 
 	public class TransactionInformationMatch
 	{
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public KeyPath KeyPath
 		{
 			get; set;
