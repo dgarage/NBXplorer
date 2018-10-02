@@ -192,23 +192,35 @@ namespace NBXplorer
 			{
 				_Pool.Do(() =>
 				{
-					DisposeEngine();
-					int tried = 0;
-					while(true)
-					{
-						try
-						{
-							_Engine = new DBreezeEngine(directory);
-							break;
-						}
-						catch when(tried < 5)
-						{
-							tried++;
-							Thread.Sleep(5000);
-						}
-					}
-					_Tx = _Engine.GetTransaction();
+					RenewEngineCore();
 				});
+			}
+			private Task RenewEngineAsync()
+			{
+				return _Pool.DoAsync(() =>
+				{
+					RenewEngineCore();
+				});
+			}
+
+			private void RenewEngineCore()
+			{
+				DisposeEngine();
+				int tried = 0;
+				while (true)
+				{
+					try
+					{
+						_Engine = new DBreezeEngine(directory);
+						break;
+					}
+					catch when (tried < 5)
+					{
+						tried++;
+						Thread.Sleep(5000);
+					}
+				}
+				_Tx = _Engine.GetTransaction();
 			}
 
 			private void DisposeEngine()
@@ -256,7 +268,7 @@ namespace NBXplorer
 				catch(Exception ex)
 				{
 					Logs.Explorer.LogError(ex, "Unexpected DBreeze error");
-					RenewEngine();
+					RenewEngineCore();
 					act();
 				}
 			}
