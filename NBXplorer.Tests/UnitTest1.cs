@@ -555,6 +555,15 @@ namespace NBXplorer.Tests
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
 				}
+
+				using (var connected = tester.Client.CreateNotificationSession())
+				{
+					connected.ListenAllTrackedSource();
+					tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+
+					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					Assert.Equal(txEvent.DerivationStrategy, pubkey);
+				}
 			}
 		}
 
