@@ -488,9 +488,9 @@ namespace NBXplorer
 			}
 		}
 
-		Index GetAvailableKeysIndex(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
+		Index GetAvailableKeysIndex(DBreeze.Transactions.Transaction tx, DerivationStrategyBase trackedSource, DerivationFeature feature)
 		{
-			return new Index(tx, $"{_Suffix}AvailableKeys", $"{strategy.GetHash()}-{feature}");
+			return new Index(tx, $"{_Suffix}AvailableKeys", $"{trackedSource.GetHash()}-{feature}");
 		}
 
 		Index GetScriptsIndex(DBreeze.Transactions.Transaction tx, Script scriptPubKey)
@@ -508,9 +508,9 @@ namespace NBXplorer
 			return new Index(tx, $"{_Suffix}ReservedKeys", $"{strategy.GetHash()}-{feature}");
 		}
 
-		Index GetTransactionsIndex(DBreeze.Transactions.Transaction tx, DerivationStrategyBase derivation)
+		Index GetTransactionsIndex(DBreeze.Transactions.Transaction tx, TrackedSource trackedSource)
 		{
-			return new Index(tx, $"{_Suffix}Transactions", $"{derivation.GetHash()}");
+			return new Index(tx, $"{_Suffix}Transactions", $"{trackedSource.GetHash()}");
 		}
 
 		NBXplorerNetwork _Network;
@@ -608,6 +608,7 @@ namespace NBXplorer
 				{
 					ScriptPubKey = derivation.ScriptPubKey,
 					Redeem = derivation.Redeem,
+					TrackedSource = new DerivationSchemeTrackedSource(strategy),
 					DerivationStrategy = strategy,
 					Feature = derivationFeature,
 					KeyPath = DerivationStrategyBase.GetKeyPath(derivationFeature).Derive(index, false)
@@ -617,6 +618,20 @@ namespace NBXplorer
 				availableTable.Insert(index, bytes);
 			}
 			highestTable.Insert(0, highestGenerated + toGenerate);
+		}
+
+		public Task Track(BitcoinAddress address)
+		{
+			return _Engine.DoAsync((tx) =>
+			{
+				var info = new KeyPathInformation()
+				{
+					ScriptPubKey = address.ScriptPubKey,
+					TrackedSource = new AddressTrackedSource(address)
+				};
+				var bytes = ToBytes(info);
+				GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
+			});
 		}
 
 		public Task<int> RefillAddressPoolIfNeeded(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int maxAddreses = int.MaxValue)
@@ -791,7 +806,17 @@ namespace NBXplorer
 		}
 		private T ToObject<T>(byte[] value)
 		{
-			return Serializer.ToObject<T>(Unzip(value));
+			var result = Serializer.ToObject<T>(Unzip(value));
+			
+			// For back compat, some old serialized KeyPathInformation do not have TrackedSource property set
+			if(result is KeyPathInformation keyPathInfo)
+			{
+				if(keyPathInfo.TrackedSource == null && keyPathInfo.DerivationStrategy != null)
+				{
+					keyPathInfo.TrackedSource = new DerivationSchemeTrackedSource(keyPathInfo.DerivationStrategy);
+				}
+			}
+			return result;
 		}
 		private byte[] ToBytes<T>(T obj)
 		{
@@ -829,7 +854,7 @@ namespace NBXplorer
 			get; set;
 		} = 30;
 
-		public TrackedTransaction[] GetTransactions(DerivationStrategyBase pubkey)
+		public TrackedTransaction[] GetTransactions(TrackedSource trackedSource)
 		{
 
 			bool needUpdate = false;
@@ -837,7 +862,7 @@ namespace NBXplorer
 
 			var transactions = _Engine.Do(tx =>
 			{
-				var table = GetTransactionsIndex(tx, pubkey);
+				var table = GetTransactionsIndex(tx, trackedSource);
 				tx.ValuesLazyLoadingIsOn = false;
 				var result = new List<TransactionMatchData>();
 				foreach(var row in table.SelectForwardSkip(0))
@@ -888,14 +913,14 @@ namespace NBXplorer
 				foreach(var data in transactions.Where(t => t.NeedUpdate && t.TransactionMatch == null))
 				{
 					data.TransactionMatch = this.GetMatches(data.Transaction)
-											  .Where(m => m.DerivationStrategy.Equals(pubkey))
+											  .Where(m => m.TrackedSource.Equals(trackedSource))
 											  .Select(m => new TransactionMiniMatch(m))
 											  .First();
 				}
 
 				_Engine.Do(tx =>
 				{
-					var table = GetTransactionsIndex(tx, pubkey);
+					var table = GetTransactionsIndex(tx, trackedSource);
 					foreach(var data in transactions.Where(t => t.NeedUpdate))
 					{
 						table.Insert(data.GetRowKey(), data.ToBytes());
@@ -959,10 +984,17 @@ namespace NBXplorer
 				stream.ReadWrite(ref _ScriptPubKey);
 				if(stream.Serializing)
 				{
-					stream.ReadWrite((byte)_KeyPath.Indexes.Length);
-					foreach(var index in _KeyPath.Indexes)
+					if(_KeyPath == null)
 					{
-						stream.ReadWrite(index);
+						stream.ReadWrite((byte)0);
+					}
+					else
+					{
+						stream.ReadWrite((byte)_KeyPath.Indexes.Length);
+						foreach(var index in _KeyPath.Indexes)
+						{
+							stream.ReadWrite(index);
+						}
 					}
 				}
 				else
@@ -976,7 +1008,8 @@ namespace NBXplorer
 						stream.ReadWrite(ref index);
 						indexes[i] = index;
 					}
-					_KeyPath = new KeyPath(indexes);
+					if(len != 0)
+						_KeyPath = new KeyPath(indexes);
 				}
 			}
 		}
@@ -1138,7 +1171,7 @@ namespace NBXplorer
 		{
 			if(transactions.Length == 0)
 				return;
-			var groups = transactions.GroupBy(i => i.Match.DerivationStrategy);
+			var groups = transactions.GroupBy(i => i.Match.TrackedSource);
 
 			_Engine.Do(tx =>
 			{
@@ -1148,20 +1181,23 @@ namespace NBXplorer
 
 					foreach(var value in group)
 					{
-						foreach(var info in value.Match.Outputs)
+						if (group.Key is DerivationSchemeTrackedSource s)
 						{
-							var availableIndex = GetAvailableKeysIndex(tx, group.Key, info.Feature);
-							var reservedIndex = GetReservedKeysIndex(tx, group.Key, info.Feature);
-							var index = (int)info.KeyPath.Indexes.Last();
-							var bytes = availableIndex.SelectBytes(index);
-							if(bytes != null)
+							foreach (var info in value.Match.Outputs)
 							{
-								availableIndex.RemoveKey(index);
-							}
-							bytes = reservedIndex.SelectBytes(index);
-							if(bytes != null)
-							{
-								reservedIndex.RemoveKey(index);
+								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
+								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
+								var index = (int)info.KeyPath.Indexes.Last();
+								var bytes = availableIndex.SelectBytes(index);
+								if (bytes != null)
+								{
+									availableIndex.RemoveKey(index);
+								}
+								bytes = reservedIndex.SelectBytes(index);
+								if (bytes != null)
+								{
+									reservedIndex.RemoveKey(index);
+								}
 							}
 						}
 						var ticksCount = now.UtcTicks;
@@ -1189,13 +1225,13 @@ namespace NBXplorer
 			return value.Outputs.Select(m => m.ScriptPubKey).Concat(value.Inputs.Select(m => m.ScriptPubKey)).ToArray();
 		}
 
-		public void CleanTransactions(DerivationStrategyBase pubkey, List<TrackedTransaction> cleanList)
+		public void CleanTransactions(TrackedSource trackedSource, List<TrackedTransaction> cleanList)
 		{
 			if(cleanList == null || cleanList.Count == 0)
 				return;
 			_Engine.Do(tx =>
 			{
-				var table = GetTransactionsIndex(tx, pubkey);
+				var table = GetTransactionsIndex(tx, trackedSource);
 				foreach(var tracked in cleanList)
 				{
 					var k = tracked.GetRowKey();

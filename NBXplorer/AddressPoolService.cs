@@ -74,6 +74,8 @@ namespace NBXplorer
 			{
 				foreach(var feature in m.Match.Inputs.Concat(m.Match.Outputs).Select(_ => _.Feature).Distinct())
 				{
+					if (m.Match.DerivationStrategy == null)
+						continue;
 					RefillAddressPoolIfNeeded(network, m.Match.DerivationStrategy, feature);
 				}
 			}

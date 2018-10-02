@@ -65,7 +65,8 @@ namespace NBXplorer
 				_TxById.Add(h, tx);
 				foreach(var keyPathInfo in tx.Record.TransactionMatch.Inputs.Concat(tx.Record.TransactionMatch.Outputs))
 				{
-					_KeyPaths.TryAdd(keyPathInfo.ScriptPubKey, keyPathInfo.KeyPath);
+					if(keyPathInfo.KeyPath != null)
+						_KeyPaths.TryAdd(keyPathInfo.ScriptPubKey, keyPathInfo.KeyPath);
 				}
 			}
 

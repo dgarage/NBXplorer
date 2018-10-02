@@ -13,6 +13,7 @@ namespace NBXplorer.Models
 {
 	public class UTXOChanges
 	{
+		public TrackedSource TrackedSource { get; set; }
 		public DerivationStrategyBase DerivationStrategy
 		{
 			get; set;

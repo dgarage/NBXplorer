@@ -36,7 +36,7 @@ namespace NBXplorer.MessageBrokers
 			string jsonMsg = transactionEvent.ToJson(SerializerSettings);
 			var bytes = UTF8.GetBytes(jsonMsg);
 			var message = new Message(bytes);
-			string msgIdHash = HashMessageId($"{transactionEvent.DerivationStrategy.GetHash()}-{transactionEvent.TransactionData.Transaction.GetHash()}-{(transactionEvent.TransactionData.BlockId?.ToString() ?? string.Empty)}");
+			string msgIdHash = HashMessageId($"{transactionEvent.TrackedSource}-{transactionEvent.TransactionData.Transaction.GetHash()}-{(transactionEvent.TransactionData.BlockId?.ToString() ?? string.Empty)}");
 			ValidateMessageId(msgIdHash);
 			message.MessageId = msgIdHash;
 			message.ContentType = transactionEvent.GetType().ToString();

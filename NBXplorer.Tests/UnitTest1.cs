@@ -45,7 +45,9 @@ namespace NBXplorer.Tests
 			{
 				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
 				var seria = new Serializer(Network.RegTest);
-				var keyInfo = new KeyPathInformation() { DerivationStrategy = dummy, Feature = DerivationFeature.Change, KeyPath = new KeyPath("0/1"), Redeem = Script.Empty, ScriptPubKey = Script.Empty };
+				var keyInfo = new KeyPathInformation() {
+					TrackedSource = new DerivationSchemeTrackedSource(dummy),
+					DerivationStrategy = dummy, Feature = DerivationFeature.Change, KeyPath = new KeyPath("0/1"), Redeem = Script.Empty, ScriptPubKey = Script.Empty };
 				var str = seria.ToString(keyInfo);
 				for(int i = 0; i < 1500; i++)
 				{
@@ -136,12 +138,14 @@ namespace NBXplorer.Tests
 					{
 						Match = new TransactionMatch()
 						{
+							TrackedSource = new DerivationSchemeTrackedSource(strat),
 							DerivationStrategy = strat,
 							Transaction = repository.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction(),
 							Outputs = new List<KeyPathInformation>
 							{
 								new KeyPathInformation()
 								{
+									TrackedSource = new DerivationSchemeTrackedSource(strat),
 									Feature = DerivationFeature.Deposit,
 									DerivationStrategy = strat,
 									KeyPath = keyPath
@@ -739,6 +743,146 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanUseWebSocketsOnAddress()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new Key();
+				var pubkey = TrackedSource.Create(key.PubKey.GetAddress(tester.Network));
+				tester.Client.Track(pubkey);
+				using (var connected = tester.Client.CreateNotificationSession())
+				{
+					connected.ListenNewBlock();
+					var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
+					var blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
+					Assert.Equal(expectedBlockId, blockEvent.Hash);
+					Assert.NotEqual(0, blockEvent.Height);
+
+					connected.ListenTrackedSources(new[] { pubkey });
+					tester.Explorer.CreateRPCClient().SendToAddress(pubkey.Address, Money.Coins(1.0m));
+
+					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					Assert.Equal(txEvent.TrackedSource, pubkey);
+				}
+
+				using (var connected = tester.Client.CreateNotificationSession())
+				{
+					connected.ListenAllTrackedSource();
+					tester.Explorer.CreateRPCClient().SendToAddress(pubkey.Address, Money.Coins(1.0m));
+
+					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					Assert.Equal(txEvent.TrackedSource, pubkey);
+				}
+			}
+		}
+
+		[Fact]
+		public void CanUseWebSocketsOnAddress2()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new Key();
+				var pubkey = TrackedSource.Create(key.PubKey.GetAddress(tester.Network));
+
+				var key2 = new Key();
+				var pubkey2 = TrackedSource.Create(key2.PubKey.GetAddress(tester.Network));
+
+				tester.Client.Track(pubkey);
+				tester.Client.Track(pubkey2);
+				using (var connected = tester.Client.CreateNotificationSession())
+				{
+					connected.ListenAllTrackedSource();
+					tester.Explorer.CreateRPCClient().SendCommand(RPCOperations.sendmany, "",
+						JObject.Parse($"{{ \"{pubkey.Address}\": \"0.9\", \"{pubkey.Address}\": \"0.5\"," +
+									  $"\"{pubkey2.Address}\": \"0.9\", \"{pubkey2.Address}\": \"0.5\" }}"));
+
+					var trackedSources = new[] { pubkey.ToString(), pubkey2.ToString() }.ToList();
+
+					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					Assert.Single(txEvent.Outputs);
+					Assert.Contains(txEvent.TrackedSource.ToString(), trackedSources);
+					trackedSources.Remove(txEvent.TrackedSource.ToString());
+
+					txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					Assert.Single(txEvent.Outputs);
+					Assert.Contains(txEvent.TrackedSource.ToString(), new[] { pubkey.ToString(), pubkey2.ToString() });
+				}
+			}
+		}
+
+		[Fact]
+		public void CanTrackAddress()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var extkey = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = new DerivationStrategyFactory(extkey.Network).Parse($"{extkey.Neuter()}-[legacy]");
+				var key = extkey.ExtKey.Derive(new KeyPath("0/0")).PrivateKey;
+				var address = key.PubKey.GetAddress(tester.Network);
+				var addressSource = TrackedSource.Create(address);
+				tester.Client.Track(addressSource);
+				var utxo = tester.Client.GetUTXOs(addressSource, null, false); //Track things do not wait
+
+				var tx1 = tester.SendToAddress(address, Money.Coins(1.0m));
+				utxo = tester.Client.GetUTXOs(addressSource, utxo);
+				Assert.NotNull(utxo.Confirmed.KnownBookmark);
+				Assert.Single(utxo.Unconfirmed.UTXOs);
+				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+
+				// The address has been only tracked individually, not via the extpubkey
+				tester.Client.Track(pubkey);
+				var unused = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/0"), unused.KeyPath);
+				Assert.Equal(address.ScriptPubKey, unused.ScriptPubKey);
+				utxo = tester.Client.GetUTXOs(pubkey, null);
+				Assert.Empty(utxo.Unconfirmed.UTXOs);
+
+				// But this end up tracked once the block is mined
+				tester.RPC.Generate(1);
+				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				Assert.NotNull(utxo.Confirmed.KnownBookmark);
+				Assert.Single(utxo.Confirmed.UTXOs);
+				Assert.Equal(tx1, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
+				Assert.NotNull(utxo.TrackedSource);
+				Assert.NotNull(utxo.DerivationStrategy);
+				var dsts = Assert.IsType<DerivationSchemeTrackedSource>(utxo.TrackedSource);
+				Assert.Equal(utxo.DerivationStrategy, dsts.DerivationStrategy);
+
+				// Make sure the transaction appear for address as well
+				utxo = tester.Client.GetUTXOs(addressSource, null);
+				Assert.Single(utxo.Confirmed.UTXOs);
+				Assert.Equal(tx1, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
+				Assert.NotNull(utxo.TrackedSource);
+				Assert.Null(utxo.DerivationStrategy);
+				Assert.IsType<AddressTrackedSource>(utxo.TrackedSource);
+
+				// Check it appear in transaction list
+				var tx = tester.Client.GetTransactions(addressSource, null);
+				Assert.Equal(tx1, tx.ConfirmedTransactions.Transactions[0].TransactionId);
+
+				tx = tester.Client.GetTransactions(pubkey, null);
+				Assert.Equal(tx1, tx.ConfirmedTransactions.Transactions[0].TransactionId);
+
+				// Trying to send to a single address from a tracked extkey
+				var extkey2 = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey2 = new DerivationStrategyFactory(extkey.Network).Parse($"{extkey.Neuter()}-[legacy]");
+				tester.Client.Track(pubkey2);
+				tester.SendToAddress(pubkey2.Derive(new KeyPath("0/0")).ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+
+				utxo = tester.Client.GetUTXOs(addressSource, null);
+				var utxo2 = tester.Client.GetUTXOs(pubkey2, null);
+				LockTestCoins(tester.RPC);
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(extkey2, "0/0"));
+				var tx2 = tester.SendToAddress(address, Money.Coins(0.6m));
+				utxo = tester.Client.GetUTXOs(addressSource, utxo);
+				utxo2 = tester.Client.GetUTXOs(pubkey2, utxo);
+				Assert.NotEqual(utxo.Unconfirmed.UTXOs[0].Outpoint, utxo2.Unconfirmed.UTXOs[0].Outpoint);
+			}
+		}
+
+		[Fact]
 		public void CanTrack2()
 		{
 			using(var tester = ServerTester.Create())
@@ -1011,9 +1155,12 @@ namespace NBXplorer.Tests
 				var txId3 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				var txId4 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				var tx4 = tester.RPC.GetRawTransaction(txId4);
+				var notify = tester.Client.CreateNotificationSession();
+				notify.ListenNewBlock();
 				var blockId = tester.RPC.Generate(1)[0];
 				var blockId2 = tester.RPC.Generate(1)[0];
 
+				notify.NextEvent();
 				tester.Client.Track(pubkey);
 
 				var utxos = tester.Client.GetUTXOs(pubkey, null, false);
