@@ -29,10 +29,9 @@ namespace NBXplorer
 			if(settings == null)
 				throw new ArgumentNullException(nameof(settings));
 			NBitcoin.JsonConverters.Serializer.RegisterFrontConverters(settings, Network);
+			settings.Converters.Insert(0, new JsonConverters.CachedSerializer(Network));
 			settings.Converters.Insert(0, new JsonConverters.BookmarkJsonConverter());
-			settings.Converters.Insert(0, new JsonConverters.DerivationStrategyJsonConverter(Network == null ? null : new DerivationStrategy.DerivationStrategyFactory(Network)));
 			settings.Converters.Insert(0, new JsonConverters.FeeRateJsonConverter());
-			settings.Converters.Insert(0, new JsonConverters.TrackedSourceJsonConverter(Network));
 		}
 
 		public T ToObject<T>(string str)
