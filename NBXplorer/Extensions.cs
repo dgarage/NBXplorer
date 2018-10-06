@@ -54,6 +54,15 @@ namespace NBXplorer
 			var data = Encoding.UTF8.GetBytes(derivation.ToString());
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
 		}
+		internal static uint160 GetHash(this TrackedSource trackedSource)
+		{
+			if (trackedSource is DerivationSchemeTrackedSource t)
+				return t.DerivationStrategy.GetHash();
+			var data = Encoding.UTF8.GetBytes(trackedSource.ToString());
+			return new uint160(Hashes.RIPEMD160(data, data.Length));
+		}
+
+
 		public static async Task<DateTimeOffset?> GetBlockTimeAsync(this RPCClient client, uint256 blockId, bool throwIfNotFound = true)
 		{
 			var response = await client.SendCommandAsync(new RPCRequest("getblockheader", new object[] { blockId }), throwIfNotFound).ConfigureAwait(false);
@@ -70,7 +79,7 @@ namespace NBXplorer
 
 		public static IEnumerable<TransactionMatch> GetMatches(this Repository repository, Transaction tx)
 		{
-			var matches = new Dictionary<DerivationStrategyBase, TransactionMatch>();
+			var matches = new Dictionary<string, TransactionMatch>();
 			HashSet<Script> inputScripts = new HashSet<Script>();
 			HashSet<Script> outputScripts = new HashSet<Script>();
 			HashSet<Script> scripts = new HashSet<Script>();
@@ -95,11 +104,13 @@ namespace NBXplorer
 			{
 				foreach(var keyInfo in keyInfoByScripts.Value)
 				{
-					if(!matches.TryGetValue(keyInfo.DerivationStrategy, out TransactionMatch match))
+					var matchesGroupingKey = keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex();
+					if (!matches.TryGetValue(matchesGroupingKey, out TransactionMatch match))
 					{
 						match = new TransactionMatch();
-						matches.Add(keyInfo.DerivationStrategy, match);
-						match.DerivationStrategy = keyInfo.DerivationStrategy;
+						matches.Add(matchesGroupingKey, match);
+						match.TrackedSource = keyInfo.TrackedSource;
+						match.DerivationStrategy = (keyInfo.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 						match.Transaction = tx;
 					}
 
@@ -198,14 +209,25 @@ namespace NBXplorer
 			return services;
 		}
 
-		internal static string ToPrettyStrategyString(this DerivationStrategyBase strat)
+		internal static string ToPrettyString(this TrackedSource trackedSource)
 		{
-			var strategy = strat.ToString();
-			if(strategy.Length > 35)
+			if (trackedSource is DerivationSchemeTrackedSource derivation)
 			{
-				strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
+				var strategy = derivation.DerivationStrategy.ToString();
+				if (strategy.Length > 35)
+				{
+					strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
+				}
+				return strategy;
 			}
-			return strategy;
+			else if (trackedSource is AddressTrackedSource addressDerivation)
+			{
+				return addressDerivation.Address.ToString();
+			}
+			else
+			{
+				return trackedSource.ToString();
+			}
 		}
 
 		internal class NoObjectModelValidator : IObjectModelValidator

@@ -88,11 +88,13 @@ namespace NBXplorer.Tests
 				User2.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
 				User1.Sync(User2, true);
 
+				var port = CustomServer.FreeTcpPort();
 				var datadir = Path.Combine(directory, "explorer");
 				DeleteRecursivelyWithMagicDust(datadir);
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
 				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
 				keyValues.Add(("datadir", datadir));
+				keyValues.Add(("port", port.ToString()));
 				keyValues.Add(("network", "regtest"));
 				keyValues.Add(("chains", CryptoCode.ToLowerInvariant()));
 				keyValues.Add(("verbose", "1"));

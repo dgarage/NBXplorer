@@ -66,7 +66,7 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Groestlcoin.Instance.Regtest;
 
 			CryptoCode = "BTC";
-			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_0;
+			nodeDownloadData = NodeDownloadData.Bitcoin.v0_16_3;
 			Network = NBitcoin.Network.RegTest;
 			RPCSupportSegwit = true;
 		}

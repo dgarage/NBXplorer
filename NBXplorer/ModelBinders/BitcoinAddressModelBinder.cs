@@ -8,9 +8,9 @@ using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.ModelBinders
 {
-	public class DestinationModelBinder : IModelBinder
+	public class BitcoinAddressModelBinder : IModelBinder
 	{
-		public DestinationModelBinder()
+		public BitcoinAddressModelBinder()
 		{
 
 		}
@@ -19,20 +19,20 @@ namespace NBXplorer.ModelBinders
 
 		public Task BindModelAsync(ModelBindingContext bindingContext)
 		{
-			if(!typeof(DerivationStrategyBase).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType))
+			if (!typeof(BitcoinAddress).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType))
 			{
 				return Task.CompletedTask;
 			}
 
 			ValueProviderResult val = bindingContext.ValueProvider.GetValue(
 				bindingContext.ModelName);
-			if(val == null)
+			if (val == null)
 			{
 				return Task.CompletedTask;
 			}
 
 			string key = val.FirstValue as string;
-			if(key == null)
+			if (key == null)
 			{
 				return Task.CompletedTask;
 			}
@@ -42,14 +42,14 @@ namespace NBXplorer.ModelBinders
 			var network = networkProvider.GetFromCryptoCode(cryptoCode ?? "BTC");
 			try
 			{
-				var data = new DerivationStrategy.DerivationStrategyFactory(network.NBitcoinNetwork).Parse(key);
-				if(!bindingContext.ModelType.IsInstanceOfType(data))
+				var data = BitcoinAddress.Create(key, network.NBitcoinNetwork);
+				if (!bindingContext.ModelType.IsInstanceOfType(data))
 				{
-					throw new FormatException("Invalid destination type");
+					throw new FormatException("Invalid address");
 				}
 				bindingContext.Result = ModelBindingResult.Success(data);
 			}
-			catch { throw new FormatException("Invalid derivation scheme"); }
+			catch { throw new FormatException("Invalid address"); }
 			return Task.CompletedTask;
 		}
 
