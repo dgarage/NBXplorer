@@ -78,6 +78,7 @@ namespace NBXplorer
 
 		protected override void AttachCore()
 		{
+			AttachedNode.UncaughtException += AttachedNode_UncaughtException;
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
 			_CurrentLocation = Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
@@ -89,6 +90,11 @@ namespace NBXplorer
 			}
 			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting scan at block " + fork.Height);
 			_Timer = new Timer(Tick, null, 0, (int)TimeSpan.FromSeconds(30).TotalMilliseconds);
+		}
+
+		private void AttachedNode_UncaughtException(Node sender, Exception ex)
+		{
+			Logs.Explorer.LogError(ex, $"{Network.CryptoCode}: Unhandled exception when listening the node");
 		}
 
 		private BlockLocator GetDefaultCurrentLocation()
@@ -174,6 +180,7 @@ namespace NBXplorer
 
 		protected override void DetachCore()
 		{
+			AttachedNode.UncaughtException -= AttachedNode_UncaughtException;
 			AttachedNode.StateChanged -= AttachedNode_StateChanged;
 			AttachedNode.MessageReceived -= AttachedNode_MessageReceived;
 
