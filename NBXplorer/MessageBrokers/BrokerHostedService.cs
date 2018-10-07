@@ -15,128 +15,145 @@ using System.Threading.Tasks;
 
 namespace NBXplorer.MessageBrokers
 {
-	public class BrokerHostedService : IHostedService
-	{
-		EventAggregator _EventAggregator;
-		bool _Disposed = false;
-		CompositeDisposable _subscriptions = new CompositeDisposable();
-		IBrokerClient _senderBlock = null;
-		IBrokerClient _senderTransactions = null;
-		ExplorerConfiguration _config;
-		JsonSerializerSettings _serializerSettings;
+    public class BrokerHostedService : IHostedService
+    {
+        EventAggregator _EventAggregator;
+        bool _Disposed = false;
+        CompositeDisposable _subscriptions = new CompositeDisposable();
+        IBrokerClient _senderBlock = null;
+        IBrokerClient _senderTransactions = null;
+        ExplorerConfiguration _config;
+        JsonSerializerSettings _serializerSettings;
 
-		public BrokerHostedService(BitcoinDWaitersAccessor waiters, ChainProvider chainProvider, EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, IOptions<MvcJsonOptions> jsonOptions)
-		{
-			_EventAggregator = eventAggregator;
-			ChainProvider = chainProvider;
-			Waiters = waiters.Instance;
-			_config = config.Value;
-			_serializerSettings = jsonOptions.Value.SerializerSettings;
-		}
+        public BrokerHostedService(BitcoinDWaitersAccessor waiters, ChainProvider chainProvider, EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, IOptions<MvcJsonOptions> jsonOptions)
+        {
+            _EventAggregator = eventAggregator;
+            ChainProvider = chainProvider;
+            Waiters = waiters.Instance;
+            _config = config.Value;
+            _serializerSettings = jsonOptions.Value.SerializerSettings;
+        }
 
-		public Task StartAsync(CancellationToken cancellationToken)
-		{
-			if(_Disposed)
-				throw new ObjectDisposedException(nameof(BrokerHostedService));
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            if (_Disposed)
+                throw new ObjectDisposedException(nameof(BrokerHostedService));
 
-			_senderBlock = CreateClientBlock();
-			_senderTransactions = CreateClientTransaction();
+            _senderBlock = CreateClientBlock();
+            _senderTransactions = CreateClientTransaction();
 
-			_subscriptions.Add(_EventAggregator.Subscribe<Events.NewBlockEvent>(async o =>
-			{
-				var chain = ChainProvider.GetChain(o.CryptoCode);
-				if(chain == null)
-					return;
-				var block = chain.GetBlock(o.BlockId);
-				if(block != null)
-				{
-					var nbe = new Models.NewBlockEvent()
-					{
-						CryptoCode = o.CryptoCode,
-						Hash = block.Hash,
-						Height = block.Height,
-						PreviousBlockHash = block?.Previous
-					};
-					await _senderBlock.Send(nbe);
-				}
-			}));
+            _subscriptions.Add(_EventAggregator.Subscribe<Events.NewBlockEvent>(async o =>
+            {
+                var chain = ChainProvider.GetChain(o.CryptoCode);
+                if (chain == null)
+                    return;
+                var block = chain.GetBlock(o.BlockId);
+                if (block != null)
+                {
+                    var nbe = new Models.NewBlockEvent()
+                    {
+                        CryptoCode = o.CryptoCode,
+                        Hash = block.Hash,
+                        Height = block.Height,
+                        PreviousBlockHash = block?.Previous
+                    };
+                    await _senderBlock.Send(nbe);
+                }
+            }));
 
 
-			_subscriptions.Add(_EventAggregator.Subscribe<Events.NewTransactionMatchEvent>(async o =>
-			{
-				var network = Waiters.GetWaiter(o.CryptoCode);
-				if(network == null)
-					return;
-				var chain = ChainProvider.GetChain(o.CryptoCode);
-				if(chain == null)
-					return;
-				var txe = new Models.NewTransactionEvent()
-				{
-					TrackedSource = o.Match.TrackedSource,
-					DerivationStrategy = o.Match.DerivationStrategy,
-					CryptoCode = o.CryptoCode,
-					BlockId = o.BlockId,
-					TransactionData = Utils.ToTransactionResult(true, chain, new[] { o.SavedTransaction }),
-					Inputs = o.Match.Inputs,
-					Outputs = o.Match.Outputs
-				};
-				await _senderTransactions.Send(txe);
-			}));
+            _subscriptions.Add(_EventAggregator.Subscribe<Events.NewTransactionMatchEvent>(async o =>
+            {
+                var network = Waiters.GetWaiter(o.CryptoCode);
+                if (network == null)
+                    return;
+                var chain = ChainProvider.GetChain(o.CryptoCode);
+                if (chain == null)
+                    return;
+                var txe = new Models.NewTransactionEvent()
+                {
+                    TrackedSource = o.Match.TrackedSource,
+                    DerivationStrategy = o.Match.DerivationStrategy,
+                    CryptoCode = o.CryptoCode,
+                    BlockId = o.BlockId,
+                    TransactionData = Utils.ToTransactionResult(true, chain, new[] { o.SavedTransaction }),
+                    Inputs = o.Match.Inputs,
+                    Outputs = o.Match.Outputs
+                };
+                await _senderTransactions.Send(txe);
+            }));
 
-			Logs.Configuration.LogInformation("Starting Azure Service Bus Message Broker");
-			return Task.CompletedTask;
-		}
+            Logs.Configuration.LogInformation("Starting Azure Service Bus Message Broker");
+            return Task.CompletedTask;
+        }
 
-		IBrokerClient CreateClientTransaction()
-		{
-			var brokers = new List<IBrokerClient>();
-			if(!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
-			{
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionQueue))
-					brokers.Add(CreateAzureQueue(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionQueue));
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionTopic))
-					brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionTopic));
-			}
-			return new CompositeBroker(brokers);
-		}
+        IBrokerClient CreateClientTransaction()
+        {
+            var brokers = new List<IBrokerClient>();
+            if (!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
+            {
+                if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionQueue))
+                    brokers.Add(CreateAzureQueue(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionQueue));
+                if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionTopic))
+                    brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionTopic));
+            }
 
-		IBrokerClient CreateClientBlock()
-		{
-			var brokers = new List<IBrokerClient>();
-			if(!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
-			{
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockQueue))
-					brokers.Add(CreateAzureQueue(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockQueue));
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockTopic))
-					brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockTopic));
-			}
-			return new CompositeBroker(brokers);
-		}
+            if (!string.IsNullOrWhiteSpace(_config.AWSSQSTransactionQueueURL))
+            {
+                brokers.Add(CreateAWSSQSQueue(_config.AWSSQSTransactionQueueURL));
+            }
 
-		private IBrokerClient CreateAzureQueue(string connnectionString, string queueName)
-		{
-			return new AzureBroker(new QueueClient(connnectionString, queueName), _serializerSettings);
-		}
+            return new CompositeBroker(brokers);
+        }
 
-		private IBrokerClient CreateAzureTopic(string connectionString, string topicName)
-		{
-			return new AzureBroker(new TopicClient(connectionString, topicName), _serializerSettings);
-		}
+        IBrokerClient CreateClientBlock()
+        {
+            var brokers = new List<IBrokerClient>();
+            if (!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
+            {
+                if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockQueue))
+                    brokers.Add(CreateAzureQueue(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockQueue));
+                if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockTopic))
+                    brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockTopic));
+            }
 
-		public async Task StopAsync(CancellationToken cancellationToken)
-		{
-			_Disposed = true;
-			_subscriptions.Dispose();
-			await Task.WhenAll(_senderBlock.Close(), _senderTransactions.Close());
-		}
+            if (!string.IsNullOrWhiteSpace(_config.AWSSQSBlockQueueURL))
+            {
+                brokers.Add(CreateAWSSQSQueue(_config.AWSSQSBlockQueueURL));
+            }
 
-		public ChainProvider ChainProvider
-		{
-			get; set;
-		}
-		public BitcoinDWaiters Waiters
-		{
-			get; set;
-		}
-	}
+            return new CompositeBroker(brokers);
+        }
+
+        private IBrokerClient CreateAWSSQSQueue(string queueURL)
+        {
+            return new AWSBroker(queueURL, _serializerSettings);
+        }
+
+        private IBrokerClient CreateAzureQueue(string connnectionString, string queueName)
+        {
+            return new AzureBroker(new QueueClient(connnectionString, queueName), _serializerSettings);
+        }
+
+        private IBrokerClient CreateAzureTopic(string connectionString, string topicName)
+        {
+            return new AzureBroker(new TopicClient(connectionString, topicName), _serializerSettings);
+        }
+
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            _Disposed = true;
+            _subscriptions.Dispose();
+            await Task.WhenAll(_senderBlock.Close(), _senderTransactions.Close());
+        }
+
+        public ChainProvider ChainProvider
+        {
+            get; set;
+        }
+        public BitcoinDWaiters Waiters
+        {
+            get; set;
+        }
+    }
 }
