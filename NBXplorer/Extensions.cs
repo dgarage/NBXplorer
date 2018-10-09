@@ -173,7 +173,7 @@ namespace NBXplorer
 			{
 				var opts = o.GetRequiredService<ExplorerConfiguration>();
 				NBXplorerContextFactory dbContext = null;
-				Logs.Configuration.LogInformation($"Postgres DB used ({opts.PostgresConnectionString})");
+				Logs.Configuration.LogInformation($"Postgres DB used");
 				dbContext = new NBXplorerContextFactory(opts.PostgresConnectionString);
 				return dbContext;
 			});
