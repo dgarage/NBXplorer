@@ -630,6 +630,7 @@ namespace NBXplorer
 				availableTable.Insert(index, bytes);
 			}
 			highestTable.Insert(0, highestGenerated + toGenerate);
+			tx.Commit();
 		}
 
 		public Task Track(BitcoinAddress address)
