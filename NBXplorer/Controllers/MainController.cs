@@ -608,7 +608,7 @@ namespace NBXplorer.Controllers
 
 							var txInfo = new TransactionInformation()
 							{
-								BlockHash = tx.Record.BlockHash,
+								BlockHash = tx.Height.HasValue ? tx.Record.BlockHash : null,
 								Height = tx.Height,
 								TransactionId = tx.Record.Transaction.GetHash(),
 								Transaction = includeTransaction ? tx.Record.Transaction : null,
