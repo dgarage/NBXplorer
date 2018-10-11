@@ -78,15 +78,12 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"{cryptoCode} does not support estimatesmartfee").AsException();
 			}
 			var waiter = Waiters.GetWaiter(network);
-			var result = await waiter.RPC.SendCommandAsync("estimatesmartfee", blockCount);
-			var obj = (JObject)result.Result;
-			var feeRateProperty = obj.Property("feerate");
-			var rate = feeRateProperty == null ? (decimal)-1 : obj["feerate"].Value<decimal>();
-			if (rate == -1)
+			FeeRate rate = await waiter.RPC.GetFeeRateAsyncEx(blockCount);
+			if (rate == null)
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
 			return new GetFeeRateResult()
 			{
-				FeeRate = new FeeRate(Money.Coins(Math.Round(rate / 1000, 8)), 1),
+				FeeRate = rate,
 				BlockCount = obj["blocks"].Value<int>()
 			};
 		}
@@ -713,7 +710,7 @@ namespace NBXplorer.Controllers
 			{
 				var utxo = utxos[i];
 				utxo.KeyPath = transactions.GetKeyPath(utxo.ScriptPubKey);
-				if(utxo.KeyPath != null)
+				if (utxo.KeyPath != null)
 					utxo.Feature = DerivationStrategyBase.GetFeature(utxo.KeyPath);
 				var txHeight = transactions.GetByTxId(utxo.Outpoint.Hash)
 									.Select(t => t.Height)

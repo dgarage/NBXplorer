@@ -1,4 +1,6 @@
-﻿using NBitcoin.RPC;
+﻿using NBitcoin;
+using Newtonsoft.Json.Linq;
+using NBitcoin.RPC;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -62,6 +64,25 @@ namespace NBXplorer
 		{
 			var result = await client.SendCommandAsync("getnetworkinfo").ConfigureAwait(false);
 			return JsonConvert.DeserializeObject<GetNetworkInfoResponse>(result.ResultString);
+		}
+
+		public static async Task<FeeRate> GetFeeRateAsyncEx(this RPCClient client, int blockCount)
+		{
+			FeeRate rate = null;
+			try
+			{
+				rate = (await client.TryEstimateSmartFeeAsync(blockCount, EstimateSmartFeeMode.Conservative).ConfigureAwait(false))?.FeeRate;
+			}
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+			{
+				var response = await client.SendCommandAsync(RPCOperations.estimatefee, blockCount).ConfigureAwait(false);
+				var result = response.Result.Value<decimal>();
+				var money = Money.Coins(result);
+				if (money.Satoshi < 0)
+					return null;
+				rate = new FeeRate(money);
+			}
+			return rate;
 		}
 	}
 }
