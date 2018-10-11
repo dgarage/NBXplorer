@@ -489,11 +489,11 @@ namespace NBXplorer.Controllers
 
 							var txInfo = new TransactionInformation()
 							{
-								BlockHash = tx.Record.BlockHash,
-								Height = tx.Record.BlockHash == null ? null : tx.Height,
+								BlockHash = tx.Height.HasValue ? tx.Record.BlockHash : null,
+								Height = tx.Height,
 								TransactionId = tx.Record.Transaction.GetHash(),
 								Transaction = includeTransaction ? tx.Record.Transaction : null,
-								Confirmations = tx.Record.BlockHash == null ? 0 : currentHeight - tx.Height.Value + 1,
+								Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 								Timestamp = txs.GetByTxId(tx.Record.Transaction.GetHash()).Select(t => t.Record.FirstSeen).First(),
 								Inputs = ToMatch(txs, tx.Record.Transaction.Inputs.Select(o => txs.GetUTXO(o.PrevOut)).ToList(), trackedSource),
 								Outputs = ToMatch(txs, tx.Record.Transaction.Outputs, trackedSource)
