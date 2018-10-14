@@ -489,7 +489,7 @@ namespace NBXplorer
 
 		private async Task LoadChainFromNode(CancellationToken cancellation)
 		{
-			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from node...");
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from node ({_ChainConfiguration.NodeEndpoint.Address.ToString()}:{_ChainConfiguration.NodeEndpoint.Port})...");
 			var userAgent = "NBXplorer-" + RandomUtils.GetInt64();
 			bool handshaked = false;
 			using(var handshakeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
