@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
@@ -66,12 +67,17 @@ namespace NBXplorer
 			return JsonConvert.DeserializeObject<GetNetworkInfoResponse>(result.ResultString);
 		}
 
-		public static async Task<FeeRate> GetFeeRateAsyncEx(this RPCClient client, int blockCount)
+		public static async Task<GetFeeRateResult> GetFeeRateAsyncEx(this RPCClient client, int blockCount)
 		{
 			FeeRate rate = null;
+			int blocks = 0;
 			try
 			{
-				rate = (await client.TryEstimateSmartFeeAsync(blockCount, EstimateSmartFeeMode.Conservative).ConfigureAwait(false))?.FeeRate;
+				var res = await client.TryEstimateSmartFeeAsync(blockCount, EstimateSmartFeeMode.Conservative).ConfigureAwait(false);
+				if(res == null)
+					return null;
+				rate = res.FeeRate;
+				blocks = res.Blocks;
 			}
 			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
 			{
@@ -81,8 +87,9 @@ namespace NBXplorer
 				if (money.Satoshi < 0)
 					return null;
 				rate = new FeeRate(money);
+				blocks = blockCount;
 			}
-			return rate;
+			return new GetFeeRateResult() { FeeRate = rate, BlockCount = blocks };
 		}
 	}
 }

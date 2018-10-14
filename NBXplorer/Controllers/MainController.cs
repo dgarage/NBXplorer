@@ -78,14 +78,10 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"{cryptoCode} does not support estimatesmartfee").AsException();
 			}
 			var waiter = Waiters.GetWaiter(network);
-			FeeRate rate = await waiter.RPC.GetFeeRateAsyncEx(blockCount);
+			var rate = await waiter.RPC.GetFeeRateAsyncEx(blockCount);
 			if (rate == null)
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
-			return new GetFeeRateResult()
-			{
-				FeeRate = rate,
-				BlockCount = obj["blocks"].Value<int>()
-			};
+			return rate;
 		}
 
 		[HttpGet]
