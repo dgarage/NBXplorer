@@ -25,30 +25,29 @@ namespace NBXplorer.DB
 		int _ConnectionCreated = 0;
 		public async Task<NBXplorerDBContext> GetContext()
 		{
+		retry:
 			if (!_Available.Reader.TryRead(out var connection))
 			{
-				while (true)
+				if (_ConnectionCreated <= _MaxConnectionCount &&
+					Interlocked.Increment(ref _ConnectionCreated) <= _MaxConnectionCount)
 				{
-					if (_ConnectionCreated <= _MaxConnectionCount &&
-						Interlocked.Increment(ref _ConnectionCreated) <= _MaxConnectionCount)
-					{
-						connection = await OpenConnection();
-					}
-					else
-					{
-						connection = await _Available.Reader.ReadAsync(_Cts.Token);
-						if (connection.State != System.Data.ConnectionState.Open)
-						{
-							lock (_PosgresConnections)
-							{
-								_PosgresConnections.Remove(connection);
-								Interlocked.Decrement(ref _ConnectionCreated);
-							}
-							continue;
-						}
-					}
-					break;
+					connection = await OpenConnection();
 				}
+				else
+				{
+					await Task.Delay(1);
+					goto retry;
+				}
+			}
+			if (connection.State != System.Data.ConnectionState.Open)
+			{
+				lock (_PosgresConnections)
+				{
+					_PosgresConnections.Remove(connection);
+					Interlocked.Decrement(ref _ConnectionCreated);
+				}
+				await Task.Delay(100);
+				goto retry;
 			}
 			return new NBXplorerDBContext(this, connection);
 		}
@@ -73,7 +72,7 @@ namespace NBXplorer.DB
 
 		public void Migrate()
 		{
-			retry:
+		retry:
 			var connString = new NpgsqlConnectionStringBuilder(_ConnectionString);
 			using (var connection = new NpgsqlConnection(connString.ConnectionString))
 			{
