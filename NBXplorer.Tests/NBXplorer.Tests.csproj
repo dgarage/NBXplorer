@@ -3,6 +3,7 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+      <PackageReference Include="AWSSDK.SQS" Version="3.3.3.22" />
       <PackageReference Include="Microsoft.Azure.ServiceBus" Version="3.1.0" />
       <PackageReference Include="NBitcoin.TestFramework" Version="1.6.9" />
 	  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="15.8.0" />

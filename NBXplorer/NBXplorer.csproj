@@ -8,6 +8,7 @@
 	  <LangVersion>7.3</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+	<PackageReference Include="AWSSDK.SQS" Version="3.3.3.22" />
 	<PackageReference Include="DBreeze" Version="1.87.0" />
 	  <PackageReference Include="Microsoft.AspNetCore.App" Version="2.1.4" />
 	  <PackageReference Include="Microsoft.Azure.ServiceBus" Version="3.1.0" />
