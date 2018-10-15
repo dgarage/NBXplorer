@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NBXplorer.Logging;
 using Npgsql;
@@ -14,9 +15,10 @@ namespace NBXplorer.DB
 	public class NBXplorerContextFactory : IDisposable
 	{
 		string _ConnectionString;
-		public NBXplorerContextFactory(string connectionString)
+		public NBXplorerContextFactory(string connectionString, IApplicationLifetime applicationLifetime)
 		{
 			_ConnectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
+			ApplicationLifetime = applicationLifetime;
 		}
 		CancellationTokenSource _Cts = new CancellationTokenSource();
 		List<NpgsqlConnection> _PosgresConnections = new List<NpgsqlConnection>();
@@ -55,7 +57,16 @@ namespace NBXplorer.DB
 		private async Task<NpgsqlConnection> OpenConnection()
 		{
 			NpgsqlConnection connection = new NpgsqlConnection(_ConnectionString);
-			await connection.OpenAsync(_Cts.Token);
+			try
+			{
+				await connection.OpenAsync(_Cts.Token);
+			}
+			catch (Exception ex)
+			{
+				Logs.Explorer.LogError(ex, "Error while trying to open connection to the database, stopping NBXplorer...");
+				ApplicationLifetime.StopApplication();
+				throw;
+			}
 			lock (_PosgresConnections)
 			{
 				_PosgresConnections.Add(connection);
@@ -64,6 +75,8 @@ namespace NBXplorer.DB
 		}
 
 		Channel<NpgsqlConnection> _Available = Channel.CreateUnbounded<NpgsqlConnection>();
+
+		public IApplicationLifetime ApplicationLifetime { get; }
 
 		internal void Return(NpgsqlConnection connection)
 		{
