@@ -64,7 +64,7 @@ namespace NBXplorer.DB
 			catch (Exception ex)
 			{
 				Logs.Explorer.LogError(ex, "Error while trying to open connection to the database, stopping NBXplorer...");
-				ApplicationLifetime.StopApplication();
+				ApplicationLifetime?.StopApplication();
 				throw;
 			}
 			lock (_PosgresConnections)

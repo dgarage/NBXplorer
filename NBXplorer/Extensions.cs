@@ -174,7 +174,7 @@ namespace NBXplorer
 				var opts = o.GetRequiredService<ExplorerConfiguration>();
 				NBXplorerContextFactory dbContext = null;
 				Logs.Configuration.LogInformation($"Postgres DB used");
-				dbContext = new NBXplorerContextFactory(opts.PostgresConnectionString);
+				dbContext = new NBXplorerContextFactory(opts.PostgresConnectionString, o.GetRequiredService<Microsoft.AspNetCore.Hosting.IApplicationLifetime>());
 				return dbContext;
 			});
 
