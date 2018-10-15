@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using NBXplorer.Logging;
 using Npgsql;
 using System;
 using System.Collections.Generic;
@@ -23,11 +25,11 @@ namespace NBXplorer.DB
 		int _ConnectionCreated = 0;
 		public async Task<NBXplorerDBContext> GetContext()
 		{
-			if(!_Available.Reader.TryRead(out var connection))
+			if (!_Available.Reader.TryRead(out var connection))
 			{
-				while(true)
+				while (true)
 				{
-					if(_ConnectionCreated <= _MaxConnectionCount &&
+					if (_ConnectionCreated <= _MaxConnectionCount &&
 						Interlocked.Increment(ref _ConnectionCreated) <= _MaxConnectionCount)
 					{
 						connection = await OpenConnection();
@@ -35,9 +37,9 @@ namespace NBXplorer.DB
 					else
 					{
 						connection = await _Available.Reader.ReadAsync(_Cts.Token);
-						if(connection.State != System.Data.ConnectionState.Open)
+						if (connection.State != System.Data.ConnectionState.Open)
 						{
-							lock(_PosgresConnections)
+							lock (_PosgresConnections)
 							{
 								_PosgresConnections.Remove(connection);
 								Interlocked.Decrement(ref _ConnectionCreated);
@@ -55,7 +57,7 @@ namespace NBXplorer.DB
 		{
 			NpgsqlConnection connection = new NpgsqlConnection(_ConnectionString);
 			await connection.OpenAsync(_Cts.Token);
-			lock(_PosgresConnections)
+			lock (_PosgresConnections)
 			{
 				_PosgresConnections.Add(connection);
 			}
@@ -71,18 +73,19 @@ namespace NBXplorer.DB
 
 		public void Migrate()
 		{
+			retry:
 			var connString = new NpgsqlConnectionStringBuilder(_ConnectionString);
-			using(var connection = new NpgsqlConnection(connString.ConnectionString))
+			using (var connection = new NpgsqlConnection(connString.ConnectionString))
 			{
 				try
 				{
 					connection.Open();
 				}
-				catch(PostgresException ex) when(ex.SqlState == "3D000")
+				catch (PostgresException ex) when (ex.SqlState == "3D000")
 				{
 					var oldDB = connString.Database;
 					connString.Database = null;
-					using(var createDBConnect = new NpgsqlConnection(connString.ConnectionString))
+					using (var createDBConnect = new NpgsqlConnection(connString.ConnectionString))
 					{
 						createDBConnect.Open();
 						var createDB = createDBConnect.CreateCommand();
@@ -97,6 +100,12 @@ namespace NBXplorer.DB
 						connection.Open();
 					}
 				}
+				catch (PostgresException ex) when (ex.SqlState == "57P03")
+				{
+					Logs.Explorer.LogInformation("Database starting retrying soon...");
+					Thread.Sleep(5000);
+					goto retry;
+				}
 				var command = connection.CreateCommand();
 				command.CommandText = $"CREATE TABLE IF NOT EXISTS \"GenericTables\" (\"PartitionKeyRowKey\" text PRIMARY KEY, \"Value\" bytea, \"DeletedAt\" timestamp)";
 				command.ExecuteNonQuery();
@@ -106,9 +115,9 @@ namespace NBXplorer.DB
 		public void Dispose()
 		{
 			_Cts.Cancel();
-			lock(_PosgresConnections)
+			lock (_PosgresConnections)
 			{
-				foreach(var connection in _PosgresConnections)
+				foreach (var connection in _PosgresConnections)
 					connection.Close();
 			}
 		}

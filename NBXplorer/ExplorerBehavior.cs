@@ -109,6 +109,8 @@ namespace NBXplorer
 			if(_InFlights.Count != 0)
 				return;
 			var currentLocation = _CurrentLocation;
+			if (currentLocation == null)
+				return;
 			var currentBlock = Chain.FindFork(currentLocation);
 			if(currentBlock.Height < StartHeight)
 				currentBlock = Chain.GetBlock(StartHeight) ?? Chain.TipBlock;
