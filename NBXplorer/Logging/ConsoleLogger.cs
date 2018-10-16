@@ -174,8 +174,8 @@ namespace NBXplorer.Logging
 			logLevelColors = GetLogLevelConsoleColors(logLevel);
 			logLevelString = GetLogLevelString(logLevel);
 			// category and event id
-			var lenBefore = logBuilder.ToString().Length;
 			logBuilder.Append(_loglevelPadding);
+			logBuilder.Append($"[{DateTimeOffset.Now.ToString("u")}] ");
 			logBuilder.Append(logName);
 			logBuilder.Append(": ");
 			var lenAfter = logBuilder.ToString().Length;
