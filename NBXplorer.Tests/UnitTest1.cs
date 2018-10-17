@@ -264,7 +264,7 @@ namespace NBXplorer.Tests
 				output.Value = payment2;
 				var change = tx.Outputs.First(o => o.Value != payment1);
 				change.Value -= (payment2 - payment1) * 2; //Add more fees
-				var replacement = tester.RPC.SignRawTransaction(tx);
+				var replacement = tester.SignRawTransaction(tx);
 
 				tester.RPC.SendRawTransaction(replacement);
 
@@ -1396,7 +1396,7 @@ namespace NBXplorer.Tests
 				var tx = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
 				tx.Outputs.Add(new TxOut(Money.Coins(1.0m), new Key()));
 				var funded = tester.User1.CreateRPCClient().FundRawTransaction(tx);
-				var signed = tester.User1.CreateRPCClient().SignRawTransaction(funded.Transaction);
+				var signed = tester.User1.CreateRPCClient().SignRawTransaction(funded.Transaction, tester);
 				var result = tester.Client.Broadcast(signed);
 				Assert.True(result.Success);
 				signed.Inputs[0].PrevOut.N = 999;

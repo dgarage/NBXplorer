@@ -212,6 +212,7 @@ namespace NBXplorer.Tests
 			get;
 			internal set;
 		}
+		public bool RPCSupportSignRawTransaction { get; private set; } = true;
 
 		private static bool TryDelete(string directory, bool throws)
 		{
