@@ -31,6 +31,11 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Dash.Instance.Regtest;
 			//RPCSupportSegwit = false;
 
+			//CryptoCode = "TRC";
+			//nodeDownloadData = NodeDownloadData.Terracoin.v0_12_2;
+			//Network = NBitcoin.Altcoins.Terracoin.Instance.Regtest;
+			//RPCSupportSegwit = false;
+
 			//CryptoCode = "Polis";
 			//nodeDownloadData = NodeDownloadData.Polis.v1_3_0;
 			//Network = NBitcoin.Altcoins.Polis.Instance.Regtest;

@@ -20,6 +20,7 @@ It currently supports:
 * Litecoin
 * Monacoin
 * Polis
+* Terracoin
 * Ufo
 * Viacoin
 
