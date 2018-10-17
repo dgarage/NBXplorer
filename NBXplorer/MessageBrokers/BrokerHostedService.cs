@@ -83,7 +83,6 @@ namespace NBXplorer.MessageBrokers
 				await _senderTransactions.Send(txe);
 			}));
 
-			Logs.Configuration.LogInformation("Starting Azure Service Bus Message Broker");
 			return Task.CompletedTask;
 		}
 
