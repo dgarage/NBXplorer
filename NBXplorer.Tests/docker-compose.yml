@@ -11,14 +11,12 @@ services:
       - bitcoind
       - litecoind
   bitcoind:
-    image: nicolasdorier/docker-bitcoin:0.17.0
+    image: nicolasdorier/docker-bitcoin:0.16.0
     environment:
       BITCOIN_EXTRA_ARGS: |
-        regtest=1
-        [regtest]
-        deprecatedrpc=signrawtransaction
         rpcuser=ceiwHEbqWI83
         rpcpassword=DwubwWsoo3
+        regtest=1
         server=1
         rpcport=43782
         port=39388
