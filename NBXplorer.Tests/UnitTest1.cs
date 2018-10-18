@@ -1049,6 +1049,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(NetworkType.Regtest, status.NetworkType);
 				Assert.Equal(tester.CryptoCode, status.SupportedCryptoCodes[0]);
 				Assert.Single(status.SupportedCryptoCodes);
+				Assert.NotNull(status.BitcoinStatus.Capabilities);
 			}
 		}
 

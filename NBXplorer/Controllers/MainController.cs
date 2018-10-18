@@ -181,7 +181,12 @@ namespace NBXplorer.Controllers
 					Headers = (int)blockchainInfo.Headers,
 					VerificationProgress = blockchainInfo.VerificationProgress,
 					MinRelayTxFee = new FeeRate(Money.Coins((decimal)networkInfo.relayfee), 1000),
-					IncrementalRelayFee = new FeeRate(Money.Coins((decimal)networkInfo.incrementalfee), 1000)
+					IncrementalRelayFee = new FeeRate(Money.Coins((decimal)networkInfo.incrementalfee), 1000),
+					Capabilities = new NodeCapabilities()
+					{
+						CanScanTxoutSet = waiter.RPC.Capabilities.SupportScanUTXOSet,
+						CanSupportSegwit = waiter.RPC.Capabilities.SupportSegwit
+					}
 				};
 				status.IsFullySynched &= status.BitcoinStatus.IsSynched;
 			}
