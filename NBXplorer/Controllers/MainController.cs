@@ -73,15 +73,11 @@ namespace NBXplorer.Controllers
 		public async Task<GetFeeRateResult> GetFeeRate(int blockCount, string cryptoCode)
 		{
 			var network = GetNetwork(cryptoCode, true);
-			if (!network.SupportEstimatesSmartFee)
-			{
-				throw new NBXplorerError(400, "fee-estimation-unavailable", $"{cryptoCode} does not support estimatesmartfee").AsException();
-			}
 			var waiter = Waiters.GetWaiter(network);
-			var rate = await waiter.RPC.GetFeeRateAsyncEx(blockCount);
+			var rate = await waiter.RPC.TryEstimateSmartFeeAsync(blockCount);
 			if (rate == null)
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
-			return rate;
+			return new GetFeeRateResult() { BlockCount = rate.Blocks, FeeRate = rate.FeeRate };
 		}
 
 		[HttpGet]
@@ -210,7 +206,7 @@ namespace NBXplorer.Controllers
 			if (checkRPC)
 			{
 				var waiter = Waiters.GetWaiter(network);
-				if (waiter == null || !waiter.RPCAvailable)
+				if (waiter == null || !waiter.RPCAvailable || waiter.RPC.Capabilities == null)
 					throw new NBXplorerError(400, "rpc-unavailable", $"The RPC interface is currently not available.").AsException();
 			}
 			return network;

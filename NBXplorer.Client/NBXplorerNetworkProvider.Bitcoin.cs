@@ -11,7 +11,7 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Bitcoin.Instance, networkType)
 			{
-				MinRPCVersion = 150000
+				MinRPCVersion = 0
 			});
 		}
 

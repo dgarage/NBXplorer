@@ -66,30 +66,5 @@ namespace NBXplorer
 			var result = await client.SendCommandAsync("getnetworkinfo").ConfigureAwait(false);
 			return JsonConvert.DeserializeObject<GetNetworkInfoResponse>(result.ResultString);
 		}
-
-		public static async Task<GetFeeRateResult> GetFeeRateAsyncEx(this RPCClient client, int blockCount)
-		{
-			FeeRate rate = null;
-			int blocks = 0;
-			try
-			{
-				var res = await client.TryEstimateSmartFeeAsync(blockCount, EstimateSmartFeeMode.Conservative).ConfigureAwait(false);
-				if(res == null)
-					return null;
-				rate = res.FeeRate;
-				blocks = res.Blocks;
-			}
-			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
-			{
-				var response = await client.SendCommandAsync(RPCOperations.estimatefee, blockCount).ConfigureAwait(false);
-				var result = response.Result.Value<decimal>();
-				var money = Money.Coins(result);
-				if (money.Satoshi < 0)
-					return null;
-				rate = new FeeRate(money);
-				blocks = blockCount;
-			}
-			return new GetFeeRateResult() { FeeRate = rate, BlockCount = blocks };
-		}
 	}
 }

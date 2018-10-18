@@ -134,6 +134,7 @@ namespace NBXplorer.Tests
 
 				_Client = new ExplorerClient(nbxnetwork, Address);
 				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
+				this.Client.WaitServerStarted();
 			}
 			catch
 			{
@@ -212,7 +213,6 @@ namespace NBXplorer.Tests
 			get;
 			internal set;
 		}
-		public bool RPCSupportSignRawTransaction { get; private set; } = true;
 
 		private static bool TryDelete(string directory, bool throws)
 		{
@@ -308,7 +308,7 @@ namespace NBXplorer.Tests
 
 		public BitcoinAddress AddressOf(BitcoinExtKey key, string path)
 		{
-			if(SupportSegwit())
+			if(this.RPC.Capabilities.SupportSegwit)
 				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.WitHash.GetAddress(Network);
 			else
 				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.Hash.GetAddress(Network);
@@ -326,25 +326,15 @@ namespace NBXplorer.Tests
 		public DerivationStrategyBase CreateDerivationStrategy(ExtPubKey pubKey, bool p2sh)
 		{
 			pubKey = pubKey ?? new ExtKey().Neuter();
-			string suffix = SupportSegwit() ? "" : "-[legacy]";
+			string suffix = this.RPC.Capabilities.SupportSegwit ? "" : "-[legacy]";
 			suffix += p2sh ? "-[p2sh]" : "";
 			return new DerivationStrategyFactory(this.Network).Parse($"{pubKey.ToString(this.Network)}{suffix}");
 		}
-
-		public bool RPCSupportSegwit
-		{
-			get; set;
-		} = true;
 
 		public bool RPCStringAmount
 		{
 			get; set;
 		} = true;
-
-		public bool SupportSegwit()
-		{
-			return RPCSupportSegwit && Network.Consensus.SupportSegwit;
-		}
 
 		public uint256 SendToAddress(BitcoinAddress address, Money amount)
 		{

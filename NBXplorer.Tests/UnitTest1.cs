@@ -264,7 +264,7 @@ namespace NBXplorer.Tests
 				output.Value = payment2;
 				var change = tx.Outputs.First(o => o.Value != payment1);
 				change.Value -= (payment2 - payment1) * 2; //Add more fees
-				var replacement = tester.SignRawTransaction(tx);
+				var replacement = tester.RPC.SignRawTransaction(tx);
 
 				tester.RPC.SendRawTransaction(replacement);
 
@@ -589,13 +589,13 @@ namespace NBXplorer.Tests
 
 					var schemes = new[] { pubkey.ToString(), pubkey2.ToString() }.ToList();
 
-					int expectedOutput = tester.SupportSegwit() ? 2 : 4; // if does not support segwit pubkey == pubkey2
+					int expectedOutput = tester.RPC.Capabilities.SupportSegwit ? 2 : 4; // if does not support segwit pubkey == pubkey2
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(expectedOutput, txEvent.Outputs.Count);
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), schemes);
 					schemes.Remove(txEvent.DerivationStrategy.ToString());
 
-					if(!tester.SupportSegwit())
+					if(!tester.RPC.Capabilities.SupportSegwit)
 						return;
 
 					txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
@@ -1395,8 +1395,8 @@ namespace NBXplorer.Tests
 				tester.Client.WaitServerStarted();
 				var tx = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
 				tx.Outputs.Add(new TxOut(Money.Coins(1.0m), new Key()));
-				var funded = tester.User1.CreateRPCClient().FundRawTransaction(tx);
-				var signed = tester.User1.CreateRPCClient().SignRawTransaction(funded.Transaction, tester);
+				var funded = tester.User1.CreateRPCClient().WithCapabilitiesOf(tester.RPC).FundRawTransaction(tx);
+				var signed = tester.User1.CreateRPCClient().WithCapabilitiesOf(tester.RPC).SignRawTransaction(funded.Transaction);
 				var result = tester.Client.Broadcast(signed);
 				Assert.True(result.Success);
 				signed.Inputs[0].PrevOut.N = 999;

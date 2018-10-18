@@ -88,7 +88,7 @@ namespace NBXplorer.Configuration
 			return rpcClient;
 		}
 
-		public static async Task TestRPCAsync(NBXplorerNetwork networkInfo, RPCClient rpcClient, CancellationToken cancellation)
+		public static async Task<RPCCapabilities> TestRPCAsync(NBXplorerNetwork networkInfo, RPCClient rpcClient, CancellationToken cancellation)
 		{
 			var network = networkInfo.NBitcoinNetwork;
 			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
@@ -132,29 +132,14 @@ namespace NBXplorer.Configuration
 				throw new ConfigException();
 			}
 			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: RPC connection successfull");
-			int version = await GetVersion(rpcClient);
-			if(version < networkInfo.MinRPCVersion)
+			var capabilities = await rpcClient.ScanRPCCapabilitiesAsync();
+			if(capabilities.Version < networkInfo.MinRPCVersion)
 			{
-				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: The minimum node version required is {networkInfo.MinRPCVersion} (detected: {version})");
+				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: The minimum node version required is {networkInfo.MinRPCVersion} (detected: {capabilities.Version})");
 				throw new ConfigException();
 			}
-			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Full node version detected: {version}");
-		}
-
-		private static async Task<int> GetVersion(RPCClient rpcClient)
-		{
-			try
-			{
-				var getInfo = await rpcClient.SendCommandAsync(RPCOperations.getnetworkinfo);
-				return ((JObject)getInfo.Result)["version"].Value<int>();
-			}
-			catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
-			{
-#pragma warning disable CS0618 // Type or member is obsolete
-				var getInfo = await rpcClient.SendCommandAsync(RPCOperations.getinfo);
-#pragma warning restore CS0618 // Type or member is obsolete
-				return ((JObject)getInfo.Result)["version"].Value<int>();
-			}
+			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Full node version detected: {capabilities.Version}");
+			return capabilities;
 		}
 
 		private static bool IsTransient(RPCException ex)
