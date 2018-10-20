@@ -48,12 +48,12 @@ namespace NBXplorer
 		{
 			get; set;
 		} = new HashSet<OutPoint>();
-		public ApplyTransactionResult Apply(TrackedTransaction fullTrackedTransaction)
+		public ApplyTransactionResult Apply(TrackedTransaction trackedTransaction)
 		{
 			var result = ApplyTransactionResult.Passed;
-			var hash = fullTrackedTransaction.Key.TxId;
+			var hash = trackedTransaction.Key.TxId;
 
-			foreach(var coin in fullTrackedTransaction.ReceivedCoins)
+			foreach(var coin in trackedTransaction.ReceivedCoins)
 			{
 				if(UTXOByOutpoint.ContainsKey(coin.Outpoint))
 				{
@@ -62,7 +62,7 @@ namespace NBXplorer
 				}
 			}
 
-			foreach(var spentOutpoint in fullTrackedTransaction.SpentOutpoints)
+			foreach(var spentOutpoint in trackedTransaction.SpentOutpoints)
 			{
 				if(_KnownInputs.Contains(spentOutpoint) || 
 					(!UTXOByOutpoint.ContainsKey(spentOutpoint) && SpentUTXOs.Contains(spentOutpoint)))
@@ -74,9 +74,9 @@ namespace NBXplorer
 			if(result == ApplyTransactionResult.Conflict)
 				return result;
 
-			_TransactionTimes.Add(fullTrackedTransaction.FirstSeen);
+			_TransactionTimes.Add(trackedTransaction.FirstSeen);
 
-			foreach(var coin in fullTrackedTransaction.ReceivedCoins)
+			foreach(var coin in trackedTransaction.ReceivedCoins)
 			{
 				if(UTXOByOutpoint.TryAdd(coin.Outpoint, coin))
 				{
@@ -84,7 +84,10 @@ namespace NBXplorer
 				}
 			}
 
-			foreach (var spentOutpoint in fullTrackedTransaction.SpentOutpoints)
+			if (trackedTransaction.ReceivedCoins.Count == 0 && trackedTransaction.Transaction != null)
+				UTXOByOutpoint.Prunable.Add(new Prunable() { PrunedBy = hash, TransactionId = hash });
+
+			foreach (var spentOutpoint in trackedTransaction.SpentOutpoints)
 			{
 				if(UTXOByOutpoint.Remove(spentOutpoint, hash))
 				{

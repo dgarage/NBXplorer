@@ -54,7 +54,7 @@ namespace NBXplorer
 
 	public class AnnotatedTransactionCollection : List<AnnotatedTransaction>
 	{
-		public AnnotatedTransactionCollection(IEnumerable<AnnotatedTransaction> transactions) : base(transactions)
+		public AnnotatedTransactionCollection(IEnumerable<AnnotatedTransaction> transactions, Models.TrackedSource trackedSource) : base(transactions)
 		{
 			foreach(var tx in transactions)
 			{
@@ -68,7 +68,7 @@ namespace NBXplorer
 
 			UTXOState state = new UTXOState();
 			foreach(var confirmed in transactions
-										.Where(tx => tx.Type == AnnotatedTransactionType.Confirmed)
+										.Where(tx => tx.Type == AnnotatedTransactionType.Confirmed).ToList()
 										.TopologicalSort())
 			{
 				if(state.Apply(confirmed.Record) == ApplyTransactionResult.Conflict
@@ -82,6 +82,7 @@ namespace NBXplorer
 			foreach(var unconfirmed in transactions
 										.Where(tx => tx.Type == AnnotatedTransactionType.Unconfirmed || tx.Type == AnnotatedTransactionType.Orphan)
 										.OrderByDescending(t => t.Record.Inserted) // OrderByDescending so that the last received is least likely to be conflicted
+										.ToList()
 										.TopologicalSort())
 			{
 				var hash = unconfirmed.Record.TransactionHash;
@@ -104,6 +105,8 @@ namespace NBXplorer
 					}
 				}
 			}
+
+			TrackedSource = trackedSource;
 		}
 
 		public TxOut GetUTXO(OutPoint outpoint)
@@ -153,6 +156,7 @@ namespace NBXplorer
 		{
 			get; set;
 		} = new List<AnnotatedTransaction>();
+		public Models.TrackedSource TrackedSource { get; }
 	}
 
 }

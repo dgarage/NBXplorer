@@ -527,6 +527,9 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanPrune()
 		{
+			// In this test we have fundingTxId with 2 output and spending1
+			// We make sure that only once the 2 outputs of fundingTxId have been consumed
+			// fundingTxId get pruned
 			using (var tester = ServerTester.Create())
 			{
 				tester.Client.WaitServerStarted();
@@ -548,13 +551,13 @@ namespace NBXplorer.Tests
 				// [funding, spending1]
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
-				tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				var spending1 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
 				// Let's add some transactions spending to push the spending in the first quarter
 				// [funding, *spending1*, tx1, tx2, tx3, tx4]
 				Thread.Sleep(1000);
 				for (int i = 0; i < 4; i++)
 				{
-					tester.SendToAddress(tester.AddressOf(pubkey, "0/2"), Money.Coins(0.01m));
+					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.01m));
 				}
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
@@ -563,29 +566,122 @@ namespace NBXplorer.Tests
 
 				// Still not pruned, because there is still one coin
 				utxo = tester.Client.GetUTXOs(pubkey, null);
-				var txs = tester.Client.GetTransactions(pubkey, null, false);
-				Assert.NotEmpty(txs.ConfirmedTransactions.Transactions.Where(t => t.TransactionId == fundingTxId));
+				AssertNotPruned(tester, pubkey, fundingTxId);
+				AssertNotPruned(tester, pubkey, spending1);
 
 				// Let's spend the other coin
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
-				tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				var spending2 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
 				Thread.Sleep(1000);
 				// Let's add some transactions spending to push the spending in the first quarter
 				// [funding, spending1, tx1, tx2, tx3, tx4, *spending2*, tx21, tx22, ..., tx217]
 				for (int i = 0; i < 17; i++)
 				{
-					if(i == 10)
+					if (i == 10)
 						tester.RPC.EnsureGenerate(1); // Can't have too big chain on unconf
-					tester.SendToAddress(tester.AddressOf(pubkey, "0/2"), Money.Coins(0.001m));
+					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.001m));
 				}
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
 
 				// Now it should get pruned
 				utxo = tester.Client.GetUTXOs(pubkey, null);
-				txs = tester.Client.GetTransactions(pubkey, null, false);
-				Assert.Empty(txs.ConfirmedTransactions.Transactions.Where(t => t.TransactionId == fundingTxId));
+				AssertPruned(tester, pubkey, fundingTxId);
+				AssertPruned(tester, pubkey, spending1);
+				AssertPruned(tester, pubkey, spending2);
+			}
+		}
+
+		private static GetTransactionsResponse AssertPruned(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
+		{
+			var txs = tester.Client.GetTransactions(pubkey, null, false);
+			Assert.NotEmpty(txs.ConfirmedTransactions.Transactions.Where(t => t.TransactionId == txid && t.Transaction == null));
+			return txs;
+		}
+		private static GetTransactionsResponse AssertNotPruned(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
+		{
+			var txs = tester.Client.GetTransactions(pubkey, null, false);
+			Assert.NotEmpty(txs.ConfirmedTransactions.Transactions.Where(t => t.TransactionId == txid && t.Transaction != null));
+			return txs;
+		}
+
+		[Fact]
+		public void CanPrune2()
+		{
+			// In this test we have fundingTxId with 2 output and spending1
+			// We make sure that if only 1 outputs of fundingTxId have been consumed
+			// spending1 does not get pruned, even if its output got consumed
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+
+				var utxo = tester.Client.GetUTXOs(pubkey, null, false);
+
+				tester.RPC.SendCommand(RPCOperations.sendmany, "",
+						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/0")}\": \"0.5\" }}"));
+				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				tester.RPC.EnsureGenerate(1);
+				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
+				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
+
+				// Let's spend one of the coins of funding and spend it again
+				// [funding, spending1, spending2]
+				LockTestCoins(tester.RPC);
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
+				var coinDestination = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
+				var coinDestinationAddress = coinDestination.ScriptPubKey.GetDestinationAddress(tester.Network);
+				var spending1 = tester.RPC.SendToAddress(coinDestinationAddress, Money.Coins(0.1m));
+				LockTestCoins(tester.RPC, new HashSet<Script>());
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, coinDestination.KeyPath.ToString()));
+				var spending2 = tester.RPC.SendToAddress(new Key().ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(0.01m));
+				var tx = tester.RPC.GetRawTransactionAsync(spending2).Result;
+				Assert.Contains(tx.Inputs, (i) => i.PrevOut.Hash == spending1);
+
+				// Let's add some transactions spending to push the spending2 in the first quarter
+				// [funding, spending1, *spending2*, tx1, tx2, tx3, tx4, tx5]
+				Thread.Sleep(1000);
+				for (int i = 0; i < 5; i++)
+				{
+					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.01m));
+				}
+				tester.RPC.EnsureGenerate(1);
+				tester.WaitSynchronized();
+
+				tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
+
+				// spending1 should not be pruned because fundingTx still can't be pruned
+				utxo = tester.Client.GetUTXOs(pubkey, null);
+				AssertNotPruned(tester, pubkey, fundingTxId);
+				AssertNotPruned(tester, pubkey, spending1);
+				AssertNotPruned(tester, pubkey, spending2);
+
+				// Let's spend the other coin of fundingTx
+				Thread.Sleep(1000);
+				LockTestCoins(tester.RPC, new HashSet<Script>());
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				var spending3 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				// Let's add some transactions spending to push the spending in the first quarter
+				// [funding, spending1, spending2, tx1, tx2, tx3, tx4, tx5, *spending3*, tx21, tx22, ..., tx232]
+				Thread.Sleep(1000);
+				for (int i = 0; i < 32 - 9; i++)
+				{
+					if (i % 10 == 0)
+						tester.RPC.EnsureGenerate(1); // Can't have too big chain on unconf
+					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.001m));
+				}
+				tester.RPC.EnsureGenerate(1);
+				tester.WaitSynchronized();
+
+				// Now it should get pruned
+				utxo = tester.Client.GetUTXOs(pubkey, null);
+				AssertPruned(tester, pubkey, fundingTxId);
+				AssertPruned(tester, pubkey, spending1);
+				AssertPruned(tester, pubkey, spending2);
 			}
 		}
 

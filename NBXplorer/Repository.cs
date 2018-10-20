@@ -492,10 +492,6 @@ namespace NBXplorer
 		{
 			return new Index(tx, $"{_Suffix}Transactions", $"{trackedSource.GetHash()}");
 		}
-		Index GetPrunedTransactionsIndex(DBreeze.Transactions.Transaction tx, TrackedSource trackedSource)
-		{
-			return new Index(tx, $"{_Suffix}PrunedTransactions", $"{trackedSource.GetHash()}");
-		}
 
 		NBXplorerNetwork _Network;
 
@@ -850,7 +846,7 @@ namespace NBXplorer
 				var table = GetTransactionsIndex(tx, trackedSource);
 				tx.ValuesLazyLoadingIsOn = false;
 				var result = new List<TransactionMatchData>();
-				foreach(var row in table.SelectForwardSkip(0))
+				foreach (var row in table.SelectForwardSkip(0))
 				{
 					MemoryStream ms = new MemoryStream(row.Value);
 					BitcoinStream bs = new BitcoinStream(ms, false);
@@ -859,13 +855,13 @@ namespace NBXplorer
 					data.ReadWrite(bs);
 					result.Add(data);
 
-					if(data.NeedUpdate)
+					if (data.NeedUpdate)
 						needUpdate = true;
 
 					long firstSeen;
-					if(firstSeenList.TryGetValue(data.Key.TxId, out firstSeen))
+					if (firstSeenList.TryGetValue(data.Key.TxId, out firstSeen))
 					{
-						if(firstSeen > data.FirstSeenTickCount)
+						if (firstSeen > data.FirstSeenTickCount)
 							firstSeenList[data.Key.TxId] = firstSeen;
 					}
 					else
@@ -877,9 +873,9 @@ namespace NBXplorer
 				return result;
 			});
 
-			foreach(var tx in transactions)
+			foreach (var tx in transactions)
 			{
-				if(tx.FirstSeenTickCount != firstSeenList[tx.Key.TxId])
+				if (tx.FirstSeenTickCount != firstSeenList[tx.Key.TxId])
 				{
 					needUpdate = true;
 					tx.NeedUpdate = true;
@@ -888,9 +884,9 @@ namespace NBXplorer
 			}
 
 			// This is legacy data, need an update
-			if(needUpdate)
+			if (needUpdate)
 			{
-				foreach(var data in transactions.Where(t => t.NeedUpdate && t.TransactionMatch == null))
+				foreach (var data in transactions.Where(t => t.NeedUpdate && t.TransactionMatch == null))
 				{
 					data.TransactionMatch = this.GetMatches(data.Transaction)
 											  .Where(m => m.TrackedSource.Equals(trackedSource))
@@ -901,18 +897,24 @@ namespace NBXplorer
 				_Engine.Do(tx =>
 				{
 					var table = GetTransactionsIndex(tx, trackedSource);
-					foreach(var data in transactions.Where(t => t.NeedUpdate))
+					foreach (var data in transactions.Where(t => t.NeedUpdate))
 					{
 						table.Insert(data.GetRowKey(), data.ToBytes());
 					}
 					tx.Commit();
 				});
 			}
-			return transactions.Select(c => new TrackedTransaction(c.Key, c.Transaction, c.TransactionMatch)
-			{
-				Inserted = c.TickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)c.TickCount, TimeSpan.Zero),
-				FirstSeen = c.FirstSeenTickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)c.FirstSeenTickCount, TimeSpan.Zero),
-			}).ToArray();
+			return transactions.Select(c => ToTrackedTransaction(c)).ToArray();
+		}
+
+		private static TrackedTransaction ToTrackedTransaction(TransactionMatchData c)
+		{
+			var trackedTransaction = c.Key.IsPruned
+									? new TrackedTransaction(c.Key)
+									: new TrackedTransaction(c.Key, c.Transaction, c.TransactionMatch);
+			trackedTransaction.Inserted = c.TickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)c.TickCount, TimeSpan.Zero);
+			trackedTransaction.FirstSeen = c.FirstSeenTickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)c.FirstSeenTickCount, TimeSpan.Zero);
+			return trackedTransaction;
 		}
 
 		public class TransactionMiniKeyInformation : IBitcoinSerializable
@@ -1215,7 +1217,6 @@ namespace NBXplorer
 			return _Engine.DoAsync(tx =>
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
-				var prunedTable = GetPrunedTransactionsIndex(tx, trackedSource);
 				foreach (var tracked in prunable)
 				{
 					table.RemoveKey(tracked.Key.ToString());
@@ -1231,7 +1232,7 @@ namespace NBXplorer
 						BitcoinStream bs = new BitcoinStream(ms, true);
 						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
 						data.ReadWrite(bs);
-						prunedTable.Insert(data.GetRowKey(), ms.ToArrayEfficient());
+						table.Insert(data.GetRowKey(), ms.ToArrayEfficient());
 					}
 				}
 				tx.Commit();

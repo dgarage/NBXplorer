@@ -14,7 +14,7 @@ namespace NBXplorer.Tests
 		public static IEnumerable<Transaction> TopologicalSort(this IEnumerable<Transaction> transactions)
 		{
 			return transactions
-				.Select(t => t.AsAnnotatedTransaction())
+				.Select(t => t.AsAnnotatedTransaction()).ToList()
 				.TopologicalSort()
 				.Select(t => t.Record.Transaction);
 		}

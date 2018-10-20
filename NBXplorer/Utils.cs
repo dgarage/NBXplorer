@@ -9,9 +9,13 @@ namespace NBXplorer
 {
 	public static class Utils
 	{	
-		public static IEnumerable<AnnotatedTransaction> TopologicalSort(this IEnumerable<AnnotatedTransaction> transactions)
+		/// <summary>
+		/// Make sure that if transaction A spend UTXO of transaction B then the output will order A first, and B second
+		/// </summary>
+		/// <param name="transactions">Unordered collection</param>
+		/// <returns>Topologically ordered collection</returns>
+		public static IEnumerable<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
 		{
-			transactions = transactions.ToList(); // Buffer
 			return transactions.TopologicalSort<AnnotatedTransaction>(DependsOn(transactions));
 		}
 

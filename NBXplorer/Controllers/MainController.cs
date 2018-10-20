@@ -682,25 +682,7 @@ namespace NBXplorer.Controllers
 					if (ExplorerConfiguration.AutoPruningTime != null &&
 					   stopwatch.Elapsed > ExplorerConfiguration.AutoPruningTime.Value)
 					{
-						var quarter = states.Confirmed.Actual.GetQuarterTransactionTime();
-						if (quarter != null)
-						{
-							Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruning needed for {trackedSource.ToPrettyString()}...");
-							var prunable = states.Confirmed.Actual
-											.UTXOByOutpoint
-											.Prunable
-											.Where(p => OldEnough(transactions, p.PrunedBy, quarter.Value))
-											.SelectMany(p => transactions.GetByTxId(p.TransactionId) ?? Array.Empty<AnnotatedTransaction>())
-											.Select(p => p.Record)
-											.ToList();
-							if (prunable.Count == 0)
-								Logs.Explorer.LogInformation($"{network.CryptoCode}: Impossible to prune {trackedSource.ToPrettyString()}, if you wish to improve performance, please decrease the number of UTXOs");
-							else
-							{
-								await repo.Prune(trackedSource, prunable);
-								Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunable.Count} transactions");
-							}
-						}
+						await AttemptPrune(repo, transactions, states);
 					}
 
 					if (!longPolling || changes.HasChanges)
@@ -712,6 +694,55 @@ namespace NBXplorer.Controllers
 				changes.DerivationStrategy = (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 			}
 			return changes;
+		}
+
+		private async Task AttemptPrune(Repository repo, AnnotatedTransactionCollection transactions, UTXOStateResult states)
+		{
+			var network = repo.Network;
+			var trackedSource = transactions.TrackedSource;
+			var quarter = states.Confirmed.Actual.GetQuarterTransactionTime();
+			if (quarter != null)
+			{
+				Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruning needed for {trackedSource.ToPrettyString()}...");
+
+				// Step 1. Mark all transactions whose UTXOs have been all spent for long enough (quarter of first seen time of all transaction)
+				var prunableIds = states.Confirmed.Actual
+								.UTXOByOutpoint
+								.Prunable
+								.Where(p => OldEnough(transactions, p.PrunedBy, quarter.Value))
+								.Select(p => transactions.GetByTxId(p.TransactionId).First())
+								.Select(p => p.Record.TransactionHash)
+								.ToHashSet();
+
+				// Step2. Make sure that all their parent are also prunable (Ancestors first)
+				if (prunableIds.Count != 0)
+				{
+					foreach (var tx in transactions.ConfirmedTransactions.Values.TopologicalSort())
+					{
+						if (prunableIds.Count == 0)
+							break;
+						if (!prunableIds.Contains(tx.Record.TransactionHash))
+							continue;
+						foreach (var parent in tx.Record.SpentOutpoints
+														.Select(spent => transactions.GetByTxId(spent.Hash)?.FirstOrDefault())
+														.Where(parent => parent != null)
+														.Where(parent => !prunableIds.Contains(parent.Record.TransactionHash)))
+						{
+							prunableIds.Remove(tx.Record.TransactionHash);
+						}
+					}
+				}
+
+				if (prunableIds.Count == 0)
+					Logs.Explorer.LogInformation($"{network.CryptoCode}: Impossible to prune {trackedSource.ToPrettyString()}, if you wish to improve performance, please decrease the number of UTXOs");
+				else
+				{
+					await repo.Prune(trackedSource, prunableIds
+													.SelectMany(id => transactions.GetByTxId(id).Select(c => c.Record))
+													.ToList());
+					Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunableIds.Count} transactions");
+				}
+			}
 		}
 
 		private bool OldEnough(AnnotatedTransactionCollection transactions, uint256 prunedBy, DateTimeOffset pruneBefore)
@@ -736,7 +767,7 @@ namespace NBXplorer.Controllers
 				throw new NotSupportedException();
 		}
 
-		private void CleanConflicts(Repository repo, TrackedSource trackedSource, AnnotatedTransactionCollection transactions)
+		private void CleanConflicts(Repository repo, AnnotatedTransactionCollection transactions)
 		{
 			var cleaned = transactions.DuplicatedTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
 			if (cleaned.Length != 0)
@@ -745,7 +776,7 @@ namespace NBXplorer.Controllers
 				{
 					_EventAggregator.Publish(new EvictedTransactionEvent(tx.TransactionHash));
 				}
-				repo.CleanTransactions(trackedSource, cleaned.ToList());
+				repo.CleanTransactions(transactions.TrackedSource, cleaned.ToList());
 			}
 		}
 
@@ -808,8 +839,8 @@ namespace NBXplorer.Controllers
 			var annotatedTransactions = new AnnotatedTransactionCollection(repo
 				.GetTransactions(trackedSource)
 				.Select(t => new AnnotatedTransaction(t, chain))
-				.ToList());
-			CleanConflicts(repo, trackedSource, annotatedTransactions);
+				.ToList(), trackedSource);
+			CleanConflicts(repo, annotatedTransactions);
 			return annotatedTransactions;
 		}
 
@@ -862,9 +893,12 @@ namespace NBXplorer.Controllers
 					var transactions = GetAnnotatedTransactions(repo, chain, trackedSource);
 					foreach (var existing in transactions.UnconfirmedTransactions.Values)
 					{
+						var t = existing.Record.Transaction ?? repo.GetSavedTransactions(existing.Record.TransactionHash).Select(c => c.Transaction).FirstOrDefault();
+						if (t == null)
+							continue;
 						try
 						{
-							await waiter.RPC.SendRawTransactionAsync(existing.Record.Transaction);
+							await waiter.RPC.SendRawTransactionAsync(t);
 						}
 						catch { }
 					}
