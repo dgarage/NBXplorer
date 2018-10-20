@@ -523,6 +523,72 @@ namespace NBXplorer.Tests
 
 			}
 		}
+
+		[Fact]
+		public void CanPrune()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+
+				var utxo = tester.Client.GetUTXOs(pubkey, null, false);
+
+				tester.RPC.SendCommand(RPCOperations.sendmany, "",
+						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/0")}\": \"0.5\" }}"));
+				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				tester.RPC.EnsureGenerate(1);
+				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
+				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
+
+				// Let's spend one of the coins
+				// [funding, spending1]
+				LockTestCoins(tester.RPC);
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
+				tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				// Let's add some transactions spending to push the spending in the first quarter
+				// [funding, *spending1*, tx1, tx2, tx3, tx4]
+				Thread.Sleep(1000);
+				for (int i = 0; i < 4; i++)
+				{
+					tester.SendToAddress(tester.AddressOf(pubkey, "0/2"), Money.Coins(0.01m));
+				}
+				tester.RPC.EnsureGenerate(1);
+				tester.WaitSynchronized();
+
+				tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
+
+				// Still not pruned, because there is still one coin
+				utxo = tester.Client.GetUTXOs(pubkey, null);
+				var txs = tester.Client.GetTransactions(pubkey, null, false);
+				Assert.NotEmpty(txs.ConfirmedTransactions.Transactions.Where(t => t.TransactionId == fundingTxId));
+
+				// Let's spend the other coin
+				LockTestCoins(tester.RPC);
+				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				Thread.Sleep(1000);
+				// Let's add some transactions spending to push the spending in the first quarter
+				// [funding, spending1, tx1, tx2, tx3, tx4, *spending2*, tx21, tx22, ..., tx217]
+				for (int i = 0; i < 17; i++)
+				{
+					if(i == 10)
+						tester.RPC.EnsureGenerate(1); // Can't have too big chain on unconf
+					tester.SendToAddress(tester.AddressOf(pubkey, "0/2"), Money.Coins(0.001m));
+				}
+				tester.RPC.EnsureGenerate(1);
+				tester.WaitSynchronized();
+
+				// Now it should get pruned
+				utxo = tester.Client.GetUTXOs(pubkey, null);
+				txs = tester.Client.GetTransactions(pubkey, null, false);
+				Assert.Empty(txs.ConfirmedTransactions.Transactions.Where(t => t.TransactionId == fundingTxId));
+			}
+		}
+
 		[Fact]
 		public void CanUseWebSockets()
 		{
@@ -585,7 +651,7 @@ namespace NBXplorer.Tests
 					connected.ListenAllDerivationSchemes();
 					tester.Explorer.CreateRPCClient().SendCommand(RPCOperations.sendmany, "",
 						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "1/1")}\": \"0.5\"," +
-									  $"\"{tester.AddressOf(pubkey2, "0/2")}\": \"0.9\", \"{tester.AddressOf(pubkey2, "1/2")}\": \"0.5\" }}"));
+										$"\"{tester.AddressOf(pubkey2, "0/2")}\": \"0.9\", \"{tester.AddressOf(pubkey2, "1/2")}\": \"0.5\" }}"));
 
 					var schemes = new[] { pubkey.ToString(), pubkey2.ToString() }.ToList();
 
@@ -595,7 +661,7 @@ namespace NBXplorer.Tests
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), schemes);
 					schemes.Remove(txEvent.DerivationStrategy.ToString());
 
-					if(!tester.RPC.Capabilities.SupportSegwit)
+					if (!tester.RPC.Capabilities.SupportSegwit)
 						return;
 
 					txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);

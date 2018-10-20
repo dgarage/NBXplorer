@@ -492,6 +492,10 @@ namespace NBXplorer
 		{
 			return new Index(tx, $"{_Suffix}Transactions", $"{trackedSource.GetHash()}");
 		}
+		Index GetPrunedTransactionsIndex(DBreeze.Transactions.Transaction tx, TrackedSource trackedSource)
+		{
+			return new Index(tx, $"{_Suffix}PrunedTransactions", $"{trackedSource.GetHash()}");
+		}
 
 		NBXplorerNetwork _Network;
 
@@ -1201,6 +1205,36 @@ namespace NBXplorer
 		private static Script[] GetScripts(TransactionMatch value)
 		{
 			return value.Outputs.Select(m => m.ScriptPubKey).Concat(value.Inputs.Select(m => m.ScriptPubKey)).ToArray();
+		}
+
+		internal Task Prune(TrackedSource trackedSource, List<TrackedTransaction> prunable)
+		{
+			if (prunable == null || prunable.Count == 0)
+				return Task.CompletedTask;
+			return _Engine.DoAsync(tx =>
+			{
+				var table = GetTransactionsIndex(tx, trackedSource);
+				var prunedTable = GetPrunedTransactionsIndex(tx, trackedSource);
+				foreach (var tracked in prunable)
+				{
+					table.RemoveKey(tracked.Key.ToString());
+					if(tracked.Key.BlockHash != null)
+					{
+						var pruned = tracked.Prune();
+						TransactionMatchData data = new TransactionMatchData(pruned.Key)
+						{
+							TickCount = pruned.Inserted.Ticks,
+							FirstSeenTickCount = pruned.FirstSeen.Ticks
+						};
+						MemoryStream ms = new MemoryStream();
+						BitcoinStream bs = new BitcoinStream(ms, true);
+						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
+						data.ReadWrite(bs);
+						prunedTable.Insert(data.GetRowKey(), ms.ToArrayEfficient());
+					}
+				}
+				tx.Commit();
+			});
 		}
 
 		public void CleanTransactions(TrackedSource trackedSource, List<TrackedTransaction> cleanList)

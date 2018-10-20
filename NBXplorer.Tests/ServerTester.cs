@@ -25,6 +25,10 @@ using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Tests
 {
+	public class ServerParams
+	{
+		public string AutoPruning { get; set; }
+	}
 	public partial class ServerTester : IDisposable
 	{
 		private readonly string _Directory;
@@ -131,7 +135,7 @@ namespace NBXplorer.Tests
 				Network = nbxnetwork.NBitcoinNetwork;
 				var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 				Host.Start();
-
+				Configuration = conf;
 				_Client = new ExplorerClient(nbxnetwork, Address);
 				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
 				this.Client.WaitServerStarted();
@@ -159,6 +163,8 @@ namespace NBXplorer.Tests
 				return new Uri(address);
 			}
 		}
+
+		public ExplorerConfiguration Configuration { get; }
 
 		ExplorerClient _Client;
 		public ExplorerClient Client
@@ -351,6 +357,23 @@ namespace NBXplorer.Tests
 				parameters.Add(amount.ToDecimal(MoneyUnit.BTC));
 			var resp = await RPC.SendCommandAsync(RPCOperations.sendtoaddress, parameters.ToArray());
 			return uint256.Parse(resp.Result.ToString());
+		}
+
+		internal void WaitSynchronized()
+		{
+			using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+			{
+				while (true)
+				{
+					cts.Token.ThrowIfCancellationRequested();
+					var status = Client.GetStatus();
+					if (status.SyncHeight == status.BitcoinStatus.Blocks)
+					{
+						break;
+					}
+					Thread.Sleep(50);
+				}
+			}
 		}
 	}
 }

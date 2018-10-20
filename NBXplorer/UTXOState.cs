@@ -78,6 +78,8 @@ namespace NBXplorer
 			if(result == ApplyTransactionResult.Conflict)
 				return result;
 
+			_TransactionTimes.Add(fullTrackedTransaction.FirstSeen);
+
 			var matches = MatchScript == null ? null : MatchScript(tx.Outputs.Select(o => o.ScriptPubKey).ToArray());
 			for(int i = 0; i < tx.Outputs.Count; i++)
 			{
@@ -106,6 +108,16 @@ namespace NBXplorer
 			return result;
 		}
 		HashSet<OutPoint> _KnownInputs = new HashSet<OutPoint>();
+		List<DateTimeOffset> _TransactionTimes = new List<DateTimeOffset>();
+		public DateTimeOffset? GetQuarterTransactionTime()
+		{
+			var times = _TransactionTimes.ToArray();
+			Array.Sort(times);
+			var quarter = times.Length / 4;
+			if (times.Length <= quarter)
+				return null;
+			return times[quarter];
+		}
 
 		public MultiValueDictionary<OutPoint, uint256> Conflicts
 		{
@@ -142,7 +154,9 @@ namespace NBXplorer
 				Conflicts = new MultiValueDictionary<OutPoint, uint256>(Conflicts),
 				MatchScript = MatchScript,
 				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
-				_BookmarkProcessor = _BookmarkProcessor.Clone()
+				_BookmarkProcessor = _BookmarkProcessor.Clone(),
+				_KnownInputs = new HashSet<OutPoint>(_KnownInputs),
+				_TransactionTimes = new List<DateTimeOffset>(_TransactionTimes)
 			};
 		}
 		

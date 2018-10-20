@@ -24,6 +24,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Diagnostics;
 
 namespace NBXplorer.Controllers
 {
@@ -33,6 +34,7 @@ namespace NBXplorer.Controllers
 	{
 		JsonSerializerSettings _SerializerSettings;
 		public MainController(
+			ExplorerConfiguration explorerConfiguration,
 			RepositoryProvider repositoryProvider,
 			ChainProvider chainProvider,
 			EventAggregator eventAggregator,
@@ -40,6 +42,7 @@ namespace NBXplorer.Controllers
 			AddressPoolServiceAccessor addressPoolService,
 			IOptions<MvcJsonOptions> jsonOptions)
 		{
+			ExplorerConfiguration = explorerConfiguration;
 			RepositoryProvider = repositoryProvider;
 			ChainProvider = chainProvider;
 			_SerializerSettings = jsonOptions.Value.SerializerSettings;
@@ -58,6 +61,7 @@ namespace NBXplorer.Controllers
 		{
 			get;
 		}
+		public ExplorerConfiguration ExplorerConfiguration { get; }
 		public RepositoryProvider RepositoryProvider
 		{
 			get;
@@ -390,7 +394,7 @@ namespace NBXplorer.Controllers
 			{
 				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
 				{
-					await RepositoryProvider.GetRepository(network).RefillAddressPoolIfNeeded(dts.DerivationStrategy, feature, 1);
+					await RepositoryProvider.GetRepository(network).RefillAddressPoolIfNeeded(dts.DerivationStrategy, feature, 3);
 					AddressPoolService.RefillAddressPoolIfNeeded(network, dts.DerivationStrategy, feature);
 				}
 			}
@@ -649,6 +653,8 @@ namespace NBXplorer.Controllers
 				{
 					changes = new UTXOChanges();
 					changes.CurrentHeight = chain.Height;
+					Stopwatch stopwatch = new Stopwatch();
+					stopwatch.Start();
 					var transactions = GetAnnotatedTransactions(repo, chain, trackedSource);
 					Func<Script[], bool[]> matchScript = (scripts) => scripts.Select(s => IsMatching(trackedSource, s, transactions)).ToArray();
 
@@ -666,6 +672,31 @@ namespace NBXplorer.Controllers
 					FillUTXOsInformation(changes.Confirmed.UTXOs, transactions, changes.CurrentHeight);
 					FillUTXOsInformation(changes.Unconfirmed.UTXOs, transactions, changes.CurrentHeight);
 
+					stopwatch.Stop();
+					if (ExplorerConfiguration.AutoPruningTime != null &&
+					   stopwatch.Elapsed > ExplorerConfiguration.AutoPruningTime.Value)
+					{
+						var quarter = states.Confirmed.Actual.GetQuarterTransactionTime();
+						if (quarter != null)
+						{
+							Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruning needed for {trackedSource.ToPrettyString()}...");
+							var prunable = states.Confirmed.Actual
+											.UTXOByOutpoint
+											.Prunable
+											.Where(p => OldEnough(transactions, p.PrunedBy, quarter.Value))
+											.SelectMany(p => transactions.GetByTxId(p.TransactionId) ?? Array.Empty<AnnotatedTransaction>())
+											.Select(p => p.Record)
+											.ToList();
+							if (prunable.Count == 0)
+								Logs.Explorer.LogInformation($"{network.CryptoCode}: Impossible to prune {trackedSource.ToPrettyString()}, if you wish to improve performance, please decrease the number of UTXOs");
+							else
+							{
+								await repo.Prune(trackedSource, prunable);
+								Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunable.Count} transactions");
+							}
+						}
+					}
+
 					if (!longPolling || changes.HasChanges)
 						break;
 					if (!await WaitingTransaction(trackedSource, cts.Token))
@@ -675,6 +706,18 @@ namespace NBXplorer.Controllers
 				changes.DerivationStrategy = (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 			}
 			return changes;
+		}
+
+		private bool OldEnough(AnnotatedTransactionCollection transactions, uint256 prunedBy, DateTimeOffset pruneBefore)
+		{
+			// Let's make sure that the transaction that made this transaction pruned has enough confirmations
+			var tx = transactions.GetByTxId(prunedBy);
+			if (tx == null)
+				return false;
+			var firstSeen = tx.Where(t => t.Height != null)
+								  .Select(t => t.Record.FirstSeen)
+								  .FirstOrDefault();
+			return firstSeen <= pruneBefore;
 		}
 
 		private static bool IsMatching(TrackedSource trackedSource, Script s, AnnotatedTransactionCollection transactions)

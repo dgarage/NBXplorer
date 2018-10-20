@@ -39,12 +39,12 @@ namespace NBXplorer.Events
 
 		public override string ToString()
 		{
-			var conf = (BlockId == null ? "Unconfirmed" : "Confirmed");
+			var conf = (BlockId == null ? "unconfirmed" : "confirmed");
 
 			string strategy = Match.TrackedSource.ToPrettyString();
 			var txId = Match.Transaction.GetHash().ToString();
 			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
-			return $"{CryptoCode}: Money received in {strategy} in transaction {txId} ({conf})";
+			return $"{CryptoCode}: {strategy} matching {conf} transaction {txId} ({Match.Inputs.Count} inputs, {Match.Outputs.Count} outputs)";
 		}
 	}
 }
