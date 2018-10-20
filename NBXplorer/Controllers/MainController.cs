@@ -395,6 +395,9 @@ namespace NBXplorer.Controllers
 				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
 				{
 					await RepositoryProvider.GetRepository(network).RefillAddressPoolIfNeeded(dts.DerivationStrategy, feature, 3);
+				}
+				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
+				{
 					AddressPoolService.RefillAddressPoolIfNeeded(network, dts.DerivationStrategy, feature);
 				}
 			}

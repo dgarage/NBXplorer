@@ -105,8 +105,8 @@ namespace NBXplorer.Tests
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 				keyValues.Add(("cachechain", "0"));
 				keyValues.Add(("rpcnotest", "1"));
-				keyValues.Add(("mingapsize", "2"));
-				keyValues.Add(("maxgapsize", "4"));
+				keyValues.Add(("mingapsize", "3"));
+				keyValues.Add(("maxgapsize", "8"));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 				keyValues.Add(("asbcnstr", AzureServiceBusTestConfig.ConnectionString));
