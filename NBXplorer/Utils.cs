@@ -19,7 +19,7 @@ namespace NBXplorer
 
 		static AnnotatedTransaction AsAnnotatedTransaction(this Transaction tx)
 		{
-			return new AnnotatedTransaction() { Record = new TrackedTransaction() { Transaction = tx } };
+			return new AnnotatedTransaction() { Record = new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), null, false), tx, new Repository.TransactionMiniMatch()) };
 		}
 		
 		public static IEnumerable<AnnotatedTransaction> TopologicalSort(this IEnumerable<AnnotatedTransaction> transactions)
@@ -33,7 +33,7 @@ namespace NBXplorer
 			return t =>
 			{
 				HashSet<uint256> spent = new HashSet<uint256>(t.Record.Transaction.Inputs.Select(txin => txin.PrevOut.Hash));
-				return transactions.Where(u => spent.Contains(u.Record.Transaction.GetHash()) ||  //Depends on parent transaction
+				return transactions.Where(u => spent.Contains(u.Record.TransactionHash) ||  //Depends on parent transaction
 												(u.Height.HasValue && t.Height.HasValue && u.Height.Value < t.Height.Value) ); //Depends on earlier transaction
 			};
 		}

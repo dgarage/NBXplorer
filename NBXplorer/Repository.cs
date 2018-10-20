@@ -26,38 +26,6 @@ using static NBXplorer.Repository;
 
 namespace NBXplorer
 {
-	public class TrackedTransaction
-	{
-		public uint256 BlockHash
-		{
-			get; set;
-		}
-
-		public Transaction Transaction
-		{
-			get; set;
-		}
-
-		public DateTimeOffset Inserted
-		{
-			get; set;
-		}
-
-		public DateTimeOffset FirstSeen
-		{
-			get; set;
-		}
-
-		public TransactionMiniMatch TransactionMatch
-		{
-			get; set;
-		}
-		internal string GetRowKey()
-		{
-			return $"{Transaction.GetHash()}:{BlockHash}";
-		}
-	}
-
 	public class MatchedTransaction
 	{
 		public uint256 BlockId
@@ -883,27 +851,22 @@ namespace NBXplorer
 					MemoryStream ms = new MemoryStream(row.Value);
 					BitcoinStream bs = new BitcoinStream(ms, false);
 					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-					TransactionMatchData data = new TransactionMatchData();
-					bs.ReadWrite(ref data);
-					data.Transaction.PrecomputeHash(true, true);
-					var blockHash = row.Key.Split(':')[1];
-					if(blockHash.Length != 0)
-						data.BlockHash = new uint256(blockHash);
+					TransactionMatchData data = new TransactionMatchData(TrackedTransactionKey.Parse(row.Key));
+					data.ReadWrite(bs);
 					result.Add(data);
 
 					if(data.NeedUpdate)
 						needUpdate = true;
 
 					long firstSeen;
-					var hash = data.Transaction.GetHash();
-					if(firstSeenList.TryGetValue(data.Transaction.GetHash(), out firstSeen))
+					if(firstSeenList.TryGetValue(data.Key.TxId, out firstSeen))
 					{
 						if(firstSeen > data.FirstSeenTickCount)
-							firstSeenList[hash] = firstSeen;
+							firstSeenList[data.Key.TxId] = firstSeen;
 					}
 					else
 					{
-						firstSeenList.Add(hash, data.FirstSeenTickCount);
+						firstSeenList.Add(data.Key.TxId, data.FirstSeenTickCount);
 					}
 
 				}
@@ -912,11 +875,11 @@ namespace NBXplorer
 
 			foreach(var tx in transactions)
 			{
-				if(tx.FirstSeenTickCount != firstSeenList[tx.Transaction.GetHash()])
+				if(tx.FirstSeenTickCount != firstSeenList[tx.Key.TxId])
 				{
 					needUpdate = true;
 					tx.NeedUpdate = true;
-					tx.FirstSeenTickCount = firstSeenList[tx.Transaction.GetHash()];
+					tx.FirstSeenTickCount = firstSeenList[tx.Key.TxId];
 				}
 			}
 
@@ -941,14 +904,10 @@ namespace NBXplorer
 					tx.Commit();
 				});
 			}
-
-			return transactions.Select(c => new TrackedTransaction()
+			return transactions.Select(c => new TrackedTransaction(c.Key, c.Transaction, c.TransactionMatch)
 			{
-				BlockHash = c.BlockHash,
-				Transaction = c.Transaction,
 				Inserted = c.TickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)c.TickCount, TimeSpan.Zero),
 				FirstSeen = c.FirstSeenTickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)c.FirstSeenTickCount, TimeSpan.Zero),
-				TransactionMatch = c.TransactionMatch
 			}).ToArray();
 		}
 
@@ -1077,7 +1036,13 @@ namespace NBXplorer
 
 		class TransactionMatchData : IBitcoinSerializable
 		{
-
+			public TransactionMatchData(TrackedTransactionKey key)
+			{
+				if (key == null)
+					throw new ArgumentNullException(nameof(key));
+				Key = key;
+			}
+			public TrackedTransactionKey Key { get; }
 			Transaction _Transaction;
 			public Transaction Transaction
 			{
@@ -1139,7 +1104,10 @@ namespace NBXplorer
 			}
 			public void ReadWrite(BitcoinStream stream)
 			{
+				if (!Key.IsPruned)
+			{
 				stream.ReadWrite(ref _Transaction);
+				}
 				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 				{
 					stream.ReadWrite(ref _TickCount);
@@ -1153,7 +1121,10 @@ namespace NBXplorer
 				}
 				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 				{
+					if (!Key.IsPruned)
+				{
 					stream.ReadWrite(ref _TransactionMatch);
+				}
 				}
 				else
 				{
@@ -1169,14 +1140,9 @@ namespace NBXplorer
 				}
 			}
 
-			public uint256 BlockHash
-			{
-				get; set;
-			}
-
 			internal string GetRowKey()
 			{
-				return $"{Transaction.GetHash()}:{BlockHash}";
+				return Key.ToString();
 			}
 		}
 
@@ -1217,13 +1183,12 @@ namespace NBXplorer
 						var ms = new MemoryStream();
 						BitcoinStream bs = new BitcoinStream(ms, true);
 						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-						TransactionMatchData data = new TransactionMatchData()
+						TransactionMatchData data = new TransactionMatchData(new TrackedTransactionKey(value.Match.Transaction.GetHash(), value.BlockId, false))
 						{
 							Transaction = value.Match.Transaction,
 							TickCount = ticksCount,
 							FirstSeenTickCount = ticksCount,
-							TransactionMatch = new TransactionMiniMatch(value.Match),
-							BlockHash = value.BlockId
+							TransactionMatch = new TransactionMiniMatch(value.Match)
 						};
 						bs.ReadWrite(data);
 						table.Insert(data.GetRowKey(), ms.ToArrayEfficient());
@@ -1245,10 +1210,9 @@ namespace NBXplorer
 			_Engine.Do(tx =>
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
-				foreach(var tracked in cleanList)
+				foreach (var tracked in cleanList)
 				{
-					var k = tracked.GetRowKey();
-					table.RemoveKey(k);
+					table.RemoveKey(tracked.Key.ToString());
 				}
 				tx.Commit();
 			});

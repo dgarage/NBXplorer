@@ -53,11 +53,11 @@ namespace NBXplorer
 		{
 			get; set;
 		} = new HashSet<OutPoint>();
-
-		public ApplyTransactionResult Apply(Transaction tx)
+		public ApplyTransactionResult Apply(TrackedTransaction fullTrackedTransaction)
 		{
+			var tx = fullTrackedTransaction.Transaction;
 			var result = ApplyTransactionResult.Passed;
-			var hash = tx.GetHash();
+			var hash = fullTrackedTransaction.Key.TxId;
 
 			for(int i = 0; i < tx.Outputs.Count; i++)
 			{

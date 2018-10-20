@@ -42,8 +42,8 @@ namespace NBXplorer
 	{
 		public static UTXOStateResult CreateStates(
 			Func<Script[], bool[]> matchScript,
-			HashSet<Bookmark> knownUnconfBookmarks, IEnumerable<Transaction> unconfirmed,
-			HashSet<Bookmark> knownConfBookmarks, IEnumerable<Transaction> confirmed)
+			HashSet<Bookmark> knownUnconfBookmarks, IEnumerable<TrackedTransaction> unconfirmed,
+			HashSet<Bookmark> knownConfBookmarks, IEnumerable<TrackedTransaction> confirmed)
 		{
 			var utxoState = new UTXOState();
 			utxoState.MatchScript = matchScript;
@@ -64,7 +64,6 @@ namespace NBXplorer
 			var knownUnconf = knownUnconfBookmarks.Contains(Bookmark.Start) ? utxoState.Snapshot() : null;
 			foreach(var tx in unconfirmed)
 			{
-				var txid = tx.GetHash();
 				if(utxoState.Apply(tx) == ApplyTransactionResult.Conflict)
 					throw new InvalidOperationException("Conflict in UTXOStateResult.CreateStates should never happen");
 

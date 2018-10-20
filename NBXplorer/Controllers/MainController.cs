@@ -477,7 +477,7 @@ namespace NBXplorer.Controllers
 						foreach (var tx in item.AnnotatedTx.Values)
 						{
 							processor.PushNew();
-							processor.AddData(tx.Record.Transaction.GetHash());
+							processor.AddData(tx.Record.TransactionHash);
 							processor.AddData(tx.Record.BlockHash ?? uint256.Zero);
 							processor.UpdateBookmark();
 
@@ -485,10 +485,10 @@ namespace NBXplorer.Controllers
 							{
 								BlockHash = tx.Height.HasValue ? tx.Record.BlockHash : null,
 								Height = tx.Height,
-								TransactionId = tx.Record.Transaction.GetHash(),
+								TransactionId = tx.Record.TransactionHash,
 								Transaction = includeTransaction ? tx.Record.Transaction : null,
 								Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
-								Timestamp = txs.GetByTxId(tx.Record.Transaction.GetHash()).Select(t => t.Record.FirstSeen).First(),
+								Timestamp = txs.GetByTxId(tx.Record.TransactionHash).Select(t => t.Record.FirstSeen).First(),
 								Inputs = ToMatch(txs, tx.Record.Transaction.Inputs.Select(o => txs.GetUTXO(o.PrevOut)).ToList(), trackedSource),
 								Outputs = ToMatch(txs, tx.Record.Transaction.Outputs, trackedSource)
 							};
@@ -654,9 +654,9 @@ namespace NBXplorer.Controllers
 
 					var states = UTXOStateResult.CreateStates(matchScript,
 															unconfirmedBookmarks,
-															transactions.UnconfirmedTransactions.Values.Select(c => c.Record.Transaction),
+															transactions.UnconfirmedTransactions.Values.Select(c => c.Record),
 															confirmedBookmarks,
-															transactions.ConfirmedTransactions.Values.Select(c => c.Record.Transaction));
+															transactions.ConfirmedTransactions.Values.Select(c => c.Record));
 
 					changes.Confirmed = SetUTXOChange(states.Confirmed);
 					changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
@@ -694,7 +694,7 @@ namespace NBXplorer.Controllers
 			{
 				foreach (var tx in cleaned)
 				{
-					_EventAggregator.Publish(new EvictedTransactionEvent(tx.Transaction.GetHash()));
+					_EventAggregator.Publish(new EvictedTransactionEvent(tx.TransactionHash));
 				}
 				repo.CleanTransactions(trackedSource, cleaned.ToList());
 			}

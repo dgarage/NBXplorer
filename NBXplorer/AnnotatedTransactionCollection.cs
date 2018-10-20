@@ -51,7 +51,7 @@ namespace NBXplorer
 
 		public override string ToString()
 		{
-			return Record?.Transaction?.GetHash()?.ToString() ?? "";
+			return Record?.TransactionHash.ToString() ?? "";
 		}
 	}
 
@@ -61,8 +61,7 @@ namespace NBXplorer
 		{
 			foreach(var tx in transactions)
 			{
-				var h = tx.Record.Transaction.GetHash();
-				_TxById.Add(h, tx);
+				_TxById.Add(tx.Record.TransactionHash, tx);
 				foreach(var keyPathInfo in tx.Record.TransactionMatch.Inputs.Concat(tx.Record.TransactionMatch.Outputs))
 				{
 					if(keyPathInfo.KeyPath != null)
@@ -76,8 +75,8 @@ namespace NBXplorer
 										.Where(tx => tx.Type == AnnotatedTransactionType.Confirmed)
 										.TopologicalSort())
 			{
-				if(state.Apply(confirmed.Record.Transaction) == ApplyTransactionResult.Conflict
-					|| !ConfirmedTransactions.TryAdd(confirmed.Record.Transaction.GetHash(), confirmed))
+				if(state.Apply(confirmed.Record) == ApplyTransactionResult.Conflict
+					|| !ConfirmedTransactions.TryAdd(confirmed.Record.TransactionHash, confirmed))
 				{
 					Logs.Explorer.LogError("A conflict among confirmed transaction happened, this should be impossible");
 					throw new InvalidOperationException("The impossible happened");
@@ -89,14 +88,14 @@ namespace NBXplorer
 										.OrderByDescending(t => t.Record.Inserted) // OrderByDescending so that the last received is least likely to be conflicted
 										.TopologicalSort())
 			{
-				var hash = unconfirmed.Record.Transaction.GetHash();
+				var hash = unconfirmed.Record.TransactionHash;
 				if(ConfirmedTransactions.ContainsKey(hash))
 				{
 					DuplicatedTransactions.Add(unconfirmed);
 				}
 				else
 				{
-					if(state.Apply(unconfirmed.Record.Transaction) == ApplyTransactionResult.Conflict)
+					if(state.Apply(unconfirmed.Record) == ApplyTransactionResult.Conflict)
 					{
 						ReplacedTransactions.TryAdd(hash, unconfirmed);
 					}
@@ -115,10 +114,7 @@ namespace NBXplorer
 		{
 			if(_TxById.TryGetValue(outpoint.Hash, out var txs))
 			{
-				var tx = txs.First().Record.Transaction;
-				if(outpoint.N >= tx.Outputs.Count)
-					return null;
-				return tx.Outputs[outpoint.N];
+				return txs.Select(t => t.Record.GetTxOut(outpoint.N)).FirstOrDefault();
 			}
 			return null;
 		}
