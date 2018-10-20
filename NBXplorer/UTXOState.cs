@@ -34,20 +34,15 @@ namespace NBXplorer
 	public class UTXOState
 	{
 
-		public Dictionary<OutPoint, Coin> UTXOByOutpoint
+		internal UTXOByOutpoint UTXOByOutpoint
 		{
 			get; set;
-		} = new Dictionary<OutPoint, Coin>();
+		} = new UTXOByOutpoint();
 
 		public Func<Script[], bool[]> MatchScript
 		{
 			get; set;
 		}
-
-		public List<UTXOEvent> Events
-		{
-			get; set;
-		} = new List<UTXOEvent>();
 
 		public HashSet<OutPoint> SpentUTXOs
 		{
@@ -101,7 +96,7 @@ namespace NBXplorer
 			for(int i = 0; i < tx.Inputs.Count; i++)
 			{
 				var input = tx.Inputs[i];
-				if(UTXOByOutpoint.Remove(input.PrevOut))
+				if(UTXOByOutpoint.Remove(input.PrevOut, hash))
 				{
 					AddEvent(new UTXOEvent() { Received = false, Outpoint = input.PrevOut, TxId = hash });
 					SpentUTXOs.Add(input.PrevOut);
@@ -110,7 +105,6 @@ namespace NBXplorer
 			}
 			return result;
 		}
-
 		HashSet<OutPoint> _KnownInputs = new HashSet<OutPoint>();
 
 		public MultiValueDictionary<OutPoint, uint256> Conflicts
@@ -133,7 +127,6 @@ namespace NBXplorer
 
 		private void AddEvent(UTXOEvent evt)
 		{
-			Events.Add(evt);
 			_BookmarkProcessor.PushNew();
 			_BookmarkProcessor.AddData(evt.TxId.ToBytes());
 			_BookmarkProcessor.AddData(evt.Outpoint);
@@ -145,9 +138,8 @@ namespace NBXplorer
 		{
 			return new UTXOState()
 			{
-				UTXOByOutpoint = new Dictionary<OutPoint, Coin>(UTXOByOutpoint),
+				UTXOByOutpoint = new UTXOByOutpoint(UTXOByOutpoint),
 				Conflicts = new MultiValueDictionary<OutPoint, uint256>(Conflicts),
-				Events = new List<UTXOEvent>(Events),
 				MatchScript = MatchScript,
 				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
 				_BookmarkProcessor = _BookmarkProcessor.Clone()
@@ -158,7 +150,6 @@ namespace NBXplorer
 		internal void ResetEvents()
 		{
 			_BookmarkProcessor.Clear();
-			Events.Clear();
 		}
 	}
 }
