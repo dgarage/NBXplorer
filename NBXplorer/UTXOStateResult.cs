@@ -41,12 +41,10 @@ namespace NBXplorer
 	public class UTXOStateResult
 	{
 		public static UTXOStateResult CreateStates(
-			Func<Script[], bool[]> matchScript,
 			HashSet<Bookmark> knownUnconfBookmarks, IEnumerable<TrackedTransaction> unconfirmed,
 			HashSet<Bookmark> knownConfBookmarks, IEnumerable<TrackedTransaction> confirmed)
 		{
 			var utxoState = new UTXOState();
-			utxoState.MatchScript = matchScript;
 
 			var knownConf = knownConfBookmarks.Contains(Bookmark.Start) ? new UTXOState() : null;
 			foreach(var tx in confirmed)

@@ -50,29 +50,25 @@ namespace NBXplorer
 		} = new HashSet<OutPoint>();
 		public ApplyTransactionResult Apply(TrackedTransaction fullTrackedTransaction)
 		{
-			var tx = fullTrackedTransaction.Transaction;
 			var result = ApplyTransactionResult.Passed;
 			var hash = fullTrackedTransaction.Key.TxId;
 
-			for(int i = 0; i < tx.Outputs.Count; i++)
+			foreach(var coin in fullTrackedTransaction.ReceivedCoins)
 			{
-				var output = tx.Outputs[i];
-				var outpoint = new OutPoint(hash, i);
-				if(UTXOByOutpoint.ContainsKey(outpoint))
+				if(UTXOByOutpoint.ContainsKey(coin.Outpoint))
 				{
 					result = ApplyTransactionResult.Conflict;
-					Conflicts.Add(outpoint, hash);
+					Conflicts.Add(coin.Outpoint, hash);
 				}
 			}
 
-			for(int i = 0; i < tx.Inputs.Count; i++)
+			foreach(var spentOutpoint in fullTrackedTransaction.SpentOutpoints)
 			{
-				var input = tx.Inputs[i];
-				if(_KnownInputs.Contains(input.PrevOut) || 
-					(!UTXOByOutpoint.ContainsKey(input.PrevOut) && SpentUTXOs.Contains(input.PrevOut)))
+				if(_KnownInputs.Contains(spentOutpoint) || 
+					(!UTXOByOutpoint.ContainsKey(spentOutpoint) && SpentUTXOs.Contains(spentOutpoint)))
 				{
 					result = ApplyTransactionResult.Conflict;
-					Conflicts.Add(input.PrevOut, hash);
+					Conflicts.Add(spentOutpoint, hash);
 				}
 			}
 			if(result == ApplyTransactionResult.Conflict)
@@ -80,30 +76,22 @@ namespace NBXplorer
 
 			_TransactionTimes.Add(fullTrackedTransaction.FirstSeen);
 
-			var matches = MatchScript == null ? null : MatchScript(tx.Outputs.Select(o => o.ScriptPubKey).ToArray());
-			for(int i = 0; i < tx.Outputs.Count; i++)
+			foreach(var coin in fullTrackedTransaction.ReceivedCoins)
 			{
-				var output = tx.Outputs[i];
-				var matched = matches == null ? true : matches[i];
-				if(matched)
+				if(UTXOByOutpoint.TryAdd(coin.Outpoint, coin))
 				{
-					var outpoint = new OutPoint(hash, i);
-					if(UTXOByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
-					{
-						AddEvent(new UTXOEvent() { Received = true, Outpoint = outpoint, TxId = hash });
-					}
+					AddEvent(new UTXOEvent() { Received = true, Outpoint = coin.Outpoint, TxId = hash });
 				}
 			}
 
-			for(int i = 0; i < tx.Inputs.Count; i++)
+			foreach (var spentOutpoint in fullTrackedTransaction.SpentOutpoints)
 			{
-				var input = tx.Inputs[i];
-				if(UTXOByOutpoint.Remove(input.PrevOut, hash))
+				if(UTXOByOutpoint.Remove(spentOutpoint, hash))
 				{
-					AddEvent(new UTXOEvent() { Received = false, Outpoint = input.PrevOut, TxId = hash });
-					SpentUTXOs.Add(input.PrevOut);
+					AddEvent(new UTXOEvent() { Received = false, Outpoint = spentOutpoint, TxId = hash });
+					SpentUTXOs.Add(spentOutpoint);
 				}
-				_KnownInputs.Add(input.PrevOut);
+				_KnownInputs.Add(spentOutpoint);
 			}
 			return result;
 		}
@@ -152,7 +140,6 @@ namespace NBXplorer
 			{
 				UTXOByOutpoint = new UTXOByOutpoint(UTXOByOutpoint),
 				Conflicts = new MultiValueDictionary<OutPoint, uint256>(Conflicts),
-				MatchScript = MatchScript,
 				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
 				_BookmarkProcessor = _BookmarkProcessor.Clone(),
 				_KnownInputs = new HashSet<OutPoint>(_KnownInputs),

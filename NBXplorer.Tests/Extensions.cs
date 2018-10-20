@@ -11,6 +11,18 @@ namespace NBXplorer.Tests
 {
 	public static class Extensions
 	{
+		public static IEnumerable<Transaction> TopologicalSort(this IEnumerable<Transaction> transactions)
+		{
+			return transactions
+				.Select(t => t.AsAnnotatedTransaction())
+				.TopologicalSort()
+				.Select(t => t.Record.Transaction);
+		}
+
+		static AnnotatedTransaction AsAnnotatedTransaction(this Transaction tx)
+		{
+			return new AnnotatedTransaction(new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), null, false), tx, new Repository.TransactionMiniMatch()), null);
+		}
 		public static KeyPathInformation GetKeyInformation(this Repository repo, Script script)
 		{
 			return repo.GetKeyInformations(new Script[] { script })[script].SingleOrDefault();

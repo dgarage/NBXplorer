@@ -16,12 +16,10 @@ namespace NBXplorer
 	}
 	public class AnnotatedTransaction
 	{
-		public AnnotatedTransaction()
-		{
-
-		}
 		public AnnotatedTransaction(TrackedTransaction tracked, SlimChain chain)
 		{
+			if (tracked == null)
+				throw new ArgumentNullException(nameof(tracked));
 			Record = tracked;
 			if(tracked.BlockHash == null)
 			{
@@ -29,7 +27,7 @@ namespace NBXplorer
 			}
 			else
 			{
-				var block = chain.GetBlock(tracked.BlockHash);
+				var block = chain?.GetBlock(tracked.BlockHash);
 				Type = block == null ? AnnotatedTransactionType.Orphan : AnnotatedTransactionType.Confirmed;
 				Height = block?.Height;
 			}
@@ -46,12 +44,11 @@ namespace NBXplorer
 		public TrackedTransaction Record
 		{
 			get;
-			internal set;
 		}
 
 		public override string ToString()
 		{
-			return Record?.TransactionHash.ToString() ?? "";
+			return Record.TransactionHash.ToString();
 		}
 	}
 
@@ -62,10 +59,9 @@ namespace NBXplorer
 			foreach(var tx in transactions)
 			{
 				_TxById.Add(tx.Record.TransactionHash, tx);
-				foreach(var keyPathInfo in tx.Record.TransactionMatch.Inputs.Concat(tx.Record.TransactionMatch.Outputs))
+				foreach(var keyPathInfo in tx.Record.KnownKeyPathMapping)
 				{
-					if(keyPathInfo.KeyPath != null)
-						_KeyPaths.TryAdd(keyPathInfo.ScriptPubKey, keyPathInfo.KeyPath);
+					_KeyPaths.TryAdd(keyPathInfo.ScriptPubKey, keyPathInfo.KeyPath);
 				}
 			}
 
@@ -114,7 +110,9 @@ namespace NBXplorer
 		{
 			if(_TxById.TryGetValue(outpoint.Hash, out var txs))
 			{
-				return txs.Select(t => t.Record.GetTxOut(outpoint.N)).FirstOrDefault();
+				return txs.SelectMany(t => t.Record.ReceivedCoins.Where(c => c.Outpoint.N == outpoint.N))
+						  .Select(t => t.TxOut)
+						  .FirstOrDefault();
 			}
 			return null;
 		}

@@ -8,20 +8,7 @@ using System.Text;
 namespace NBXplorer
 {
 	public static class Utils
-	{
-		public static IEnumerable<Transaction> TopologicalSort(this IEnumerable<Transaction> transactions)
-		{
-			return transactions
-				.Select(t => t.AsAnnotatedTransaction())
-				.TopologicalSort()
-				.Select(t => t.Record.Transaction);
-		}
-
-		static AnnotatedTransaction AsAnnotatedTransaction(this Transaction tx)
-		{
-			return new AnnotatedTransaction() { Record = new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), null, false), tx, new Repository.TransactionMiniMatch()) };
-		}
-		
+	{	
 		public static IEnumerable<AnnotatedTransaction> TopologicalSort(this IEnumerable<AnnotatedTransaction> transactions)
 		{
 			transactions = transactions.ToList(); // Buffer
@@ -32,7 +19,7 @@ namespace NBXplorer
 		{
 			return t =>
 			{
-				HashSet<uint256> spent = new HashSet<uint256>(t.Record.Transaction.Inputs.Select(txin => txin.PrevOut.Hash));
+				HashSet<uint256> spent = new HashSet<uint256>(t.Record.SpentOutpoints.Select(txin => txin.Hash));
 				return transactions.Where(u => spent.Contains(u.Record.TransactionHash) ||  //Depends on parent transaction
 												(u.Height.HasValue && t.Height.HasValue && u.Height.Value < t.Height.Value) ); //Depends on earlier transaction
 			};

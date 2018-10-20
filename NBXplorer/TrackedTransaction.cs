@@ -21,23 +21,26 @@ namespace NBXplorer
 			}
 			Transaction = transaction;
 			transaction.PrecomputeHash(false, true);
-			TransactionMatch = match;
+			KnownKeyPathMapping.AddRange(match.Inputs.Concat(match.Outputs).Where(m => m.KeyPath != null));
+			HashSet<Script> matchedScripts = match.Outputs.Select(o => o.ScriptPubKey).ToHashSet();
+
+			for(int i = 0; i < transaction.Outputs.Count; i++)
+			{
+				var output = transaction.Outputs[i];
+				if (matchedScripts.Contains(output.ScriptPubKey))
+					ReceivedCoins.Add(new Coin(new OutPoint(key.TxId, i), output));
+			}
+
+			SpentOutpoints.AddRange(transaction.Inputs.Select(input => input.PrevOut));
 		}
+
+		public List<TransactionMiniKeyInformation> KnownKeyPathMapping { get; } = new List<TransactionMiniKeyInformation>();
+		public List<Coin> ReceivedCoins { get; } = new List<Coin>();
+		public List<OutPoint> SpentOutpoints { get; } = new List<OutPoint>();
+
 		public Transaction Transaction
 		{
 			get;
-		}
-
-		public TransactionMiniMatch TransactionMatch
-		{
-			get;
-		}
-
-		public TxOut GetTxOut(uint n)
-		{
-			if (n >= Transaction.Outputs.Count)
-				return null;
-			return Transaction.Outputs[n];
 		}
 
 		public PrunedTrackedTransaction Prune()

@@ -496,8 +496,13 @@ namespace NBXplorer.Controllers
 								Transaction = includeTransaction ? tx.Record.Transaction : null,
 								Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 								Timestamp = txs.GetByTxId(tx.Record.TransactionHash).Select(t => t.Record.FirstSeen).First(),
-								Inputs = ToMatch(txs, tx.Record.Transaction.Inputs.Select(o => txs.GetUTXO(o.PrevOut)).ToList(), trackedSource),
-								Outputs = ToMatch(txs, tx.Record.Transaction.Outputs, trackedSource)
+								Inputs = ToMatch(txs, tx.Record.SpentOutpoints.Select(o => txs.GetUTXO(o)).ToList(), trackedSource),
+								Outputs = tx.Record.ReceivedCoins.Select(o => new TransactionInformationMatch()
+								{
+									Index = (int)o.Outpoint.N,
+									Value = o.Amount,
+									KeyPath = txs.GetKeyPath(o.ScriptPubKey)
+								}).ToList()
 							};
 
 							item.TxSet.Transactions.Add(txInfo);
@@ -659,10 +664,8 @@ namespace NBXplorer.Controllers
 					Stopwatch stopwatch = new Stopwatch();
 					stopwatch.Start();
 					var transactions = GetAnnotatedTransactions(repo, chain, trackedSource);
-					Func<Script[], bool[]> matchScript = (scripts) => scripts.Select(s => IsMatching(trackedSource, s, transactions)).ToArray();
 
-					var states = UTXOStateResult.CreateStates(matchScript,
-															unconfirmedBookmarks,
+					var states = UTXOStateResult.CreateStates(unconfirmedBookmarks,
 															transactions.UnconfirmedTransactions.Values.Select(c => c.Record),
 															confirmedBookmarks,
 															transactions.ConfirmedTransactions.Values.Select(c => c.Record));

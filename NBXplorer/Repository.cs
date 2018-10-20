@@ -995,7 +995,8 @@ namespace NBXplorer
 
 			public TransactionMiniMatch()
 			{
-
+				_Outputs = new TransactionMiniKeyInformation[0];
+				_Inputs = new TransactionMiniKeyInformation[0];
 			}
 			public TransactionMiniMatch(TransactionMatch match)
 			{
