@@ -35,8 +35,6 @@ namespace NBXplorer{
 		{
 			if (key == null)
 				throw new ArgumentNullException(nameof(key));
-			if (knownScriptMapping == null)
-				throw new ArgumentNullException(nameof(knownScriptMapping));
 			if (!key.IsPruned)
 			{
 				throw new ArgumentException("The key should be pruned", nameof(key));
