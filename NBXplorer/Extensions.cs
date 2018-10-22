@@ -196,6 +196,8 @@ namespace NBXplorer
 			services.TryAddSingleton<AddressPoolServiceAccessor>();
 			services.AddSingleton<IHostedService, AddressPoolService>();
 			services.TryAddSingleton<BitcoinDWaitersAccessor>();
+			services.AddSingleton<IHostedService, ScanUTXOSetService>();
+			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
 			services.AddSingleton<IHostedService, BrokerHostedService>();
 

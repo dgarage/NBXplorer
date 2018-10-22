@@ -148,6 +148,27 @@ namespace NBXplorer
 			return GetUTXOsAsync(extKey, confirmedBookmark, unconfirmedBookmark, longPolling, cancellation).GetAwaiter().GetResult();
 		}
 
+		public async Task ScanUTXOSetAsync(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		{
+			if (extKey == null)
+				throw new ArgumentNullException(nameof(extKey));
+			await SendAsync<bool>(HttpMethod.Post, null, "v1/cryptos/{0}/derivations/{1}/utxos/scan", new object[] { Network.CryptoCode, extKey }, cancellation).ConfigureAwait(false);
+		}
+		public void ScanUTXOSet(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		{
+			ScanUTXOSetAsync(extKey, cancellation).GetAwaiter().GetResult();
+		}
+
+		public async Task<ScanUTXOInformation> GetScanUTXOSetInformationAsync(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		{
+			return await SendAsync<ScanUTXOInformation>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/utxos/scan", new object[] { Network.CryptoCode, extKey }, cancellation).ConfigureAwait(false);
+		}
+
+		public ScanUTXOInformation GetScanUTXOSetInformation(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		{
+			return GetScanUTXOSetInformationAsync(extKey, cancellation).GetAwaiter().GetResult();
+		}
+
 		public NotificationSession CreateNotificationSession(CancellationToken cancellation = default)
 		{
 			return CreateNotificationSessionAsync(cancellation).GetAwaiter().GetResult();
@@ -364,7 +385,6 @@ namespace NBXplorer
 				return null;
 			}
 		}
-
 		public async Task<KeyPathInformation[]> GetKeyInformationsAsync(Script script, CancellationToken cancellation = default)
 		{
 			return await SendAsync<KeyPathInformation[]>(HttpMethod.Get, null, "v1/cryptos/{0}/scripts/" + script.ToHex(), new[] { CryptoCode }, cancellation).ConfigureAwait(false);

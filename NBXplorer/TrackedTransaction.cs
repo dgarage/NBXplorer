@@ -10,10 +10,33 @@ using static NBXplorer.Repository;
 namespace NBXplorer{
 	public class TrackedTransaction
 	{
+		public TrackedTransaction(TrackedTransactionKey key): this(key, null as Coin[], null as Dictionary<Script,KeyPath>)
+		{
+
+		}
+		public TrackedTransaction(TrackedTransactionKey key, IEnumerable<Coin> receivedCoins, IEnumerable<KeyPathInformation> knownScriptMapping)
+			: this(key, receivedCoins, ToDictionary(knownScriptMapping))
+		{
+
+		}
+
+		private static Dictionary<Script, KeyPath> ToDictionary(IEnumerable<KeyPathInformation> knownScriptMapping)
+		{
+			if (knownScriptMapping == null)
+				return null;
+			var result = new Dictionary<Script, KeyPath>();
+			foreach (var keypathInfo in knownScriptMapping)
+			{
+				result.TryAdd(keypathInfo.ScriptPubKey, keypathInfo.KeyPath);
+			}
+			return result;
+		}
 		public TrackedTransaction(TrackedTransactionKey key, IEnumerable<Coin> receivedCoins, Dictionary<Script, KeyPath> knownScriptMapping)
 		{
 			if (key == null)
 				throw new ArgumentNullException(nameof(key));
+			if (knownScriptMapping == null)
+				throw new ArgumentNullException(nameof(knownScriptMapping));
 			if (!key.IsPruned)
 			{
 				throw new ArgumentException("The key should be pruned", nameof(key));
@@ -83,7 +106,7 @@ namespace NBXplorer{
 		public TrackedTransaction Prune()
 		{
 			// Pruning transactions, coins and known keys
-			return new TrackedTransaction(new TrackedTransactionKey(Key.TxId, Key.BlockHash, true), null as Coin[], null)
+			return new TrackedTransaction(new TrackedTransactionKey(Key.TxId, Key.BlockHash, true))
 			{
 				FirstSeen = FirstSeen,
 				Inserted = Inserted

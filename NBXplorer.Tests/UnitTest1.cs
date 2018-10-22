@@ -1624,6 +1624,58 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanScanUTXOSet()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				tester.Client.Track(pubkey);
+				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
+				
+				// By default, gap limit is 10 000 and batch size is 1000 on all 3 feature line
+				var outOfBandAddress = pubkey.Derive(new KeyPath("0/100"));
+				var txId = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				tester.RPC.EnsureGenerate(1);
+				tester.WaitSynchronized();
+
+				// Nothing has been tracked because it is way out of bound and the first address is always unused
+				var transactions = tester.Client.GetTransactions(pubkey, null, false);
+				Assert.Empty(transactions.ConfirmedTransactions.Transactions);
+				Assert.Equal(0, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex());
+
+				// W00t! let's scan
+				tester.Client.ScanUTXOSet(pubkey);
+				var info = WaitScanFinish(tester.Client, pubkey);
+				AssertPruned(tester, pubkey, txId);
+				Assert.Equal(100.0, info.Progress.CurrentBatchProgress);
+				Assert.Equal(1, info.Progress.Found);
+				Assert.Equal(10, info.Progress.BatchNumber);
+				Assert.Equal(10_000, info.Progress.From);
+				Assert.Equal(1000, info.Progress.Count);
+				Assert.Equal(100, info.Progress.HighestKeyIndexFound[DerivationFeature.Deposit]);
+				Assert.Null(info.Progress.HighestKeyIndexFound[DerivationFeature.Change]);
+				Assert.Equal(101, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex());
+
+				Assert.NotEmpty(tester.Client.GetKeyInformations(pubkey.Derive(new KeyPath("0/50")).ScriptPubKey));
+				Assert.Empty(tester.Client.GetKeyInformations(pubkey.Derive(new KeyPath("0/150")).ScriptPubKey));
+			}
+		}
+
+		private ScanUTXOInformation WaitScanFinish(ExplorerClient client, DirectDerivationStrategy pubkey)
+		{
+			while(true)
+			{
+				var info = client.GetScanUTXOSetInformation(pubkey);
+				if (info.Status == ScanUTXOStatus.Complete)
+					return info;
+				if (info.Status == ScanUTXOStatus.Error)
+					Assert.False(true, $"Scanning should not have failed {info.Error}");
+				Thread.Sleep(100);
+			}
+		}
+
+		[Fact]
 		public void CanTrackDirect()
 		{
 			using(var tester = ServerTester.Create())

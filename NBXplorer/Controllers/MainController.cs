@@ -40,6 +40,7 @@ namespace NBXplorer.Controllers
 			EventAggregator eventAggregator,
 			BitcoinDWaitersAccessor waiters,
 			AddressPoolServiceAccessor addressPoolService,
+			ScanUTXOSetServiceAccessor scanUTXOSetService,
 			IOptions<MvcJsonOptions> jsonOptions)
 		{
 			ExplorerConfiguration = explorerConfiguration;
@@ -47,6 +48,7 @@ namespace NBXplorer.Controllers
 			ChainProvider = chainProvider;
 			_SerializerSettings = jsonOptions.Value.SerializerSettings;
 			_EventAggregator = eventAggregator;
+			ScanUTXOSetService = scanUTXOSetService.Instance;
 			Waiters = waiters.Instance;
 			AddressPoolService = addressPoolService.Instance;
 		}
@@ -70,6 +72,7 @@ namespace NBXplorer.Controllers
 		{
 			get; set;
 		}
+		public ScanUTXOSetService ScanUTXOSetService { get; }
 
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/fees/{blockCount}")]
@@ -599,6 +602,36 @@ namespace NBXplorer.Controllers
 			{
 				throw new NBXplorerException(new NBXplorerError(400, "transaction-id-missing", "You must specify 'transactions[].transactionId' or 'transactions[].transaction'"));
 			}
+		}
+
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan")]
+		public IActionResult ScanUTXOSet(
+			string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme)
+		{
+			var network = this.GetNetwork(cryptoCode, true);
+			var waiter = this.Waiters.GetWaiter(network);
+			if (!waiter.RPC.Capabilities.SupportScanUTXOSet)
+				throw new NBXplorerError(405, "scanutxoset-not-suported", "ScanUTXOSet is not supported for this currency").AsException();
+			if (!ScanUTXOSetService.EnqueueScan(network, derivationScheme))
+				throw new NBXplorerError(409, "scanutxoset-in-progress", "ScanUTXOSet has already been called for this derivationScheme").AsException();
+			return Ok();
+		}
+
+		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan")]
+		public IActionResult GetScanUTXOSetInfromation(
+			string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme)
+		{
+			var network = this.GetNetwork(cryptoCode, false);
+			var info = ScanUTXOSetService.GetInformation(network, derivationScheme);
+			if(info == null)
+				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
+			return Json(info);
 		}
 
 		[HttpGet]

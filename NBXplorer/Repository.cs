@@ -1313,5 +1313,47 @@ namespace NBXplorer
 				tx.Commit();
 			});
 		}
+
+		internal Task UpdateAddressPool(DerivationSchemeTrackedSource trackedSource, Dictionary<DerivationFeature, int?> highestKeyIndexFound)
+		{
+			return _Engine.DoAsync(tx =>
+			{
+				tx.ValuesLazyLoadingIsOn = false;
+				foreach (var kv in highestKeyIndexFound)
+				{
+					if (kv.Value == null)
+						continue;
+					var index = GetAvailableKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+					bool needRefill = CleanUsed(kv, index);
+					index = GetReservedKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+					needRefill |= CleanUsed(kv, index);
+					if (needRefill)
+					{
+						var hIndex = GetHighestPathIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+						int highestGenerated = hIndex.SelectInt(0) ?? -1;
+						if (highestGenerated < kv.Value.Value)
+							hIndex.Insert(0, kv.Value.Value);
+						var toGenerate = GetAddressToGenerateCount(tx, trackedSource.DerivationStrategy, kv.Key);
+						RefillAvailable(tx, trackedSource.DerivationStrategy, kv.Key, toGenerate);
+					}
+				}
+				tx.Commit();
+			});
+		}
+
+		private bool CleanUsed(KeyValuePair<DerivationFeature, int?> kv, Index index)
+		{
+			bool needRefill = false;
+			foreach (var row in index.SelectForwardSkip(0))
+			{
+				var keyInfo = ToObject<KeyPathInformation>(row.Value);
+				if (keyInfo.GetIndex() <= kv.Value.Value)
+				{
+					index.RemoveKey(keyInfo.GetIndex());
+					needRefill = true;
+				}
+			}
+			return needRefill;
+		}
 	}
 }
