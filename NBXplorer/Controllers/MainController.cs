@@ -121,7 +121,8 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/cancelreservation")]
-		public IActionResult CancelReservation(string cryptoCode, [ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+		public IActionResult CancelReservation(string cryptoCode, 
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths)
 		{
 			var network = GetNetwork(cryptoCode, false);
@@ -140,6 +141,24 @@ namespace NBXplorer.Controllers
 			var result = repo.GetKeyInformations(new[] { script })
 						   .SelectMany(k => k.Value)
 						   .ToArray();
+			return Json(result);
+		}
+
+		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{strategy}/scripts/{script}")]
+		public IActionResult GetKeyInformations(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase strategy,
+			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
+		{
+			var network = GetNetwork(cryptoCode, false);
+			var repo = RepositoryProvider.GetRepository(network);
+			var result = repo.GetKeyInformations(new[] { script })
+						   .SelectMany(k => k.Value)
+						   .Where(k => k.DerivationStrategy == strategy)
+						   .FirstOrDefault();
+			if (result == null)
+				throw new NBXplorerError(404, "script-not-found", "The script does not seem to be tracked").AsException();
 			return Json(result);
 		}
 

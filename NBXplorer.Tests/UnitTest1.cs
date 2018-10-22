@@ -1620,6 +1620,13 @@ namespace NBXplorer.Tests
 					Assert.Equal(new KeyPath("0/0"), k.KeyPath);
 					Assert.Equal(DerivationFeature.Deposit, k.Feature);
 				}
+
+				Assert.NotNull(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/0")).ScriptPubKey));
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/100")).ScriptPubKey));
+
+				key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/0")).ScriptPubKey));
 			}
 		}
 
