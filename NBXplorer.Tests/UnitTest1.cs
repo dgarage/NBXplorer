@@ -105,11 +105,11 @@ namespace NBXplorer.Tests
 			for(int i = 0; i < 10; i++)
 			{
 				Assert.Equal(0, tester.Repository.RefillAddressPoolIfNeeded(dummy, DerivationFeature.Deposit).Result);
-				MarkAsUsed(tester.Repository, dummy, new KeyPath("1/" + i));
+				MarkAsUsed(tester.Repository, dummy, new KeyPath("0/" + i));
 			}
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
-			MarkAsUsed(tester.Repository, dummy, new KeyPath("1/10"));
+			MarkAsUsed(tester.Repository, dummy, new KeyPath("0/10"));
 			Assert.Equal(11, tester.Repository.RefillAddressPoolIfNeeded(dummy, DerivationFeature.Deposit).Result);
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.NotNull(keyInfo);
@@ -132,26 +132,15 @@ namespace NBXplorer.Tests
 
 		private static void MarkAsUsed(Repository repository, DerivationStrategyBase strat, KeyPath keyPath)
 		{
-			repository.SaveMatches(DateTimeOffset.UtcNow,
-				new[] {
+			var tx = repository.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
+			repository.SaveMatches(new[] {
 					new MatchedTransaction()
-					{
-						Match = new TransactionMatch()
 						{
 							TrackedSource = new DerivationSchemeTrackedSource(strat),
-							DerivationStrategy = strat,
-							Transaction = repository.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction(),
-							Outputs = new List<KeyPathInformation>
+							TrackedTransaction = new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), null, false), tx, new Dictionary<Script, KeyPath>()
 							{
-								new KeyPathInformation()
-								{
-									TrackedSource = new DerivationSchemeTrackedSource(strat),
-									Feature = DerivationFeature.Deposit,
-									DerivationStrategy = strat,
-									KeyPath = keyPath
-								}
-							}
-						}
+								{ strat.Derive(keyPath).ScriptPubKey, keyPath }
+							})
 					}
 				});
 		}
@@ -754,6 +743,15 @@ namespace NBXplorer.Tests
 					int expectedOutput = tester.RPC.Capabilities.SupportSegwit ? 2 : 4; // if does not support segwit pubkey == pubkey2
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(expectedOutput, txEvent.Outputs.Count);
+					foreach(var output in txEvent.Outputs)
+					{
+						var txOut = txEvent.TransactionData.Transaction.Outputs[output.Index];
+						Assert.Equal(txOut.ScriptPubKey, output.ScriptPubKey);
+						Assert.Equal(txOut.Value, output.Value);
+						var derived = ((DerivationSchemeTrackedSource)txEvent.TrackedSource).DerivationStrategy.Derive(output.KeyPath);
+						Assert.Equal(derived.ScriptPubKey, txOut.ScriptPubKey);
+						Assert.Equal(derived.Redeem, output.Redeem);
+					}
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), schemes);
 					schemes.Remove(txEvent.DerivationStrategy.ToString());
 
@@ -934,6 +932,8 @@ namespace NBXplorer.Tests
 					tester.Explorer.CreateRPCClient().SendToAddress(pubkey.Address, Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					Assert.NotEmpty(txEvent.Outputs);
+					Assert.Equal(pubkey.Address.ScriptPubKey, txEvent.Outputs[0].ScriptPubKey);
 					Assert.Equal(txEvent.TrackedSource, pubkey);
 				}
 
@@ -972,12 +972,12 @@ namespace NBXplorer.Tests
 					var trackedSources = new[] { pubkey.ToString(), pubkey2.ToString() }.ToList();
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
-					Assert.Single(txEvent.Outputs);
+					Assert.NotEmpty(txEvent.Outputs);
 					Assert.Contains(txEvent.TrackedSource.ToString(), trackedSources);
 					trackedSources.Remove(txEvent.TrackedSource.ToString());
 
 					txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
-					Assert.Single(txEvent.Outputs);
+					Assert.NotEmpty(txEvent.Outputs);
 					Assert.Contains(txEvent.TrackedSource.ToString(), new[] { pubkey.ToString(), pubkey2.ToString() });
 				}
 			}
@@ -1125,7 +1125,7 @@ namespace NBXplorer.Tests
 				Task.WaitAll(tasks.ToArray());
 
 				var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
-				Assert.Equal(99U, paths.Select(p => p.Key.Indexes.Last()).Max());
+				Assert.Equal(99, paths.Select(p => p.Value.GetIndex()).Max());
 
 				tester.Client.CancelReservation(bob, new[] { new KeyPath("0/0") });
 				Assert.Equal(new KeyPath("0/0"), tester.Client.GetUnused(bob, DerivationFeature.Deposit).KeyPath);
@@ -1590,7 +1590,7 @@ namespace NBXplorer.Tests
 				Task.WaitAll(tasks.ToArray());
 
 				var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
-				Assert.Equal(9U, paths.Select(p => p.Key.Indexes.Last()).Max());
+				Assert.Equal(9, paths.Select(p => p.Value.GetIndex()).Max());
 
 				tester.Client.CancelReservation(bob, new[] { new KeyPath("0") });
 				var path = tester.Client.GetUnused(bob, DerivationFeature.Direct).KeyPath;

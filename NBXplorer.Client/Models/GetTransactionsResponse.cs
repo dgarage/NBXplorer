@@ -93,15 +93,15 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
-		public List<TransactionInformationMatch> Outputs
+		public List<MatchedOutput> Outputs
 		{
 			get; set;
-		} = new List<TransactionInformationMatch>();
+		} = new List<MatchedOutput>();
 
-		public List<TransactionInformationMatch> Inputs
+		public List<MatchedOutput> Inputs
 		{
 			get; set;
-		} = new List<TransactionInformationMatch>();
+		} = new List<MatchedOutput>();
 		public DateTimeOffset Timestamp
 		{
 			get;

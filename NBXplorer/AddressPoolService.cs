@@ -72,11 +72,12 @@ namespace NBXplorer
 		{
 			foreach(var m in matches)
 			{
-				foreach(var feature in m.Match.Inputs.Concat(m.Match.Outputs).Select(_ => _.Feature).Distinct())
-				{
-					if (m.Match.DerivationStrategy == null)
+				var derivationStrategy = (m.TrackedSource as Models.DerivationSchemeTrackedSource)?.DerivationStrategy;
+				if (derivationStrategy == null)
 						continue;
-					RefillAddressPoolIfNeeded(network, m.Match.DerivationStrategy, feature);
+				foreach (var feature in m.TrackedTransaction.KnownKeyPathMapping.Select(kv => DerivationStrategyBase.GetFeature(kv.Value)))
+				{
+					RefillAddressPoolIfNeeded(network, derivationStrategy, feature);
 				}
 			}
 		}

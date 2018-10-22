@@ -77,9 +77,18 @@ namespace NBXplorer
 			return null;
 		}
 
-		public static IEnumerable<TransactionMatch> GetMatches(this Repository repository, Transaction tx)
+		public static NewTransactionEvent SetMatch(this NewTransactionEvent evt, MatchedTransaction match)
 		{
-			var matches = new Dictionary<string, TransactionMatch>();
+			evt.TrackedSource = match.TrackedSource;
+			var derivation = (match.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+			evt.Outputs.AddRange(match.TrackedTransaction.GetReceivedOutputs(evt.TrackedSource));
+			evt.DerivationStrategy = derivation;
+			return evt;
+		}
+
+		public static MatchedTransaction[] GetMatches(this Repository repository, Transaction tx, uint256 blockId, DateTimeOffset now)
+		{
+			var matches = new Dictionary<string, MatchedTransaction>();
 			HashSet<Script> inputScripts = new HashSet<Script>();
 			HashSet<Script> outputScripts = new HashSet<Script>();
 			HashSet<Script> scripts = new HashSet<Script>();
@@ -105,25 +114,26 @@ namespace NBXplorer
 				foreach(var keyInfo in keyInfoByScripts.Value)
 				{
 					var matchesGroupingKey = keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex();
-					if (!matches.TryGetValue(matchesGroupingKey, out TransactionMatch match))
+					if (!matches.TryGetValue(matchesGroupingKey, out MatchedTransaction match))
 					{
-						match = new TransactionMatch();
+						match = new MatchedTransaction();
 						matches.Add(matchesGroupingKey, match);
 						match.TrackedSource = keyInfo.TrackedSource;
-						match.DerivationStrategy = (keyInfo.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-						match.Transaction = tx;
+						match.TrackedTransaction = new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), blockId, false), tx, new Dictionary<Script, KeyPath>())
+						{
+							FirstSeen = now,
+							Inserted = now
+						};
 					}
-
-					if(outputScripts.Contains(keyInfo.ScriptPubKey))
-						match.Outputs.Add(keyInfo);
-
-					if(inputScripts.Contains(keyInfo.ScriptPubKey))
-						match.Inputs.Add(keyInfo);
+					match.TrackedTransaction.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
 				}
 			}
-			return matches.Values;
+			foreach(var m in matches.Values)
+			{
+				m.TrackedTransaction.KnownKeyPathMappingUpdated();
+			}
+			return matches.Values.ToArray();
 		}
-
 
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
 		{

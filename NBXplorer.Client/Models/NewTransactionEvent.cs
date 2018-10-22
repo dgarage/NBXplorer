@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using NBitcoin;
@@ -28,19 +29,29 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
-		public List<KeyPathInformation> Outputs
+		public List<MatchedOutput> Outputs
 		{
 			get; set;
-		} = new List<KeyPathInformation>();
+		} = new List<MatchedOutput>();
 
-		public List<KeyPathInformation> Inputs
+		public Coin[] GetReceivedCoins()
 		{
-			get; set;
-		} = new List<KeyPathInformation>();
+			return Outputs.Select(o => o.AsCoin(TransactionData.TransactionHash)).ToArray();
+		}
+	}
 
-		public TransactionMatch AsMatch()
+	public class MatchedOutput
+	{
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+		public KeyPath KeyPath { get; set; }
+		public Script ScriptPubKey { get; set; }
+		public Script Redeem { get; set; }
+		public int Index { get; set; }
+		public Money Value { get; set; }
+		public Coin AsCoin(uint256 txId)
 		{
-			return new TransactionMatch() { DerivationStrategy = DerivationStrategy, TrackedSource = TrackedSource, Inputs = Inputs, Outputs = Outputs, Transaction = TransactionData.Transaction };
+			var coin = new Coin(new OutPoint(txId, (int)Index), new TxOut() { ScriptPubKey = ScriptPubKey, Value = Value });
+			return Redeem == null ? coin : coin.ToScriptCoin(Redeem);
 		}
 	}
 }

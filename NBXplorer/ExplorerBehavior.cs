@@ -218,17 +218,17 @@ namespace NBXplorer
 						foreach (var tx in block.Object.Transactions)
 							tx.PrecomputeHash(false, true);
 
+						var blockHash = block.Object.GetHash();
+						DateTimeOffset now = DateTimeOffset.UtcNow;
 						var matches =
 							block.Object.Transactions
-							.SelectMany(tx => Repository.GetMatches(tx))
+							.SelectMany(tx => Repository.GetMatches(tx, blockHash, now))
 							.ToArray();
 
-						var blockHash = block.Object.GetHash();
-						SaveMatches(matches, blockHash);
+						SaveMatches(matches, blockHash, now);
 						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 						if (!IsSynching() || blockHash.GetLow32() % 100 == 0)
-							Repository.SetIndexProgress(currentLocation);
-						var hasHeight = Chain.TryGetHeight(blockHash, out int blockHeight);
+							Repository.SetIndexProgress(currentLocation);						var hasHeight = Chain.TryGetHeight(blockHash, out int blockHeight);
 						_EventAggregator.Publish(new Events.NewBlockEvent(this._Repository.Network.CryptoCode, blockHash, hasHeight ? (int?)blockHeight : null));
 					}
 					if (_InFlights.Count == 0)
@@ -238,30 +238,24 @@ namespace NBXplorer
 
 			message.Message.IfPayloadIs<TxPayload>(txPayload =>
 			{
-				var matches = Repository.GetMatches(txPayload.Object).ToArray();
-				SaveMatches(matches, null);
+				var now = DateTimeOffset.UtcNow;
+				var matches = Repository.GetMatches(txPayload.Object, null, now).ToArray();
+				SaveMatches(matches, null, now);
 			});
 
 		}
 
-		private void SaveMatches(TransactionMatch[] matches, uint256 blockHash)
+		private void SaveMatches(MatchedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
 		{
-			DateTimeOffset now = DateTimeOffset.UtcNow;
-			var matchedTransactions = matches.Select(m => new MatchedTransaction()
-			{
-				BlockId = blockHash,
-				Match = m,
-			}).ToArray();
-			Repository.SaveMatches(now, matchedTransactions);
-			AddressPoolService.RefillAddressPoolIfNeeded(Network, matchedTransactions);
-			var saved = Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
+			Repository.SaveMatches(matches);
+			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
+			var saved = Repository.SaveTransactions(now, matches.Select(m => m.TrackedTransaction.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
 			for (int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]));
+				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].TrackedTransaction.Transaction.GetHash()]));
 			}
 		}
-
 		public bool IsSynching()
 		{
 			var location = _CurrentLocation;

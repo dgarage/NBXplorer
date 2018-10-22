@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NBitcoin;
+using NBXplorer.DerivationStrategy;
+using NBXplorer.Models;
 using static NBXplorer.Repository;
 
-namespace NBXplorer
-{
+namespace NBXplorer{
 	public class TrackedTransaction
 	{
-		public TrackedTransaction(TrackedTransactionKey key)
+		public TrackedTransaction(TrackedTransactionKey key, IEnumerable<Coin> receivedCoins, Dictionary<Script, KeyPath> knownScriptMapping)
 		{
 			if (key == null)
 				throw new ArgumentNullException(nameof(key));
@@ -18,36 +19,44 @@ namespace NBXplorer
 				throw new ArgumentException("The key should be pruned", nameof(key));
 			}
 			Key = key;
+			if(knownScriptMapping != null)
+				KnownKeyPathMapping = knownScriptMapping;
+			if (receivedCoins != null)
+				ReceivedCoins.AddRange(receivedCoins);
 		}
-		public TrackedTransaction(TrackedTransactionKey key, Transaction transaction, TransactionMiniMatch match)
+		public TrackedTransaction(TrackedTransactionKey key, Transaction transaction, Dictionary<Script, KeyPath> knownScriptMapping)
 		{
 			if (key == null)
 				throw new ArgumentNullException(nameof(key));
 			if (transaction == null)
 				throw new ArgumentNullException(nameof(transaction));
-			if (match == null)
-				throw new ArgumentNullException(nameof(match));
+			if (knownScriptMapping == null)
+				throw new ArgumentNullException(nameof(knownScriptMapping));
 			if (key.IsPruned)
 			{
-				throw new ArgumentException("The key should not be pruned", nameof(key));
-			}
+				throw new ArgumentException("The key should not be pruned", nameof(key));			}
 			Key = key;
 			Transaction = transaction;
 			transaction.PrecomputeHash(false, true);
-			KnownKeyPathMapping.AddRange(match.Inputs.Concat(match.Outputs).Where(m => m.KeyPath != null));
-			HashSet<Script> matchedScripts = match.Outputs.Select(o => o.ScriptPubKey).ToHashSet();
+			KnownKeyPathMapping = knownScriptMapping;
 
-			for(int i = 0; i < transaction.Outputs.Count; i++)
-			{
-				var output = transaction.Outputs[i];
-				if (matchedScripts.Contains(output.ScriptPubKey))
-					ReceivedCoins.Add(new Coin(new OutPoint(key.TxId, i), output));
-			}
-
-			SpentOutpoints.AddRange(transaction.Inputs.Select(input => input.PrevOut));
+			KnownKeyPathMappingUpdated();
 		}
 
-		public List<TransactionMiniKeyInformation> KnownKeyPathMapping { get; } = new List<TransactionMiniKeyInformation>();
+		internal void KnownKeyPathMappingUpdated()
+		{
+			if (Transaction == null)
+				return;
+			for (int i = 0; i < Transaction.Outputs.Count; i++)
+			{
+				var output = Transaction.Outputs[i];
+				if (KnownKeyPathMapping.ContainsKey(output.ScriptPubKey))
+					ReceivedCoins.Add(new Coin(new OutPoint(Key.TxId, i), output));
+			}
+			SpentOutpoints.AddRange(Transaction.Inputs.Select(input => input.PrevOut));
+		}
+
+		public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; } = new Dictionary<Script, KeyPath>();
 		public List<Coin> ReceivedCoins { get; } = new List<Coin>();
 		public List<OutPoint> SpentOutpoints { get; } = new List<OutPoint>();
 
@@ -73,16 +82,41 @@ namespace NBXplorer
 
 		public TrackedTransaction Prune()
 		{
-			return new TrackedTransaction(new TrackedTransactionKey(Key.TxId, Key.BlockHash, true))
+			// Pruning transactions, coins and known keys
+			return new TrackedTransaction(new TrackedTransactionKey(Key.TxId, Key.BlockHash, true), null as Coin[], null)
 			{
 				FirstSeen = FirstSeen,
 				Inserted = Inserted
 			};
 		}
+
+		internal IEnumerable<KeyPathInformation> GetKeyPaths(DerivationStrategyBase derivationStrategy)
+		{
+			return KnownKeyPathMapping.Values.Select(v => new KeyPathInformation(v, derivationStrategy));
+		}
+
+		public IEnumerable<MatchedOutput> GetReceivedOutputs(TrackedSource trackedSource)
+		{
+			return this.ReceivedCoins
+							.Select(o => (Index: (int)o.Outpoint.N,
+												   Output: o,
+												   KeyPath: KnownKeyPathMapping.TryGet(o.ScriptPubKey),
+												   DerivationScheme : (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy))
+							.Where(o => o.KeyPath != null || o.Output.ScriptPubKey == (trackedSource as AddressTrackedSource)?.Address.ScriptPubKey)
+							.Select(o => new MatchedOutput()
+							{
+								Index = o.Index,
+								Value = o.Output.Amount,
+								KeyPath = o.KeyPath,
+								ScriptPubKey = o.Output.ScriptPubKey,
+								Redeem = o.DerivationScheme == null || o.KeyPath == null
+											? null
+											: o.DerivationScheme.Derive(o.KeyPath).Redeem
+							});
+		}
 	}
 
-	public class TrackedTransactionKey
-	{
+	public class TrackedTransactionKey	{
 		public uint256 TxId { get; }
 		public uint256 BlockHash { get; }
 

@@ -50,7 +50,6 @@ namespace NBXplorer.Controllers
 			Waiters = waiters.Instance;
 			AddressPoolService = addressPoolService.Instance;
 		}
-
 		EventAggregator _EventAggregator;
 
 		public BitcoinDWaiters Waiters
@@ -268,15 +267,15 @@ namespace NBXplorer.Controllers
 					return;
 
 				bool forward = false;
-				if (o.Match.DerivationStrategy != null)
+				var derivationScheme = (o.Match.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+				if (derivationScheme != null)
 				{
 					forward |= listenAllDerivationSchemes == "*" ||
 								listenAllDerivationSchemes == o.CryptoCode ||
-								listenedDerivations.ContainsKey((network.Network.NBitcoinNetwork, o.Match.DerivationStrategy));
+								listenedDerivations.ContainsKey((network.Network.NBitcoinNetwork, derivationScheme));
 				}
 
-				forward |= listenAllTrackedSource == "*" ||
-							listenAllTrackedSource == o.CryptoCode ||
+				forward |= listenAllTrackedSource == "*" ||							listenAllTrackedSource == o.CryptoCode ||
 							listenedTrackedSource.ContainsKey((network.Network.NBitcoinNetwork, o.Match.TrackedSource));
 
 				if (forward)
@@ -285,16 +284,14 @@ namespace NBXplorer.Controllers
 					if (chain == null)
 						return;
 					var blockHeader = o.BlockId == null ? null : chain.GetBlock(o.BlockId);
+
+					var derivation = (o.Match.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 					await server.Send(new Models.NewTransactionEvent()
 					{
-						TrackedSource = o.Match.TrackedSource,
-						DerivationStrategy = o.Match.DerivationStrategy,
 						CryptoCode = o.CryptoCode,
 						BlockId = blockHeader?.Hash,
 						TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
-						Inputs = o.Match.Inputs,
-						Outputs = o.Match.Outputs
-					});
+					}.SetMatch(o.Match));
 				}
 			}));
 			try
@@ -496,13 +493,8 @@ namespace NBXplorer.Controllers
 								Transaction = includeTransaction ? tx.Record.Transaction : null,
 								Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 								Timestamp = txs.GetByTxId(tx.Record.TransactionHash).Select(t => t.Record.FirstSeen).First(),
-								Inputs = ToMatch(txs, tx.Record.SpentOutpoints.Select(o => txs.GetUTXO(o)).ToList(), trackedSource),
-								Outputs = tx.Record.ReceivedCoins.Select(o => new TransactionInformationMatch()
-								{
-									Index = (int)o.Outpoint.N,
-									Value = o.Amount,
-									KeyPath = txs.GetKeyPath(o.ScriptPubKey)
-								}).ToList()
+								Inputs = tx.Record.SpentOutpoints.Select(o => txs.GetUTXO(o)).Where(o => o != null).ToList(),
+								Outputs = tx.Record.GetReceivedOutputs(trackedSource).ToList()
 							};
 
 							item.TxSet.Transactions.Add(txInfo);
@@ -525,23 +517,6 @@ namespace NBXplorer.Controllers
 				}
 			}
 			return response;
-		}
-
-		List<TransactionInformationMatch> ToMatch(AnnotatedTransactionCollection txs,
-												 List<TxOut> outputs,
-												 TrackedSource derivation)
-		{
-			var result = new List<TransactionInformationMatch>();
-			for (int i = 0; i < outputs.Count; i++)
-			{
-				if (outputs[i] == null)
-					continue;
-				if (!IsMatching(derivation, outputs[i].ScriptPubKey, txs))
-					continue;
-				var keyPath = txs.GetKeyPath(outputs[i].ScriptPubKey);
-				result.Add(new TransactionInformationMatch() { Index = i, KeyPath = keyPath, Value = outputs[i].Value });
-			}
-			return result;
 		}
 
 		[HttpPost]
@@ -578,12 +553,11 @@ namespace NBXplorer.Controllers
 				repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), txs.Key);
 				foreach (var tx in txs)
 				{
-					var matches = repo.GetMatches(tx.Transaction).Select(m => new MatchedTransaction() { BlockId = txs.Key, Match = m }).ToArray();
-					repo.SaveMatches(tx.BlockTime, matches);
+					var matches = repo.GetMatches(tx.Transaction, txs.Key, tx.BlockTime);
+					repo.SaveMatches(matches);
 					AddressPoolService.RefillAddressPoolIfNeeded(network, matches);
 				}
 			}
-
 			return Ok();
 		}
 

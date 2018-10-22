@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
@@ -61,10 +62,9 @@ namespace NBXplorer
 				_TxById.Add(tx.Record.TransactionHash, tx);
 				foreach(var keyPathInfo in tx.Record.KnownKeyPathMapping)
 				{
-					_KeyPaths.TryAdd(keyPathInfo.ScriptPubKey, keyPathInfo.KeyPath);
+					_KeyPaths.TryAdd(keyPathInfo.Key, keyPathInfo.Value);
 				}
 			}
-
 
 			UTXOState state = new UTXOState();
 			foreach(var confirmed in transactions
@@ -109,12 +109,11 @@ namespace NBXplorer
 			TrackedSource = trackedSource;
 		}
 
-		public TxOut GetUTXO(OutPoint outpoint)
+		public MatchedOutput GetUTXO(OutPoint outpoint)
 		{
 			if(_TxById.TryGetValue(outpoint.Hash, out var txs))
 			{
-				return txs.SelectMany(t => t.Record.ReceivedCoins.Where(c => c.Outpoint.N == outpoint.N))
-						  .Select(t => t.TxOut)
+				return txs.SelectMany(t => t.Record.GetReceivedOutputs(TrackedSource).Where(c => c.Index == outpoint.N))
 						  .FirstOrDefault();
 			}
 			return null;

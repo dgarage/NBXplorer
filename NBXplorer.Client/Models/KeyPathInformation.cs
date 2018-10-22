@@ -9,6 +9,20 @@ namespace NBXplorer.Models
 {
 	public class KeyPathInformation
 	{
+		public KeyPathInformation()
+		{
+
+		}
+		public KeyPathInformation(KeyPath keyPath, DerivationStrategyBase derivationStrategy)
+		{
+			var derivation = derivationStrategy.Derive(keyPath);
+			ScriptPubKey = derivation.ScriptPubKey;
+			Redeem = derivation.Redeem;
+			TrackedSource = new DerivationSchemeTrackedSource(derivationStrategy);
+			DerivationStrategy = derivationStrategy;
+			Feature = DerivationStrategyBase.GetFeature(keyPath);
+			KeyPath = keyPath;
+		}
 		public TrackedSource TrackedSource { get; set; }
 
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
@@ -30,9 +44,15 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public Script Redeem
 		{
 			get; set;
+		}
+
+		public int GetIndex()
+		{
+			return (int)KeyPath.Indexes[KeyPath.Indexes.Length - 1];
 		}
 	}
 }

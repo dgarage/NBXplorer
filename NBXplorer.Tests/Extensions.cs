@@ -21,7 +21,7 @@ namespace NBXplorer.Tests
 
 		static AnnotatedTransaction AsAnnotatedTransaction(this Transaction tx)
 		{
-			return new AnnotatedTransaction(new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), null, false), tx, new Repository.TransactionMiniMatch()), null);
+			return new AnnotatedTransaction(new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), null, false), tx, new Dictionary<Script, KeyPath>()), null);
 		}
 		public static KeyPathInformation GetKeyInformation(this Repository repo, Script script)
 		{
