@@ -610,12 +610,14 @@ namespace NBXplorer.Tests
 				retry++;
 				var txs = tester.Client.GetTransactions(pubkey, null, false);
 				tx = txs.ConfirmedTransactions.Transactions.Where(t => t.TransactionId == txid).FirstOrDefault();
-				if (tx == null && retry < 3)
+				if (tx == null && retry < 10)
 				{
 					Thread.Sleep(200);
+					continue;
 				}
-				Assert.NotNull(tx);
-				break;
+				if (tx != null)
+					break;
+				Assert.False(true, $"Transaction {txid} should exists");
 			}
 			return tx;
 		}
@@ -1670,6 +1672,7 @@ namespace NBXplorer.Tests
 				// By default, gap limit is 1000 and batch size is 100 on all 3 feature line
 				var outOfBandAddress = pubkey.Derive(new KeyPath("0/50"));
 				var txId = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				Logs.Tester.LogInformation($"Sent money on 0/50 {txId}");
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
 
@@ -1689,25 +1692,31 @@ namespace NBXplorer.Tests
 				Assert.Equal(100, info.Progress.Count);
 				Assert.Equal(50, info.Progress.HighestKeyIndexFound[DerivationFeature.Deposit]);
 				Assert.Null(info.Progress.HighestKeyIndexFound[DerivationFeature.Change]);
+				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be the next unused address");
 				Assert.Equal(51, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex());
 				utxo = tester.Client.GetUTXOs(pubkey, null, false);
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].TransactionHash);
 
+				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be monitored, but not 0/150");
 				Assert.NotEmpty(tester.Client.GetKeyInformations(pubkey.Derive(new KeyPath("0/51")).ScriptPubKey));
 				Assert.Empty(tester.Client.GetKeyInformations(pubkey.Derive(new KeyPath("0/150")).ScriptPubKey));
 
-				// Let's check what happen if we scan a UTXO that is already fully indexed
+				Logs.Tester.LogInformation($"Let's check what happen if we scan a UTXO that is already fully indexed");
 				outOfBandAddress = pubkey.Derive(new KeyPath("0/51"));
 				var txId2 = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				Logs.Tester.LogInformation($"Send money on 0/51 on {txId2}");
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
+				Logs.Tester.LogInformation($"It should be indexed an unpruned");
 				AssertNotPruned(tester, pubkey, txId2);
 
+				Logs.Tester.LogInformation($"It should be indexed an unpruned, even after a Scan happen");
 				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
 				info = WaitScanFinish(tester.Client, pubkey);
 				Assert.Equal(2, info.Progress.Found);
 				AssertNotPruned(tester, pubkey, txId2);
 
+				Logs.Tester.LogInformation($"So finally we should have 2 UTXO, on 0/50 and 0/51");
 				utxo = tester.Client.GetUTXOs(pubkey, null, false);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 			}

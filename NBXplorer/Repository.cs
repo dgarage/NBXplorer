@@ -842,8 +842,17 @@ namespace NBXplorer
 				return result;
 			});
 
+			TransactionMatchData previousConfirmed = null;
 			foreach (var tx in transactions)
 			{
+				if (tx.Key.BlockHash != null && !tx.Key.IsPruned)
+					previousConfirmed = tx;
+				if (tx.Key.BlockHash != null && tx.Key.IsPruned && tx.Key.BlockHash == previousConfirmed?.Key.BlockHash)
+				{
+					needUpdate = true;
+					tx.NeedRemove = true;
+				}
+
 				if (tx.FirstSeenTickCount != firstSeenList[tx.Key.TxId])
 				{
 					needUpdate = true;
@@ -863,7 +872,7 @@ namespace NBXplorer
 											  .First();
 				}
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-				// This is just cosmetic, let's not waste one round trip waiting for this
+				// This can be eventually consistent, let's not waste one round trip waiting for this
 				_Engine.DoAsync(tx =>
 				{
 					var table = GetTransactionsIndex(tx, trackedSource);
@@ -871,11 +880,15 @@ namespace NBXplorer
 					{
 						table.Insert(data.GetRowKey(), data.ToBytes());
 					}
+					foreach(var data in transactionss.Where(t => t.NeedRemove))
+					{
+						table.RemoveKey(data.Key.ToString());
+					}
 					tx.Commit();
 				});
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 			}
-			return transactions.Select(c => c.ToTrackedTransaction()).ToArray();
+			return transactions.Where(tt => !tt.NeedRemove).Select(c => c.ToTrackedTransaction()).ToArray();
 		}
 
 		public class TransactionMiniKeyInformation : IBitcoinSerializable
@@ -1113,6 +1126,8 @@ namespace NBXplorer
 			{
 				get; set;
 			}
+			public bool NeedRemove { get; internal set; }
+
 			public void ReadWrite(BitcoinStream stream)
 			{
 				if (Key.IsPruned)
