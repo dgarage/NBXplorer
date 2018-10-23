@@ -86,7 +86,7 @@ namespace NBXplorer
 			return evt;
 		}
 
-		public static MatchedTransaction[] GetMatches(this Repository repository, Transaction tx, uint256 blockId, DateTimeOffset now)
+		public static async Task<MatchedTransaction[]> GetMatches(this Repository repository, Transaction tx, uint256 blockId, DateTimeOffset now)
 		{
 			var matches = new Dictionary<string, MatchedTransaction>();
 			HashSet<Script> inputScripts = new HashSet<Script>();
@@ -108,7 +108,7 @@ namespace NBXplorer
 				scripts.Add(output.ScriptPubKey);
 			}
 
-			var keyInformations = repository.GetKeyInformations(scripts.ToArray());
+			var keyInformations = await repository.GetKeyInformations(scripts.ToArray());
 			foreach(var keyInfoByScripts in keyInformations)
 			{
 				foreach(var keyInfo in keyInfoByScripts.Value)

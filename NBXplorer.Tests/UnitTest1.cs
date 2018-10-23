@@ -148,7 +148,7 @@ namespace NBXplorer.Tests
 								{ strat.Derive(keyPath).ScriptPubKey, keyPath }
 							})
 					}
-				});
+				}).GetAwaiter().GetResult();
 		}
 
 		[Fact]

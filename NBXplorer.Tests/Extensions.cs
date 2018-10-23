@@ -25,7 +25,7 @@ namespace NBXplorer.Tests
 		}
 		public static KeyPathInformation GetKeyInformation(this Repository repo, Script script)
 		{
-			return repo.GetKeyInformations(new Script[] { script })[script].SingleOrDefault();
+			return repo.GetKeyInformations(new Script[] { script }).GetAwaiter().GetResult()[script].SingleOrDefault();
 		}
 
 		public static uint256[] EnsureGenerate(this RPCClient client, int blockCount)

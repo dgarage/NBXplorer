@@ -76,11 +76,11 @@ namespace NBXplorer
 			}
 		}
 
-		protected override void AttachCore()
+		protected override async void AttachCore()
 		{
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
-			_CurrentLocation = Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
+			_CurrentLocation = await Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
 			var fork = Chain.FindFork(_CurrentLocation);
 			if (fork == null)
 			{
@@ -203,7 +203,7 @@ namespace NBXplorer
 				AskBlocks();
 			});
 
-			message.Message.IfPayloadIs<BlockPayload>(block =>
+			message.Message.IfPayloadIs<BlockPayload>(async block =>
 			{
 				block.Object.Header.PrecomputeHash(false, false);
 				Download o;
@@ -222,13 +222,14 @@ namespace NBXplorer
 						DateTimeOffset now = DateTimeOffset.UtcNow;
 						var matches =
 							block.Object.Transactions
-							.SelectMany(tx => Repository.GetMatches(tx, blockHash, now))
+							.Select(tx => Repository.GetMatches(tx, blockHash, now))
 							.ToArray();
-
-						SaveMatches(matches, blockHash, now);
+						await Task.WhenAll(matches);
+						await SaveMatches(matches.SelectMany(m => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
 						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 						if (!IsSynching() || blockHash.GetLow32() % 100 == 0)
-							Repository.SetIndexProgress(currentLocation);						var hasHeight = Chain.TryGetHeight(blockHash, out int blockHeight);
+							await Repository.SetIndexProgress(currentLocation);
+						var hasHeight = Chain.TryGetHeight(blockHash, out int blockHeight);
 						_EventAggregator.Publish(new Events.NewBlockEvent(this._Repository.Network.CryptoCode, blockHash, hasHeight ? (int?)blockHeight : null));
 					}
 					if (_InFlights.Count == 0)
@@ -236,20 +237,20 @@ namespace NBXplorer
 				}
 			});
 
-			message.Message.IfPayloadIs<TxPayload>(txPayload =>
+			message.Message.IfPayloadIs<TxPayload>(async txPayload =>
 			{
 				var now = DateTimeOffset.UtcNow;
-				var matches = Repository.GetMatches(txPayload.Object, null, now).ToArray();
-				SaveMatches(matches, null, now);
+				var matches = (await Repository.GetMatches(txPayload.Object, null, now)).ToArray();
+				await SaveMatches(matches, null, now);
 			});
 
 		}
 
-		private void SaveMatches(MatchedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
+		private async Task SaveMatches(MatchedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
 		{
-			Repository.SaveMatches(matches);
+			await Repository.SaveMatches(matches);
 			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
-			var saved = Repository.SaveTransactions(now, matches.Select(m => m.TrackedTransaction.Transaction).Distinct().ToArray(), blockHash);
+			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.TrackedTransaction.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
 			for (int i = 0; i < matches.Length; i++)
 			{

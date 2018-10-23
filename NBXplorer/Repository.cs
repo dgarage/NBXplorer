@@ -60,16 +60,6 @@ namespace NBXplorer
 					t.Start();
 			}
 
-			public void Do(Action act)
-			{
-				DoAsync(act).GetAwaiter().GetResult();
-			}
-
-			public T Do<T>(Func<T> act)
-			{
-				return DoAsync(act).GetAwaiter().GetResult();
-			}
-
 			public async Task<T> DoAsync<T>(Func<T> act)
 			{
 				TaskCompletionSource<object> done = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -139,30 +129,18 @@ namespace NBXplorer
 			public EngineAccessor(string directory)
 			{
 				this.directory = directory;
-				try
-				{
-					_Pool = new CustomThreadPool(1, "Repository");
-					RenewEngine();
-				}
-				catch { Dispose(); throw; }
-				_Renew = new Timer((o) =>
+				_Pool = new CustomThreadPool(1, "Repository");
+				_Renew = new Timer(async (o) =>
 				{
 					try
 					{
-						RenewEngine();
+						await RenewEngineAsync();
 					}
 					catch { }
 				});
 				_Renew.Change(0, (int)TimeSpan.FromSeconds(60).TotalMilliseconds);
 			}
 
-			private void RenewEngine()
-			{
-				_Pool.Do(() =>
-				{
-					RenewEngineCore();
-				});
-			}
 			private Task RenewEngineAsync()
 			{
 				return _Pool.DoAsync(() =>
@@ -182,10 +160,10 @@ namespace NBXplorer
 						_Engine = new DBreezeEngine(directory);
 						break;
 					}
-					catch when (tried < 5)
+					catch when (tried < 10)
 					{
 						tried++;
-						Thread.Sleep(5000);
+						Thread.Sleep(tried * 500);
 					}
 				}
 				_Tx = _Engine.GetTransaction();
@@ -214,18 +192,6 @@ namespace NBXplorer
 			}
 
 			DBreeze.Transactions.Transaction _Tx;
-			public void Do(Action<DBreeze.Transactions.Transaction> act)
-			{
-				AssertNotDisposed();
-				_Pool.Do(() =>
-				{
-					AssertNotDisposed();
-					RetryIfFailed(() =>
-					{
-						act(_Tx);
-					});
-				});
-			}
 
 			void RetryIfFailed(Action act)
 			{
@@ -249,7 +215,7 @@ namespace NBXplorer
 				}
 				catch (DBreezeException)
 				{
-					RenewEngine();
+					RenewEngineCore();
 					return act();
 				}
 			}
@@ -260,6 +226,8 @@ namespace NBXplorer
 				return _Pool.DoAsync(() =>
 				{
 					AssertNotDisposed();
+					if (_Engine == null)
+						RenewEngineCore();
 					RetryIfFailed(() =>
 					{
 						act(_Tx);
@@ -273,19 +241,8 @@ namespace NBXplorer
 				return _Pool.DoAsync(() =>
 				{
 					AssertNotDisposed();
-					return RetryIfFailed(() =>
-					{
-						return act(_Tx);
-					});
-				});
-			}
-
-			public T Do<T>(Func<DBreeze.Transactions.Transaction, T> act)
-			{
-				AssertNotDisposed();
-				return _Pool.Do<T>(() =>
-				{
-					AssertNotDisposed();
+					if (_Engine == null)
+						RenewEngineCore();
 					return RetryIfFailed(() =>
 					{
 						return act(_Tx);
@@ -355,18 +312,18 @@ namespace NBXplorer
 	{
 
 
-		public void Ping()
+		public async Task Ping()
 		{
-			_Engine.Do((tx) =>
+			await _Engine.DoAsync((tx) =>
 			{
 			});
 		}
 
-		public void CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)
+		public async Task CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)
 		{
 			if (keyPaths.Length == 0)
 				return;
-			_Engine.Do(tx =>
+			await _Engine.DoAsync(tx =>
 			{
 				bool needCommit = false;
 				var featuresPerKeyPaths = Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>()
@@ -515,9 +472,9 @@ namespace NBXplorer
 			_Suffix = network.CryptoCode == "BTC" ? "" : network.CryptoCode;
 		}
 		public string _Suffix;
-		public BlockLocator GetIndexProgress()
+		public Task<BlockLocator> GetIndexProgress()
 		{
-			return _Engine.Do<BlockLocator>(tx =>
+			return _Engine.DoAsync<BlockLocator>(tx =>
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				var existingRow = tx.Select<string, byte[]>($"{_Suffix}IndexProgress", "");
@@ -529,9 +486,9 @@ namespace NBXplorer
 			});
 		}
 
-		public void SetIndexProgress(BlockLocator locator)
+		public Task SetIndexProgress(BlockLocator locator)
 		{
-			_Engine.Do(tx =>
+			return _Engine.DoAsync(tx =>
 			{
 				if (locator == null)
 					tx.RemoveKey($"{_Suffix}IndexProgress", "");
@@ -698,7 +655,7 @@ namespace NBXplorer
 		{
 			get; set;
 		} = 100;
-		public List<SavedTransaction> SaveTransactions(DateTimeOffset now, NBitcoin.Transaction[] transactions, uint256 blockHash)
+		public async Task<List<SavedTransaction>> SaveTransactions(DateTimeOffset now, NBitcoin.Transaction[] transactions, uint256 blockHash)
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
@@ -706,7 +663,7 @@ namespace NBXplorer
 				return result;
 			foreach (var batch in transactions.Batch(BatchSize))
 			{
-				_Engine.Do(tx =>
+				await _Engine.DoAsync(tx =>
 				{
 					var date = NBitcoin.Utils.DateTimeToUnixTime(now);
 					foreach (var btx in batch)
@@ -740,10 +697,10 @@ namespace NBXplorer
 			}
 		}
 
-		public SavedTransaction[] GetSavedTransactions(uint256 txid)
+		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
 		{
 			List<SavedTransaction> saved = new List<SavedTransaction>();
-			_Engine.Do(tx =>
+			await _Engine.DoAsync(tx =>
 			{
 				foreach (var row in tx.SelectForward<string, byte[]>($"{_Suffix}tx-" + txid.ToString()))
 				{
@@ -766,14 +723,14 @@ namespace NBXplorer
 			return t;
 		}
 
-		public MultiValueDictionary<Script, KeyPathInformation> GetKeyInformations(Script[] scripts)
+		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
 			if (scripts.Length == 0)
 				return result;
 			foreach (var batch in scripts.Batch(BatchSize))
 			{
-				_Engine.Do(tx =>
+				await _Engine.DoAsync(tx =>
 				{
 					tx.ValuesLazyLoadingIsOn = false;
 					foreach (var script in batch)
@@ -847,13 +804,13 @@ namespace NBXplorer
 			get; set;
 		} = 30;
 
-		public TrackedTransaction[] GetTransactions(TrackedSource trackedSource)
+		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource)
 		{
 
 			bool needUpdate = false;
 			Dictionary<uint256, long> firstSeenList = new Dictionary<uint256, long>();
 
-			var transactions = _Engine.Do(tx =>
+			var transactions = await _Engine.DoAsync(tx =>
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
 				tx.ValuesLazyLoadingIsOn = false;
@@ -895,17 +852,19 @@ namespace NBXplorer
 				}
 			}
 
-			// This is legacy data, need an update
 			if (needUpdate)
 			{
+				// This is legacy data, need an update
 				foreach (var data in transactions.Where(t => t.NeedUpdate && t.KnownKeyPathMapping == null))
 				{
-					data.KnownKeyPathMapping = this.GetMatches(data.Transaction, data.Key.BlockHash, DateTimeOffset.UtcNow)
+					data.KnownKeyPathMapping = (await this.GetMatches(data.Transaction, data.Key.BlockHash, DateTimeOffset.UtcNow))
 											  .Where(m => m.TrackedSource.Equals(trackedSource))
 											  .Select(m => m.TrackedTransaction.KnownKeyPathMapping)
 											  .First();
 				}
-				_Engine.Do(tx =>
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+				// This is just cosmetic, let's not waste one round trip waiting for this
+				_Engine.DoAsync(tx =>
 				{
 					var table = GetTransactionsIndex(tx, trackedSource);
 					foreach (var data in transactions.Where(t => t.NeedUpdate))
@@ -914,6 +873,7 @@ namespace NBXplorer
 					}
 					tx.Commit();
 				});
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 			}
 			return transactions.Select(c => c.ToTrackedTransaction()).ToArray();
 		}
@@ -1231,13 +1191,13 @@ namespace NBXplorer
 			}
 		}
 
-		public void SaveMatches(MatchedTransaction[] transactions)
+		public async Task SaveMatches(MatchedTransaction[] transactions)
 		{
 			if (transactions.Length == 0)
 				return;
 			var groups = transactions.GroupBy(i => i.TrackedSource);
 
-			_Engine.Do(tx =>
+			await _Engine.DoAsync(tx =>
 			{
 				foreach (var group in groups)
 				{
@@ -1302,11 +1262,11 @@ namespace NBXplorer
 			});
 		}
 
-		public void CleanTransactions(TrackedSource trackedSource, List<TrackedTransaction> cleanList)
+		public async Task CleanTransactions(TrackedSource trackedSource, List<TrackedTransaction> cleanList)
 		{
 			if (cleanList == null || cleanList.Count == 0)
 				return;
-			_Engine.Do(tx =>
+			await _Engine.DoAsync(tx =>
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
 				foreach (var tracked in cleanList)

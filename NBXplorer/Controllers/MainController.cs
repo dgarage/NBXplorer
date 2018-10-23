@@ -121,24 +121,24 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/cancelreservation")]
-		public IActionResult CancelReservation(string cryptoCode,
+		public async Task<IActionResult> CancelReservation(string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths)
 		{
 			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
-			repo.CancelReservation(strategy, keyPaths);
+			await repo.CancelReservation(strategy, keyPaths);
 			return Ok();
 		}
 
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/scripts/{script}")]
-		public IActionResult GetKeyInformations(string cryptoCode,
+		public async Task<IActionResult> GetKeyInformations(string cryptoCode,
 			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
 		{
 			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
-			var result = repo.GetKeyInformations(new[] { script })
+			var result = (await repo.GetKeyInformations(new[] { script }))
 						   .SelectMany(k => k.Value)
 						   .ToArray();
 			return Json(result);
@@ -146,14 +146,14 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/scripts/{script}")]
-		public IActionResult GetKeyInformations(string cryptoCode,
+		public async Task<IActionResult> GetKeyInformations(string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase strategy,
 			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
 		{
 			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
-			var result = repo.GetKeyInformations(new[] { script })
+			var result = (await repo.GetKeyInformations(new[] { script }))
 						   .SelectMany(k => k.Value)
 						   .Where(k => k.DerivationStrategy == strategy)
 						   .FirstOrDefault();
@@ -177,7 +177,7 @@ namespace NBXplorer.Controllers
 
 			var blockchainInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetBlockchainInfoAsyncEx() : null;
 			var networkInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetNetworkInfoAsync() : null;
-			repo.Ping();
+			await repo.Ping();
 			var pingAfter = DateTimeOffset.UtcNow;
 
 			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
@@ -381,7 +381,7 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/transactions/{txId}")]
-		public IActionResult GetTransaction(
+		public async Task<IActionResult> GetTransaction(
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId,
 			bool includeTransaction = true,
@@ -389,7 +389,7 @@ namespace NBXplorer.Controllers
 		{
 			var network = GetNetwork(cryptoCode, false);
 			var chain = this.ChainProvider.GetChain(network);
-			var result = RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
+			var result = await RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if (result.Length == 0)
 				return NotFound();
 			return Json(Utils.ToTransactionResult(includeTransaction, chain, result));
@@ -473,7 +473,7 @@ namespace NBXplorer.Controllers
 					response = new GetTransactionsResponse();
 					int currentHeight = chain.Height;
 					response.Height = currentHeight;
-					var txs = GetAnnotatedTransactions(repo, chain, trackedSource);
+					var txs = await GetAnnotatedTransactions(repo, chain, trackedSource);
 					foreach (var item in new[]
 					{
 					new
@@ -572,11 +572,11 @@ namespace NBXplorer.Controllers
 			foreach (var txs in transactions.GroupBy(t => t.BlockId, t => (t.Transaction, t.BlockTime))
 											.OrderBy(t => t.First().BlockTime))
 			{
-				repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), txs.Key);
+				await repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), txs.Key);
 				foreach (var tx in txs)
 				{
-					var matches = repo.GetMatches(tx.Transaction, txs.Key, tx.BlockTime);
-					repo.SaveMatches(matches);
+					var matches = await repo.GetMatches(tx.Transaction, txs.Key, tx.BlockTime);
+					await repo.SaveMatches(matches);
 					AddressPoolService.RefillAddressPoolIfNeeded(network, matches);
 				}
 			}
@@ -697,7 +697,7 @@ namespace NBXplorer.Controllers
 					changes.CurrentHeight = chain.Height;
 					Stopwatch stopwatch = new Stopwatch();
 					stopwatch.Start();
-					var transactions = GetAnnotatedTransactions(repo, chain, trackedSource);
+					var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
 
 					var states = UTXOStateResult.CreateStates(unconfirmedBookmarks,
 															transactions.UnconfirmedTransactions.Values.Select(c => c.Record),
@@ -801,7 +801,7 @@ namespace NBXplorer.Controllers
 				throw new NotSupportedException();
 		}
 
-		private void CleanConflicts(Repository repo, AnnotatedTransactionCollection transactions)
+		private async Task CleanConflicts(Repository repo, AnnotatedTransactionCollection transactions)
 		{
 			var cleaned = transactions.DuplicatedTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
 			if (cleaned.Length != 0)
@@ -810,7 +810,7 @@ namespace NBXplorer.Controllers
 				{
 					_EventAggregator.Publish(new EvictedTransactionEvent(tx.TransactionHash));
 				}
-				repo.CleanTransactions(transactions.TrackedSource, cleaned.ToList());
+				await repo.CleanTransactions(transactions.TrackedSource, cleaned.ToList());
 			}
 		}
 
@@ -868,13 +868,13 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private AnnotatedTransactionCollection GetAnnotatedTransactions(Repository repo, SlimChain chain, TrackedSource trackedSource)
+		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, SlimChain chain, TrackedSource trackedSource)
 		{
-			var annotatedTransactions = new AnnotatedTransactionCollection(repo
-				.GetTransactions(trackedSource)
+			var annotatedTransactions = new AnnotatedTransactionCollection((await repo
+				.GetTransactions(trackedSource))
 				.Select(t => new AnnotatedTransaction(t, chain))
 				.ToList(), trackedSource);
-			CleanConflicts(repo, annotatedTransactions);
+			await CleanConflicts(repo, annotatedTransactions);
 			return annotatedTransactions;
 		}
 
@@ -924,10 +924,10 @@ namespace NBXplorer.Controllers
 				if (trackedSource != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
 				{
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Trying to broadcast unconfirmed of the wallet");
-					var transactions = GetAnnotatedTransactions(repo, chain, trackedSource);
+					var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
 					foreach (var existing in transactions.UnconfirmedTransactions.Values)
 					{
-						var t = existing.Record.Transaction ?? repo.GetSavedTransactions(existing.Record.TransactionHash).Select(c => c.Transaction).FirstOrDefault();
+						var t = existing.Record.Transaction ?? (await repo.GetSavedTransactions(existing.Record.TransactionHash)).Select(c => c.Transaction).FirstOrDefault();
 						if (t == null)
 							continue;
 						try

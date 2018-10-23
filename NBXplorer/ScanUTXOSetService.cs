@@ -246,7 +246,7 @@ namespace NBXplorer
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
 
 			DateTimeOffset now = DateTimeOffset.UtcNow;
-			repo.SaveMatches(data.Select(o => new MatchedTransaction()
+			await repo.SaveMatches(data.Select(o => new MatchedTransaction()
 			{
 				TrackedSource = trackedSource,
 				TrackedTransaction = new TrackedTransaction(new TrackedTransactionKey(o.TxId, o.BlockId, true), o.Coins, o.KeyPathInformations)
