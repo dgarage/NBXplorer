@@ -880,7 +880,7 @@ namespace NBXplorer
 					{
 						table.Insert(data.GetRowKey(), data.ToBytes());
 					}
-					foreach(var data in transactionss.Where(t => t.NeedRemove))
+					foreach(var data in transactions.Where(t => t.NeedRemove))
 					{
 						table.RemoveKey(data.Key.ToString());
 					}
