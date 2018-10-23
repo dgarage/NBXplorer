@@ -148,15 +148,25 @@ namespace NBXplorer
 			return GetUTXOsAsync(extKey, confirmedBookmark, unconfirmedBookmark, longPolling, cancellation).GetAwaiter().GetResult();
 		}
 
-		public async Task ScanUTXOSetAsync(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		public async Task ScanUTXOSetAsync(DerivationStrategyBase extKey, int? batchSize = null, int? gapLimit = null, int? fromIndex = null, CancellationToken cancellation = default)
 		{
 			if (extKey == null)
 				throw new ArgumentNullException(nameof(extKey));
-			await SendAsync<bool>(HttpMethod.Post, null, "v1/cryptos/{0}/derivations/{1}/utxos/scan", new object[] { Network.CryptoCode, extKey }, cancellation).ConfigureAwait(false);
+			List<string> args = new List<string>();
+			if (batchSize != null)
+				args.Add($"batchsize={batchSize.Value}");
+			if (gapLimit != null)
+				args.Add($"gaplimit={gapLimit.Value}");
+			if (fromIndex != null)
+				args.Add($"from={fromIndex.Value}");
+			var argsString = string.Join("&", args.ToArray());
+			if (argsString != string.Empty)
+				argsString = $"?{argsString}";
+			await SendAsync<bool>(HttpMethod.Post, null, "v1/cryptos/{0}/derivations/{1}/utxos/scan{2}", new object[] { Network.CryptoCode, extKey, argsString }, cancellation).ConfigureAwait(false);
 		}
-		public void ScanUTXOSet(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		public void ScanUTXOSet(DerivationStrategyBase extKey, int? batchSize = null, int? gapLimit = null, int? fromIndex = null, CancellationToken cancellation = default)
 		{
-			ScanUTXOSetAsync(extKey, cancellation).GetAwaiter().GetResult();
+			ScanUTXOSetAsync(extKey, batchSize, gapLimit, fromIndex, cancellation).GetAwaiter().GetResult();
 		}
 
 		public async Task<ScanUTXOInformation> GetScanUTXOSetInformationAsync(DerivationStrategyBase extKey, CancellationToken cancellation = default)

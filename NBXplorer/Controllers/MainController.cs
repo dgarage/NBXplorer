@@ -628,13 +628,21 @@ namespace NBXplorer.Controllers
 		public IActionResult ScanUTXOSet(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme)
+			DerivationStrategyBase derivationScheme, int? batchSize = null, int? gapLimit = null, int? from = null)
 		{
 			var network = this.GetNetwork(cryptoCode, true);
 			var waiter = this.Waiters.GetWaiter(network);
 			if (!waiter.RPC.Capabilities.SupportScanUTXOSet)
 				throw new NBXplorerError(405, "scanutxoset-not-suported", "ScanUTXOSet is not supported for this currency").AsException();
-			if (!ScanUTXOSetService.EnqueueScan(network, derivationScheme))
+
+			ScanUTXOSetOptions options = new ScanUTXOSetOptions();
+			if (batchSize != null)
+				options.BatchSize = batchSize.Value;
+			if (gapLimit != null)
+				options.GapLimit = gapLimit.Value;
+			if (from != null)
+				options.From = from.Value;
+			if (!ScanUTXOSetService.EnqueueScan(network, derivationScheme, options))
 				throw new NBXplorerError(409, "scanutxoset-in-progress", "ScanUTXOSet has already been called for this derivationScheme").AsException();
 			return Ok();
 		}

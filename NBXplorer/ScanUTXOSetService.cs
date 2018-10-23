@@ -29,9 +29,9 @@ namespace NBXplorer
 
 	public class ScanUTXOSetOptions
 	{
-		public int GapLimit { get; set; }
-		public int BatchSize { get; set; }
-		public DerivationFeature[] DerivationFeatures { get; set; }
+		public int GapLimit { get; set; } = 10_000;
+		public int BatchSize { get; set; } = 1000;
+		public DerivationFeature[] DerivationFeatures { get; set; } = new[] { DerivationFeature.Change, DerivationFeature.Deposit, DerivationFeature.Direct };
 		public int From { get; set; }
 	}
 	public class ScanUTXOSetService : IHostedService
@@ -73,7 +73,7 @@ namespace NBXplorer
 		Channel<string> _Channel = Channel.CreateBounded<string>(500);
 		ConcurrentDictionary<string, ScanUTXOWorkItem> _Progress = new ConcurrentDictionary<string, ScanUTXOWorkItem>();
 
-		internal bool EnqueueScan(NBXplorerNetwork network, DerivationStrategyBase derivationScheme)
+		internal bool EnqueueScan(NBXplorerNetwork network, DerivationStrategyBase derivationScheme, ScanUTXOSetOptions options)
 		{
 			var workItem = new ScanUTXOWorkItem(network, derivationScheme)
 			{
@@ -81,12 +81,7 @@ namespace NBXplorer
 				{
 					Status = ScanUTXOStatus.Queued
 				},
-				Options = new ScanUTXOSetOptions()
-				{
-					BatchSize = 1000,
-					GapLimit = 10000,
-					DerivationFeatures = new[] { DerivationFeature.Change, DerivationFeature.Deposit, DerivationFeature.Direct }
-				}
+				Options = options
 			};
 
 			var value = _Progress.AddOrUpdate(workItem.Id, workItem, (k, existing) => existing.State.Status == ScanUTXOStatus.Complete || existing.State.Status == ScanUTXOStatus.Error ? workItem : existing);
