@@ -121,7 +121,7 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/cancelreservation")]
-		public IActionResult CancelReservation(string cryptoCode, 
+		public IActionResult CancelReservation(string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths)
 		{
@@ -297,7 +297,7 @@ namespace NBXplorer.Controllers
 								listenedDerivations.ContainsKey((network.Network.NBitcoinNetwork, derivationScheme));
 				}
 
-				forward |= listenAllTrackedSource == "*" ||							listenAllTrackedSource == o.CryptoCode ||
+				forward |= listenAllTrackedSource == "*" || listenAllTrackedSource == o.CryptoCode ||
 							listenedTrackedSource.ContainsKey((network.Network.NBitcoinNetwork, o.Match.TrackedSource));
 
 				if (forward)
@@ -656,7 +656,7 @@ namespace NBXplorer.Controllers
 		{
 			var network = this.GetNetwork(cryptoCode, false);
 			var info = ScanUTXOSetService.GetInformation(network, derivationScheme);
-			if(info == null)
+			if (info == null)
 				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
 			return Json(info);
 		}

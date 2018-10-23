@@ -52,11 +52,11 @@ namespace NBXplorer
 
 			public CustomThreadPool(int threadCount, string threadName)
 			{
-				if(threadCount <= 0)
+				if (threadCount <= 0)
 					throw new ArgumentOutOfRangeException(nameof(threadCount));
 				_Exited = new TaskCompletionSource<bool>();
 				_Threads = Enumerable.Range(0, threadCount).Select(_ => new Thread(RunLoop) { Name = threadName }).ToArray();
-				foreach(var t in _Threads)
+				foreach (var t in _Threads)
 					t.Start();
 			}
 
@@ -79,7 +79,7 @@ namespace NBXplorer
 					{
 						done.TrySetResult(act());
 					}
-					catch(Exception ex) { done.TrySetException(ex); }
+					catch (Exception ex) { done.TrySetException(ex); }
 				}
 				, done));
 				return (T)(await done.Task.ConfigureAwait(false));
@@ -98,21 +98,21 @@ namespace NBXplorer
 			{
 				try
 				{
-					foreach(var act in _Actions.GetConsumingEnumerable(_Cancel.Token))
+					foreach (var act in _Actions.GetConsumingEnumerable(_Cancel.Token))
 					{
 						act.Item1();
 					}
 				}
-				catch(OperationCanceledException) when(_Cancel.IsCancellationRequested) { }
-				catch(Exception ex)
+				catch (OperationCanceledException) when (_Cancel.IsCancellationRequested) { }
+				catch (Exception ex)
 				{
 					_Cancel.Cancel();
 					_UnhandledException = ex;
 					Logs.Explorer.LogError(ex, "Unexpected exception thrown by Repository");
 				}
-				if(Interlocked.Increment(ref _ExitedCount) == _Threads.Length)
+				if (Interlocked.Increment(ref _ExitedCount) == _Threads.Length)
 				{
-					foreach(var action in _Actions)
+					foreach (var action in _Actions)
 					{
 						try
 						{
@@ -193,7 +193,7 @@ namespace NBXplorer
 
 			private void DisposeEngine()
 			{
-				if(_Tx != null)
+				if (_Tx != null)
 				{
 					try
 					{
@@ -202,7 +202,7 @@ namespace NBXplorer
 					catch { }
 					_Tx = null;
 				}
-				if(_Engine != null)
+				if (_Engine != null)
 				{
 					try
 					{
@@ -233,7 +233,7 @@ namespace NBXplorer
 				{
 					act();
 				}
-				catch(Exception ex)
+				catch (Exception ex)
 				{
 					Logs.Explorer.LogError(ex, "Unexpected DBreeze error");
 					RenewEngineCore();
@@ -247,7 +247,7 @@ namespace NBXplorer
 				{
 					return act();
 				}
-				catch(DBreezeException)
+				catch (DBreezeException)
 				{
 					RenewEngine();
 					return act();
@@ -295,16 +295,16 @@ namespace NBXplorer
 
 			void AssertNotDisposed()
 			{
-				if(_Disposed)
+				if (_Disposed)
 					throw new ObjectDisposedException("EngineAccessor");
 			}
 			bool _Disposed;
 			public void Dispose()
 			{
-				if(!_Disposed)
+				if (!_Disposed)
 				{
 					_Disposed = true;
-					if(_Renew != null)
+					if (_Renew != null)
 						_Renew.Dispose();
 					_Pool.DoAsync(() => DisposeEngine()).GetAwaiter().GetResult();
 					_Pool.Dispose();
@@ -318,19 +318,19 @@ namespace NBXplorer
 		public RepositoryProvider(NBXplorerNetworkProvider networks, ExplorerConfiguration configuration)
 		{
 			var directory = Path.Combine(configuration.DataDir, "db");
-			if(!Directory.Exists(directory))
+			if (!Directory.Exists(directory))
 				Directory.CreateDirectory(directory);
 			_Engine = new EngineAccessor(directory);
-			foreach(var net in networks.GetAll())
+			foreach (var net in networks.GetAll())
 			{
 				var settings = configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
-				if(settings != null)
+				if (settings != null)
 				{
 					var repo = new Repository(_Engine, net);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
-					if(settings.Rescan)
+					if (settings.Rescan)
 					{
 						Logs.Configuration.LogInformation($"Rescanning the {net.CryptoCode} chain...");
 						repo.SetIndexProgress(null);
@@ -364,7 +364,7 @@ namespace NBXplorer
 
 		public void CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)
 		{
-			if(keyPaths.Length == 0)
+			if (keyPaths.Length == 0)
 				return;
 			_Engine.Do(tx =>
 			{
@@ -374,17 +374,17 @@ namespace NBXplorer
 				.ToDictionary(o => o.Path, o => o.Feature);
 
 				var groups = keyPaths.Where(k => k.Indexes.Length > 0).GroupBy(k => k.Parent);
-				foreach(var group in groups)
+				foreach (var group in groups)
 				{
-					if(featuresPerKeyPaths.TryGetValue(group.Key, out DerivationFeature feature))
+					if (featuresPerKeyPaths.TryGetValue(group.Key, out DerivationFeature feature))
 					{
 						var reserved = GetReservedKeysIndex(tx, strategy, feature);
 						var available = GetAvailableKeysIndex(tx, strategy, feature);
-						foreach(var keyPath in group)
+						foreach (var keyPath in group)
 						{
 							var key = (int)keyPath.Indexes.Last();
 							var data = reserved.SelectBytes(key);
-							if(data == null)
+							if (data == null)
 								continue;
 							reserved.RemoveKey(key);
 							available.Insert(key, data);
@@ -392,7 +392,7 @@ namespace NBXplorer
 						}
 					}
 				}
-				if(needCommit)
+				if (needCommit)
 					tx.Commit();
 			});
 		}
@@ -420,7 +420,7 @@ namespace NBXplorer
 			public byte[] SelectBytes(int index)
 			{
 				var bytes = tx.Select<string, byte[]>(TableName, $"{PrimaryKey}-{index:D10}");
-				if(bytes == null || !bytes.Exists)
+				if (bytes == null || !bytes.Exists)
 					return null;
 				return bytes.Value;
 			}
@@ -456,7 +456,7 @@ namespace NBXplorer
 			public int? SelectInt(int index)
 			{
 				var bytes = SelectBytes(index);
-				if(bytes == null)
+				if (bytes == null)
 					return null;
 				bytes[0] = (byte)(bytes[0] & ~0x80);
 				return (int)NBitcoin.Utils.ToUInt32(bytes, false);
@@ -506,7 +506,7 @@ namespace NBXplorer
 		EngineAccessor _Engine;
 		internal Repository(EngineAccessor engineAccessor, NBXplorerNetwork network)
 		{
-			if(network == null)
+			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			Serializer = new Serializer(_Network.NBitcoinNetwork);
@@ -521,7 +521,7 @@ namespace NBXplorer
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				var existingRow = tx.Select<string, byte[]>($"{_Suffix}IndexProgress", "");
-				if(existingRow == null || !existingRow.Exists)
+				if (existingRow == null || !existingRow.Exists)
 					return null;
 				BlockLocator locator = new BlockLocator();
 				locator.FromBytes(existingRow.Value);
@@ -533,7 +533,7 @@ namespace NBXplorer
 		{
 			_Engine.Do(tx =>
 			{
-				if(locator == null)
+				if (locator == null)
 					tx.RemoveKey($"{_Suffix}IndexProgress", "");
 				else
 					tx.Insert($"{_Suffix}IndexProgress", "", locator.ToBytes());
@@ -549,10 +549,10 @@ namespace NBXplorer
 				var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
 				var reservedTable = GetReservedKeysIndex(tx, strategy, derivationFeature);
 				var rows = availableTable.SelectForwardSkip(n);
-				if(rows.Length == 0)
+				if (rows.Length == 0)
 					return null;
 				var keyInfo = ToObject<KeyPathInformation>(rows[0].Value);
-				if(reserve)
+				if (reserve)
 				{
 					availableTable.RemoveKey(keyInfo.GetIndex());
 					reservedTable.Insert(keyInfo.GetIndex(), rows[0].Value);
@@ -573,13 +573,13 @@ namespace NBXplorer
 
 		private void RefillAvailable(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature, int toGenerate)
 		{
-			if(toGenerate <= 0)
+			if (toGenerate <= 0)
 				return;
 			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
 			var highestTable = GetHighestPathIndex(tx, strategy, derivationFeature);
 			int highestGenerated = highestTable.SelectInt(0) ?? -1;
 			var feature = strategy.GetLineFor(derivationFeature);
-			for(int i = 0; i < toGenerate; i++)
+			for (int i = 0; i < toGenerate; i++)
 			{
 				var index = highestGenerated + i + 1;
 				var derivation = feature.Derive((uint)index);
@@ -689,7 +689,7 @@ namespace NBXplorer
 				stream.ReadWrite(ref _Transaction);
 
 				// So we don't crash on transactions indexed on old versions
-				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
+				if (stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 					stream.ReadWrite(ref _TimeStamp);
 			}
 		}
@@ -702,14 +702,14 @@ namespace NBXplorer
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
-			if(transactions.Length == 0)
+			if (transactions.Length == 0)
 				return result;
-			foreach(var batch in transactions.Batch(BatchSize))
+			foreach (var batch in transactions.Batch(BatchSize))
 			{
 				_Engine.Do(tx =>
 				{
 					var date = NBitcoin.Utils.DateTimeToUnixTime(now);
-					foreach(var btx in batch)
+					foreach (var btx in batch)
 					{
 						var timestamped = new TimeStampedTransaction(btx, date);
 						var key = blockHash == null ? "0" : blockHash.ToString();
@@ -745,7 +745,7 @@ namespace NBXplorer
 			List<SavedTransaction> saved = new List<SavedTransaction>();
 			_Engine.Do(tx =>
 			{
-				foreach(var row in tx.SelectForward<string, byte[]>($"{_Suffix}tx-" + txid.ToString()))
+				foreach (var row in tx.SelectForward<string, byte[]>($"{_Suffix}tx-" + txid.ToString()))
 				{
 					SavedTransaction t = ToSavedTransaction(Network.NBitcoinNetwork, row.Key, row.Value);
 					saved.Add(t);
@@ -757,7 +757,7 @@ namespace NBXplorer
 		private static SavedTransaction ToSavedTransaction(Network network, string key, byte[] value)
 		{
 			SavedTransaction t = new SavedTransaction();
-			if(key.Length != 1)
+			if (key.Length != 1)
 				t.BlockHash = new uint256(key);
 			var timeStamped = new TimeStampedTransaction(network, value);
 			t.Transaction = timeStamped.Transaction;
@@ -769,14 +769,14 @@ namespace NBXplorer
 		public MultiValueDictionary<Script, KeyPathInformation> GetKeyInformations(Script[] scripts)
 		{
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
-			if(scripts.Length == 0)
+			if (scripts.Length == 0)
 				return result;
-			foreach(var batch in scripts.Batch(BatchSize))
+			foreach (var batch in scripts.Batch(BatchSize))
 			{
 				_Engine.Do(tx =>
 				{
 					tx.ValuesLazyLoadingIsOn = false;
-					foreach(var script in batch)
+					foreach (var script in batch)
 					{
 						var table = GetScriptsIndex(tx, script);
 						var keyInfos = table.SelectForwardSkip(0)
@@ -800,11 +800,11 @@ namespace NBXplorer
 		private T ToObject<T>(byte[] value)
 		{
 			var result = Serializer.ToObject<T>(Unzip(value));
-			
+
 			// For back compat, some old serialized KeyPathInformation do not have TrackedSource property set
-			if(result is KeyPathInformation keyPathInfo)
+			if (result is KeyPathInformation keyPathInfo)
 			{
-				if(keyPathInfo.TrackedSource == null && keyPathInfo.DerivationStrategy != null)
+				if (keyPathInfo.TrackedSource == null && keyPathInfo.DerivationStrategy != null)
 				{
 					keyPathInfo.TrackedSource = new DerivationSchemeTrackedSource(keyPathInfo.DerivationStrategy);
 				}
@@ -819,7 +819,7 @@ namespace NBXplorer
 		private byte[] Zip(string unzipped)
 		{
 			MemoryStream ms = new MemoryStream();
-			using(GZipStream gzip = new GZipStream(ms, CompressionMode.Compress))
+			using (GZipStream gzip = new GZipStream(ms, CompressionMode.Compress))
 			{
 				StreamWriter writer = new StreamWriter(gzip, Encoding.UTF8);
 				writer.Write(unzipped);
@@ -830,7 +830,7 @@ namespace NBXplorer
 		private string Unzip(byte[] bytes)
 		{
 			MemoryStream ms = new MemoryStream(bytes);
-			using(GZipStream gzip = new GZipStream(ms, CompressionMode.Decompress))
+			using (GZipStream gzip = new GZipStream(ms, CompressionMode.Decompress))
 			{
 				StreamReader reader = new StreamReader(gzip, Encoding.UTF8);
 				var unzipped = reader.ReadToEnd();
@@ -918,7 +918,8 @@ namespace NBXplorer
 			return transactions.Select(c => c.ToTrackedTransaction()).ToArray();
 		}
 
-		public class TransactionMiniKeyInformation : IBitcoinSerializable		{
+		public class TransactionMiniKeyInformation : IBitcoinSerializable
+		{
 			public TransactionMiniKeyInformation()
 			{
 
@@ -960,16 +961,16 @@ namespace NBXplorer
 			public void ReadWrite(BitcoinStream stream)
 			{
 				stream.ReadWrite(ref _ScriptPubKey);
-				if(stream.Serializing)
+				if (stream.Serializing)
 				{
-					if(_KeyPath == null)
+					if (_KeyPath == null)
 					{
 						stream.ReadWrite((byte)0);
 					}
 					else
 					{
 						stream.ReadWrite((byte)_KeyPath.Indexes.Length);
-						foreach(var index in _KeyPath.Indexes)
+						foreach (var index in _KeyPath.Indexes)
 						{
 							stream.ReadWrite(index);
 						}
@@ -980,13 +981,13 @@ namespace NBXplorer
 					byte len = 0;
 					stream.ReadWrite(ref len);
 					var indexes = new uint[len];
-					for(int i = 0; i < len; i++)
+					for (int i = 0; i < len; i++)
 					{
 						uint index = 0;
 						stream.ReadWrite(ref index);
 						indexes[i] = index;
 					}
-					if(len != 0)
+					if (len != 0)
 						_KeyPath = new KeyPath(indexes);
 				}
 			}
@@ -1086,7 +1087,7 @@ namespace NBXplorer
 				FirstSeenTickCount = trackedTransaction.FirstSeen.Ticks;
 				TickCount = trackedTransaction.Inserted.Ticks;
 				KnownKeyPathMapping = trackedTransaction.KnownKeyPathMapping;
-				if(trackedTransaction.Key.IsPruned)
+				if (trackedTransaction.Key.IsPruned)
 				{
 					_CoinsData = trackedTransaction.ReceivedCoins.Select(c => new CoinData(c.Outpoint.N, c.TxOut)).ToArray();
 				}
@@ -1136,7 +1137,8 @@ namespace NBXplorer
 			public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; set; }
 
 			long _FirstSeenTickCount;
-			public long FirstSeenTickCount			{
+			public long FirstSeenTickCount
+			{
 				get
 				{
 					return _FirstSeenTickCount;
@@ -1161,18 +1163,18 @@ namespace NBXplorer
 				{
 					stream.ReadWrite(ref _Transaction);
 				}
-				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
+				if (stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 				{
 					stream.ReadWrite(ref _TickCount);
 					// We always with FirstSeenTickCount to be at least TickCount
-					if(!stream.Serializing)
+					if (!stream.Serializing)
 						_FirstSeenTickCount = _TickCount;
 				}
 				else
 				{
 					NeedUpdate = true;
 				}
-				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
+				if (stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 				{
 					if (stream.Serializing)
 					{
@@ -1195,7 +1197,7 @@ namespace NBXplorer
 				{
 					NeedUpdate = true;
 				}
-				if(stream.Serializing || stream.Inner.Position != stream.Inner.Length)
+				if (stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 				{
 					stream.ReadWrite(ref _FirstSeenTickCount);
 				}
@@ -1222,7 +1224,7 @@ namespace NBXplorer
 
 			private IEnumerable<Coin> GetCoins()
 			{
-				foreach(var coinData in _CoinsData)
+				foreach (var coinData in _CoinsData)
 				{
 					yield return new Coin(new OutPoint(Key.TxId, (int)coinData.Index), coinData.TxOut);
 				}
@@ -1236,11 +1238,12 @@ namespace NBXplorer
 			var groups = transactions.GroupBy(i => i.TrackedSource);
 
 			_Engine.Do(tx =>
-			{				foreach(var group in groups)
+			{
+				foreach (var group in groups)
 				{
 					var table = GetTransactionsIndex(tx, group.Key);
 
-					foreach(var value in group)
+					foreach (var value in group)
 					{
 						if (group.Key is DerivationSchemeTrackedSource s)
 						{
@@ -1284,7 +1287,7 @@ namespace NBXplorer
 				foreach (var tracked in prunable)
 				{
 					table.RemoveKey(tracked.Key.ToString());
-					if(tracked.Key.BlockHash != null)
+					if (tracked.Key.BlockHash != null)
 					{
 						var pruned = tracked.Prune();
 						var data = new TransactionMatchData(pruned);
@@ -1301,7 +1304,7 @@ namespace NBXplorer
 
 		public void CleanTransactions(TrackedSource trackedSource, List<TrackedTransaction> cleanList)
 		{
-			if(cleanList == null || cleanList.Count == 0)
+			if (cleanList == null || cleanList.Count == 0)
 				return;
 			_Engine.Do(tx =>
 			{

@@ -610,7 +610,7 @@ namespace NBXplorer.Tests
 				retry++;
 				var txs = tester.Client.GetTransactions(pubkey, null, false);
 				tx = txs.ConfirmedTransactions.Transactions.Where(t => t.TransactionId == txid).FirstOrDefault();
-				if(tx == null && retry < 3)
+				if (tx == null && retry < 3)
 				{
 					Thread.Sleep(200);
 				}
