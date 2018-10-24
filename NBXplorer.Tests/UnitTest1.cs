@@ -534,11 +534,12 @@ namespace NBXplorer.Tests
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
 
-				// Let's spend one of the coins
+				Logs.Tester.LogInformation("Let's spend one of the coins");
 				// [funding, spending1]
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
 				var spending1 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				Logs.Tester.LogInformation($"Spent on {spending1}");
 				// Let's add some transactions spending to push the spending in the first quarter
 				// [funding, *spending1*, tx1, tx2, tx3, tx4]
 				Thread.Sleep(1000);
@@ -551,15 +552,18 @@ namespace NBXplorer.Tests
 
 				tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
 
-				// Still not pruned, because there is still one coin
-				utxo = tester.Client.GetUTXOs(pubkey, null);
+				
+				Logs.Tester.LogInformation("After activating pruning, it still should not pruned, because there is still one coin");
+				utxo = tester.Client.GetUTXOs(pubkey, null, false);
+				utxo = tester.Client.GetUTXOs(pubkey, null, false);
 				AssertNotPruned(tester, pubkey, fundingTxId);
 				AssertNotPruned(tester, pubkey, spending1);
 
-				// Let's spend the other coin
+				Logs.Tester.LogInformation("Let's spend the other coin");
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var spending2 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				Logs.Tester.LogInformation($"Spent on {spending2}");
 				Thread.Sleep(1000);
 				// Let's add some transactions spending to push the spending in the first quarter
 				// [funding, spending1, tx1, tx2, tx3, tx4, *spending2*, tx21, tx22, ..., tx217]
@@ -573,6 +577,7 @@ namespace NBXplorer.Tests
 				tester.WaitSynchronized();
 
 				// Now it should get pruned
+				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey, null);
 				AssertPruned(tester, pubkey, fundingTxId);
 				AssertPruned(tester, pubkey, spending1);
