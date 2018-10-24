@@ -237,15 +237,7 @@ namespace NBXplorer.Tests
 				var payment1 = Money.Coins(0.04m);
 				var payment2 = Money.Coins(0.08m);
 
-				var tx1 = new uint256(tester.RPC.SendCommand("sendtoaddress", new object[]
-				{
-					a1.ScriptPubKey.ToString(),
-					payment1.ToString(),
-					null, //comment
-					null, //comment_to
-					false, //subtractfeefromamount
-					true, //replaceable
-				}).ResultString);
+				var tx1 = tester.RPC.SendToAddress(a1.ScriptPubKey, payment1, replaceable: true);
 
 				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
 				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
@@ -904,16 +896,19 @@ namespace NBXplorer.Tests
 				Assert.True(utxo.HasChanges);
 
 				var coins = Money.Coins(1.0m);
+
+				Logs.Tester.LogInformation($"Creating a chain of 20 unconfirmed transaction...");
 				int i = 0;
 				for (i = 0; i < 20; i++)
 				{
 					LockTestCoins(tester.RPC, addresses);
 					var spendable = tester.RPC.ListUnspent(0, 0);
 					coins = coins - Money.Coins(0.001m);
-					var destination = tester.AddressOf(key, $"0/{i + 1}");
-
-					tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, $"0/{i + 1}"));
-					tester.SendToAddress(destination, coins);
+					var path = $"0/{i + 1}";
+					var destination = tester.AddressOf(key, path);
+					tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, path));
+					var txId = tester.SendToAddress(destination, coins);
+					Logs.Tester.LogInformation($"Sent to {path} in {txId}");
 					addresses.Add(destination.ScriptPubKey);
 				}
 
