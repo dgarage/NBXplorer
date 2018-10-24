@@ -289,7 +289,7 @@ namespace NBXplorer.Controllers
 					return;
 
 				bool forward = false;
-				var derivationScheme = (o.Match.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+				var derivationScheme = (o.TrackedTransaction.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 				if (derivationScheme != null)
 				{
 					forward |= listenAllDerivationSchemes == "*" ||
@@ -298,7 +298,7 @@ namespace NBXplorer.Controllers
 				}
 
 				forward |= listenAllTrackedSource == "*" || listenAllTrackedSource == o.CryptoCode ||
-							listenedTrackedSource.ContainsKey((network.Network.NBitcoinNetwork, o.Match.TrackedSource));
+							listenedTrackedSource.ContainsKey((network.Network.NBitcoinNetwork, o.TrackedTransaction.TrackedSource));
 
 				if (forward)
 				{
@@ -307,13 +307,13 @@ namespace NBXplorer.Controllers
 						return;
 					var blockHeader = o.BlockId == null ? null : chain.GetBlock(o.BlockId);
 
-					var derivation = (o.Match.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+					var derivation = (o.TrackedTransaction.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 					await server.Send(new Models.NewTransactionEvent()
 					{
 						CryptoCode = o.CryptoCode,
 						BlockId = blockHeader?.Hash,
 						TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
-					}.SetMatch(o.Match));
+					}.SetMatch(o.TrackedTransaction));
 				}
 			}));
 			try
@@ -882,7 +882,7 @@ namespace NBXplorer.Controllers
 		{
 			try
 			{
-				await _EventAggregator.WaitNext<NewTransactionMatchEvent>(e => e.Match.TrackedSource.Equals(trackedSource), cancellationToken);
+				await _EventAggregator.WaitNext<NewTransactionMatchEvent>(e => e.TrackedTransaction.TrackedSource.Equals(trackedSource), cancellationToken);
 				return true;
 			}
 			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

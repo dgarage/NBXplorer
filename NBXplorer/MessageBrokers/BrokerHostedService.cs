@@ -75,7 +75,7 @@ namespace NBXplorer.MessageBrokers
 					CryptoCode = o.CryptoCode,
 					BlockId = o.BlockId,
 					TransactionData = Utils.ToTransactionResult(true, chain, new[] { o.SavedTransaction }),
-				}.SetMatch(o.Match);
+				}.SetMatch(o.TrackedTransaction);
 				await _senderTransactions.Send(txe);
 			}));
 			return Task.CompletedTask;

@@ -26,19 +26,6 @@ using static NBXplorer.Repository;
 
 namespace NBXplorer
 {
-	public class MatchedTransaction
-	{
-		public TrackedSource TrackedSource
-		{
-			get; set;
-		}
-
-		public TrackedTransaction TrackedTransaction
-		{
-			get; set;
-		}
-	}
-
 	public class RepositoryProvider : IDisposable
 	{
 		internal class CustomThreadPool : IDisposable
@@ -878,7 +865,7 @@ namespace NBXplorer
 				{
 					data.KnownKeyPathMapping = (await this.GetMatches(data.Transaction, data.Key.BlockHash, DateTimeOffset.UtcNow))
 											  .Where(m => m.TrackedSource.Equals(trackedSource))
-											  .Select(m => m.TrackedTransaction.KnownKeyPathMapping)
+											  .Select(m => m.KnownKeyPathMapping)
 											  .First();
 				}
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
@@ -898,7 +885,7 @@ namespace NBXplorer
 				});
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 			}
-			return transactions.Where(tt => !tt.NeedRemove).Select(c => c.ToTrackedTransaction()).ToArray();
+			return transactions.Where(tt => !tt.NeedRemove).Select(c => c.ToTrackedTransaction(trackedSource)).ToArray();
 		}
 
 		public class TransactionMiniKeyInformation : IBitcoinSerializable
@@ -1197,11 +1184,11 @@ namespace NBXplorer
 				return Key.ToString();
 			}
 
-			public TrackedTransaction ToTrackedTransaction()
+			public TrackedTransaction ToTrackedTransaction(TrackedSource trackedSource)
 			{
 				var trackedTransaction = Key.IsPruned
-										? new TrackedTransaction(Key, GetCoins(), KnownKeyPathMapping)
-										: new TrackedTransaction(Key, Transaction, KnownKeyPathMapping);
+										? new TrackedTransaction(Key, trackedSource, GetCoins(), KnownKeyPathMapping)
+										: new TrackedTransaction(Key, trackedSource, Transaction, KnownKeyPathMapping);
 				trackedTransaction.Inserted = TickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)TickCount, TimeSpan.Zero);
 				trackedTransaction.FirstSeen = FirstSeenTickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)FirstSeenTickCount, TimeSpan.Zero);
 				return trackedTransaction;
@@ -1216,7 +1203,7 @@ namespace NBXplorer
 			}
 		}
 
-		public async Task SaveMatches(MatchedTransaction[] transactions)
+		public async Task SaveMatches(TrackedTransaction[] transactions)
 		{
 			if (transactions.Length == 0)
 				return;
@@ -1232,7 +1219,7 @@ namespace NBXplorer
 					{
 						if (group.Key is DerivationSchemeTrackedSource s)
 						{
-							foreach (var kv in value.TrackedTransaction.KnownKeyPathMapping)
+							foreach (var kv in value.KnownKeyPathMapping)
 							{
 								var info = new KeyPathInformation(kv.Value, s.DerivationStrategy);
 								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
@@ -1253,7 +1240,7 @@ namespace NBXplorer
 						var ms = new MemoryStream();
 						BitcoinStream bs = new BitcoinStream(ms, true);
 						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-						TransactionMatchData data = new TransactionMatchData(value.TrackedTransaction);
+						TransactionMatchData data = new TransactionMatchData(value);
 						bs.ReadWrite(data);
 						table.Insert(data.GetRowKey(), ms.ToArrayEfficient());
 					}

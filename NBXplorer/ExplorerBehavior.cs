@@ -246,15 +246,15 @@ namespace NBXplorer
 
 		}
 
-		private async Task SaveMatches(MatchedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
+		private async Task SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
 		{
 			await Repository.SaveMatches(matches);
 			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
-			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.TrackedTransaction.Transaction).Distinct().ToArray(), blockHash);
+			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
 			for (int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].TrackedTransaction.Transaction.GetHash()]));
+				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]));
 			}
 		}
 		public bool IsSynching()

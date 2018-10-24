@@ -85,6 +85,8 @@ namespace NBXplorer.Configuration
 					}
 				}
 			}
+			// 10 min of timeout because scantxoutset can take long
+			rpcClient.RequestTimeout = TimeSpan.FromMinutes(10.0);
 			return rpcClient;
 		}
 

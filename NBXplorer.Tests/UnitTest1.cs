@@ -140,15 +140,14 @@ namespace NBXplorer.Tests
 		{
 			var tx = repository.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
 			repository.SaveMatches(new[] {
-					new MatchedTransaction()
-						{
-							TrackedSource = new DerivationSchemeTrackedSource(strat),
-							TrackedTransaction = new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), null, false), tx, new Dictionary<Script, KeyPath>()
-							{
-								{ strat.Derive(keyPath).ScriptPubKey, keyPath }
-							})
-					}
-				}).GetAwaiter().GetResult();
+				new TrackedTransaction(
+					new TrackedTransactionKey(tx.GetHash(), null, false),
+					new DerivationSchemeTrackedSource(strat),
+					tx,
+					new Dictionary<Script, KeyPath>()
+					{
+						{ strat.Derive(keyPath).ScriptPubKey, keyPath }
+					})}).GetAwaiter().GetResult();
 		}
 
 		[Fact]
@@ -552,7 +551,7 @@ namespace NBXplorer.Tests
 
 				tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
 
-				
+
 				Logs.Tester.LogInformation("After activating pruning, it still should not pruned, because there is still one coin");
 				utxo = tester.Client.GetUTXOs(pubkey, null, false);
 				utxo = tester.Client.GetUTXOs(pubkey, null, false);
@@ -909,6 +908,11 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation($"Creating a chain of 20 unconfirmed transaction...");
 				int i = 0;
+				// Reserve addresses ahead of time so that we are sure that the server is not too late to generate the next one
+				for (i = 0; i < 20; i++)
+				{
+					tester.Client.GetUnused(pubkey, DerivationFeature.Deposit, reserve: true);
+				}
 				for (i = 0; i < 20; i++)
 				{
 					LockTestCoins(tester.RPC, addresses);
@@ -920,8 +924,6 @@ namespace NBXplorer.Tests
 					var txId = tester.SendToAddress(destination, coins);
 					Logs.Tester.LogInformation($"Sent to {path} in {txId}");
 					addresses.Add(destination.ScriptPubKey);
-					if (i == 10)
-						Thread.Sleep(1000); // Let it breath
 				}
 
 				while (true)
@@ -1707,8 +1709,8 @@ namespace NBXplorer.Tests
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].TransactionHash);
 
 				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be monitored, but not 0/150");
-				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/51")).ScriptPubKey));
-				Assert.NotNull(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/150")).ScriptPubKey));
+				Assert.NotNull(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/51")).ScriptPubKey));
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/150")).ScriptPubKey));
 
 				Logs.Tester.LogInformation($"Let's check what happen if we scan a UTXO that is already fully indexed");
 				outOfBandAddress = pubkey.Derive(new KeyPath("0/51"));

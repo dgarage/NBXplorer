@@ -246,15 +246,7 @@ namespace NBXplorer
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
 
 			DateTimeOffset now = DateTimeOffset.UtcNow;
-			await repo.SaveMatches(data.Select(o => new MatchedTransaction()
-			{
-				TrackedSource = trackedSource,
-				TrackedTransaction = new TrackedTransaction(new TrackedTransactionKey(o.TxId, o.BlockId, true), o.Coins, o.KeyPathInformations)
-				{
-					FirstSeen = now,
-					Inserted = now,
-				}
-			}).ToArray());
+			await repo.SaveMatches(data.Select(o => new TrackedTransaction(new TrackedTransactionKey(o.TxId, o.BlockId, true), trackedSource, o.Coins, o.KeyPathInformations)).ToArray());
 		}
 
 		private ScannedItems GetScannedItems(ScanUTXOWorkItem workItem, ScanUTXOProgress progress)

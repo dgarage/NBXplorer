@@ -77,18 +77,18 @@ namespace NBXplorer
 			return null;
 		}
 
-		public static NewTransactionEvent SetMatch(this NewTransactionEvent evt, MatchedTransaction match)
+		public static NewTransactionEvent SetMatch(this NewTransactionEvent evt, TrackedTransaction match)
 		{
 			evt.TrackedSource = match.TrackedSource;
 			var derivation = (match.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-			evt.Outputs.AddRange(match.TrackedTransaction.GetReceivedOutputs(evt.TrackedSource));
+			evt.Outputs.AddRange(match.GetReceivedOutputs(evt.TrackedSource));
 			evt.DerivationStrategy = derivation;
 			return evt;
 		}
 
-		public static async Task<MatchedTransaction[]> GetMatches(this Repository repository, Transaction tx, uint256 blockId, DateTimeOffset now)
+		public static async Task<TrackedTransaction[]> GetMatches(this Repository repository, Transaction tx, uint256 blockId, DateTimeOffset now)
 		{
-			var matches = new Dictionary<string, MatchedTransaction>();
+			var matches = new Dictionary<string, TrackedTransaction>();
 			HashSet<Script> inputScripts = new HashSet<Script>();
 			HashSet<Script> outputScripts = new HashSet<Script>();
 			HashSet<Script> scripts = new HashSet<Script>();
@@ -114,23 +114,26 @@ namespace NBXplorer
 				foreach(var keyInfo in keyInfoByScripts.Value)
 				{
 					var matchesGroupingKey = keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex();
-					if (!matches.TryGetValue(matchesGroupingKey, out MatchedTransaction match))
+					if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 					{
-						match = new MatchedTransaction();
+						match = new TrackedTransaction(
+							new TrackedTransactionKey(tx.GetHash(), blockId, false), 
+							keyInfo.TrackedSource,
+							tx, 
+							new Dictionary<Script, KeyPath>())
+							{
+								FirstSeen = now,
+								Inserted = now
+							};
 						matches.Add(matchesGroupingKey, match);
-						match.TrackedSource = keyInfo.TrackedSource;
-						match.TrackedTransaction = new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), blockId, false), tx, new Dictionary<Script, KeyPath>())
-						{
-							FirstSeen = now,
-							Inserted = now
-						};
 					}
-					match.TrackedTransaction.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
+					if(keyInfo.KeyPath != null)
+						match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
 				}
 			}
 			foreach(var m in matches.Values)
 			{
-				m.TrackedTransaction.KnownKeyPathMappingUpdated();
+				m.KnownKeyPathMappingUpdated();
 			}
 			return matches.Values.ToArray();
 		}

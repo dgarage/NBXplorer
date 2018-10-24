@@ -10,15 +10,17 @@ using static NBXplorer.Repository;
 namespace NBXplorer{
 	public class TrackedTransaction
 	{
-		public TrackedTransaction(TrackedTransactionKey key): this(key, null as Coin[], null as Dictionary<Script,KeyPath>)
+		public TrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource) : this(key, trackedSource, null as Coin[], null as Dictionary<Script,KeyPath>)
 		{
 
 		}
-		public TrackedTransaction(TrackedTransactionKey key, IEnumerable<Coin> receivedCoins, IEnumerable<KeyPathInformation> knownScriptMapping)
-			: this(key, receivedCoins, ToDictionary(knownScriptMapping))
+		public TrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource, IEnumerable<Coin> receivedCoins, IEnumerable<KeyPathInformation> knownScriptMapping)
+			: this(key, trackedSource, receivedCoins, ToDictionary(knownScriptMapping))
 		{
 
 		}
+
+		public TrackedSource TrackedSource { get; }
 
 		private static Dictionary<Script, KeyPath> ToDictionary(IEnumerable<KeyPathInformation> knownScriptMapping)
 		{
@@ -31,7 +33,7 @@ namespace NBXplorer{
 			}
 			return result;
 		}
-		public TrackedTransaction(TrackedTransactionKey key, IEnumerable<Coin> receivedCoins, Dictionary<Script, KeyPath> knownScriptMapping)
+		public TrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource, IEnumerable<Coin> receivedCoins, Dictionary<Script, KeyPath> knownScriptMapping)
 		{
 			if (key == null)
 				throw new ArgumentNullException(nameof(key));
@@ -39,13 +41,16 @@ namespace NBXplorer{
 			{
 				throw new ArgumentException("The key should be pruned", nameof(key));
 			}
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			TrackedSource = trackedSource;
 			Key = key;
 			if(knownScriptMapping != null)
 				KnownKeyPathMapping = knownScriptMapping;
 			if (receivedCoins != null)
 				ReceivedCoins.AddRange(receivedCoins);
 		}
-		public TrackedTransaction(TrackedTransactionKey key, Transaction transaction, Dictionary<Script, KeyPath> knownScriptMapping)
+		public TrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource, Transaction transaction, Dictionary<Script, KeyPath> knownScriptMapping)
 		{
 			if (key == null)
 				throw new ArgumentNullException(nameof(key));
@@ -53,10 +58,13 @@ namespace NBXplorer{
 				throw new ArgumentNullException(nameof(transaction));
 			if (knownScriptMapping == null)
 				throw new ArgumentNullException(nameof(knownScriptMapping));
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
 			if (key.IsPruned)
 			{
 				throw new ArgumentException("The key should not be pruned", nameof(key));			}
 			Key = key;
+			TrackedSource = trackedSource;
 			Transaction = transaction;
 			transaction.PrecomputeHash(false, true);
 			KnownKeyPathMapping = knownScriptMapping;
@@ -68,10 +76,11 @@ namespace NBXplorer{
 		{
 			if (Transaction == null)
 				return;
+			var scriptPubKey = (TrackedSource as AddressTrackedSource)?.Address.ScriptPubKey;
 			for (int i = 0; i < Transaction.Outputs.Count; i++)
 			{
 				var output = Transaction.Outputs[i];
-				if (KnownKeyPathMapping.ContainsKey(output.ScriptPubKey))
+				if (KnownKeyPathMapping.ContainsKey(output.ScriptPubKey) || scriptPubKey == output.ScriptPubKey)
 					ReceivedCoins.Add(new Coin(new OutPoint(Key.TxId, i), output));
 			}
 			SpentOutpoints.AddRange(Transaction.Inputs.Select(input => input.PrevOut));
@@ -104,7 +113,7 @@ namespace NBXplorer{
 		public TrackedTransaction Prune()
 		{
 			// Pruning transactions, coins and known keys
-			return new TrackedTransaction(new TrackedTransactionKey(Key.TxId, Key.BlockHash, true))
+			return new TrackedTransaction(new TrackedTransactionKey(Key.TxId, Key.BlockHash, true), TrackedSource)
 			{
 				FirstSeen = FirstSeen,
 				Inserted = Inserted
