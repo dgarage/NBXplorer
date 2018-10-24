@@ -845,12 +845,23 @@ namespace NBXplorer
 			TransactionMatchData previousConfirmed = null;
 			foreach (var tx in transactions)
 			{
-				if (tx.Key.BlockHash != null && !tx.Key.IsPruned)
-					previousConfirmed = tx;
-				if (tx.Key.BlockHash != null && tx.Key.IsPruned && tx.Key.BlockHash == previousConfirmed?.Key.BlockHash)
+				if (tx.Key.BlockHash != null)
 				{
-					needUpdate = true;
-					tx.NeedRemove = true;
+					if (!tx.Key.IsPruned)
+					{
+						previousConfirmed = tx;
+					}
+					else if (previousConfirmed != null &&
+							 tx.Key.TxId == previousConfirmed.Key.TxId &&
+							 tx.Key.BlockHash == previousConfirmed.Key.BlockHash)
+					{
+						needUpdate = true;
+						tx.NeedRemove = true;
+					}
+					else
+					{
+						previousConfirmed = null;
+					}
 				}
 
 				if (tx.FirstSeenTickCount != firstSeenList[tx.Key.TxId])
@@ -860,7 +871,6 @@ namespace NBXplorer
 					tx.FirstSeenTickCount = firstSeenList[tx.Key.TxId];
 				}
 			}
-
 			if (needUpdate)
 			{
 				// This is legacy data, need an update
@@ -880,7 +890,7 @@ namespace NBXplorer
 					{
 						table.Insert(data.GetRowKey(), data.ToBytes());
 					}
-					foreach(var data in transactions.Where(t => t.NeedRemove))
+					foreach (var data in transactions.Where(t => t.NeedRemove))
 					{
 						table.RemoveKey(data.Key.ToString());
 					}

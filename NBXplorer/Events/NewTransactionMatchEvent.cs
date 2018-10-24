@@ -43,7 +43,14 @@ namespace NBXplorer.Events
 			string strategy = Match.TrackedSource.ToPrettyString();
 			var txId = Match.TrackedTransaction.TransactionHash.ToString();
 			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
-			return $"{CryptoCode}: {strategy} matching {conf} transaction {txId}";
+
+			string keyPathSuffix = string.Empty;
+			if (Match.TrackedTransaction.KnownKeyPathMapping.Count != 0)
+			{
+				var keyPaths = Match.TrackedTransaction.KnownKeyPathMapping.Values.Select(v => v.ToString()).ToArray();
+				keyPathSuffix = $" ({String.Join(", ", keyPaths)})";
+			}
+			return $"{CryptoCode}: {strategy} matching {conf} transaction {txId}{keyPathSuffix}";
 		}
 	}
 }

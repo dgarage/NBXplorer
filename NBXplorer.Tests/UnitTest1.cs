@@ -641,6 +641,7 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.GetUTXOs(pubkey, utxo);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
+				Logs.Tester.LogInformation($"Sent funding tx fundingTx({fundingTxId}) to 0/1 and 0/0");
 
 				// Let's spend one of the coins of funding and spend it again
 				// [funding, spending1, spending2]
@@ -649,9 +650,11 @@ namespace NBXplorer.Tests
 				var coinDestination = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
 				var coinDestinationAddress = coinDestination.ScriptPubKey;
 				var spending1 = tester.RPC.SendToAddress(coinDestinationAddress, Money.Coins(0.1m));
+				Logs.Tester.LogInformation($"Spent the coin to 0/1 in spending1({spending1})");
 				LockTestCoins(tester.RPC, new HashSet<Script>());
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, coinDestination.KeyPath.ToString()));
 				var spending2 = tester.RPC.SendToAddress(new Key().ScriptPubKey, Money.Coins(0.01m));
+				Logs.Tester.LogInformation($"Spent again the coin in spending2({spending2})");
 				var tx = tester.RPC.GetRawTransactionAsync(spending2).Result;
 				Assert.Contains(tx.Inputs, (i) => i.PrevOut.Hash == spending1);
 
@@ -668,6 +671,7 @@ namespace NBXplorer.Tests
 				tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
 
 				// spending1 should not be pruned because fundingTx still can't be pruned
+				Logs.Tester.LogInformation($"Spending spending1({spending1}) and spending2({spending2} can't be pruned, because a common ancestor fundingTx({fundingTxId}) can't be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey, null);
 				AssertNotPruned(tester, pubkey, fundingTxId);
 				AssertNotPruned(tester, pubkey, spending1);
@@ -678,6 +682,7 @@ namespace NBXplorer.Tests
 				LockTestCoins(tester.RPC, new HashSet<Script>());
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var spending3 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				Logs.Tester.LogInformation($"Spent the second coin to 0/0 in spending3({spending3})");
 				// Let's add some transactions spending to push the spending in the first quarter
 				// [funding, spending1, spending2, tx1, tx2, tx3, tx4, tx5, *spending3*, tx21, tx22, ..., tx232]
 				Thread.Sleep(1000);
@@ -690,7 +695,7 @@ namespace NBXplorer.Tests
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
 
-				// Now it should get pruned
+				Logs.Tester.LogInformation($"Now fundingTx({fundingTxId}), spendgin1({spending1}) and spending2({spending2}) should be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey, null);
 				AssertPruned(tester, pubkey, fundingTxId);
 				AssertPruned(tester, pubkey, spending1);
