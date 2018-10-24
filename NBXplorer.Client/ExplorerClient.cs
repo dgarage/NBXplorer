@@ -406,11 +406,13 @@ namespace NBXplorer
 			return await SendAsync<KeyPathInformation>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/scripts/" + script.ToHex(), new object[] { CryptoCode, strategy }, cancellation).ConfigureAwait(false);
 		}
 
+		[Obsolete("Use GetKeyInformationAsync(DerivationStrategyBase strategy, Script script) instead")]
 		public async Task<KeyPathInformation[]> GetKeyInformationsAsync(Script script, CancellationToken cancellation = default)
 		{
 			return await SendAsync<KeyPathInformation[]>(HttpMethod.Get, null, "v1/cryptos/{0}/scripts/" + script.ToHex(), new[] { CryptoCode }, cancellation).ConfigureAwait(false);
 		}
 
+		[Obsolete("Use GetKeyInformation(DerivationStrategyBase strategy, Script script) instead")]
 		public KeyPathInformation[] GetKeyInformations(Script script, CancellationToken cancellation = default)
 		{
 			return GetKeyInformationsAsync(script, cancellation).GetAwaiter().GetResult();

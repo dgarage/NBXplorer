@@ -920,6 +920,8 @@ namespace NBXplorer.Tests
 					var txId = tester.SendToAddress(destination, coins);
 					Logs.Tester.LogInformation($"Sent to {path} in {txId}");
 					addresses.Add(destination.ScriptPubKey);
+					if (i == 10)
+						Thread.Sleep(1000); // Let it breath
 				}
 
 				while (true)
@@ -1642,7 +1644,9 @@ namespace NBXplorer.Tests
 				KeyPathInformation[] keyinfos;
 				var script = pubkey.Derive(new KeyPath("0/0")).ScriptPubKey;
 
+#pragma warning disable CS0618 // Type or member is obsolete
 				keyinfos = tester.Client.GetKeyInformations(script);
+#pragma warning restore CS0618 // Type or member is obsolete
 				Assert.NotNull(keyinfos);
 				Assert.True(keyinfos.Length > 0);
 				foreach (var k in keyinfos)
@@ -1703,8 +1707,8 @@ namespace NBXplorer.Tests
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].TransactionHash);
 
 				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be monitored, but not 0/150");
-				Assert.NotEmpty(tester.Client.GetKeyInformations(pubkey.Derive(new KeyPath("0/51")).ScriptPubKey));
-				Assert.Empty(tester.Client.GetKeyInformations(pubkey.Derive(new KeyPath("0/150")).ScriptPubKey));
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/51")).ScriptPubKey));
+				Assert.NotNull(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/150")).ScriptPubKey));
 
 				Logs.Tester.LogInformation($"Let's check what happen if we scan a UTXO that is already fully indexed");
 				outOfBandAddress = pubkey.Derive(new KeyPath("0/51"));
