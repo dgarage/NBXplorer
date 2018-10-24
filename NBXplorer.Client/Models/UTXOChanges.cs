@@ -175,6 +175,7 @@ namespace NBXplorer.Models
 		}
 
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public DerivationFeature? Feature
 		{
 			get; set;
