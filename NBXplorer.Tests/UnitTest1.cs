@@ -182,12 +182,12 @@ namespace NBXplorer.Tests
 
 				// Send 1 BTC
 				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
-				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
 				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
 
 				// Send 1 more BTC
 				newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
-				tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
 				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
 
 				utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
@@ -239,7 +239,7 @@ namespace NBXplorer.Tests
 
 				var tx1 = new uint256(tester.RPC.SendCommand("sendtoaddress", new object[]
 				{
-					a1.ScriptPubKey.GetDestinationAddress(tester.Network).ToString(),
+					a1.ScriptPubKey.ToString(),
 					payment1.ToString(),
 					null, //comment
 					null, //comment_to
@@ -309,13 +309,13 @@ namespace NBXplorer.Tests
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				//   0/0 and 0/2 used
-				tester.SendToAddressAsync(a1.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				tester.SendToAddressAsync(a1.ScriptPubKey, Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
 
-				tester.SendToAddressAsync(a3.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				tester.SendToAddressAsync(a3.ScriptPubKey, Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
 
-				tester.SendToAddressAsync(a4.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				tester.SendToAddressAsync(a4.ScriptPubKey, Money.Coins(1.0m));
 				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
@@ -495,7 +495,7 @@ namespace NBXplorer.Tests
 				messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewTransactionQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
 
 				//Create a new UTXO for our tracked key
-				tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+				tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
 
 				//Check Queue Message
 				Microsoft.Azure.ServiceBus.Message msg = null;
@@ -650,11 +650,11 @@ namespace NBXplorer.Tests
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
 				var coinDestination = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
-				var coinDestinationAddress = coinDestination.ScriptPubKey.GetDestinationAddress(tester.Network);
+				var coinDestinationAddress = coinDestination.ScriptPubKey;
 				var spending1 = tester.RPC.SendToAddress(coinDestinationAddress, Money.Coins(0.1m));
 				LockTestCoins(tester.RPC, new HashSet<Script>());
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, coinDestination.KeyPath.ToString()));
-				var spending2 = tester.RPC.SendToAddress(new Key().ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(0.01m));
+				var spending2 = tester.RPC.SendToAddress(new Key().ScriptPubKey, Money.Coins(0.01m));
 				var tx = tester.RPC.GetRawTransactionAsync(spending2).Result;
 				Assert.Contains(tx.Inputs, (i) => i.PrevOut.Hash == spending1);
 
@@ -719,7 +719,7 @@ namespace NBXplorer.Tests
 					Assert.NotEqual(0, blockEvent.Height);
 
 					connected.ListenDerivationSchemes(new[] { pubkey });
-					tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
@@ -728,7 +728,7 @@ namespace NBXplorer.Tests
 				using (var connected = tester.Client.CreateNotificationSession())
 				{
 					connected.ListenAllDerivationSchemes();
-					tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
@@ -737,7 +737,7 @@ namespace NBXplorer.Tests
 				using (var connected = tester.Client.CreateNotificationSession())
 				{
 					connected.ListenAllTrackedSource();
-					tester.Explorer.CreateRPCClient().SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
@@ -956,7 +956,7 @@ namespace NBXplorer.Tests
 					Assert.NotEqual(0, blockEvent.Height);
 
 					connected.ListenTrackedSources(new[] { pubkey });
-					tester.Explorer.CreateRPCClient().SendToAddress(pubkey.Address, Money.Coins(1.0m));
+					tester.SendToAddress(pubkey.Address, Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.NotEmpty(txEvent.Outputs);
@@ -967,7 +967,7 @@ namespace NBXplorer.Tests
 				using (var connected = tester.Client.CreateNotificationSession())
 				{
 					connected.ListenAllTrackedSource();
-					tester.Explorer.CreateRPCClient().SendToAddress(pubkey.Address, Money.Coins(1.0m));
+					tester.SendToAddress(pubkey.Address, Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.TrackedSource, pubkey);
@@ -1067,7 +1067,7 @@ namespace NBXplorer.Tests
 				var extkey2 = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey2 = new DerivationStrategyFactory(extkey.Network).Parse($"{extkey.Neuter()}-[legacy]");
 				tester.Client.Track(pubkey2);
-				tester.SendToAddress(pubkey2.Derive(new KeyPath("0/0")).ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				tester.SendToAddress(pubkey2.Derive(new KeyPath("0/0")).ScriptPubKey, Money.Coins(1.0m));
 
 				utxo = tester.Client.GetUTXOs(addressSource, null);
 				var utxo2 = tester.Client.GetUTXOs(pubkey2, null);
@@ -1671,7 +1671,7 @@ namespace NBXplorer.Tests
 				int batchsize = 100;
 				// By default, gap limit is 1000 and batch size is 100 on all 3 feature line
 				var outOfBandAddress = pubkey.Derive(new KeyPath("0/50"));
-				var txId = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				var txId = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey, Money.Coins(1.0m));
 				Logs.Tester.LogInformation($"Sent money on 0/50 {txId}");
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
@@ -1703,7 +1703,7 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation($"Let's check what happen if we scan a UTXO that is already fully indexed");
 				outOfBandAddress = pubkey.Derive(new KeyPath("0/51"));
-				var txId2 = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				var txId2 = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey, Money.Coins(1.0m));
 				Logs.Tester.LogInformation($"Send money on 0/51 on {txId2}");
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();

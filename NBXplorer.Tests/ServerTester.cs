@@ -40,12 +40,12 @@ namespace NBXplorer.Tests
 
 		public void Dispose()
 		{
-			if(Host != null)
+			if (Host != null)
 			{
 				Host.Dispose();
 				Host = null;
 			}
-			if(NodeBuilder != null)
+			if (NodeBuilder != null)
 			{
 				NodeBuilder.Dispose();
 				NodeBuilder = null;
@@ -67,7 +67,7 @@ namespace NBXplorer.Tests
 				var rootTestData = "TestData";
 				directory = Path.Combine(rootTestData, directory);
 				_Directory = directory;
-				if(!Directory.Exists(rootTestData))
+				if (!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
 
 				var cryptoSettings = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode(CryptoCode);
@@ -77,7 +77,7 @@ namespace NBXplorer.Tests
 				User1 = NodeBuilder.CreateNode();
 				User2 = NodeBuilder.CreateNode();
 				Explorer = NodeBuilder.CreateNode();
-				foreach(var node in NodeBuilder.Nodes)
+				foreach (var node in NodeBuilder.Nodes)
 				{
 					node.WhiteBind = true;
 					node.CookieAuth = cryptoSettings.SupportCookieAuthentication;
@@ -227,13 +227,13 @@ namespace NBXplorer.Tests
 				DeleteRecursivelyWithMagicDust(directory);
 				return true;
 			}
-			catch(DirectoryNotFoundException)
+			catch (DirectoryNotFoundException)
 			{
 				return true;
 			}
-			catch(Exception)
+			catch (Exception)
 			{
-				if(throws)
+				if (throws)
 					throw;
 			}
 			return false;
@@ -243,19 +243,19 @@ namespace NBXplorer.Tests
 		public static void DeleteRecursivelyWithMagicDust(string destinationDir)
 		{
 			const int magicDust = 10;
-			for(var gnomes = 1; gnomes <= magicDust; gnomes++)
+			for (var gnomes = 1; gnomes <= magicDust; gnomes++)
 			{
 				try
 				{
 					Directory.Delete(destinationDir, true);
 				}
-				catch(DirectoryNotFoundException)
+				catch (DirectoryNotFoundException)
 				{
 					return;  // good!
 				}
-				catch(IOException)
+				catch (IOException)
 				{
-					if(gnomes == magicDust)
+					if (gnomes == magicDust)
 						throw;
 					// System.IO.IOException: The directory is not empty
 					System.Diagnostics.Debug.WriteLine("Gnomes prevent deletion of {0}! Applying magic dust, attempt #{1}.", destinationDir, gnomes);
@@ -264,9 +264,9 @@ namespace NBXplorer.Tests
 					Thread.Sleep(100 * gnomes);
 					continue;
 				}
-				catch(UnauthorizedAccessException)
+				catch (UnauthorizedAccessException)
 				{
-					if(gnomes == magicDust)
+					if (gnomes == magicDust)
 						throw;
 					// Wait, maybe another software make us authorized a little later
 					System.Diagnostics.Debug.WriteLine("Gnomes prevent deletion of {0}! Applying magic dust, attempt #{1}.", destinationDir, gnomes);
@@ -293,13 +293,13 @@ namespace NBXplorer.Tests
 			Directory.CreateDirectory(target.FullName);
 
 			// Copy each file into the new directory.
-			foreach(FileInfo fi in source.GetFiles())
+			foreach (FileInfo fi in source.GetFiles())
 			{
 				fi.CopyTo(Path.Combine(target.FullName, fi.Name), true);
 			}
 
 			// Copy each subdirectory using recursion.
-			foreach(DirectoryInfo diSourceSubDir in source.GetDirectories())
+			foreach (DirectoryInfo diSourceSubDir in source.GetDirectories())
 			{
 				DirectoryInfo nextTargetSubDir =
 					target.CreateSubdirectory(diSourceSubDir.Name);
@@ -314,7 +314,7 @@ namespace NBXplorer.Tests
 
 		public BitcoinAddress AddressOf(BitcoinExtKey key, string path)
 		{
-			if(this.RPC.Capabilities.SupportSegwit)
+			if (this.RPC.Capabilities.SupportSegwit)
 				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.WitHash.GetAddress(Network);
 			else
 				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.Hash.GetAddress(Network);
@@ -347,11 +347,20 @@ namespace NBXplorer.Tests
 			return SendToAddressAsync(address, amount).GetAwaiter().GetResult();
 		}
 
+		public uint256 SendToAddress(Script scriptPubKey, Money amount)
+		{
+			return SendToAddressAsync(scriptPubKey.GetDestinationAddress(Network), amount).GetAwaiter().GetResult();
+		}
+		public Task<uint256> SendToAddressAsync(Script scriptPubKey, Money amount)
+		{
+			return SendToAddressAsync(scriptPubKey.GetDestinationAddress(Network), amount);
+		}
+
 		public async Task<uint256> SendToAddressAsync(BitcoinAddress address, Money amount)
 		{
 			List<object> parameters = new List<object>();
 			parameters.Add(address.ToString());
-			if(RPCStringAmount)
+			if (RPCStringAmount)
 				parameters.Add(amount.ToString());
 			else
 				parameters.Add(amount.ToDecimal(MoneyUnit.BTC));
