@@ -599,6 +599,10 @@ namespace NBXplorer.Tests
 
 		private static TransactionInformation AssertExist(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
 		{
+			return AssertExist(tester, new DerivationSchemeTrackedSource(pubkey), txid);
+		}
+		private static TransactionInformation AssertExist(ServerTester tester, TrackedSource pubkey, uint256 txid)
+		{
 			int retry = 0;
 			TransactionInformation tx = null;
 			while (true)
@@ -1083,12 +1087,17 @@ namespace NBXplorer.Tests
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(extkey2, "0/0"));
 				var tx2 = tester.SendToAddress(address, Money.Coins(0.6m));
-				utxo = tester.Client.GetUTXOs(addressSource, utxo);
-				utxo2 = tester.Client.GetUTXOs(pubkey2, utxo);
-				Thread.Sleep(200);
-				Assert.NotEqual(utxo.Unconfirmed.UTXOs[0].Outpoint, utxo2.Unconfirmed.UTXOs[0].Outpoint);
-				Assert.Null(utxo.Unconfirmed.UTXOs[0].Feature);
-				Assert.NotNull(utxo2.Unconfirmed.UTXOs[0].Outpoint);
+				tester.RPC.EnsureGenerate(1);
+				AssertExist(tester, addressSource, tx2);
+				AssertExist(tester, pubkey2, tx2);
+				utxo = tester.Client.GetUTXOs(addressSource, null);
+				utxo2 = tester.Client.GetUTXOs(pubkey2, null);
+				Assert.NotEmpty(utxo.Confirmed.UTXOs);
+				Assert.NotEmpty(utxo2.Confirmed.UTXOs);
+				Assert.Contains(utxo2.Confirmed.UTXOs, u => u.TransactionHash == tx2);
+				Assert.Contains(utxo.Confirmed.UTXOs, u => u.TransactionHash == tx2);
+				Assert.Null(utxo.Confirmed.UTXOs[0].Feature);
+				Assert.NotNull(utxo2.Confirmed.UTXOs[0].Outpoint);
 			}
 		}
 
