@@ -196,7 +196,7 @@ namespace NBXplorer.Tests
 					var changeAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Change);
 					var coins = utxos.GetUnspentCoins();
 					var keys = utxos.GetKeys(userExtKey);
-					TransactionBuilder builder = new TransactionBuilder();
+					TransactionBuilder builder = tester.Network.CreateTransactionBuilder();
 					builder.AddCoins(coins);
 					builder.AddKeys(keys);
 					builder.Send(new Key(), Money.Coins(0.5m));
@@ -206,7 +206,6 @@ namespace NBXplorer.Tests
 					var feeRate = tester.Client.GetFeeRate(1, fallbackFeeRate).FeeRate;
 
 					builder.SendEstimatedFees(feeRate);
-					builder.SetConsensusFactory(tester.Network);
 					var tx = builder.BuildTransaction(true);
 					Assert.True(builder.Verify(tx));
 					Assert.True(tester.Client.Broadcast(tx).Success);
