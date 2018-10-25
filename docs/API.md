@@ -86,84 +86,63 @@ Optional Parameters:
 Returns:
 
 ```
-{  
-   "height":104,
-   "confirmedTransactions":{  
-      "knownBookmark":null,
-      "bookmark":"3e528a57b54ad288007620b190d8d1282549e151",
-      "transactions":[  
-         {  
-            "blockHash":"587ba520f53684e4b5881557401be31fcfda6ea68eb7599d5cedb6c83c6aa165",
-            "confirmations":1,
-            "height":104,
-            "transactionId":"f4f6c7c8270718885532414f0a287228c8c969633e49091b899637649e5cc8b8",
-            "transaction":"0200000001f398dfbceae6e211b54ca55db2ed9136ada5b0a8a1cf4bbf555d364a64856f6f00000000484730440220594000e3526d878edf548e5e7a27b4520c697bdeb9222882ef05ccf31d804b3802204414295584d06bb685a0855a5f620087fb17c74b06b289e5dda8ead4a148b80901feffffff02280210240100000017a914175cf8d6aa049c08637d53e4a073f5e5fda3971c8700e1f505000000001976a914be1cae2bffb9df678d20af6db579467b1e48ac0288ac67000000",
-            "outputs":[  
-               {  
-                  "keyPath":"0/0",
-                  "index":1,
-                  "value":100000000
-               }
-            ],
-            "inputs":[  
-
-            ],
-            "timestamp":1538470162,
-            "balanceChange":100000000
-         }
-      ]
-   },
-   "unconfirmedTransactions":{  
-      "knownBookmark":null,
-      "bookmark":"a07691809fc1be6159733cdfcda1e6556a33105d",
-      "transactions":[  
-         {  
-            "blockHash":null,
-            "confirmations":0,
-            "height":null,
-            "transactionId":"94c620d737125232bc94860629ec49bb727a7ba7f2a86623f763b6a2157af08d",
-            "transaction":"02000000000101b8c85c9e643796891b09493e6369c9c82872280a4f41325588180727c8c7f6f4000000001716001489d4813bbb1470d9b66d47b39c471d509738fe3ffeffffff0200e1f505000000001976a914be1cae2bffb9df678d20af6db579467b1e48ac0288ac08141a1e0100000017a9145025687e78356848177832dc16662805245f5c228702483045022100f70026ced0a2a9a96ba2d430ec8cf65c7dca76a26c14ea7d08e24aeefafd368502205cae391404189fefb2f0ab60784d9840d3b405d61f4383736228b2daea7ad3a40121031b7c9c74bae9c0ae66aefe6b1cfa484b86b0b1ea36f4f0ad01453799e78daf8268000000",
-            "outputs":[  
-               {  
-                  "keyPath":"0/0",
-                  "index":0,
-                  "value":100000000
-               }
-            ],
-            "inputs":[  
-
-            ],
-            "timestamp":1538470163,
-            "balanceChange":100000000
-         },
-         {  
-            "blockHash":null,
-            "confirmations":0,
-            "height":null,
-            "transactionId":"2a70cd89581c62e7863afef1303a5a8d56e20c1d7babef4f02ab929cdb8f9494",
-            "transaction":"020000000001018df07a15a2b663f72366a8f2a77b7a72bb49ec29068694bc32521237d720c694010000001716001428f06c87d914987c6199cfd5b51b901d5c8f9744feffffff0200879303000000001976a914be1cae2bffb9df678d20af6db579467b1e48ac0288ace87f861a0100000017a914190b23c71f95ea0dd0c78680253e6a7873a95b0d870247304402202cb1b714c42be83cbb7eeff5039be25ef8ea3d1dcb126d8ecf6555b15e245e760220491a9b9082fcfebd7f96bbd6cda6ff654aee6b19f01ced3c3c312fed4329782d0121036fab1f18eef84bc3c6b1ca981f23ae757f78270d17354a438cda24a440cda57c68000000",
-            "outputs":[  
-               {  
-                  "keyPath":"0/0",
-                  "index":0,
-                  "value":60000000
-               }
-            ],
-            "inputs":[  
-
-            ],
-            "timestamp":1538470164,
-            "balanceChange":60000000
-         }
-      ]
-   },
-   "replacedTransactions":{  
-      "knownBookmark":null,
-      "bookmark":"0000000000000000000000000000000000000000",
-      "transactions":[  
-
-      ]
-   }
+{
+  "height": 104,
+  "confirmedTransactions": {
+    "knownBookmark": null,
+    "bookmark": "94450a854f44e66e0f86b3dab20db07d1e147a5f",
+    "transactions": [
+      {
+        "blockHash": "3e7bcca309f92ab78a47c1cdd1166de9190fa49e97165c93e2b10ae1a14b99eb",
+        "confirmations": 1,
+        "height": 104,
+        "transactionId": "cc33dfaf2ed794b11af83dc6e29303e2d8ff9e5e29303153dad1a1d3d8b43e40",
+        "transaction": "020000000166d6befa387fd646f77a10e4b0f0e66b3569f18a83f77104a0c440e4156f80890000000048473044022064b1398653171440d3e79924cb6593633e7b2c3d80b60a2e21d6c6e287ee785a02203899009df443d0a0a1b06cb970aee0158d35166fd3e26d4e3e85570738e706d101feffffff028c02102401000000160014ee0a1889783da2e1f9bba47be4184b6610efd00400e1f5050000000016001452f88af314ef3b6d03d40a5fd1f2c906188a477567000000",
+        "outputs": [
+          {
+            "keyPath": "0/0",
+            "scriptPubKey": "001452f88af314ef3b6d03d40a5fd1f2c906188a4775",
+            "redeem": null,
+            "index": 1,
+            "value": 100000000
+          }
+        ],
+        "inputs": [],
+        "timestamp": 1540381888,
+        "balanceChange": 100000000
+      }
+    ]
+  },
+  "unconfirmedTransactions": {
+    "knownBookmark": null,
+    "bookmark": "ef91fe23d5649d708cc5e22cdb67c17ad4131893",
+    "transactions": [
+      {
+        "blockHash": null,
+        "confirmations": 0,
+        "height": null,
+        "transactionId": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1",
+        "transaction": null,
+        "outputs": [
+          {
+            "keyPath": "0",
+            "scriptPubKey": "0014b39fc4eb5c6dd238d39449b70a2e30d575426d99",
+            "redeem": null,
+            "index": 1,
+            "value": 100000000
+          }
+        ],
+        "inputs": [],
+        "timestamp": 1540381889,
+        "balanceChange": 100000000
+      }
+    ]
+  },
+  "replacedTransactions": {
+    "knownBookmark": null,
+    "bookmark": "0000000000000000000000000000000000000000",
+    "transactions": []
+  }
 }
 ```
 
@@ -185,82 +164,64 @@ Optional Parameters:
 
 Returns:
 
-```
-{  
-   "height":104,
-   "confirmedTransactions":{  
-      "knownBookmark":null,
-      "bookmark":"6127d5f488be395ed65face936ed020ea43334ea",
-      "transactions":[  
-         {  
-            "blockHash":"3e14b3ae4611eecc7d41f859716282862f54ae1be4b4f728f19a42bc759f6f65",
-            "confirmations":1,
-            "height":104,
-            "transactionId":"8e03011c9e252360b4aef920f6f83e45486c1dd88bce06ebdc7c9726c7beccfb",
-            "transaction":"0200000001a85916d153fe68a20aedfa2adc07756524cac11bc863b44bdf97fce04655cbbc000000004948304502210096da773605cf374087aa6d317d500b907f4db6a1507ac14c3f48d2a0fbe8951302204d89f339fd469c31b7723742656cb3d19abfe77f5d096eba32ec00ecbd5fcf3201feffffff02280210240100000017a914af204b5dfad9e60d81c6acf93678b7478720df5e8700e1f505000000001976a91411ad8834bad9d9b00562d1a197e6416a16d8c83888ac67000000",
-            "outputs":[  
-               {  
-                  "index":1,
-                  "value":100000000
-               }
-            ],
-            "inputs":[  
-
-            ],
-            "timestamp":1538470623,
-            "balanceChange":100000000
-         }
-      ]
-   },
-   "unconfirmedTransactions":{  
-      "knownBookmark":null,
-      "bookmark":"918a6c13e02c936d39c7a58ad745fea46e8cadce",
-      "transactions":[  
-         {  
-            "blockHash":null,
-            "confirmations":0,
-            "height":null,
-            "transactionId":"b9b9237761db9244df8a2e1abf42098096455c0f7993112b5ce681d3ca34911b",
-            "transaction":"02000000000101fbccbec726977cdceb06ce8bd81d6c48453ef8f620f9aeb46023259e1c01038e000000001716001443c3190482761a0ecd818182165e6648cc6a6a6afeffffff0200e1f505000000001976a91411ad8834bad9d9b00562d1a197e6416a16d8c83888ac08141a1e0100000017a914431278a1c49cd1fee9b9d05129512d153daeaced870247304402207bf7c8beb3aa2f1ebd2903f9eca272b1d7adb1aca22caaaf4475e30d530aa54402206c0ab3af59a4b451adedc981b8d18cac446a699a4c0bc98f873cfec26f97d7eb01210303945540ac4141a21c98fd706d166917ddb0f45ff5384c8be767bffabd8316804e000000",
-            "outputs":[  
-               {  
-                  "index":0,
-                  "value":100000000
-               }
-            ],
-            "inputs":[  
-
-            ],
-            "timestamp":1538470626,
-            "balanceChange":100000000
-         },
-         {  
-            "blockHash":null,
-            "confirmations":0,
-            "height":null,
-            "transactionId":"ffc77d732421d232059c1c93bb3c4fba1158327f9be0ba855a2dee2ab0655fc0",
-            "transaction":"020000000001011b9134cad381e65c2b1193790f5c4596800942bf1a2e8adf4492db617723b9b90100000017160014a525769f9c043cac1c201d6b5ce7f66be561bad6feffffff0200879303000000001976a91411ad8834bad9d9b00562d1a197e6416a16d8c83888ace87f861a0100000017a91478587b6e4deaffd40504157bf3dc21a52ca654f58702483045022100cd316c500980d45a9bc05237ef55f8190f9d0bffe5c903fad65f7d0e9286b68302202461bb3358cf4c23a6b2f85b2019fded757025e36e5bfa4d4b98f3c70ea3839701210249e77b07e8f2118f5a2ce683ac6737f55e4a538d0348e72cd4b322f21abd75db68000000",
-            "outputs":[  
-               {  
-                  "index":0,
-                  "value":60000000
-               }
-            ],
-            "inputs":[  
-
-            ],
-            "timestamp":1538470626,
-            "balanceChange":60000000
-         }
-      ]
-   },
-   "replacedTransactions":{  
-      "knownBookmark":null,
-      "bookmark":"0000000000000000000000000000000000000000",
-      "transactions":[  
-
-      ]
-   }
+```json
+{
+  "height": 104,
+  "confirmedTransactions": {
+    "knownBookmark": null,
+    "bookmark": "94450a854f44e66e0f86b3dab20db07d1e147a5f",
+    "transactions": [
+      {
+        "blockHash": "3e7bcca309f92ab78a47c1cdd1166de9190fa49e97165c93e2b10ae1a14b99eb",
+        "confirmations": 1,
+        "height": 104,
+        "transactionId": "cc33dfaf2ed794b11af83dc6e29303e2d8ff9e5e29303153dad1a1d3d8b43e40",
+        "transaction": "020000000166d6befa387fd646f77a10e4b0f0e66b3569f18a83f77104a0c440e4156f80890000000048473044022064b1398653171440d3e79924cb6593633e7b2c3d80b60a2e21d6c6e287ee785a02203899009df443d0a0a1b06cb970aee0158d35166fd3e26d4e3e85570738e706d101feffffff028c02102401000000160014ee0a1889783da2e1f9bba47be4184b6610efd00400e1f5050000000016001452f88af314ef3b6d03d40a5fd1f2c906188a477567000000",
+        "outputs": [
+          {
+            "keyPath": "0/0",
+            "scriptPubKey": "001452f88af314ef3b6d03d40a5fd1f2c906188a4775",
+            "redeem": null,
+            "index": 1,
+            "value": 100000000
+          }
+        ],
+        "inputs": [],
+        "timestamp": 1540381888,
+        "balanceChange": 100000000
+      }
+    ]
+  },
+  "unconfirmedTransactions": {
+    "knownBookmark": null,
+    "bookmark": "ef91fe23d5649d708cc5e22cdb67c17ad4131893",
+    "transactions": [
+      {
+        "blockHash": null,
+        "confirmations": 0,
+        "height": null,
+        "transactionId": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1",
+        "transaction": null,
+        "outputs": [
+          {
+            "keyPath": "0",
+            "scriptPubKey": "0014b39fc4eb5c6dd238d39449b70a2e30d575426d99",
+            "redeem": null,
+            "index": 1,
+            "value": 100000000
+          }
+        ],
+        "inputs": [],
+        "timestamp": 1540381889,
+        "balanceChange": 100000000
+      }
+    ]
+  },
+  "replacedTransactions": {
+    "knownBookmark": null,
+    "bookmark": "0000000000000000000000000000000000000000",
+    "transactions": []
+  }
 }
 ```
 
@@ -280,43 +241,49 @@ Error codes:
 
 Returns:
 
-```
-{  
-   "blockId": "00000000000000000013c8848a401c396c1d3c196acb754aa5fe78ea246002d8", # Might be null
-   "confirmations":1,
-   "transaction":"02000000013acdd9a91a171185dccd8081d590cf5b8f3e68a89d5788c8c04672a2fb81f7960000000049483045022100c35863810697bbe560ca8b604f2b6dd6a08a05f773e13fa03883d2b0c2032d4f022036384099bc14feebcb386b905c1b9e57defe27779dc17338d8c14ea45867e48c01feffffff02280210240100000017a9141d7d417303386d2d9837de2b95166dd8554052b98700e1f505000000001976a9144ec8c45a3f1bed21a57b62f8eaec93a33c25b33688ac67000000",
-   "height":100, # Might be null
-   "timestamp":1519897446
+```json
+{
+  "confirmations": 3,
+  "blockId": "5efa23803df818cd21faa0c11e84db28c8352e76acb93d0c0adfe123db827190",
+  "transactionHash": "ed86c55b519c26ab4ba8130c976294753934c1f9f6d30203e65bb222648a8cdf",
+  "transaction": "0200000001205dcde69a5bd2b3281d387e6f125338f9ccb904d94df383ff56d9923599681e000000004847304402200b9d78e01691339acb238d7cd7a40ae620796bdcf8cb167dff4e100b71a2b0950220518e3a955ea7229d57c0160ecf491e8048662d7112fe5feaa312ff71388fda9701feffffff028c02102401000000160014a4ccb74ada7dd01b3018c3308894fea27b4813be00e1f5050000000016001408f86300ddff26ddf779ddce833f7e9e7442156c67000000",
+  "height": 104,
+  "timestamp": 1540390804
 }
 ```
+
+`height` and `blockId` will be null if the transaction is not confirmed.
 
 ## Get connection status to the chain
 
 HTTP GET v1/cryptos/{cryptoCode}/status
 
 Returns:
-```
-{  
-   "bitcoinStatus":{  # can be null
-      "blocks":103,
-      "headers":103,
-      "verificationProgress":1.0,
-      "isSynched":true,
-      "minRelayTxFee": 1,       # in satoshi/byte
-      "incrementalRelayFee": 1  # in satoshi/byte
-   },
-   "repositoryPingTime":0.0032478,
-   "isFullySynched":true,
-   "chainHeight":103,
-   "syncHeight":103,
-   "networkType":"Regtest",
-   "cryptoCode":"BTC",
-   "supportedCryptoCodes":[  
-      "BTC"
-   ],
-   "version":"1.0.1.16"
+```json
+{
+  "bitcoinStatus": {
+    "blocks": 103,
+    "headers": 103,
+    "verificationProgress": 1.0,
+    "isSynched": true,
+    "incrementalRelayFee": 1,
+    "minRelayTxFee": 1,
+    "capabilities": {
+      "canScanTxoutSet": true,
+      "canSupportSegwit": true
+    }
+  },
+  "repositoryPingTime": 0.0087891999999999987,
+  "isFullySynched": true,
+  "chainHeight": 103,
+  "syncHeight": 103,
+  "networkType": "Regtest",
+  "cryptoCode": "BTC",
+  "supportedCryptoCodes": [
+    "BTC"
+  ],
+  "version": "1.0.3.5"
 }
-
 ```
 
 ## Get a new unused address
@@ -336,13 +303,14 @@ Optional parameters:
 
 Returns:
 
-```
-{  
-   "feature":"Direct",
-   "derivationStrategy":"tpubD6NzVbkrYhZ4XMQSsvfmMmZkVtLgNjhT4wybUXvMLZhThnXHhLn6YWvDsHMK38FvA8JPpfSjtiBHz4yVh3DHB172VmZ4kCawkana9PirYEi-[legacy]",
-   "keyPath":"0",
-   "scriptPubKey":"76a914b7acd30d08dc9c9f3081730c69526280b226501e88ac",
-   "redeem":null
+```json
+{
+  "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4Wo2RMq8Xbnrorf1xnABkKMS3EGshPkQ3Z4N4GN8uyLuDPvnK7Ekc2FHdXbLvcuZny1gPiohMksFGKmaX3APD2DbTeBWj751-[p2sh]",
+  "feature": "Deposit",
+  "derivationStrategy": "tpubD6NzVbkrYhZ4Wo2RMq8Xbnrorf1xnABkKMS3EGshPkQ3Z4N4GN8uyLuDPvnK7Ekc2FHdXbLvcuZny1gPiohMksFGKmaX3APD2DbTeBWj751-[p2sh]",
+  "keyPath": "0/2",
+  "scriptPubKey": "a91412cbf6154ef6d9aecf9c978dc2bdc43f1881dd5f87",
+  "redeem": "0014e2eb89edba1fe6c6c0863699eeb78f6ec3271b45"
 }
 ```
 
@@ -350,23 +318,21 @@ Note: `redeem` is returning the segwit redeem if the derivation scheme is a P2SH
 
 ## Get ExtPubKey from scriptPubKey
 
-HTTP GET v1/cryptos/{cryptoCode}/scripts/{script}
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/scripts/{script}
 
 Error codes:
 
 * HTTP 404: `cryptoCode-not-supported`
 
 Returns:
-```
-[
-    {  
-     "feature":"Direct",
-     "derivationStrategy":"tpubD6NzVbkrYhZ4XMQSsvfmMmZkVtLgNjhT4wybUXvMLZhThnXHhLn6YWvDsHMK38FvA8JPpfSjtiBHz4yVh3DHB172VmZ4kCawkana9PirYEi-[legacy]",
-     "keyPath":"0",
-     "scriptPubKey":"76a914b7acd30d08dc9c9f3081730c69526280b226501e88ac",
-     "redeem":null
-   }
-]
+```json
+{
+  "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
+  "feature": "Deposit",
+  "derivationStrategy": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
+  "keyPath": "0/0",
+  "scriptPubKey": "001460c25d29559774803f262acf5ee5c922eff52ccd"
+}
 ```
 
 ## Get Unspent Transaction Outputs (UTXOs)
@@ -385,59 +351,52 @@ Error:
 
 Result:
 
-```
-{  
-   "trackedSource":"DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcvX4WvkX2BGK5U6qhdQ6omtBURJCeH23Koog9HQmU7y7mydXVkHodyP27MEByn9bHNKxzx6fcdEEtmf6c62thVTgGvycKz-[legacy]",
-   "derivationStrategy":"tpubD6NzVbkrYhZ4WcvX4WvkX2BGK5U6qhdQ6omtBURJCeH23Koog9HQmU7y7mydXVkHodyP27MEByn9bHNKxzx6fcdEEtmf6c62thVTgGvycKz-[legacy]",
-   "currentHeight":104,
-   "unconfirmed":{  
-      "knownBookmark":null,
-      "bookmark":"b8eb7b6769a3b92f7dc556ac0d9ae78da9a6b31b",
-      "utxOs":[  
-         {  
-            "feature":"Deposit",
-            "outpoint":"1b9134cad381e65c2b1193790f5c4596800942bf1a2e8adf4492db617723b9b900000000",
-            "scriptPubKey":"76a91411ad8834bad9d9b00562d1a197e6416a16d8c83888ac",
-            "value":100000000,
-            "keyPath":"0/0",
-            "timestamp":1538470626,
-            "confirmations":0
-         },
-         {  
-            "feature":"Deposit",
-            "outpoint":"c05f65b02aee2d5a85bae09b7f325811ba4f3cbb931c9c0532d22124737dc7ff00000000",
-            "scriptPubKey":"76a91411ad8834bad9d9b00562d1a197e6416a16d8c83888ac",
-            "value":60000000,
-            "keyPath":"0/0",
-            "timestamp":1538470626,
-            "confirmations":0
-         }
-      ],
-      "spentOutpoints":[  
-         "87cf1bd27f7f5218c659b450ff5aa4cc4f183446059112921b8e2f35f9a6fc1900000000"
-      ],
-      "hasChanges":true
-   },
-   "confirmed":{  
-      "knownBookmark":null,
-      "bookmark":"24be8e9bd9725f82e67258d025af48b499fba676",
-      "utxOs":[  
-         {  
-            "feature":"Deposit",
-            "outpoint":"fbccbec726977cdceb06ce8bd81d6c48453ef8f620f9aeb46023259e1c01038e01000000",
-            "scriptPubKey":"76a91411ad8834bad9d9b00562d1a197e6416a16d8c83888ac",
-            "value":100000000,
-            "keyPath":"0/0",
-            "timestamp":1538470625,
-            "confirmations":1
-         }
-      ],
-      "spentOutpoints":[  
-
-      ],
-      "hasChanges":true
-   },
-   "hasChanges":true
+```json
+{
+  "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4XQVi1sSEDBWTcicDqVSCTnYDxpwGwcSZVbPii2b7baRg57YfL64ed36sBRe6GviihHwhy3D1cnBe5uXb27DjrDZCKUA7PQi",
+  "derivationStrategy": "tpubD6NzVbkrYhZ4XQVi1sSEDBWTcicDqVSCTnYDxpwGwcSZVbPii2b7baRg57YfL64ed36sBRe6GviihHwhy3D1cnBe5uXb27DjrDZCKUA7PQi",
+  "currentHeight": 107,
+  "unconfirmed": {
+    "knownBookmark": "0000000000000000000000000000000000000000",
+    "bookmark": "643f962b04336a1046b3ac858cb5f76472691365",
+    "utxOs": [
+      {
+        "feature": "Deposit",
+        "outpoint": "10ba4bcadd03130b1bd98b0bc7aea9910f871b25b87ec06e484456e84440c88a01000000",
+        "index": 1,
+        "transactionHash": "8ac84044e85644486ec07eb8251b870f91a9aec70b8bd91b0b1303ddca4bba10",
+        "scriptPubKey": "00149681ae465a045e2068460b9d281cf97dede87cd8",
+        "value": 100000000,
+        "keyPath": "0/0",
+        "timestamp": 1540376171,
+        "confirmations": 0
+      }
+    ],
+    "spentOutpoints": [],
+    "hasChanges": true
+  },
+  "confirmed": {
+    "knownBookmark": "09612373e3107ceeef87e7eff4d4782dc11c0db6",
+    "bookmark": "4ac671787bbaf2167ed1616dd1abb8b6ea241e34",
+    "utxOs": [
+      {
+        "feature": "Deposit",
+        "outpoint": "29ca6590f3f03a6523ad79975392e74e385bf2b7dafe6c537ffa12f9e124348800000000",
+        "index": 0,
+        "transactionHash": "883424e1f912fa7f536cfedab7f25b384ee792539779ad23653af0f39065ca29",
+        "scriptPubKey": "001436a37f2f508650f7074bec4d091fc82bb01cc57f",
+        "value": 50000000,
+        "keyPath": "0/3",
+        "timestamp": 1540376174,
+        "confirmations": 1
+      }
+    ],
+    "spentOutpoints": [
+      "9345f9585d643a31202e686ec7a4c2fe17917a5e7731a79d2327d24d25c0339f01000000"
+    ],
+    "hasChanges": true
+  },
+  "hasChanges": true
 }
 ```
 
@@ -461,52 +420,53 @@ Error:
 
 Result:
 
-```
-{  
-   "trackedSource":"ADDRESS:mh8RfXuWowkiDt2nq8su8KjB9Muuy1DAkx",
-   "currentHeight":104,
-   "unconfirmed":{  
-      "knownBookmark":null,
-      "bookmark":"b8eb7b6769a3b92f7dc556ac0d9ae78da9a6b31b",
-      "utxOs":[  
-         {  
-            "outpoint":"1b9134cad381e65c2b1193790f5c4596800942bf1a2e8adf4492db617723b9b900000000",
-            "scriptPubKey":"76a91411ad8834bad9d9b00562d1a197e6416a16d8c83888ac",
-            "value":100000000,
-            "timestamp":1538470626,
-            "confirmations":0
-         },
-         {
-            "outpoint":"c05f65b02aee2d5a85bae09b7f325811ba4f3cbb931c9c0532d22124737dc7ff00000000",
-            "scriptPubKey":"76a91411ad8834bad9d9b00562d1a197e6416a16d8c83888ac",
-            "value":60000000,
-            "timestamp":1538470626,
-            "confirmations":0
-         }
-      ],
-      "spentOutpoints":[  
-
-      ],
-      "hasChanges":true
-   },
-   "confirmed":{  
-      "knownBookmark":null,
-      "bookmark":"24be8e9bd9725f82e67258d025af48b499fba676",
-      "utxOs":[  
-         {  
-            "outpoint":"fbccbec726977cdceb06ce8bd81d6c48453ef8f620f9aeb46023259e1c01038e01000000",
-            "scriptPubKey":"76a91411ad8834bad9d9b00562d1a197e6416a16d8c83888ac",
-            "value":100000000,
-            "timestamp":1538470623,
-            "confirmations":1
-         }
-      ],
-      "spentOutpoints":[  
-
-      ],
-      "hasChanges":true
-   },
-   "hasChanges":true
+```json
+{
+  "trackedSource": "ADDRESS:moD8QpWufPMFP9y7gC8m5ih9rmejavbf3K",
+  "currentHeight": 105,
+  "unconfirmed": {
+    "knownBookmark": null,
+    "bookmark": "0000000000000000000000000000000000000000",
+    "utxOs": [],
+    "spentOutpoints": [],
+    "hasChanges": true
+  },
+  "confirmed": {
+    "knownBookmark": null,
+    "bookmark": "0b6f1af55d1bd86a3dbe2cadc45e7dde9b536e99",
+    "utxOs": [
+      {
+        "outpoint": "f532022bebe8d90c72853a2663c26ca9d42fad5d9cde21d35bad38135a5dfd0701000000",
+        "index": 1,
+        "transactionHash": "07fd5d5a1338ad5bd321de9c5dad2fd4a96cc263263a85720cd9e8eb2b0232f5",
+        "scriptPubKey": "76a9145461f6c342451142e07d95dd2a42b48af9114cea88ac",
+        "value": 100000000,
+        "timestamp": 1540390664,
+        "confirmations": 2
+      },
+      {
+        "outpoint": "a470a71144d4cdaef2b9bd8d24f20ebc8d6548bae523869f8cceb2cef5b4538a01000000",
+        "index": 1,
+        "transactionHash": "8a53b4f5ceb2ce8c9f8623e5ba48658dbc0ef2248dbdb9f2aecdd44411a770a4",
+        "scriptPubKey": "76a9145461f6c342451142e07d95dd2a42b48af9114cea88ac",
+        "value": 100000000,
+        "timestamp": 1540390666,
+        "confirmations": 1
+      },
+      {
+        "outpoint": "1710a1b61cb1f988182347be52a16502bae5a78fa9740a68107f9ddc6e30896a00000000",
+        "index": 0,
+        "transactionHash": "6a89306edc9d7f10680a74a98fa7e5ba0265a152be47231888f9b11cb6a11017",
+        "scriptPubKey": "76a9145461f6c342451142e07d95dd2a42b48af9114cea88ac",
+        "value": 60000000,
+        "timestamp": 1540390666,
+        "confirmations": 1
+      }
+    ],
+    "spentOutpoints": [],
+    "hasChanges": true
+  },
+  "hasChanges": true
 }
 ```
 
@@ -564,23 +524,25 @@ Then you will receive such notifications when a transaction is impacting the `de
   "type": "newtransaction",
   "data": {
     "blockId": null,
-    "derivationStrategy": "tpubD6NzVbkrYhZ4YL91Ez5fdgaBPQbFhedFdn5gQL4tSCJn1usmHsV1L6VokzLbgcqzh9hiBnfnQANp5BYW15QdFGRKspZVSW1v2QY917RDs1V-[legacy]",
+    "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4X2p2D8kx6XV9V5iCJKMBHuBim1BLnZAZC1JobYkdwSrwF8R74V2oUWkJG3H24LwxnXs9wb6Ksivs2gj4RudMteyVai2AsmA-[p2sh]",
+    "derivationStrategy": "tpubD6NzVbkrYhZ4X2p2D8kx6XV9V5iCJKMBHuBim1BLnZAZC1JobYkdwSrwF8R74V2oUWkJG3H24LwxnXs9wb6Ksivs2gj4RudMteyVai2AsmA-[p2sh]",
     "transactionData": {
       "confirmations": 0,
-      "transaction": "0200000001d47d612cf0dc6883a962877d663613f61d69b62e4e29e711b39c782af642bfc9000000004847304402205ed7968526be5156c366c7e1ba0864ab4a24704e5628a38b778020af1636a5e4022020a89f60a405c7d5b696d2ee915a744cb0ac05a78ddc82ec4acaa7e9d4bd008901feffffff0200e1f505000000001976a914a20eb0aa66b48525b088c4be78765af3dcd4171c88ac280210240100000017a914611e47639114ef9e9400ba2a198bc72617a0438d8738000000",
+      "blockId": null,
+      "transactionHash": "f135537b40ac7a524273176b60e464b7f279f622031ec53af302d959966d7364",
+      "transaction": "0200000001dd7f53b09438fed83abe25dd6cdc30ee2092ce8c855cb9e7b0faa38aba8bc0f500000000484730440220093a837ff4be4b64b2ed4625abb128966caad0cb7830cac7af4f615bbf6b52ce02206227a3ddec3fac9e49f414eeab1388d0e67829620ac3a8fb2f4bbfc5b67bd02901feffffff0200e1f5050000000017a91476de0c5d07fd202880672bc702162b7f18e13aca87640210240100000017a9147cfa038496438a6d3c95cfac990f4dffc6cb44f28768000000",
       "height": null,
-      "timestamp": 1519898839
+      "timestamp": 1540434424
     },
     "outputs": [
       {
-        "feature": "Deposit",
-        "derivationStrategy": "tpubD6NzVbkrYhZ4YL91Ez5fdgaBPQbFhedFdn5gQL4tSCJn1usmHsV1L6VokzLbgcqzh9hiBnfnQANp5BYW15QdFGRKspZVSW1v2QY917RDs1V-[legacy]",
         "keyPath": "0/1",
-        "scriptPubKey": "76a914a20eb0aa66b48525b088c4be78765af3dcd4171c88ac",
-        "redeem": null
+        "scriptPubKey": "a91476de0c5d07fd202880672bc702162b7f18e13aca87",
+        "redeem": "00147d31e1c7959cd047bb7b9b35e4c877a28efe2f0b",
+        "index": 0,
+        "value": 100000000
       }
     ],
-    "inputs": [],
     "cryptoCode": "BTC"
   }
 }
