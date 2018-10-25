@@ -801,19 +801,6 @@ namespace NBXplorer.Controllers
 				throw new NotSupportedException();
 		}
 
-		private async Task CleanConflicts(Repository repo, AnnotatedTransactionCollection transactions)
-		{
-			var cleaned = transactions.DuplicatedTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
-			if (cleaned.Length != 0)
-			{
-				foreach (var tx in cleaned)
-				{
-					_EventAggregator.Publish(new EvictedTransactionEvent(tx.TransactionHash));
-				}
-				await repo.CleanTransactions(transactions.TrackedSource, cleaned.ToList());
-			}
-		}
-
 		static int[] MaxValue = new[] { int.MaxValue };
 		private void FillUTXOsInformation(List<UTXO> utxos, AnnotatedTransactionCollection transactions, int currentHeight)
 		{
@@ -874,7 +861,18 @@ namespace NBXplorer.Controllers
 				.GetTransactions(trackedSource))
 				.Select(t => new AnnotatedTransaction(t, chain))
 				.ToList(), trackedSource);
-			await CleanConflicts(repo, annotatedTransactions);
+			var cleaned = annotatedTransactions.DuplicatedTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
+			if (cleaned.Length != 0)
+			{
+				foreach (var tx in cleaned)
+				{
+					_EventAggregator.Publish(new EvictedTransactionEvent(tx.TransactionHash));
+				}
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+				// Can be eventually consistent
+				repo.CleanTransactions(annotatedTransactions.TrackedSource, cleaned.ToList());
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+			}
 			return annotatedTransactions;
 		}
 
