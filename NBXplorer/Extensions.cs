@@ -86,58 +86,6 @@ namespace NBXplorer
 			return evt;
 		}
 
-		public static async Task<TrackedTransaction[]> GetMatches(this Repository repository, Transaction tx, uint256 blockId, DateTimeOffset now)
-		{
-			var matches = new Dictionary<string, TrackedTransaction>();
-			HashSet<Script> inputScripts = new HashSet<Script>();
-			HashSet<Script> outputScripts = new HashSet<Script>();
-			HashSet<Script> scripts = new HashSet<Script>();
-			foreach(var input in tx.Inputs)
-			{
-				var signer = input.GetSigner();
-				if(signer != null)
-				{
-					inputScripts.Add(signer.ScriptPubKey);
-					scripts.Add(signer.ScriptPubKey);
-				}
-			}
-
-			foreach(var output in tx.Outputs)
-			{
-				outputScripts.Add(output.ScriptPubKey);
-				scripts.Add(output.ScriptPubKey);
-			}
-
-			var keyInformations = await repository.GetKeyInformations(scripts.ToArray());
-			foreach(var keyInfoByScripts in keyInformations)
-			{
-				foreach(var keyInfo in keyInfoByScripts.Value)
-				{
-					var matchesGroupingKey = keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex();
-					if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
-					{
-						match = new TrackedTransaction(
-							new TrackedTransactionKey(tx.GetHash(), blockId, false), 
-							keyInfo.TrackedSource,
-							tx, 
-							new Dictionary<Script, KeyPath>())
-							{
-								FirstSeen = now,
-								Inserted = now
-							};
-						matches.Add(matchesGroupingKey, match);
-					}
-					if(keyInfo.KeyPath != null)
-						match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
-				}
-			}
-			foreach(var m in matches.Values)
-			{
-				m.KnownKeyPathMappingUpdated();
-			}
-			return matches.Values.ToArray();
-		}
-
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
 		{
 			public void Configure(MvcJsonOptions options)
