@@ -1707,6 +1707,11 @@ namespace NBXplorer.Tests
 			progress.UpdateOverallProgress();
 			Assert.Equal(67, (int)progress.OverallProgress);
 
+			DateTimeOffset time = new DateTimeOffset(0, TimeSpan.Zero);
+			progress.StartedAt = time;
+			progress.UpdateOverallProgress(time + TimeSpan.FromSeconds(10));
+			Assert.Equal(3, progress.RemainingSeconds);
+
 			progress = new ScanUTXOProgress();
 			progress.From = 0;
 			progress.Count = 100;

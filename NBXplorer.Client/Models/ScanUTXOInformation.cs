@@ -26,16 +26,23 @@ namespace NBXplorer.Models
 		public int RemainingBatches { get; set; }
 		public int CurrentBatchProgress { get; set; }
 		public int OverallProgress { get; set; }
+		public int RemainingSeconds { get; set; }
 		public int From { get; set; }
 		public int Count { get; set; }
 		public int TotalSearched { get; set; }
 
-		public void UpdateOverallProgress()
+		public void UpdateOverallProgress(DateTimeOffset? now = null)
 		{
-			double percentPerBatch = (double)(100.0 / (RemainingBatches + BatchNumber + 1));
+			now = now.HasValue ? now : DateTimeOffset.UtcNow;
+			double percentPerBatch = 100.0 / (RemainingBatches + BatchNumber + 1);
 			double batchPercent = BatchNumber * percentPerBatch;
-			double insideBatchPercent = ((double)CurrentBatchProgress / 100.0 ) * percentPerBatch;
-			OverallProgress = (int)Math.Round(batchPercent + insideBatchPercent);
+			double insideBatchPercent = CurrentBatchProgress * (percentPerBatch / 100.0);
+			var overallProgress = batchPercent + insideBatchPercent;
+
+			var timeSpent = now.Value - StartedAt;
+			var secondsRemaining = ((100 - overallProgress) / 100.0) * timeSpent.TotalSeconds;
+			OverallProgress = (int)Math.Round(overallProgress);
+			RemainingSeconds = (int)Math.Round(secondsRemaining);
 		}
 
 		public void UpdateRemainingBatches(int gapLimit)
@@ -72,7 +79,8 @@ namespace NBXplorer.Models
 				OverallProgress = OverallProgress,
 				RemainingBatches = RemainingBatches,
 				CompletedAt = CompletedAt,
-				StartedAt = StartedAt
+				StartedAt = StartedAt,
+				RemainingSeconds = RemainingSeconds
 			};
 		}
 	}

@@ -705,6 +705,7 @@ The state can be:
     "batchNumber": 9,
 	"remainingBatches": 1,
     "currentBatchProgress": 50,
+	"remainingSeconds": 10,
     "overallProgress": 91,
     "from": 900,
     "count": 100,
