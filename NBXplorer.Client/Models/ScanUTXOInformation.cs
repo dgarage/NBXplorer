@@ -17,6 +17,10 @@ namespace NBXplorer.Models
 
 	public class ScanUTXOProgress
 	{
+		[JsonConverter(typeof(Newtonsoft.Json.Converters.UnixDateTimeConverter))]
+		public DateTimeOffset StartedAt { get; set; }
+		[JsonConverter(typeof(Newtonsoft.Json.Converters.UnixDateTimeConverter))]
+		public DateTimeOffset? CompletedAt { get; set; }
 		public int Found { get; set; }
 		public int BatchNumber { get; set; }
 		public int RemainingBatches { get; set; }
@@ -66,13 +70,17 @@ namespace NBXplorer.Models
 				HighestKeyIndexFound = new Dictionary<DerivationFeature, int?>(HighestKeyIndexFound),
 				TotalSearched = TotalSearched,
 				OverallProgress = OverallProgress,
-				RemainingBatches = RemainingBatches
+				RemainingBatches = RemainingBatches,
+				CompletedAt = CompletedAt,
+				StartedAt = StartedAt
 			};
 		}
 	}
 	public class ScanUTXOInformation
 	{
 		public string Error { get; set; }
+		[JsonConverter(typeof(Newtonsoft.Json.Converters.UnixDateTimeConverter))]
+		public DateTimeOffset QueuedAt { get; set; }
 
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
 		public ScanUTXOStatus Status { get; set; }

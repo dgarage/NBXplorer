@@ -79,7 +79,8 @@ namespace NBXplorer
 			{
 				State = new ScanUTXOInformation()
 				{
-					Status = ScanUTXOStatus.Queued
+					Status = ScanUTXOStatus.Queued,
+					QueuedAt = DateTimeOffset.UtcNow
 				},
 				Options = options
 			};
@@ -139,7 +140,8 @@ namespace NBXplorer
 						workItem.State.Progress = new ScanUTXOProgress()
 						{
 							Count = Math.Max(1, Math.Min(workItem.Options.BatchSize, workItem.Options.GapLimit)),
-							From = workItem.Options.From
+							From = workItem.Options.From,
+							StartedAt = DateTimeOffset.UtcNow
 						};
 						foreach (var feature in workItem.Options.DerivationFeatures)
 						{
@@ -179,6 +181,7 @@ namespace NBXplorer
 										progressObj.BatchNumber -= progressObj.RemainingBatches;
 										workItem.State.Status = ScanUTXOStatus.Complete;
 										progressObj = workItem.State.Progress.Clone();
+										progressObj.CompletedAt = DateTimeOffset.UtcNow;
 										progressObj.RemainingBatches = 0;
 										progressObj.CurrentBatchProgress = 100;
 										progressObj.UpdateRemainingBatches(workItem.Options.GapLimit);
@@ -205,6 +208,9 @@ namespace NBXplorer
 					{
 						workItem.State.Status = ScanUTXOStatus.Error;
 						workItem.State.Error = ex.Message;
+						var progress = workItem.State.Progress.Clone();
+						progress.CompletedAt = DateTimeOffset.UtcNow;
+						workItem.State.Progress = progress;
 						Logs.Explorer.LogError(ex, $"{workItem.Network.CryptoCode}: Error while scanning {workItem.DerivationStrategy.ToPrettyString()}");
 					}
 					finally

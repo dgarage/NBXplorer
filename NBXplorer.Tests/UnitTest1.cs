@@ -1810,9 +1810,13 @@ namespace NBXplorer.Tests
 				// Small check to be sure we update overall progress correctly
 				Assert.True(info.Progress.BatchNumber == 0 || info.Progress.OverallProgress != 0);
 				if (info.Status == ScanUTXOStatus.Complete)
+				{
+					Assert.NotNull(info.Progress.CompletedAt);
 					return info;
+				}
 				if (info.Status == ScanUTXOStatus.Error)
 					Assert.False(true, $"Scanning should not have failed {info.Error}");
+				Assert.Null(info.Progress.CompletedAt);
 				Thread.Sleep(100);
 			}
 		}
