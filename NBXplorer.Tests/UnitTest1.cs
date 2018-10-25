@@ -1678,6 +1678,64 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanCalculateScanningProgress()
+		{
+			ScanUTXOProgress progress = new ScanUTXOProgress();
+			progress.RemainingBatches = 1;
+			progress.BatchNumber = 0;
+			progress.CurrentBatchProgress = 100;
+			progress.UpdateOverallProgress();
+			Assert.Equal(50, progress.OverallProgress);
+			progress.CurrentBatchProgress = 50;
+			progress.UpdateOverallProgress();
+			Assert.Equal(25, progress.OverallProgress);
+			progress.CurrentBatchProgress = 0;
+			progress.UpdateOverallProgress();
+			Assert.Equal(0, progress.OverallProgress);
+			progress.BatchNumber = 1;
+			progress.RemainingBatches = 0;
+			progress.CurrentBatchProgress = 50;
+			progress.UpdateOverallProgress();
+			Assert.Equal(75, progress.OverallProgress);
+			progress.RemainingBatches = 1;
+			progress.CurrentBatchProgress = 100;
+			progress.UpdateOverallProgress();
+			Assert.Equal(67, (int)progress.OverallProgress);
+			progress.RemainingBatches = 0;
+			progress.BatchNumber = 2;
+			progress.CurrentBatchProgress = 0;
+			progress.UpdateOverallProgress();
+			Assert.Equal(67, (int)progress.OverallProgress);
+
+			progress = new ScanUTXOProgress();
+			progress.From = 0;
+			progress.Count = 100;
+			progress.BatchNumber = 0;
+			progress.HighestKeyIndexFound.AddOrReplace(DerivationFeature.Deposit, null);
+			progress.UpdateRemainingBatches(1000);
+			Assert.Equal(9, progress.RemainingBatches);
+			progress.BatchNumber = 1;
+			progress.UpdateRemainingBatches(1000);
+			Assert.Equal(8, progress.RemainingBatches);
+			progress.BatchNumber = 1 + 9;
+			progress.UpdateRemainingBatches(1000);
+			Assert.Equal(-1, progress.RemainingBatches);
+			progress.BatchNumber = 0;
+			progress.HighestKeyIndexFound.AddOrReplace(DerivationFeature.Deposit, 0);
+			progress.UpdateRemainingBatches(1000);
+			Assert.Equal(10, progress.RemainingBatches);
+			progress.BatchNumber = 7;
+			progress.UpdateRemainingBatches(1000);
+			Assert.Equal(10 - 7, progress.RemainingBatches);
+			progress.HighestKeyIndexFound.AddOrReplace(DerivationFeature.Deposit, 99);
+			progress.UpdateRemainingBatches(1000);
+			Assert.Equal(10 - 7, progress.RemainingBatches);
+			progress.HighestKeyIndexFound.AddOrReplace(DerivationFeature.Deposit, 100);
+			progress.UpdateRemainingBatches(1000);
+			Assert.Equal(10 - 7 + 1, progress.RemainingBatches);
+		}
+
+		[Fact]
 		public void CanScanUTXOSet()
 		{
 			using (var tester = ServerTester.Create())
@@ -1705,9 +1763,11 @@ namespace NBXplorer.Tests
 				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
 				var info = WaitScanFinish(tester.Client, pubkey);
 				AssertPruned(tester, pubkey, txId);
-				Assert.Equal(100.0, info.Progress.CurrentBatchProgress);
+				Assert.Equal(100, info.Progress.CurrentBatchProgress);
+				Assert.Equal(100, info.Progress.OverallProgress);
 				Assert.Equal(1, info.Progress.Found);
 				Assert.Equal(10, info.Progress.BatchNumber);
+				Assert.Equal(0, info.Progress.RemainingBatches);
 				Assert.Equal(1000, info.Progress.From);
 				Assert.Equal(100, info.Progress.Count);
 				Assert.Equal(50, info.Progress.HighestKeyIndexFound[DerivationFeature.Deposit]);
@@ -1747,6 +1807,8 @@ namespace NBXplorer.Tests
 			while (true)
 			{
 				var info = client.GetScanUTXOSetInformation(pubkey);
+				// Small check to be sure we update overall progress correctly
+				Assert.True(info.Progress.BatchNumber == 0 || info.Progress.OverallProgress != 0);
 				if (info.Status == ScanUTXOStatus.Complete)
 					return info;
 				if (info.Status == ScanUTXOStatus.Error)

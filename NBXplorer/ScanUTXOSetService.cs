@@ -102,7 +102,7 @@ namespace NBXplorer
 			List<string> toCleanup = new List<string>();
 			foreach (var item in _Progress.Values)
 			{
-				if (now - item.StartTime > TimeSpan.FromHours(1))
+				if (now - item.StartTime > TimeSpan.FromHours(24))
 					toCleanup.Add(workItem.Id);
 			}
 			foreach (var i in toCleanup)
@@ -138,13 +138,14 @@ namespace NBXplorer
 						var repo = Repositories.GetRepository(workItem.Network);
 						workItem.State.Progress = new ScanUTXOProgress()
 						{
-							Count = Math.Min(workItem.Options.BatchSize, workItem.Options.GapLimit),
+							Count = Math.Max(1, Math.Min(workItem.Options.BatchSize, workItem.Options.GapLimit)),
 							From = workItem.Options.From
 						};
 						foreach (var feature in workItem.Options.DerivationFeatures)
 						{
 							workItem.State.Progress.HighestKeyIndexFound.Add(feature, null);
 						}
+						workItem.State.Progress.UpdateRemainingBatches(workItem.Options.GapLimit);
 						workItem.State.Status = ScanUTXOStatus.Pending;
 						var scannedItems = GetScannedItems(workItem, workItem.State.Progress);
 						var scanning = rpc.StartScanTxoutSetAsync(scannedItems.Descriptors.ToArray());
@@ -153,7 +154,10 @@ namespace NBXplorer
 						{
 							var progress = await rpc.GetStatusScanTxoutSetAsync();
 							if (progress != null)
-								workItem.State.Progress.CurrentBatchProgress = (double)progress.Value;
+							{
+								workItem.State.Progress.CurrentBatchProgress = (int)Math.Round(progress.Value);
+								workItem.State.Progress.UpdateOverallProgress();
+							}
 							using (var cts = CancellationTokenSource.CreateLinkedTokenSource(_Cts.Token))
 							{
 								cts.CancelAfter(TimeSpan.FromSeconds(5.0));
@@ -165,21 +169,27 @@ namespace NBXplorer
 									progressObj.Found += result.Outputs.Length;
 									progressObj.From += progressObj.Count;
 									progressObj.TotalSearched += scannedItems.Descriptors.Count;
+									progressObj.UpdateRemainingBatches(workItem.Options.GapLimit);
+									progressObj.UpdateOverallProgress();
 									Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning of batch {workItem.State.Progress.BatchNumber} for {workItem.DerivationStrategy.ToPrettyString()} complete with {result.Outputs.Length} UTXOs fetched");
 									await UpdateRepository(workItem.DerivationStrategy, repo, chain, result.Outputs, scannedItems, progressObj);
 
-									scannedItems = GetScannedItems(workItem, progressObj);
-									if (scannedItems.Descriptors.Count == 0)
+									if (progressObj.RemainingBatches <= -1)
 									{
+										progressObj.BatchNumber -= progressObj.RemainingBatches;
 										workItem.State.Status = ScanUTXOStatus.Complete;
 										progressObj = workItem.State.Progress.Clone();
-										progressObj.CurrentBatchProgress = 100.0;
+										progressObj.RemainingBatches = 0;
+										progressObj.CurrentBatchProgress = 100;
+										progressObj.UpdateRemainingBatches(workItem.Options.GapLimit);
+										progressObj.UpdateOverallProgress();
 										workItem.State.Progress = progressObj;
 										Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning {workItem.DerivationStrategy.ToPrettyString()} complete");
 										break;
 									}
 									else
 									{
+										scannedItems = GetScannedItems(workItem, progressObj);
 										workItem.State.Progress = progressObj;
 										scanning = rpc.StartScanTxoutSetAsync(scannedItems.Descriptors.ToArray());
 									}
@@ -252,10 +262,6 @@ namespace NBXplorer
 		private ScannedItems GetScannedItems(ScanUTXOWorkItem workItem, ScanUTXOProgress progress)
 		{
 			var items = new ScannedItems();
-			if (workItem.Options.DerivationFeatures
-				.All(f => PastGapLimit(progress.HighestKeyIndexFound[f], progress.From, workItem.Options.GapLimit)))
-				return items;
-
 			var derivationStrategy = workItem.DerivationStrategy;
 			foreach (var feature in workItem.Options.DerivationFeatures)
 			{
@@ -281,14 +287,6 @@ namespace NBXplorer
 			}
 			Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning batch {progress.BatchNumber} of {workItem.DerivationStrategy.ToPrettyString()} from index {progress.From}");
 			return items;
-		}
-
-		private static bool PastGapLimit(int? highestIndex, int currentIndex, int gapLimit)
-		{
-			// If gap limit is 100, current index is 100, highestIndex is null (-1), then we are past the gap limit
-			highestIndex = highestIndex ?? -1;
-			// If gap limit is 100, current index is 300, highestIndex is 200, then we are not past the gap limit
-			return currentIndex - highestIndex.Value > gapLimit;
 		}
 
 		public Task StopAsync(CancellationToken cancellationToken)
