@@ -557,14 +557,14 @@ namespace NBXplorer
 			});
 		}
 
-		public Task Track(BitcoinAddress address)
+		public Task Track(IDestination address)
 		{
 			return _Engine.DoAsync((tx) =>
 			{
 				var info = new KeyPathInformation()
 				{
 					ScriptPubKey = address.ScriptPubKey,
-					TrackedSource = new AddressTrackedSource(address)
+					TrackedSource = (TrackedSource)address
 				};
 				var bytes = ToBytes(info);
 				GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);

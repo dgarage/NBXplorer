@@ -76,7 +76,7 @@ namespace NBXplorer{
 		{
 			if (Transaction == null)
 				return;
-			var scriptPubKey = (TrackedSource as AddressTrackedSource)?.Address.ScriptPubKey;
+			var scriptPubKey = (TrackedSource as IDestination)?.ScriptPubKey;
 			for (int i = 0; i < Transaction.Outputs.Count; i++)
 			{
 				var output = Transaction.Outputs[i];
@@ -132,7 +132,7 @@ namespace NBXplorer{
 												   Output: o,
 												   KeyPath: KnownKeyPathMapping.TryGet(o.ScriptPubKey),
 												   DerivationScheme : (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy))
-							.Where(o => o.KeyPath != null || o.Output.ScriptPubKey == (trackedSource as AddressTrackedSource)?.Address.ScriptPubKey)
+							.Where(o => o.KeyPath != null || o.Output.ScriptPubKey == (trackedSource as IDestination)?.ScriptPubKey)
 							.Select(o => new MatchedOutput()
 							{
 								Index = o.Index,

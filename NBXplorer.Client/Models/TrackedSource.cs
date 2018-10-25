@@ -90,7 +90,7 @@ namespace NBXplorer.Models
 		}
 	}
 
-	public class AddressTrackedSource : TrackedSource
+	public class AddressTrackedSource : TrackedSource, IDestination
 	{
 		// Note that we should in theory access BitcoinAddress. But parsing BitcoinAddress is very expensive, so we keep storing plain strings
 		public AddressTrackedSource(BitcoinAddress address)
@@ -107,6 +107,8 @@ namespace NBXplorer.Models
 		{
 			get;
 		}
+
+		public Script ScriptPubKey => Address.ScriptPubKey;
 
 		public static bool TryParse(ReadOnlySpan<char> strSpan, out TrackedSource addressTrackedSource, Network network)
 		{

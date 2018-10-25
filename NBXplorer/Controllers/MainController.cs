@@ -420,9 +420,9 @@ namespace NBXplorer.Controllers
 					AddressPoolService.RefillAddressPoolIfNeeded(network, dts.DerivationStrategy, feature);
 				}
 			}
-			else if (trackedSource is AddressTrackedSource ats)
+			else if (trackedSource is IDestination ats)
 			{
-				await RepositoryProvider.GetRepository(network).Track(ats.Address);
+				await RepositoryProvider.GetRepository(network).Track(ats);
 			}
 			return Ok();
 		}
@@ -795,8 +795,8 @@ namespace NBXplorer.Controllers
 		{
 			if (trackedSource is DerivationSchemeTrackedSource dsts)
 				return transactions.GetKeyPath(s) != null;
-			else if (trackedSource is AddressTrackedSource addr)
-				return addr.Address.ScriptPubKey == s;
+			else if (trackedSource is IDestination addr)
+				return addr.ScriptPubKey == s;
 			else
 				throw new NotSupportedException();
 		}
