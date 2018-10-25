@@ -657,3 +657,67 @@ Returns:
 ```
 
 The fee rate is in satoshi/byte.
+
+## Scan UTXO Set
+
+NBXplorer can scan the UTXO Set for output belonging to your derivationScheme.
+
+HTTP POST v1/cryptos/BTC/derivations/{derivationScheme}/utxos/scan
+
+In order to not consume too much RAM, NBXplorer splits the addresses to scan in several `batch` and scan the whole UTXO set sequentially.
+Three branches are scanned: 0/*, 1/* and *.
+
+In UTXOs in one branch get found, all the addresses of an inferior index before will be considered used.
+
+Query parameters:
+
+* `batchSize` the number of addresses scanned at once per derivation scheme branch (default: 1000)
+* `gapLimit` If no UTXO are detected in this interval, the scan stop (default: 10000)
+* `from` the first address index to check (default: 0)
+
+This call queue the request for scanning and returns immediately.
+
+Error codes:
+
+* HTTP 405: `scanutxoset-not-suported` ScanUTXOSet is not supported for this currency
+* HTTP 409: `scanutxoset-in-progress` ScanUTXOSet has already been called for this derivationScheme
+* HTTP 400: `rpc-unavailable`
+
+## Get scan status
+
+You can poll the status of the scan. Note that if the scan is complete, the result will be kept for 24H.
+The state can be:
+
+* `Queued` the demand has been done, but the scan request is queuing to be started
+* `Pending` the scan is in progress
+* `Complete` the scan is successful
+* `Error` the scan errored
+
+```json
+{
+  "error": null,
+  "queuedAt": 1540439841,
+  "status": "Pending",
+  "progress": {
+    "startedAt": 1540439841,
+    "completedAt": null,
+    "found": 2,
+    "batchNumber": 9,
+	"remainingBatches": 1,
+    "currentBatchProgress": 50,
+    "overallProgress": 91,
+    "from": 900,
+    "count": 100,
+    "totalSearched": 2700,
+    "highestKeyIndexFound": {
+      "change": null,
+      "deposit": 51,
+      "direct": null
+    }
+  }
+}
+```
+
+Error codes:
+
+* HTTP 404 `scanutxoset-info-not-found` if the scan has been done above the last 24H.
