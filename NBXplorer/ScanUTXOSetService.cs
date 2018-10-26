@@ -168,8 +168,8 @@ namespace NBXplorer
 									var result = await scanning.WithCancellation(cts.Token);
 									var progressObj = workItem.State.Progress.Clone();
 									progressObj.BatchNumber++;
-									progressObj.Found += result.Outputs.Length;
 									progressObj.From += progressObj.Count;
+									progressObj.Found += result.Outputs.Length;
 									progressObj.TotalSearched += scannedItems.Descriptors.Count;
 									progressObj.UpdateRemainingBatches(workItem.Options.GapLimit);
 									progressObj.UpdateOverallProgress();
@@ -178,16 +178,17 @@ namespace NBXplorer
 
 									if (progressObj.RemainingBatches <= -1)
 									{
-										progressObj.BatchNumber -= progressObj.RemainingBatches;
-										workItem.State.Status = ScanUTXOStatus.Complete;
-										progressObj = workItem.State.Progress.Clone();
+										progressObj.BatchNumber--;
+										progressObj.From -= progressObj.Count;
+										progressObj.TotalSizeOfUTXOSet = result.SearchedItems;
 										progressObj.CompletedAt = DateTimeOffset.UtcNow;
 										progressObj.RemainingBatches = 0;
 										progressObj.CurrentBatchProgress = 100;
 										progressObj.UpdateRemainingBatches(workItem.Options.GapLimit);
 										progressObj.UpdateOverallProgress();
 										workItem.State.Progress = progressObj;
-										Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning {workItem.DerivationStrategy.ToPrettyString()} complete");
+										workItem.State.Status = ScanUTXOStatus.Complete;
+										Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning {workItem.DerivationStrategy.ToPrettyString()} complete {progressObj.Found} UTXOs found in total");
 										break;
 									}
 									else

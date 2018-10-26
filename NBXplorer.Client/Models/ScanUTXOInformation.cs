@@ -30,6 +30,7 @@ namespace NBXplorer.Models
 		public int From { get; set; }
 		public int Count { get; set; }
 		public int TotalSearched { get; set; }
+		public int? TotalSizeOfUTXOSet { get; set; }
 
 		public void UpdateOverallProgress(DateTimeOffset? now = null)
 		{

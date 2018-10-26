@@ -710,6 +710,7 @@ The state can be:
     "from": 900,
     "count": 100,
     "totalSearched": 2700,
+	"TotalSizeOfUTXOSet": null,
     "highestKeyIndexFound": {
       "change": null,
       "deposit": 51,
@@ -718,6 +719,8 @@ The state can be:
   }
 }
 ```
+
+`TotalSizeOfUTXOSet` is set only when the scan is complete.
 
 Error codes:
 
