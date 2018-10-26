@@ -449,6 +449,12 @@ namespace NBXplorer
 
 			group.ConnectedNodes.Added += ConnectedNodes_Changed;
 			group.ConnectedNodes.Removed += ConnectedNodes_Changed;
+
+			// !Hack. ExplorerBehavior.AttachCore is async and calling the repository.
+			// Because the repository is single thread, calling a ping make sure that AttachCore
+			// has fully ran.
+			// Without this hack, NBXplorer takes sometimes 1 min to go from Synching to Ready state
+			await _Repository.Ping();
 		}
 
 		private static async Task WaitConnected(NodesGroup group)
