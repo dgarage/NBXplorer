@@ -80,7 +80,14 @@ namespace NBXplorer.Controllers
 		{
 			var network = GetNetwork(cryptoCode, true);
 			var waiter = Waiters.GetWaiter(network);
-			var rate = await waiter.RPC.TryEstimateSmartFeeAsync(blockCount);
+			EstimateSmartFeeResponse rate = null;
+			try
+			{
+				rate = await waiter.RPC.TryEstimateSmartFeeAsync(blockCount);
+			}
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+			{
+			}
 			if (rate == null)
 				throw new NBXplorerError(400, "fee-estimation-unavailable", $"It is currently impossible to estimate fees, please try again later.").AsException();
 			return new GetFeeRateResult() { BlockCount = rate.Blocks, FeeRate = rate.FeeRate };
