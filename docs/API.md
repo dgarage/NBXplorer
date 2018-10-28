@@ -710,7 +710,7 @@ The state can be:
     "from": 900,
     "count": 100,
     "totalSearched": 2700,
-    "TotalSizeOfUTXOSet": null,
+    "totalSizeOfUTXOSet": null,
     "highestKeyIndexFound": {
       "change": null,
       "deposit": 51,
