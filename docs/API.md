@@ -665,7 +665,7 @@ NBXplorer can scan the UTXO Set for output belonging to your derivationScheme.
 HTTP POST v1/cryptos/BTC/derivations/{derivationScheme}/utxos/scan
 
 In order to not consume too much RAM, NBXplorer splits the addresses to scan in several `batch` and scan the whole UTXO set sequentially.
-Three branches are scanned: 0/*, 1/* and *.
+Three branches are scanned: 0/x, 1/x and x.
 
 In UTXOs in one branch get found, all the addresses of an inferior index before will be considered used.
 
