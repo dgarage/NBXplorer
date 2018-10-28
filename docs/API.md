@@ -667,7 +667,7 @@ HTTP POST v1/cryptos/BTC/derivations/{derivationScheme}/utxos/scan
 In order to not consume too much RAM, NBXplorer splits the addresses to scan in several `batch` and scan the whole UTXO set sequentially.
 Three branches are scanned: 0/x, 1/x and x.
 
-In UTXOs in one branch get found, all the addresses of an inferior index before will be considered used.
+If a UTXO in one branch get found at a specific x, then all addresses inferior to index x will be considered used and not proposed when fetching a new unused address.
 
 Query parameters:
 
