@@ -299,7 +299,7 @@ namespace NBXplorer
 		{
 			using(var tx = await _ContextFactory.GetContext())
 			{
-				var index = new Index(tx, $"{_Suffix}Locks", $"{new DerivationSchemeTrackedSource(derivationStrategy).GetHash()}");
+				var index = new Index(tx, $"{_Suffix}Locks", $"{new DerivationSchemeTrackedSource(derivationStrategy, Network.NBitcoinNetwork).GetHash()}");
 				while(!await index.TakeLock())
 				{
 					await Task.Delay(500, cancellation);
@@ -379,7 +379,7 @@ namespace NBXplorer
 				{
 					ScriptPubKey = derivation.ScriptPubKey,
 					Redeem = derivation.Redeem,
-					TrackedSource = new DerivationSchemeTrackedSource(strategy),
+					TrackedSource = new DerivationSchemeTrackedSource(strategy, Network.NBitcoinNetwork),
 					DerivationStrategy = strategy,
 					Feature = derivationFeature,
 					KeyPath = DerivationStrategyBase.GetKeyPath(derivationFeature).Derive(index, false)
@@ -598,7 +598,7 @@ namespace NBXplorer
 			{
 				if (keyPathInfo.TrackedSource == null && keyPathInfo.DerivationStrategy != null)
 				{
-					keyPathInfo.TrackedSource = new DerivationSchemeTrackedSource(keyPathInfo.DerivationStrategy);
+					keyPathInfo.TrackedSource = new DerivationSchemeTrackedSource(keyPathInfo.DerivationStrategy, Network.NBitcoinNetwork);
 				}
 			}
 			return result;

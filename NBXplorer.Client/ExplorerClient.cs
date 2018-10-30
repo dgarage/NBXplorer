@@ -209,7 +209,7 @@ namespace NBXplorer
 		{
 			if (extKey == null)
 				throw new ArgumentNullException(nameof(extKey));
-			return GetUTXOsAsync(TrackedSource.Create(extKey), confirmedBookmarks, unconfirmedBookmarks, longPolling, cancellation);
+			return GetUTXOsAsync(TrackedSource.Create(extKey, this.Network.NBitcoinNetwork), confirmedBookmarks, unconfirmedBookmarks, longPolling, cancellation);
 		}
 		public async Task<UTXOChanges> GetUTXOsAsync(TrackedSource trackedSource, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, bool longPolling = true, CancellationToken cancellation = default)
 		{
@@ -263,7 +263,7 @@ namespace NBXplorer
 		}
 		public Task TrackAsync(DerivationStrategyBase strategy, CancellationToken cancellation = default)
 		{
-			return TrackAsync(TrackedSource.Create(strategy), cancellation);
+			return TrackAsync(TrackedSource.Create(strategy, Network.NBitcoinNetwork), cancellation);
 		}
 
 		public void Track(TrackedSource trackedSource, CancellationToken cancellation = default)
@@ -348,7 +348,7 @@ namespace NBXplorer
 		}
 		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, Bookmark[] replacedBookmarks, bool longPolling, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(TrackedSource.Create(strategy), confirmedBookmarks, unconfirmedBookmarks, replacedBookmarks, longPolling, cancellation);
+			return GetTransactionsAsync(TrackedSource.Create(strategy, this.Network.NBitcoinNetwork), confirmedBookmarks, unconfirmedBookmarks, replacedBookmarks, longPolling, cancellation);
 		}
 		public Task<GetTransactionsResponse> GetTransactionsAsync(TrackedSource trackedSource, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, Bookmark[] replacedBookmarks, bool longPolling, CancellationToken cancellation = default)
 		{

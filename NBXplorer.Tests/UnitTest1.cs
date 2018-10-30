@@ -78,7 +78,7 @@ namespace NBXplorer.Tests
 			var seria = new Serializer(Network.RegTest);
 			var keyInfo = new KeyPathInformation()
 			{
-				TrackedSource = new DerivationSchemeTrackedSource(dummy),
+				TrackedSource = new DerivationSchemeTrackedSource(dummy, Network.RegTest),
 				DerivationStrategy = dummy,
 				Feature = DerivationFeature.Change,
 				KeyPath = new KeyPath("0/1"),
@@ -176,7 +176,7 @@ namespace NBXplorer.Tests
 			repository.SaveMatches(new[] {
 				new TrackedTransaction(
 					new TrackedTransactionKey(tx.GetHash(), null, false),
-					new DerivationSchemeTrackedSource(strat),
+					new DerivationSchemeTrackedSource(strat, repository.Network.NBitcoinNetwork),
 					tx,
 					new Dictionary<Script, KeyPath>()
 					{
@@ -240,7 +240,7 @@ namespace NBXplorer.Tests
 				// If the transaction get broadcasted, she would have spent 0.3 BTC
 				Assert.True(aliceBalance.Total.Almost(Money.Coins(1.7m), 0.01m));
 
-				var signed = tx.Sign(alice, aliceExtKey);
+				var signed = tx.Sign(alice, aliceExtKey, tester.Network);
 				var broadcast = tester.Client.Broadcast(signed);
 				Assert.True(broadcast.Success);
 
@@ -263,7 +263,7 @@ namespace NBXplorer.Tests
 
 				// Now Bob sends 0.1 to satoshi
 				tx = tester.Client.LockUTXOs(bob, new LockUTXOsRequest() { Amount = Money.Coins(0.1m), Destination = satoshi.ToString(), FeeRate = new FeeRate(100, 1) });
-				signed = tx.Sign(bob, bobExtKey);
+				signed = tx.Sign(bob, bobExtKey, tester.Network);
 				broadcast = tester.Client.Broadcast(signed);
 				Assert.True(broadcast.Success);
 
@@ -785,7 +785,7 @@ namespace NBXplorer.Tests
 				}
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
-
+				Thread.Sleep(1000);
 				// Now it should get pruned
 				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey, null);
@@ -810,7 +810,7 @@ namespace NBXplorer.Tests
 
 		private static TransactionInformation AssertExist(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
 		{
-			return AssertExist(tester, new DerivationSchemeTrackedSource(pubkey), txid);
+			return AssertExist(tester, new DerivationSchemeTrackedSource(pubkey, tester.Network), txid);
 		}
 		private static TransactionInformation AssertExist(ServerTester tester, TrackedSource pubkey, uint256 txid)
 		{
@@ -948,6 +948,7 @@ namespace NBXplorer.Tests
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
+					Assert.NotNull(txEvent.Outputs.First().Address);
 				}
 
 				using (var connected = tester.Client.CreateNotificationSession())
@@ -1561,6 +1562,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(0, result.UnconfirmedTransactions.Transactions[0].Confirmations);
 				Assert.Equal(result.UnconfirmedTransactions.Transactions[0].Transaction.GetHash(), result.UnconfirmedTransactions.Transactions[0].TransactionId);
 				Assert.Equal(Money.Coins(1.0m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
+				Assert.NotNull(result.UnconfirmedTransactions.Transactions[0].Outputs[0].Address);
 
 				tester.Client.IncludeTransaction = false;
 				result = tester.Client.GetTransactions(pubkey, new[] { Bookmark.Start }, new[] { Bookmark.Start }, new[] { Bookmark.Start });
@@ -1597,6 +1599,7 @@ namespace NBXplorer.Tests
 				var txId3 = tester.SendToAddress(tester.AddressOf(key, "0/1"), Money.Coins(0.2m));
 				result = tester.Client.GetTransactions(pubkey, result);
 				Assert.Equal(Money.Coins(-0.8m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
+				Assert.NotNull(result.UnconfirmedTransactions.Transactions[0].Inputs[0].Address);
 			}
 		}
 

@@ -37,7 +37,7 @@ namespace NBXplorer.Models
 			return true;
 		}
 
-
+		public abstract Network Network { get; }
 		public override bool Equals(object obj)
 		{
 			TrackedSource item = obj as TrackedSource;
@@ -64,11 +64,13 @@ namespace NBXplorer.Models
 			return ToString().GetHashCode();
 		}
 
-		public static DerivationSchemeTrackedSource Create(DerivationStrategyBase strategy)
+		public static DerivationSchemeTrackedSource Create(DerivationStrategyBase strategy, Network network)
 		{
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
-			return new DerivationSchemeTrackedSource(strategy);
+			if (network == null)
+				throw new ArgumentNullException(nameof(network));
+			return new DerivationSchemeTrackedSource(strategy, network);
 		}
 		public static AddressTrackedSource Create(BitcoinAddress address)
 		{
@@ -100,6 +102,8 @@ namespace NBXplorer.Models
 			_FullAddressString = "ADDRESS:" + address;
 			Address = address;
 		}
+
+		public override Network Network => Address.Network;
 
 		string _FullAddressString;
 
@@ -135,14 +139,18 @@ namespace NBXplorer.Models
 
 	public class DerivationSchemeTrackedSource : TrackedSource
 	{
-		public DerivationSchemeTrackedSource(DerivationStrategy.DerivationStrategyBase derivationStrategy)
+		public DerivationSchemeTrackedSource(DerivationStrategy.DerivationStrategyBase derivationStrategy, Network network)
 		{
 			if (derivationStrategy == null)
 				throw new ArgumentNullException(nameof(derivationStrategy));
+			if (network == null)
+				throw new ArgumentNullException(nameof(network));
 			DerivationStrategy = derivationStrategy;
+			Network = network;
 		}
 
 		public DerivationStrategy.DerivationStrategyBase DerivationStrategy { get; }
+		public override Network Network { get; }
 
 		public static bool TryParse(ReadOnlySpan<char> strSpan, out DerivationSchemeTrackedSource derivationSchemeTrackedSource, Network network)
 		{
@@ -157,7 +165,7 @@ namespace NBXplorer.Models
 			{
 				var factory = new DerivationStrategy.DerivationStrategyFactory(network);
 				var derivationScheme = factory.Parse(strSpan.Slice("DERIVATIONSCHEME:".Length).ToString());
-				derivationSchemeTrackedSource = new DerivationSchemeTrackedSource(derivationScheme);
+				derivationSchemeTrackedSource = new DerivationSchemeTrackedSource(derivationScheme, network);
 				return true;
 			}
 			catch { return false; }

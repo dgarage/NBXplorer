@@ -45,6 +45,7 @@ namespace NBXplorer.Models
 		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public KeyPath KeyPath { get; set; }
 		public Script ScriptPubKey { get; set; }
+		public string Address { get; set; }
 		public Script Redeem { get; set; }
 		public int Index { get; set; }
 		public Money Value { get; set; }

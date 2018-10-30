@@ -19,7 +19,7 @@ namespace NBXplorer.Models
 			ScriptPubKey = derivation.ScriptPubKey;
 			Address = derivation.ScriptPubKey.GetDestinationAddress(network).ToString();
 			Redeem = derivation.Redeem;
-			TrackedSource = new DerivationSchemeTrackedSource(derivationStrategy);
+			TrackedSource = new DerivationSchemeTrackedSource(derivationStrategy, network);
 			DerivationStrategy = derivationStrategy;
 			Feature = DerivationStrategyBase.GetFeature(keyPath);
 			KeyPath = keyPath;

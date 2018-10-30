@@ -134,6 +134,7 @@ namespace NBXplorer{
 								Value = o.Output.Amount,
 								KeyPath = o.KeyPath,
 								ScriptPubKey = o.Output.ScriptPubKey,
+								Address = o.Output.ScriptPubKey.GetDestinationAddress(trackedSource.Network).ToString(),
 								Redeem = o.DerivationScheme == null || o.KeyPath == null
 											? null
 											: o.DerivationScheme.Derive(o.KeyPath).Redeem

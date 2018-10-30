@@ -42,7 +42,7 @@ namespace NBXplorer
 									DerivationStrategyBase derivationStrategy)
 			{
 				Network = network;
-				DerivationStrategy = new DerivationSchemeTrackedSource(derivationStrategy);
+				DerivationStrategy = new DerivationSchemeTrackedSource(derivationStrategy, network.NBitcoinNetwork);
 				Id = DerivationStrategy.ToString();
 				StartTime = DateTime.UtcNow;
 			}

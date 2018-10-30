@@ -58,9 +58,9 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
-		public Transaction Sign(DerivationStrategyBase derivationScheme, ExtKey key)
+		public Transaction Sign(DerivationStrategyBase derivationScheme, ExtKey key, Network network)
 		{
-			var txBuilder = new TransactionBuilder();
+			var txBuilder = network.CreateTransactionBuilder();
 			txBuilder.AddCoins(SpentCoins.Select(s => CreateCoin(derivationScheme, s)).ToArray());
 			txBuilder.AddKeys(SpentCoins.Select(s => key.Derive(s.KeyPath).PrivateKey).ToArray());
 			return txBuilder.SignTransaction(Transaction);

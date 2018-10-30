@@ -465,10 +465,8 @@ namespace NBXplorer.Controllers
 				throw new ArgumentNullException(nameof(derivationScheme));
 			if (request?.Destination == null)
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "Invalid destination address"));
-
-			var trackedSource = GetTrackedSource(derivationScheme, null);
 			var network = GetNetwork(cryptoCode, false);
-
+			var trackedSource = GetTrackedSource(derivationScheme, null, network.NBitcoinNetwork);
 			BitcoinAddress destinationAddress = null;
 			try
 			{
@@ -581,10 +579,10 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
 			BitcoinAddress address)
 		{
-			TrackedSource trackedSource = GetTrackedSource(derivationScheme, address);
+			var network = GetNetwork(cryptoCode, false);
+			TrackedSource trackedSource = GetTrackedSource(derivationScheme, address, network.NBitcoinNetwork);
 			if (trackedSource == null)
 				return NotFound();
-			var network = GetNetwork(cryptoCode, false);
 			if (trackedSource is DerivationSchemeTrackedSource dts)
 			{
 				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
@@ -603,13 +601,13 @@ namespace NBXplorer.Controllers
 			return Ok();
 		}
 
-		private static TrackedSource GetTrackedSource(DerivationStrategyBase derivationScheme, BitcoinAddress address)
+		private static TrackedSource GetTrackedSource(DerivationStrategyBase derivationScheme, BitcoinAddress address, Network network)
 		{
 			TrackedSource trackedSource = null;
 			if (address != null)
 				trackedSource = new AddressTrackedSource(address);
 			if (derivationScheme != null)
-				trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
+				trackedSource = new DerivationSchemeTrackedSource(derivationScheme, network);
 			return trackedSource;
 		}
 		static TimeSpan LongPollTimeout = TimeSpan.FromSeconds(10);
@@ -631,7 +629,8 @@ namespace NBXplorer.Controllers
 			bool includeTransaction = true,
 			bool longPolling = false)
 		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
+			var network = GetNetwork(cryptoCode, false);
+			var trackedSource = GetTrackedSource(derivationScheme, address, network.NBitcoinNetwork);
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
 			GetTransactionsResponse response = null;
@@ -639,7 +638,7 @@ namespace NBXplorer.Controllers
 			{
 				if (longPolling)
 					cts.CancelAfter(LongPollTimeout);
-				var network = GetNetwork(cryptoCode, false);
+				
 				var chain = ChainProvider.GetChain(network);
 				var repo = RepositoryProvider.GetRepository(network);
 
@@ -837,7 +836,7 @@ namespace NBXplorer.Controllers
 			var network = GetNetwork(cryptoCode, false);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
-			var trackedSource = GetTrackedSource(derivationScheme, null);
+			var trackedSource = GetTrackedSource(derivationScheme, null, network.NBitcoinNetwork);
 
 			GetBalanceResponse response = new GetBalanceResponse();
 
@@ -894,7 +893,8 @@ namespace NBXplorer.Controllers
 			HashSet<Bookmark> unconfirmedBookmarks = null,
 			bool longPolling = false)
 		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
+			var network = GetNetwork(cryptoCode, false);
+			var trackedSource = GetTrackedSource(derivationScheme, address, network.NBitcoinNetwork);
 			unconfirmedBookmarks = unconfirmedBookmarks ?? new HashSet<Bookmark>();
 			confirmedBookmarks = confirmedBookmarks ?? new HashSet<Bookmark>();
 			UTXOChanges changes = null;
@@ -905,7 +905,6 @@ namespace NBXplorer.Controllers
 			{
 				if (longPolling)
 					cts.CancelAfter(LongPollTimeout);
-				var network = GetNetwork(cryptoCode, false);
 				var chain = ChainProvider.GetChain(network);
 				var repo = RepositoryProvider.GetRepository(network);
 
@@ -1120,7 +1119,7 @@ namespace NBXplorer.Controllers
 			BitcoinAddress address)
 		{
 			var network = GetNetwork(cryptoCode, true);
-			var trackedSource = GetTrackedSource(derivationScheme ?? extPubKey, address);
+			var trackedSource = GetTrackedSource(derivationScheme ?? extPubKey, address, network.NBitcoinNetwork);
 			var tx = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
 			var stream = new BitcoinStream(Request.Body, false);
 			tx.ReadWrite(stream);
