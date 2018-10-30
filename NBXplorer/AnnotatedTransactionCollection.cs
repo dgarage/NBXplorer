@@ -59,7 +59,6 @@ namespace NBXplorer
 		{
 			foreach(var tx in transactions)
 			{
-				_TxById.Add(tx.Record.TransactionHash, tx);
 				foreach(var keyPathInfo in tx.Record.KnownKeyPathMapping)
 				{
 					_KeyPaths.TryAdd(keyPathInfo.Key, keyPathInfo.Value);
@@ -71,12 +70,13 @@ namespace NBXplorer
 										.Where(tx => tx.Type == AnnotatedTransactionType.Confirmed).ToList()
 										.TopologicalSort())
 			{
-				if(state.Apply(confirmed.Record) == ApplyTransactionResult.Conflict
-					|| !ConfirmedTransactions.TryAdd(confirmed.Record.TransactionHash, confirmed))
+				if(state.Apply(confirmed.Record) == ApplyTransactionResult.Conflict)
 				{
 					Logs.Explorer.LogError("A conflict among confirmed transaction happened, this should be impossible");
 					throw new InvalidOperationException("The impossible happened");
 				}
+				ConfirmedTransactions.Add(confirmed);
+				_TxById.Add(confirmed.Record.TransactionHash, confirmed);
 			}
 
 			foreach(var unconfirmed in transactions
@@ -85,23 +85,22 @@ namespace NBXplorer
 										.ToList()
 										.TopologicalSort())
 			{
-				var hash = unconfirmed.Record.TransactionHash;
-				if(ConfirmedTransactions.ContainsKey(hash))
+				if(_TxById.ContainsKey(unconfirmed.Record.TransactionHash))
 				{
+					_TxById.Add(unconfirmed.Record.TransactionHash, unconfirmed);
 					DuplicatedTransactions.Add(unconfirmed);
 				}
 				else
 				{
 					if(state.Apply(unconfirmed.Record) == ApplyTransactionResult.Conflict)
 					{
-						ReplacedTransactions.TryAdd(hash, unconfirmed);
+						_TxById.Add(unconfirmed.Record.TransactionHash, unconfirmed);
+						ReplacedTransactions.Add(unconfirmed);
 					}
 					else
 					{
-						if(!UnconfirmedTransactions.TryAdd(hash, unconfirmed))
-						{
-							throw new InvalidOperationException("The impossible happened (!UnconfirmedTransactions.TryAdd(hash, unconfirmed))");
-						}
+						_TxById.Add(unconfirmed.Record.TransactionHash, unconfirmed);
+						UnconfirmedTransactions.Add(unconfirmed);
 					}
 				}
 			}
@@ -136,20 +135,20 @@ namespace NBXplorer
 			return new List<AnnotatedTransaction>();
 		}
 
-		public Dictionary<uint256, AnnotatedTransaction> ReplacedTransactions
+		public List<AnnotatedTransaction> ReplacedTransactions
 		{
 			get; set;
-		} = new Dictionary<uint256, AnnotatedTransaction>();
+		} = new List<AnnotatedTransaction>();
 
-		public Dictionary<uint256, AnnotatedTransaction> ConfirmedTransactions
+		public List<AnnotatedTransaction> ConfirmedTransactions
 		{
 			get; set;
-		} = new Dictionary<uint256, AnnotatedTransaction>();
+		} = new List<AnnotatedTransaction>();
 
-		public Dictionary<uint256, AnnotatedTransaction> UnconfirmedTransactions
+		public List<AnnotatedTransaction> UnconfirmedTransactions
 		{
 			get; set;
-		} = new Dictionary<uint256, AnnotatedTransaction>();
+		} = new List<AnnotatedTransaction>();
 
 		public List<AnnotatedTransaction> DuplicatedTransactions
 		{

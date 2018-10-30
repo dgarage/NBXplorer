@@ -840,6 +840,7 @@ namespace NBXplorer.Tests
 
 				tester.RPC.EnsureGenerate(1);
 
+				var o = utxoAlice;
 				utxoAlice = tester.Client.GetUTXOs(alicePubKey, utxoAlice);
 				utxoBob = tester.Client.GetUTXOs(bobPubKey, utxoBob);
 

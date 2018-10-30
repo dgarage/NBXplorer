@@ -507,7 +507,7 @@ namespace NBXplorer.Controllers
 						item.TxSet.KnownBookmark = item.KnownBookmarks.Contains(Bookmark.Start) ? Bookmark.Start : null;
 
 						BookmarkProcessor processor = new BookmarkProcessor(32 + 32 + 25);
-						foreach (var tx in item.AnnotatedTx.Values)
+						foreach (var tx in item.AnnotatedTx)
 						{
 							processor.PushNew();
 							processor.AddData(tx.Record.TransactionHash);
@@ -707,9 +707,9 @@ namespace NBXplorer.Controllers
 					var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
 
 					var states = UTXOStateResult.CreateStates(unconfirmedBookmarks,
-															transactions.UnconfirmedTransactions.Values.Select(c => c.Record),
+															transactions.UnconfirmedTransactions.Select(c => c.Record),
 															confirmedBookmarks,
-															transactions.ConfirmedTransactions.Values.Select(c => c.Record));
+															transactions.ConfirmedTransactions.Select(c => c.Record));
 
 					changes.Confirmed = SetUTXOChange(states.Confirmed);
 					changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
@@ -758,7 +758,7 @@ namespace NBXplorer.Controllers
 				// Step2. Make sure that all their parent are also prunable (Ancestors first)
 				if (prunableIds.Count != 0)
 				{
-					foreach (var tx in transactions.ConfirmedTransactions.Values.TopologicalSort())
+					foreach (var tx in transactions.ConfirmedTransactions)
 					{
 						if (prunableIds.Count == 0)
 							break;
@@ -930,7 +930,7 @@ namespace NBXplorer.Controllers
 				{
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Trying to broadcast unconfirmed of the wallet");
 					var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
-					foreach (var existing in transactions.UnconfirmedTransactions.Values)
+					foreach (var existing in transactions.UnconfirmedTransactions)
 					{
 						var t = existing.Record.Transaction ?? (await repo.GetSavedTransactions(existing.Record.TransactionHash)).Select(c => c.Transaction).FirstOrDefault();
 						if (t == null)
