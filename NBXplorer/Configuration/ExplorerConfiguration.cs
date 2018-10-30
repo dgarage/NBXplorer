@@ -76,7 +76,7 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
-
+		public TimeSpan? AutoPruningTime { get; set; }
 		public int MinGapSize
 		{
 			get; set;
@@ -123,6 +123,7 @@ namespace NBXplorer.Configuration
 					var chainConfiguration = new ChainConfiguration();
 					chainConfiguration.Rescan = config.GetOrDefault<bool>($"{network.CryptoCode}.rescan", false);
 					chainConfiguration.CryptoCode = network.CryptoCode;
+
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
 					chainConfiguration.RPC = args.ConfigureRPCClient(network);
 					if ((chainConfiguration.RPC.CredentialString.CookieFile != null || chainConfiguration.RPC.CredentialString.UseDefault) && !network.SupportCookieAuthentication)
@@ -145,6 +146,9 @@ namespace NBXplorer.Configuration
 				throw new ConfigException($"Invalid chains {invalidChains}");
 
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
+			AutoPruningTime = TimeSpan.FromSeconds(config.GetOrDefault<int>("autopruning", -1));
+			if (AutoPruningTime.Value < TimeSpan.Zero)
+				AutoPruningTime = null;
 			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);
 			MaxGapSize = config.GetOrDefault<int>("maxgapsize", 30);
 			PostgresConnectionString = config.GetOrDefault<string>("postgres", null);
@@ -157,6 +161,13 @@ namespace NBXplorer.Configuration
 				Directory.CreateDirectory(DataDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
+
+			AzureServiceBusConnectionString = config.GetOrDefault<string>("asbcnstr", "");
+			AzureServiceBusBlockQueue = config.GetOrDefault<string>("asbblockq", "");
+			AzureServiceBusTransactionQueue = config.GetOrDefault<string>("asbtranq", "");
+			AzureServiceBusBlockTopic = config.GetOrDefault<string>("asbblockt", "");
+			AzureServiceBusTransactionTopic = config.GetOrDefault<string>("asbtrant", "");
+
 			return this;
 		}
 
@@ -171,6 +182,34 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public bool NoAuthentication
+		{
+			get;
+			set;
+		}
+		public string AzureServiceBusConnectionString
+		{
+			get;
+			set;
+		}
+
+		public string AzureServiceBusBlockQueue
+		{
+			get;
+			set;
+		}
+
+		public string AzureServiceBusBlockTopic
+		{
+			get;
+			set;
+		}
+
+		public string AzureServiceBusTransactionQueue
+		{
+			get;
+			set;
+		}
+		public string AzureServiceBusTransactionTopic
 		{
 			get;
 			set;

@@ -25,6 +25,10 @@ using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Tests
 {
+	public class ServerParams
+	{
+		public string AutoPruning { get; set; }
+	}
 	public partial class ServerTester : IDisposable
 	{
 		public class Options
@@ -32,11 +36,11 @@ namespace NBXplorer.Tests
 			public int MinGap
 			{
 				get; set;
-			} = 2;
+			} = 3;
 			public int MaxGap
 			{
 				get; set;
-			} = 4;
+			} = 8;
 
 			public int FallbackFeeRate
 			{
@@ -52,12 +56,12 @@ namespace NBXplorer.Tests
 
 		public void Dispose()
 		{
-			if(Host != null)
+			if (Host != null)
 			{
 				Host.Dispose();
 				Host = null;
 			}
-			if(NodeBuilder != null)
+			if (NodeBuilder != null)
 			{
 				NodeBuilder.Dispose();
 				NodeBuilder = null;
@@ -80,7 +84,7 @@ namespace NBXplorer.Tests
 				var rootTestData = "TestData";
 				directory = Path.Combine(rootTestData, directory);
 				_Directory = directory;
-				if(!Directory.Exists(rootTestData))
+				if (!Directory.Exists(rootTestData))
 					Directory.CreateDirectory(rootTestData);
 
 				var cryptoSettings = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode(CryptoCode);
@@ -90,7 +94,7 @@ namespace NBXplorer.Tests
 				User1 = NodeBuilder.CreateNode();
 				User2 = NodeBuilder.CreateNode();
 				Explorer = NodeBuilder.CreateNode();
-				foreach(var node in NodeBuilder.Nodes)
+				foreach (var node in NodeBuilder.Nodes)
 				{
 					node.WhiteBind = true;
 					node.CookieAuth = cryptoSettings.SupportCookieAuthentication;
@@ -105,11 +109,13 @@ namespace NBXplorer.Tests
 				User1.Sync(User2, true);
 
 				var connectionString = Environment.GetEnvironmentVariable("TESTS_POSTGRES") ?? "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer" + RandomUtils.GetUInt64();
+				var port = CustomServer.FreeTcpPort();
 				var datadir = Path.Combine(directory, "explorer");
 				DeleteRecursivelyWithMagicDust(datadir);
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
 				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
 				keyValues.Add(("datadir", datadir));
+				keyValues.Add(("port", port.ToString()));
 				keyValues.Add(("network", "regtest"));
 				keyValues.Add(("chains", CryptoCode.ToLowerInvariant()));
 				keyValues.Add(("verbose", "1"));
@@ -123,6 +129,11 @@ namespace NBXplorer.Tests
 				keyValues.Add(("postgres", connectionString));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
 				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
+				keyValues.Add(("asbcnstr", AzureServiceBusTestConfig.ConnectionString));
+				keyValues.Add(("asbblockq", AzureServiceBusTestConfig.NewBlockQueue));
+				keyValues.Add(("asbtranq", AzureServiceBusTestConfig.NewTransactionQueue));
+				keyValues.Add(("asbblockt", AzureServiceBusTestConfig.NewBlockTopic));
+				keyValues.Add(("asbtrant", AzureServiceBusTestConfig.NewTransactionTopic));
 
 				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
 				Host = new WebHostBuilder()
@@ -142,10 +153,12 @@ namespace NBXplorer.Tests
 				RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(CryptoCode);
 				var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
 				Network = nbxnetwork.NBitcoinNetwork;
+				var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 				Host.Start();
-
+				Configuration = conf;
 				_Client = new ExplorerClient(nbxnetwork, Address);
-				_Client.SetCookieAuth(Path.Combine(ExplorerConfiguration.DataDir, ".cookie"));
+				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
+				this.Client.WaitServerStarted();
 			}
 			catch
 			{
@@ -178,6 +191,8 @@ namespace NBXplorer.Tests
 				return new Uri(address);
 			}
 		}
+
+		public ExplorerConfiguration Configuration { get; }
 
 		ExplorerClient _Client;
 		public ExplorerClient Client
@@ -240,13 +255,13 @@ namespace NBXplorer.Tests
 				DeleteRecursivelyWithMagicDust(directory);
 				return true;
 			}
-			catch(DirectoryNotFoundException)
+			catch (DirectoryNotFoundException)
 			{
 				return true;
 			}
-			catch(Exception)
+			catch (Exception)
 			{
-				if(throws)
+				if (throws)
 					throw;
 			}
 			return false;
@@ -256,19 +271,19 @@ namespace NBXplorer.Tests
 		public static void DeleteRecursivelyWithMagicDust(string destinationDir)
 		{
 			const int magicDust = 10;
-			for(var gnomes = 1; gnomes <= magicDust; gnomes++)
+			for (var gnomes = 1; gnomes <= magicDust; gnomes++)
 			{
 				try
 				{
 					Directory.Delete(destinationDir, true);
 				}
-				catch(DirectoryNotFoundException)
+				catch (DirectoryNotFoundException)
 				{
 					return;  // good!
 				}
-				catch(IOException)
+				catch (IOException)
 				{
-					if(gnomes == magicDust)
+					if (gnomes == magicDust)
 						throw;
 					// System.IO.IOException: The directory is not empty
 					System.Diagnostics.Debug.WriteLine("Gnomes prevent deletion of {0}! Applying magic dust, attempt #{1}.", destinationDir, gnomes);
@@ -277,9 +292,9 @@ namespace NBXplorer.Tests
 					Thread.Sleep(100 * gnomes);
 					continue;
 				}
-				catch(UnauthorizedAccessException)
+				catch (UnauthorizedAccessException)
 				{
-					if(gnomes == magicDust)
+					if (gnomes == magicDust)
 						throw;
 					// Wait, maybe another software make us authorized a little later
 					System.Diagnostics.Debug.WriteLine("Gnomes prevent deletion of {0}! Applying magic dust, attempt #{1}.", destinationDir, gnomes);
@@ -306,13 +321,13 @@ namespace NBXplorer.Tests
 			Directory.CreateDirectory(target.FullName);
 
 			// Copy each file into the new directory.
-			foreach(FileInfo fi in source.GetFiles())
+			foreach (FileInfo fi in source.GetFiles())
 			{
 				fi.CopyTo(Path.Combine(target.FullName, fi.Name), true);
 			}
 
 			// Copy each subdirectory using recursion.
-			foreach(DirectoryInfo diSourceSubDir in source.GetDirectories())
+			foreach (DirectoryInfo diSourceSubDir in source.GetDirectories())
 			{
 				DirectoryInfo nextTargetSubDir =
 					target.CreateSubdirectory(diSourceSubDir.Name);
@@ -327,7 +342,7 @@ namespace NBXplorer.Tests
 
 		public BitcoinAddress AddressOf(BitcoinExtKey key, string path)
 		{
-			if(SupportSegwit())
+			if (this.RPC.Capabilities.SupportSegwit)
 				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.WitHash.GetAddress(Network);
 			else
 				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.Hash.GetAddress(Network);
@@ -345,41 +360,57 @@ namespace NBXplorer.Tests
 		public DerivationStrategyBase CreateDerivationStrategy(ExtPubKey pubKey, bool p2sh)
 		{
 			pubKey = pubKey ?? new ExtKey().Neuter();
-			string suffix = SupportSegwit() ? "" : "-[legacy]";
+			string suffix = this.RPC.Capabilities.SupportSegwit ? "" : "-[legacy]";
 			suffix += p2sh ? "-[p2sh]" : "";
 			return new DerivationStrategyFactory(this.Network).Parse($"{pubKey.ToString(this.Network)}{suffix}");
 		}
-
-		public bool RPCSupportSegwit
-		{
-			get; set;
-		} = true;
 
 		public bool RPCStringAmount
 		{
 			get; set;
 		} = true;
 
-		public bool SupportSegwit()
-		{
-			return RPCSupportSegwit && Network.Consensus.SupportSegwit;
-		}
-
 		public uint256 SendToAddress(BitcoinAddress address, Money amount)
 		{
 			return SendToAddressAsync(address, amount).GetAwaiter().GetResult();
+		}
+
+		public uint256 SendToAddress(Script scriptPubKey, Money amount)
+		{
+			return SendToAddressAsync(scriptPubKey.GetDestinationAddress(Network), amount).GetAwaiter().GetResult();
+		}
+		public Task<uint256> SendToAddressAsync(Script scriptPubKey, Money amount)
+		{
+			return SendToAddressAsync(scriptPubKey.GetDestinationAddress(Network), amount);
 		}
 
 		public async Task<uint256> SendToAddressAsync(BitcoinAddress address, Money amount)
 		{
 			List<object> parameters = new List<object>();
 			parameters.Add(address.ToString());
-			if(RPCStringAmount)
+			if (RPCStringAmount)
 				parameters.Add(amount.ToString());
 			else
 				parameters.Add(amount.ToDecimal(MoneyUnit.BTC));
 			var resp = await RPC.SendCommandAsync(RPCOperations.sendtoaddress, parameters.ToArray());
 			return uint256.Parse(resp.Result.ToString());
+		}
+
+		internal void WaitSynchronized()
+		{
+			using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+			{
+				while (true)
+				{
+					cts.Token.ThrowIfCancellationRequested();
+					var status = Client.GetStatus();
+					if (status.SyncHeight == status.BitcoinStatus.Blocks)
+					{
+						break;
+					}
+					Thread.Sleep(50);
+				}
+			}
 		}
 	}
 }

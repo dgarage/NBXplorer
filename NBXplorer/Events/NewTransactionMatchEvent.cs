@@ -9,9 +9,9 @@ namespace NBXplorer.Events
 {
     public class NewTransactionMatchEvent
     {
-		public NewTransactionMatchEvent(string cryptoCode, uint256 blockId, TransactionMatch match, Repository.SavedTransaction savedTransaction)
+		public NewTransactionMatchEvent(string cryptoCode, uint256 blockId, TrackedTransaction trackedTransaction, Repository.SavedTransaction savedTransaction)
 		{
-			Match = match;
+			TrackedTransaction = trackedTransaction;
 			BlockId = blockId;
 			SavedTransaction = savedTransaction;
 			CryptoCode = cryptoCode;
@@ -27,11 +27,10 @@ namespace NBXplorer.Events
 			get; set;
 		}
 
-		public TransactionMatch Match
+		public TrackedTransaction TrackedTransaction
 		{
 			get; set;
 		}
-
 		public Repository.SavedTransaction SavedTransaction
 		{
 			get; set;
@@ -39,16 +38,19 @@ namespace NBXplorer.Events
 
 		public override string ToString()
 		{
-			var conf = (BlockId == null ? "Unconfirmed" : "Confirmed");
+			var conf = (BlockId == null ? "unconfirmed" : "confirmed");
 
-			var strategy = Match.DerivationStrategy.ToString();
-			if(strategy.Length > 35)
-			{
-				strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
-			}
-			var txId = Match.Transaction.GetHash().ToString();
+			string strategy = TrackedTransaction.TrackedSource.ToPrettyString();
+			var txId = TrackedTransaction.TransactionHash.ToString();
 			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
-			return $"{CryptoCode}: Money received in {strategy} in transaction {txId} ({conf})";
+
+			string keyPathSuffix = string.Empty;
+			if (TrackedTransaction.KnownKeyPathMapping.Count != 0)
+			{
+				var keyPaths = TrackedTransaction.KnownKeyPathMapping.Values.Select(v => v.ToString()).ToArray();
+				keyPathSuffix = $" ({String.Join(", ", keyPaths)})";
+			}
+			return $"{CryptoCode}: {strategy} matching {conf} transaction {txId}{keyPathSuffix}";
 		}
 	}
 }

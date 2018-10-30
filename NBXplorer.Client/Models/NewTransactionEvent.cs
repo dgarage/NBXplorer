@@ -1,17 +1,23 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
+using Newtonsoft.Json;
 
 namespace NBXplorer.Models
 {
-	public class NewTransactionEvent
+	public class NewTransactionEvent : NewEventBase
 	{
 		public uint256 BlockId
 		{
 			get; set;
 		}
+
+		public TrackedSource TrackedSource { get; set; }
+
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 
 		public DerivationStrategyBase DerivationStrategy
 		{
@@ -23,24 +29,29 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
-		public List<KeyPathInformation> Outputs
+		public List<MatchedOutput> Outputs
 		{
 			get; set;
-		} = new List<KeyPathInformation>();
+		} = new List<MatchedOutput>();
 
-		public List<KeyPathInformation> Inputs
+		public Coin[] GetReceivedCoins()
 		{
-			get; set;
-		} = new List<KeyPathInformation>();
-		public string CryptoCode
-		{
-			get;
-			set;
+			return Outputs.Select(o => o.AsCoin(TransactionData.TransactionHash)).ToArray();
 		}
+	}
 
-		public TransactionMatch AsMatch()
+	public class MatchedOutput
+	{
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+		public KeyPath KeyPath { get; set; }
+		public Script ScriptPubKey { get; set; }
+		public Script Redeem { get; set; }
+		public int Index { get; set; }
+		public Money Value { get; set; }
+		public Coin AsCoin(uint256 txId)
 		{
-			return new TransactionMatch() { DerivationStrategy = DerivationStrategy, Inputs = Inputs, Outputs = Outputs, Transaction = TransactionData.Transaction };
+			var coin = new Coin(new OutPoint(txId, (int)Index), new TxOut() { ScriptPubKey = ScriptPubKey, Value = Value });
+			return Redeem == null ? coin : coin.ToScriptCoin(Redeem);
 		}
 	}
 }

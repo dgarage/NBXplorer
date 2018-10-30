@@ -4,28 +4,28 @@
 
 A minimalist UTXO tracker for HD Wallets.
 The goal is to have a flexible, .NET based UTXO tracker for HD wallets.
-The explorer supports only P2PKH derivation for now but will be able to support more complex generation in near future. (m-n, segwit, p2sh)
+The explorer supports P2SH,P2PKH,P2WPKH,P2WSH and Multi-sig derivation.
 
 This explorer is not meant to be exposed on internet, but should be used as an internal tool for tracking the UTXOs of your own service.
 
 It currently supports:
 
-* Bitcoin
-* Litecoin
-* Dogecoin
-* Groestlcoin
-* Dash
-* Polis
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
-* Monacoin
+* Bitcoin
+* Dash
+* Dogecoin
 * Feathercoin
+* Groestlcoin
+* Litecoin
+* Monacoin
+* Polis
 * Ufo
 * Viacoin
 
 ## Prerequisite
 
-* Install [.NET Core 2.1](https://www.microsoft.com/net/download)
+* Install [.NET Core SDK v2.1.4 (with patch version >= 402)](https://www.microsoft.com/net/download)
 * Bitcoin Core instance synched and running (at least 0.16.0).
 
 ## API Specification
@@ -85,7 +85,7 @@ NBXplorer supports configuration through command line arguments, configuration f
 ### Configuration file
 
 If you are not using standard install for bitcoind, you will have to change the configuration file:
-In Windows it is located on
+In Windows it is located in
 
 ```
 C:\Users\<user>\AppData\Roaming\NBXplorer\<network>\settings.config
@@ -96,29 +96,117 @@ On linux or mac:
 ~/.nbxplorer/<network>/settings.config
 ```
 
-The default configuration assume `mainnet` with only `btc` chain supported, and use default settings of bitcoind.
+The default configuration assumes `mainnet` with only `btc` chain supported, and uses the default settings of bitcoind.
 
 You can change the location of the configuration file with the `--conf=pathToConf` command line argument.
 
 ### Command line parameters
 
-The same settings as above, for example: `dotnet run NBXplorer.dll -- --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939`.
+#### From Source (.NET Core SDK required)
+The same settings as above, e.g.
+```dotnet run NBXplorer.dll --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939```
+
+#### From Built DLL (.NET Core Runtime required)
+```dotnet NBXplorer.dll --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939```
 
 ### Environment variables
 
 The same settings as above, for example `export NBXPLORER_PORT=20300`. This is usefull for configuring docker.
 
+## How to Run 
+
+### Command Line
+
+You can use the [dotnet](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet) command which is part of .NET Core to run NBXplorer. To run from source you must have the .NET Core SDK installed e.g. 
+```dotnet run NBXplorer.dll```
+As described above you may add configuration parameters if desired.
+
+If you have a compiled version of NBXplorer you should have a file in your build folder named NBXplorer.dll. This cannot itself be directly executed on the command line as it is not an executable file. Instead we can use the `dotnet` runtime to execute the dll file.
+
+e.g.
+```dotnet NBXplorer.dll ```
+
+
 ## Important Note
 
 This tool will only start scanning from the configured `startheight`. (By default, the height of the blockchain during your first run)
-This mean that you might not see old payment from you HD key.
+This means that you might not see old payments from your HD key.
 
 If you need to see old payments, you need to configure `startheight` to a specific height of your choice, then run with again with `-rescan`.
 
 ## How to query?
 
+### Using Postman
+[Postman](https://www.getpostman.com) is a useful tool for testing and experimenting with REST API's. 
+
+You can test the NBXplorer API quickly and easily using Postman as follows :
+* Assumption: you are using the default Cookie Auth , you are running NBXplorer on the same machine as your BTC (or other supported crypto) node or NBXplorer can access the blockchain data files.
+* Run NBXplorer and locate you cookie file - note NBXplorer will generate a new Cookie file each time it runs
+* In Postman create a new GET API test
+* In Authorization select *Basic Auth*, you should see 2 input boxes for username and password
+* Open your cookie file with a text editor e.g. Notepad on windows . You should see a cookie string e.g. `__cookie__:0ff9cd83a5ac7c19a6b56a3d1e7a5c96e113d42dba7720a1f72a3a5e8c4b6c66`
+* Back in Postman paste the `__cookie__` part of your cookie file into username (whatever comes before the :)
+* Paste the Hex string (after the : ) into the password box
+* Click the Update Request button in Postman - this will force Postman to generate the correct HTTP headers based on your cookie details
+* You should now see a new entry in the Headers section with a Key of *Authorization* and Value of *Basic xxxxxxxxx* where the string after `Basic` will be your Base64 encoded username and password.
+
+You are now ready to test the API - it is easiest to start with something simple such as the fees endpoint e.g.
+
+```http://localhost:24444/v1/cryptos/btc/fees/3```
+
+this should return a JSON payload e.g.
+
+{
+    "feeRate": 9,
+    "blockCount": 3
+}
+
+## Message Brokers
+### Azure Service Bus
+Support has been added for Azure Service Bus as a message broker. Currently 2 Queues and 2 Topics are supported
+
+### Queues
+* New Block
+* New Transaction
+
+### Topics
+* New Block
+* New Transaction
+
+
+Filters should be applied on the client, if required. 
+
+To activate Azure Service Bus Mesages you should add an Azure Service Bus Connection string to your config file or on the command line.
+
+* To use queues you should specify the queue names you wish to use
+* To use topics you should specify the topic names you wish to use
+
+You can use both queues and topics at the same time.
+
+#### Config Settings
+
+If you use the Configuration file to setup your NBXplorer options:
+
+```ini
+asbcnstr=Your Azure Service Bus Connection string
+asbblockq=Name of queue to send New Block message to
+asbtranq=Name of queue to send New Transaction message to
+asbblockt=Name of topic to send New Block message to
+asbtrant=[Name of queue to send New Transaction message to
+```
+
+Payloads are JSON and map to `NewBlockEvent`, `NewTransactionEvent` in the `NBXplorer.Models` namespace. There is no support in NBXplorer client for Azure Service Bus at the current time. You will need to use the `Serializer` in `NBXplorer.Client` to De-serialize the objects or then implement your own JSON de-serializers for the custom types used in the payload.
+
+#### Troubleshooting
+If you receive a 401 Unauthorized then your cookie data is not working. Check you are using the current cookie by opening the cookie file again - also check the date/time of the cookie file to ensure it is the latest cookie (generated when you launched NBXplorer).
+
+If you receive a 404 or timeout then Postman cannot see the endpoint
+* are you using the correct Port ? 
+* are you running postman on localhost ?
+
+## Client API
 A better documentation is on the way, for now the only documentation is the client API in C# on [nuget](https://www.nuget.org/packages/NBxplorer.Client).
-The `ExplorerClient` classes allows you to query unused address, and the UTXO of a HD PubKey.
+The `ExplorerClient` classes allows you to query unused addresses, and the UTXO of an HD PubKey.
 You can take a look at [the tests](https://github.com/dgarage/NBXplorer/blob/master/NBXplorer.Tests/UnitTest1.cs) to see how it works.
 
 There is a simple use case documented on [Blockchain Programming in C#](https://programmingblockchain.gitbooks.io/programmingblockchain/content/wallet/web-api.html).

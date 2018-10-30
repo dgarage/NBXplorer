@@ -6,8 +6,8 @@ using System.Text;
 
 namespace NBXplorer.Models
 {
-    public class GetTransactionsResponse
-    {
+	public class GetTransactionsResponse
+	{
 		public int Height
 		{
 			get; set;
@@ -57,6 +57,7 @@ namespace NBXplorer.Models
 
 	public class TransactionInformationMatch
 	{
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public KeyPath KeyPath
 		{
 			get; set;
@@ -92,15 +93,15 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
-		public List<TransactionInformationMatch> Outputs
+		public List<MatchedOutput> Outputs
 		{
 			get; set;
-		} = new List<TransactionInformationMatch>();
+		} = new List<MatchedOutput>();
 
-		public List<TransactionInformationMatch> Inputs
+		public List<MatchedOutput> Inputs
 		{
 			get; set;
-		} = new List<TransactionInformationMatch>();
+		} = new List<MatchedOutput>();
 		public DateTimeOffset Timestamp
 		{
 			get;

@@ -14,6 +14,7 @@ using System.Net;
 using NBitcoin.Protocol.Behaviors;
 using Microsoft.Extensions.Hosting;
 using NBXplorer.Events;
+using Newtonsoft.Json.Linq;
 
 namespace NBXplorer
 {
@@ -41,6 +42,7 @@ namespace NBXplorer
 		Dictionary<string, BitcoinDWaiter> _Waiters;
 		public BitcoinDWaiters(
 							BitcoinDWaitersAccessor accessor,
+							AddressPoolServiceAccessor addressPool,
 								NBXplorerNetworkProvider networkProvider,
 							  ChainProvider chains,
 							  RepositoryProvider repositoryProvider,
@@ -61,6 +63,7 @@ namespace NBXplorer
 												networkProvider.GetFromCryptoCode(s.Network.CryptoCode),
 												s.Chain,
 												s.Repository,
+												addressPool.Instance,
 												eventAggregator))
 				.ToDictionary(s => s.Network.CryptoCode, s => s);
 		}
@@ -95,9 +98,11 @@ namespace NBXplorer
 		RPCClient _RPC;
 		NBXplorerNetwork _Network;
 		ExplorerConfiguration _Configuration;
+		private readonly AddressPoolService _AddressPoolService;
 		SlimChain _Chain;
 		private Repository _Repository;
 		EventAggregator _EventAggregator;
+		private readonly ChainConfiguration _ChainConfiguration;
 
 		public BitcoinDWaiter(
 			RPCClient rpc,
@@ -105,15 +110,20 @@ namespace NBXplorer
 			NBXplorerNetwork network,
 			SlimChain chain,
 			Repository repository,
+			AddressPoolService addressPoolService,
 			EventAggregator eventAggregator)
 		{
+			if(addressPoolService == null)
+				throw new ArgumentNullException(nameof(addressPoolService));
 			_RPC = rpc;
 			_Configuration = configuration;
+			_AddressPoolService = addressPoolService;
 			_Network = network;
 			_Chain = chain;
 			_Repository = repository;
 			State = BitcoinDWaiterState.NotStarted;
 			_EventAggregator = eventAggregator;
+			_ChainConfiguration = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
 		}
 		public NodeState NodeState
 		{
@@ -166,13 +176,17 @@ namespace NBXplorer
 				throw new ObjectDisposedException(nameof(BitcoinDWaiter));
 
 			_Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-			_Loop = StartLoop(_Cts.Token);
-			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(s => _Tick.Set());
+			_Loop = StartLoop(_Cts.Token, _Tick);
+			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(s =>
+			{
+				_Tick.Set();
+			});
 			return Task.CompletedTask;
 		}
+
 		AutoResetEvent _Tick = new AutoResetEvent(false);
 
-		private async Task StartLoop(CancellationToken token)
+		private async Task StartLoop(CancellationToken token, AutoResetEvent tick)
 		{
 			try
 			{
@@ -183,12 +197,12 @@ namespace NBXplorer
 						while(await StepAsync(token))
 						{
 						}
-						await Task.WhenAny(_Tick.WaitOneAsync(), Task.Delay(PollingInterval, token));
+						await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(PollingInterval, token));
 					}
 					catch(Exception ex) when(!token.IsCancellationRequested)
 					{
-						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled exception in BitcoinDWaiter");
-						await Task.WhenAny(_Tick.WaitOneAsync(), Task.Delay(TimeSpan.FromSeconds(5.0), token));
+						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled in Waiter loop");
+						await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(TimeSpan.FromSeconds(5.0), token));
 					}
 				}
 			}
@@ -227,6 +241,12 @@ namespace NBXplorer
 			State = BitcoinDWaiterState.NotStarted;
 			_Chain = null;
 			_Tick.Set();
+			_Tick.Dispose();
+			try
+			{
+				_Loop.Wait();
+			}
+			catch { }
 			return _Loop;
 		}
 
@@ -241,7 +261,7 @@ namespace NBXplorer
 					try
 					{
 						blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
-						if(blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest && !GetChainConfiguration().NoWarmup)
+						if(blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest && !_ChainConfiguration.NoWarmup)
 						{
 							if(await WarmupBlockchain())
 							{
@@ -392,7 +412,7 @@ namespace NBXplorer
 		private async Task LoadGroup()
 		{
 			AddressManager manager = new AddressManager();
-			manager.Add(new NetworkAddress(GetEndpoint()), IPAddress.Loopback);
+			manager.Add(new NetworkAddress(_ChainConfiguration.NodeEndpoint), IPAddress.Loopback);
 			NodesGroup group = new NodesGroup(_Network.NBitcoinNetwork, new NodeConnectionParameters()
 			{
 				Services = NodeServices.Nothing,
@@ -404,7 +424,7 @@ namespace NBXplorer
 						PeersToDiscover = 1,
 						Mode = AddressManagerBehaviorMode.None
 					},
-					new ExplorerBehavior(_Repository, _Chain, _EventAggregator) { StartHeight = GetChainConfiguration().StartHeight },
+					new ExplorerBehavior(_Repository, _Chain, _AddressPoolService, _EventAggregator) { StartHeight = _ChainConfiguration.StartHeight },
 					new SlimChainBehavior(_Chain),
 					new PingPongBehavior()
 				}
@@ -429,16 +449,7 @@ namespace NBXplorer
 
 			group.ConnectedNodes.Added += ConnectedNodes_Changed;
 			group.ConnectedNodes.Removed += ConnectedNodes_Changed;
-		}
-
-		private ChainConfiguration GetChainConfiguration()
-		{
-			return _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
-		}
-
-		private IPEndPoint GetEndpoint()
-		{
-			return _Configuration.ChainConfigurations.Where(c => c.CryptoCode == Network.CryptoCode).Select(c => c.NodeEndpoint).FirstOrDefault();
+			await _Repository.Ping();
 		}
 
 		private static async Task WaitConnected(NodesGroup group)
@@ -479,7 +490,7 @@ namespace NBXplorer
 
 		private async Task LoadChainFromNode(CancellationToken cancellation)
 		{
-			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from node...");
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from node ({_ChainConfiguration.NodeEndpoint.Address.ToString()}:{_ChainConfiguration.NodeEndpoint.Port})...");
 			var userAgent = "NBXplorer-" + RandomUtils.GetInt64();
 			bool handshaked = false;
 			using(var handshakeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
@@ -487,7 +498,7 @@ namespace NBXplorer
 				try
 				{
 					handshakeTimeout.CancelAfter(TimeSpan.FromSeconds(10));
-					using(var node = Node.Connect(_Network.NBitcoinNetwork, GetEndpoint(), new NodeConnectionParameters()
+					using(var node = Node.Connect(_Network.NBitcoinNetwork, _ChainConfiguration.NodeEndpoint, new NodeConnectionParameters()
 					{
 						UserAgent = userAgent,
 						ConnectCancellation = handshakeTimeout.Token,

@@ -174,7 +174,7 @@ namespace NBXplorer.DB
 			return QueryGenericRows<TValue>(query, partitionKeyParam);
 		}
 
-		internal int Count(string partitionKey, string rowKey)
+		internal async Task<int> Count(string partitionKey, string rowKey)
 		{
 			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
 			var query = $"SELECT COUNT(*) FROM \"GenericTables\" " +
@@ -184,7 +184,7 @@ namespace NBXplorer.DB
 			{
 				command.CommandText = query;
 				command.Parameters.Add(partitionKeyParam);
-				return (int)(long)command.ExecuteScalar();
+				return (int)(long)await command.ExecuteScalarAsync();
 			}
 		}
 
@@ -274,7 +274,6 @@ namespace NBXplorer.DB
 				return updated;
 			}
 		}
-
 		public void Dispose()
 		{
 			_Parent.Return(Connection);
