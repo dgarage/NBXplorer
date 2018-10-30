@@ -568,6 +568,7 @@ namespace NBXplorer
 				};
 				var bytes = ToBytes(info);
 				GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
+				tx.Commit();
 			});
 		}
 
