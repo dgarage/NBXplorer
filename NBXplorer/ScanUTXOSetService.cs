@@ -52,6 +52,7 @@ namespace NBXplorer
 			public NBXplorerNetwork Network { get; }
 			public DerivationSchemeTrackedSource DerivationStrategy { get; set; }
 			public ScanUTXOInformation State { get; set; }
+			public bool Finished { get; internal set; }
 		}
 
 		class ScannedItems
@@ -85,7 +86,7 @@ namespace NBXplorer
 				Options = options
 			};
 
-			var value = _Progress.AddOrUpdate(workItem.Id, workItem, (k, existing) => existing.State.Status == ScanUTXOStatus.Complete || existing.State.Status == ScanUTXOStatus.Error ? workItem : existing);
+			var value = _Progress.AddOrUpdate(workItem.Id, workItem, (k, existing) => existing.Finished ? workItem : existing);
 			if (value != workItem)
 				return false;
 			if (!_Channel.Writer.TryWrite(workItem.Id))
@@ -93,18 +94,18 @@ namespace NBXplorer
 				_Progress.TryRemove(workItem.Id, out var unused);
 				return false;
 			}
-			CleanProgressList(workItem);
+			CleanProgressList();
 			return true;
 		}
 
-		private void CleanProgressList(ScanUTXOWorkItem workItem)
+		private void CleanProgressList()
 		{
 			var now = DateTimeOffset.UtcNow;
 			List<string> toCleanup = new List<string>();
-			foreach (var item in _Progress.Values)
+			foreach (var item in _Progress.Values.Where(p => p.Finished))
 			{
 				if (now - item.StartTime > TimeSpan.FromHours(24))
-					toCleanup.Add(workItem.Id);
+					toCleanup.Add(item.Id);
 			}
 			foreach (var i in toCleanup)
 				_Progress.TryRemove(i, out var unused);
@@ -130,7 +131,11 @@ namespace NBXplorer
 			{
 				while (await _Channel.Reader.WaitToReadAsync(_Cts.Token) && _Channel.Reader.TryRead(out var item))
 				{
-					var workItem = _Progress[item];
+					if (!_Progress.TryGetValue(item, out var workItem))
+					{
+						Logs.Explorer.LogError($"{workItem.Network.CryptoCode}: Work has been scheduled for {item}, but the work has not been found in _Progress dictionary. This is likely a bug, contact NBXplorer developers.");
+						continue;
+					}
 					Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning {workItem.DerivationStrategy.ToPrettyString()} from index {workItem.Options.From} with gap limit {workItem.Options.GapLimit}, batch size {workItem.Options.BatchSize}");
 					var rpc = RpcClients.GetRPCClient(workItem.Network);
 					var chain = Chains.GetChain(workItem.Network);
@@ -218,6 +223,7 @@ namespace NBXplorer
 					{
 						await rpc.AbortScanTxoutSetAsync();
 					}
+					workItem.Finished = true;
 				}
 			}
 			catch (OperationCanceledException) when (_Cts.IsCancellationRequested)
