@@ -19,6 +19,7 @@ It currently supports:
 * Groestlcoin
 * Litecoin
 * Monacoin
+* Navcoin
 * Polis
 * Ufo
 * Viacoin
