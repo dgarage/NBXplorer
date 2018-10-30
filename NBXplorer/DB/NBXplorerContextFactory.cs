@@ -25,8 +25,11 @@ namespace NBXplorer.DB
 
 		int _MaxConnectionCount = 10;
 		int _ConnectionCreated = 0;
+		bool _IsDisposed;
 		public async Task<NBXplorerDBContext> GetContext()
 		{
+			if (_IsDisposed)
+				throw new ObjectDisposedException(nameof(NBXplorerContextFactory));
 		retry:
 			if (!_Available.Reader.TryRead(out var connection))
 			{
@@ -60,6 +63,10 @@ namespace NBXplorer.DB
 			try
 			{
 				await connection.OpenAsync(_Cts.Token);
+			}
+			catch when (_IsDisposed)
+			{
+				throw new ObjectDisposedException(nameof(NBXplorerContextFactory));
 			}
 			catch (Exception ex)
 			{
@@ -126,11 +133,31 @@ namespace NBXplorer.DB
 
 		public void Dispose()
 		{
+			_IsDisposed = true;
 			_Cts.Cancel();
 			lock (_PosgresConnections)
 			{
-				foreach (var connection in _PosgresConnections)
-					connection.Close();
+				int wait = 0;
+				while (_PosgresConnections.Count != 0)
+				{
+					Thread.Sleep(100 * wait);
+					while (_Available.Reader.TryRead(out var connection))
+					{
+						connection.Close();
+						_PosgresConnections.Remove(connection);
+					}
+					if (wait == 5)
+					{
+						Logs.Explorer.LogWarning("Connection leak detected");
+						foreach (var connection in _PosgresConnections.ToList())
+						{
+							connection.Close();
+							_PosgresConnections.Remove(connection);
+						}
+						break;
+					}
+					wait++;
+				}
 			}
 		}
 
