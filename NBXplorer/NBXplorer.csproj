@@ -13,7 +13,7 @@
 	<PackageReference Include="NicolasDorier.CommandLine" Version="1.0.0.2" />
 	<PackageReference Include="NicolasDorier.CommandLine.Configuration" Version="1.0.0.3" />
     <PackageReference Include="System.Xml.XmlSerializer" Version="4.3.0" />
-	<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="2.1" />
+	<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="2.1.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NBXplorer.Client\NBXplorer.Client.csproj" />
