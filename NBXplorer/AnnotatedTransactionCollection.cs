@@ -86,7 +86,6 @@ namespace NBXplorer
                                         .ToList()
                                         .TopologicalSort())
             {
-                var hash = unconfirmed.Record.TransactionHash;
                 if (_TxById.ContainsKey(unconfirmed.Record.TransactionHash))
                 {
                     _TxById.Add(unconfirmed.Record.TransactionHash, unconfirmed);
