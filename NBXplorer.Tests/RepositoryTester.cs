@@ -42,8 +42,6 @@ namespace NBXplorer.Tests
 
 		public void Dispose()
 		{
-			_Provider.Dispose();
-			ServerTester.DeleteFolderRecursive(_Name);
 		}
 
 		private Repository _Repository;

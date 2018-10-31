@@ -1151,7 +1151,6 @@ namespace NBXplorer.Tests
 						continue;
 					Assert.NotNull(utxo.Confirmed.KnownBookmark);
 					Assert.True(utxo.Unconfirmed.HasChanges);
-					Assert.Single(utxo.Unconfirmed.UTXOs);
 					if (new KeyPath($"0/{i}").Equals(utxo.Unconfirmed.UTXOs[0].KeyPath))
 						break;
 				}

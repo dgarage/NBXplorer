@@ -63,9 +63,12 @@ namespace NBXplorer
 	{
 
 
-		public Task Ping()
+		public async Task Ping()
 		{
-			return Task.CompletedTask;
+			using (var ctx = await _ContextFactory.GetContext())
+			{
+
+			}
 		}
 
 		public async Task CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)
