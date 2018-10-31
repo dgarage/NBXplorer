@@ -28,7 +28,7 @@ namespace NBXplorer
 {
 	public class RepositoryProvider : IDisposable
 	{
-		internal class CustomThreadPool : IDisposable
+		internal class CustomThreadPool
 		{
 			CancellationTokenSource _Cancel = new CancellationTokenSource();
 			TaskCompletionSource<bool> _Exited;
@@ -101,13 +101,13 @@ namespace NBXplorer
 				}
 			}
 
-			public void Dispose()
+			public async Task DisposeAsync()
 			{
 				_Cancel.Cancel();
-				_Exited.Task.GetAwaiter().GetResult();
+				await _Exited.Task;
 			}
 		}
-		internal class EngineAccessor : IDisposable
+		internal class EngineAccessor
 		{
 			private DBreezeEngine _Engine;
 			private CustomThreadPool _Pool;
@@ -243,15 +243,15 @@ namespace NBXplorer
 					throw new ObjectDisposedException("EngineAccessor");
 			}
 			bool _Disposed;
-			public void Dispose()
+			public async Task DisposeAsync()
 			{
 				if (!_Disposed)
 				{
 					_Disposed = true;
 					if (_Renew != null)
 						_Renew.Dispose();
-					_Pool.DoAsync(() => DisposeEngine()).GetAwaiter().GetResult();
-					_Pool.Dispose();
+					await _Pool.DoAsync(() => DisposeEngine());
+					await _Pool.DisposeAsync();
 				}
 			}
 		}
@@ -291,7 +291,7 @@ namespace NBXplorer
 
 		public void Dispose()
 		{
-			_Engine.Dispose();
+			Task.Run(_Engine.DisposeAsync);
 		}
 	}
 
