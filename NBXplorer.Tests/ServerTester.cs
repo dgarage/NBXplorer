@@ -111,7 +111,7 @@ namespace NBXplorer.Tests
 				var connectionString = Environment.GetEnvironmentVariable("TESTS_POSTGRES") ?? "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer" + RandomUtils.GetUInt64();
 				var port = CustomServer.FreeTcpPort();
 				var datadir = Path.Combine(directory, "explorer");
-				DeleteRecursivelyWithMagicDust(datadir);
+				DeleteFolderRecursive(datadir);
 				List<(string key, string value)> keyValues = new List<(string key, string value)>();
 				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
 				keyValues.Add(("datadir", datadir));
@@ -252,7 +252,7 @@ namespace NBXplorer.Tests
 		{
 			try
 			{
-				DeleteRecursivelyWithMagicDust(directory);
+				DeleteFolderRecursive(directory);
 				return true;
 			}
 			catch (DirectoryNotFoundException)
@@ -267,45 +267,31 @@ namespace NBXplorer.Tests
 			return false;
 		}
 
-		// http://stackoverflow.com/a/14933880/2061103
-		public static void DeleteRecursivelyWithMagicDust(string destinationDir)
+		public static void DeleteFolderRecursive(string destinationDir)
 		{
-			const int magicDust = 10;
-			for (var gnomes = 1; gnomes <= magicDust; gnomes++)
+			for (var i = 1; i <= 10; i++)
 			{
 				try
 				{
 					Directory.Delete(destinationDir, true);
+					return;
 				}
 				catch (DirectoryNotFoundException)
 				{
-					return;  // good!
+					return;
 				}
 				catch (IOException)
 				{
-					if (gnomes == magicDust)
-						throw;
-					// System.IO.IOException: The directory is not empty
-					System.Diagnostics.Debug.WriteLine("Gnomes prevent deletion of {0}! Applying magic dust, attempt #{1}.", destinationDir, gnomes);
-
-					// see http://stackoverflow.com/questions/329355/cannot-delete-directory-with-directory-deletepath-true for more magic
-					Thread.Sleep(100 * gnomes);
+					Thread.Sleep(100 * i);
 					continue;
 				}
 				catch (UnauthorizedAccessException)
 				{
-					if (gnomes == magicDust)
-						throw;
-					// Wait, maybe another software make us authorized a little later
-					System.Diagnostics.Debug.WriteLine("Gnomes prevent deletion of {0}! Applying magic dust, attempt #{1}.", destinationDir, gnomes);
-
-					// see http://stackoverflow.com/questions/329355/cannot-delete-directory-with-directory-deletepath-true for more magic
-					Thread.Sleep(100);
+					Thread.Sleep(100 * i);
 					continue;
 				}
-				return;
 			}
-			// depending on your use case, consider throwing an exception here
+			throw new IOException($"Impossible to delete folder {destinationDir}");
 		}
 
 		static void Copy(string sourceDirectory, string targetDirectory)

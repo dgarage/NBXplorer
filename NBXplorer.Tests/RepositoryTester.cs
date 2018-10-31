@@ -20,11 +20,11 @@ namespace NBXplorer.Tests
 		RepositoryTester(string name, bool caching)
 		{
 			_Name = name;
-			ServerTester.DeleteRecursivelyWithMagicDust(name);
+			ServerTester.DeleteFolderRecursive(name);
 
 			var dbFactory = new DB.NBXplorerContextFactory(Environment.GetEnvironmentVariable("TESTS_POSTGRES") ?? "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorerr", null);
 			dbFactory.Migrate();
-			_Provider = new RepositoryProvider(dbFactory, new NBXplorerNetworkProvider(NetworkType.Regtest), 
+			_Provider = new RepositoryProvider(dbFactory, new NBXplorerNetworkProvider(NetworkType.Regtest),
 											   new Configuration.ExplorerConfiguration()
 											   {
 												   DataDir = name,
@@ -43,7 +43,7 @@ namespace NBXplorer.Tests
 		public void Dispose()
 		{
 			_Provider.Dispose();
-			ServerTester.DeleteRecursivelyWithMagicDust(_Name);
+			ServerTester.DeleteFolderRecursive(_Name);
 		}
 
 		private Repository _Repository;

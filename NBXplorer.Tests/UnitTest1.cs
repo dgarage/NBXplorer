@@ -534,6 +534,7 @@ namespace NBXplorer.Tests
 		CancellationToken Cancel => new CancellationTokenSource(5000).Token;
 
 		[Fact]
+		[Trait("Azure", "Azure")]
 		public async Task CanSendAzureServiceBusNewBlockEventMessage()
 		{
 
@@ -631,6 +632,7 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		[Trait("Azure", "Azure")]
 		public async Task CanSendAzureServiceBusNewTransactionEventMessage()
 		{
 			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.ConnectionString), "Please Set Azure Service Bus Connection string in TestConfig.cs AzureServiceBusTestConfig Class.");

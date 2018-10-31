@@ -1,4 +1,5 @@
 [![NuGet](https://img.shields.io/nuget/v/NBxplorer.Client.svg)](https://www.nuget.org/packages/NBxplorer.Client) [![Docker Automated buil](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/nicolasdorier/nbxplorer/)
+[![Build status](https://ci.appveyor.com/api/projects/status/c7kqj7a3nf7vmhsk?svg=true)](https://ci.appveyor.com/project/NicolasDorier/nbxplorer)
 
 # NBXplorer
 
