@@ -33,11 +33,6 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		} = new List<MatchedOutput>();
-
-		public Coin[] GetReceivedCoins()
-		{
-			return Outputs.Select(o => o.AsCoin(TransactionData.TransactionHash)).ToArray();
-		}
 	}
 
 	public class MatchedOutput
@@ -46,13 +41,7 @@ namespace NBXplorer.Models
 		public KeyPath KeyPath { get; set; }
 		public Script ScriptPubKey { get; set; }
 		public string Address { get; set; }
-		public Script Redeem { get; set; }
 		public int Index { get; set; }
 		public Money Value { get; set; }
-		public Coin AsCoin(uint256 txId)
-		{
-			var coin = new Coin(new OutPoint(txId, (int)Index), new TxOut() { ScriptPubKey = ScriptPubKey, Value = Value });
-			return Redeem == null ? coin : coin.ToScriptCoin(Redeem);
-		}
 	}
 }
