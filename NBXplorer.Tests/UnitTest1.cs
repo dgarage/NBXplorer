@@ -781,7 +781,6 @@ namespace NBXplorer.Tests
 						Assert.Equal(txOut.Value, output.Value);
 						var derived = ((DerivationSchemeTrackedSource)txEvent.TrackedSource).DerivationStrategy.Derive(output.KeyPath);
 						Assert.Equal(derived.ScriptPubKey, txOut.ScriptPubKey);
-						Assert.Equal(derived.Redeem, output.Redeem);
 					}
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), schemes);
 					schemes.Remove(txEvent.DerivationStrategy.ToString());

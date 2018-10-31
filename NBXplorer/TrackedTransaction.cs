@@ -130,18 +130,14 @@ namespace NBXplorer{
 			return this.ReceivedCoins
 							.Select(o => (Index: (int)o.Outpoint.N,
 												   Output: o,
-												   KeyPath: KnownKeyPathMapping.TryGet(o.ScriptPubKey),
-												   DerivationScheme : (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy))
+												   KeyPath: KnownKeyPathMapping.TryGet(o.ScriptPubKey)))
 							.Where(o => o.KeyPath != null || o.Output.ScriptPubKey == (trackedSource as IDestination)?.ScriptPubKey)
 							.Select(o => new MatchedOutput()
 							{
 								Index = o.Index,
 								Value = o.Output.Amount,
 								KeyPath = o.KeyPath,
-								ScriptPubKey = o.Output.ScriptPubKey,
-								Redeem = o.DerivationScheme == null || o.KeyPath == null
-											? null
-											: o.DerivationScheme.Derive(o.KeyPath).Redeem
+								ScriptPubKey = o.Output.ScriptPubKey
 							});
 		}
 	}
