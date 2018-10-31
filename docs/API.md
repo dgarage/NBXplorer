@@ -148,6 +148,7 @@ Returns:
           {
             "keyPath": "0",
             "scriptPubKey": "0014b39fc4eb5c6dd238d39449b70a2e30d575426d99",
+            "address": "tb1q2tug4uc5auak6q75pf0arukfqcvg53m4gg5m24",
             "index": 1,
             "value": 100000000
           }
