@@ -106,7 +106,7 @@ Optional Parameters:
 
 Returns:
 
-```
+```json
 {
   "height": 104,
   "confirmedTransactions": {
@@ -123,6 +123,7 @@ Returns:
           {
             "keyPath": "0/0",
             "scriptPubKey": "001452f88af314ef3b6d03d40a5fd1f2c906188a4775",
+            "address": "tb1q2tug4uc5auak6q75pf0arukfqcvg53m4gg5m24",
             "index": 1,
             "value": 100000000
           }
@@ -514,7 +515,7 @@ Request:
 
 Response:
 
-```
+```json
 {  
 	"unlockId": "67a8a18412ef4a73e072b793bf37b19c2c7207d5",
    "spentCoins":[  
@@ -555,7 +556,7 @@ HTTP GET v1/cryptos/{cryptoCode}/connect
 
 Once you are connected to the websocket, you can subscribe to block notifications by sending the following JSON to it.
 
-```
+```json
 {
   "type": "subscribeblock",
   "data": {
@@ -566,7 +567,7 @@ Once you are connected to the websocket, you can subscribe to block notification
 
 Then a notification will be delivered through the websocket when a new block is mined:
 
-```
+```json
 {
   "type": "newblock",
   "data": {
@@ -580,7 +581,7 @@ Then a notification will be delivered through the websocket when a new block is 
 
 For notification concerning `Derivation Scheme` transactions, you can subscribe by sending through the websocket:
 
-```
+```json
 {
   "type": "subscribetransaction",
   "data": {
@@ -594,7 +595,7 @@ For notification concerning `Derivation Scheme` transactions, you can subscribe 
 
 Then you will receive such notifications when a transaction is impacting the `derivation scheme`:
 
-```
+```json
 {
   "type": "newtransaction",
   "data": {
@@ -613,7 +614,7 @@ Then you will receive such notifications when a transaction is impacting the `de
       {
         "keyPath": "0/1",
         "scriptPubKey": "a91476de0c5d07fd202880672bc702162b7f18e13aca87",
-        "redeem": "00147d31e1c7959cd047bb7b9b35e4c877a28efe2f0b",
+        "address": "2N45jj76a7YjGLDoKs2mnQ4tt5N7t6R9xoM",
         "index": 0,
         "value": 100000000
       }
@@ -651,7 +652,7 @@ HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses?keyPat
 
 Returns:
 
-```
+```json
 {  
    "feature":"Direct",
    "derivationStrategy":"tpubD6NzVbkrYhZ4XMQSsvfmMmZkVtLgNjhT4wybUXvMLZhThnXHhLn6YWvDsHMK38FvA8JPpfSjtiBHz4yVh3DHB172VmZ4kCawkana9PirYEi-[legacy]",
