@@ -9,7 +9,7 @@ namespace NBXplorer
     {
 		private void InitGobyte(NetworkType networkType)
 		{
-			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Gobyte.Instance, networkType)
+			Add(new NBXplorerNetwork(NBitcoin.Altcoins.GoByte.Instance, networkType)
 			{
 				MinRPCVersion = 120204
 			});
@@ -17,7 +17,7 @@ namespace NBXplorer
 
 		public NBXplorerNetwork GetGBX()
 		{
-			return GetFromCryptoCode(NBitcoin.Altcoins.Gobyte.Instance.CryptoCode);
+			return GetFromCryptoCode(NBitcoin.Altcoins.GoByte.Instance.CryptoCode);
 		}
 	}
 }
