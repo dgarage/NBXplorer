@@ -13,6 +13,8 @@ namespace NBXplorer.Models
 {
 	public class UTXOChanges
 	{
+		public TrackedSource TrackedSource { get; set; }
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public DerivationStrategyBase DerivationStrategy
 		{
 			get; set;
@@ -68,7 +70,7 @@ namespace NBXplorer.Models
 
 		public Coin[] GetUnspentCoins(bool excludeUnconfirmedUTXOs = false)
 		{
-			if(Confirmed.KnownBookmark != null || Unconfirmed.KnownBookmark != null)
+			if (Confirmed.KnownBookmark != null || Unconfirmed.KnownBookmark != null)
 				throw new InvalidOperationException("This UTXOChanges is partial, it is calculate the unspent coins");
 			return GetUnspentUTXOs(excludeUnconfirmedUTXOs).Select(c => c.AsCoin(DerivationStrategy)).ToArray();
 		}
@@ -76,11 +78,11 @@ namespace NBXplorer.Models
 		public UTXO[] GetUnspentUTXOs(bool excludeUnconfirmedUTXOs = false)
 		{
 			Dictionary<OutPoint, UTXO> received = new Dictionary<OutPoint, UTXO>();
-			foreach(var utxo in Confirmed.UTXOs.Concat(excludeUnconfirmedUTXOs ? (IEnumerable<UTXO>)Array.Empty<UTXO>() : Unconfirmed.UTXOs))
+			foreach (var utxo in Confirmed.UTXOs.Concat(excludeUnconfirmedUTXOs ? (IEnumerable<UTXO>)Array.Empty<UTXO>() : Unconfirmed.UTXOs))
 			{
 				received.TryAdd(utxo.Outpoint, utxo);
 			}
-			foreach(var utxo in Confirmed.SpentOutpoints.Concat(Unconfirmed.SpentOutpoints))
+			foreach (var utxo in Confirmed.SpentOutpoints.Concat(Unconfirmed.SpentOutpoints))
 			{
 				received.Remove(utxo);
 			}
@@ -166,12 +168,15 @@ namespace NBXplorer.Models
 		public UTXO(Coin coin)
 		{
 			Outpoint = coin.Outpoint;
+			Index = (int)coin.Outpoint.N;
+			TransactionHash = coin.Outpoint.Hash;
 			Value = coin.TxOut.Value;
 			ScriptPubKey = coin.TxOut.ScriptPubKey;
 		}
 
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-		public DerivationFeature Feature
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+		public DerivationFeature? Feature
 		{
 			get; set;
 		}
@@ -184,12 +189,12 @@ namespace NBXplorer.Models
 		public Coin AsCoin(DerivationStrategy.DerivationStrategyBase derivationStrategy)
 		{
 			var coin = new Coin(Outpoint, new TxOut(Value, ScriptPubKey));
-			if(derivationStrategy != null)
+			if (derivationStrategy != null)
 			{
 				var derivation = derivationStrategy.Derive(KeyPath);
-				if(derivation.ScriptPubKey != coin.ScriptPubKey)
+				if (derivation.ScriptPubKey != coin.ScriptPubKey)
 					throw new InvalidOperationException($"This Derivation Strategy does not own this coin");
-				if(derivation.Redeem != null)
+				if (derivation.Redeem != null)
 					coin = coin.ToScriptCoin(derivation.Redeem);
 			}
 			return coin;
@@ -208,7 +213,8 @@ namespace NBXplorer.Models
 			}
 		}
 
-
+		public int Index { get; set; }
+		public uint256 TransactionHash { get; set; }
 
 		Script _ScriptPubKey;
 		public Script ScriptPubKey
@@ -239,6 +245,7 @@ namespace NBXplorer.Models
 
 		KeyPath _KeyPath;
 
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public KeyPath KeyPath
 		{
 			get

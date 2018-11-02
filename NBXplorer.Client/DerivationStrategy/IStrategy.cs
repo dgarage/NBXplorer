@@ -25,6 +25,8 @@ namespace NBXplorer.DerivationStrategy
 		}
 		public static DerivationFeature GetFeature(KeyPath path)
 		{
+			if (path == null)
+				return DerivationFeature.Deposit;
 			return path.Indexes.Length == 1 ? DerivationFeature.Direct : (DerivationFeature)path.Indexes[0];
 		}
 		public DerivationStrategyBase GetLineFor(DerivationFeature derivationFeature)

@@ -58,6 +58,7 @@ namespace NBXplorer
 			Logs.Configure(loggerFactory);
 			app.UseAuthentication();
 			app.UseWebSockets();
+			//app.UseMiddleware<LogAllRequestsMiddleware>();
 			app.UseMvc();
 		}
 	}

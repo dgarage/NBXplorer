@@ -19,7 +19,7 @@ namespace NBXplorer.Tests
 		RepositoryTester(string name, bool caching)
 		{
 			_Name = name;
-			ServerTester.DeleteRecursivelyWithMagicDust(name);
+			ServerTester.DeleteFolderRecursive(name);
 			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(NetworkType.Regtest), 
 											   new Configuration.ExplorerConfiguration()
 											   {
@@ -39,7 +39,7 @@ namespace NBXplorer.Tests
 		public void Dispose()
 		{
 			_Provider.Dispose();
-			ServerTester.DeleteRecursivelyWithMagicDust(_Name);
+			ServerTester.DeleteFolderRecursive(_Name);
 		}
 
 		private Repository _Repository;

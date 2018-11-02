@@ -12,9 +12,10 @@ namespace NBXplorer.Events
 		{
 
 		}
-		public NewBlockEvent(string cryptoCode, uint256 block)
+		public NewBlockEvent(string cryptoCode, uint256 block, int? height)
 		{
 			BlockId = block;
+			Height = height;
 			CryptoCode = cryptoCode;
 		}
 
@@ -27,10 +28,12 @@ namespace NBXplorer.Events
 		{
 			get; set;
 		}
+		public int? Height { get; }
 
 		public override string ToString()
 		{
-			return $"{CryptoCode}: New block " + BlockId;
+			var heightSuffix = Height.HasValue ? $" ({Height.Value})" : string.Empty;
+			return $"{CryptoCode}: New block {BlockId}{heightSuffix}";
 		}
 	}
 }

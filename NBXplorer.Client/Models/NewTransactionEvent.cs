@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
+using Newtonsoft.Json;
 
 namespace NBXplorer.Models
 {
@@ -12,6 +14,10 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
+
+		public TrackedSource TrackedSource { get; set; }
+
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 
 		public DerivationStrategyBase DerivationStrategy
 		{
@@ -23,20 +29,18 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
-		public List<KeyPathInformation> Outputs
+		public List<MatchedOutput> Outputs
 		{
 			get; set;
-		} = new List<KeyPathInformation>();
+		} = new List<MatchedOutput>();
+	}
 
-		public List<KeyPathInformation> Inputs
-		{
-			get; set;
-		} = new List<KeyPathInformation>();
-
-
-		public TransactionMatch AsMatch()
-		{
-			return new TransactionMatch() { DerivationStrategy = DerivationStrategy, Inputs = Inputs, Outputs = Outputs, Transaction = TransactionData.Transaction };
-		}
+	public class MatchedOutput
+	{
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+		public KeyPath KeyPath { get; set; }
+		public Script ScriptPubKey { get; set; }
+		public int Index { get; set; }
+		public Money Value { get; set; }
 	}
 }

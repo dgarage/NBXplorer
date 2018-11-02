@@ -23,11 +23,11 @@ namespace NBXplorer
 	{
 		public ExplorerBehavior(Repository repo, SlimChain chain, AddressPoolService addressPoolService, EventAggregator eventAggregator)
 		{
-			if(repo == null)
+			if (repo == null)
 				throw new ArgumentNullException(nameof(repo));
-			if(chain == null)
+			if (chain == null)
 				throw new ArgumentNullException(nameof(chain));
-			if(addressPoolService == null)
+			if (addressPoolService == null)
 				throw new ArgumentNullException(nameof(addressPoolService));
 			_Chain = chain;
 			AddressPoolService = addressPoolService;
@@ -68,32 +68,32 @@ namespace NBXplorer
 
 		Timer _Timer;
 
-		public BlockLocator CurrentLocation
-		{
-			get
-			{
-				return _CurrentLocation;
-			}
-		}
+		public BlockLocator CurrentLocation { get; private set; }
 
 		protected override void AttachCore()
 		{
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
-			_CurrentLocation = Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
-			var fork = Chain.FindFork(_CurrentLocation);
-			if(fork == null)
-			{
-				_CurrentLocation = GetDefaultCurrentLocation();
-				fork = Chain.FindFork(_CurrentLocation);
-			}
-			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting scan at block " + fork.Height);
+			Task.Run(Init);
 			_Timer = new Timer(Tick, null, 0, (int)TimeSpan.FromSeconds(30).TotalMilliseconds);
+		}
+
+		private async Task Init()
+		{
+			var currentLocation = await Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
+			var fork = Chain.FindFork(currentLocation);
+			if (fork == null)
+			{
+				currentLocation = GetDefaultCurrentLocation();
+				fork = Chain.FindFork(currentLocation);
+			}
+			CurrentLocation = currentLocation;
+			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting scan at block " + fork.Height);
 		}
 
 		private BlockLocator GetDefaultCurrentLocation()
 		{
-			if(StartHeight > Chain.Height)
+			if (StartHeight > Chain.Height)
 				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight should not be above the current tip");
 			return StartHeight == -1 ?
 				Chain.GetTipLocator() :
@@ -105,22 +105,24 @@ namespace NBXplorer
 		public void AskBlocks()
 		{
 			var node = AttachedNode;
-			if(node == null || node.State != NodeState.HandShaked)
+			if (node == null || node.State != NodeState.HandShaked)
 				return;
-			if(Chain.Height < node.PeerVersion.StartHeight)
+			if (Chain.Height < node.PeerVersion.StartHeight)
 				return;
-			if(_InFlights.Count != 0)
+			if (_InFlights.Count != 0)
 				return;
-			var currentLocation = _CurrentLocation;
+			var currentLocation = CurrentLocation;
+			if (currentLocation == null)
+				return;
 			var currentBlock = Chain.FindFork(currentLocation);
-			if(currentBlock.Height < StartHeight)
+			if (currentBlock.Height < StartHeight)
 				currentBlock = Chain.GetBlock(StartHeight) ?? Chain.TipBlock;
 
 			//Up to date
-			if(Chain.TipBlock.Hash == currentBlock.Hash)
+			if (Chain.TipBlock.Hash == currentBlock.Hash)
 				return;
 
-			
+
 			var invs = Enumerable.Range(0, 50)
 				.Select(i => Chain.GetBlock(i + currentBlock.Height + 1))
 				.Where(_ => _ != null)
@@ -129,7 +131,7 @@ namespace NBXplorer
 				.Where(b => _InFlights.TryAdd(b.Hash, new Download()))
 				.ToArray();
 
-			if(invs.Length != 0)
+			if (invs.Length != 0)
 			{
 				node.SendMessageAsync(new GetDataPayload(invs));
 			}
@@ -148,9 +150,9 @@ namespace NBXplorer
 			{
 				AskBlocks();
 			}
-			catch(Exception ex)
+			catch (Exception ex)
 			{
-				if(AttachedNode == null)
+				if (AttachedNode == null)
 					return;
 				Logs.Explorer.LogError($"{Network.CryptoCode}: Exception in ExplorerBehavior tick loop");
 				Logs.Explorer.LogError(ex.ToString());
@@ -170,8 +172,6 @@ namespace NBXplorer
 			get;
 		}
 
-		BlockLocator _CurrentLocation;
-
 		protected override void DetachCore()
 		{
 			AttachedNode.StateChanged -= AttachedNode_StateChanged;
@@ -183,88 +183,90 @@ namespace NBXplorer
 
 		private void AttachedNode_MessageReceived(Node node, IncomingMessage message)
 		{
-			message.Message.IfPayloadIs<InvPayload>(invs =>
+			if (message.Message.Payload is InvPayload invs)
 			{
 				var data = new GetDataPayload();
-				foreach(var inv in invs.Inventory)
+				foreach (var inv in invs.Inventory)
 				{
 					inv.Type = node.AddSupportedOptions(inv.Type);
-					if(inv.Type.HasFlag(InventoryType.MSG_TX))
+					if (inv.Type.HasFlag(InventoryType.MSG_TX))
 						data.Inventory.Add(inv);
 				}
-				if(data.Inventory.Count != 0)
+				if (data.Inventory.Count != 0)
 					node.SendMessageAsync(data);
-			});
-
-			message.Message.IfPayloadIs<HeadersPayload>(headers =>
+			}
+			else if (message.Message.Payload is HeadersPayload headers)
 			{
-				if(headers.Headers.Count == 0)
+				if (headers.Headers.Count == 0)
 					return;
 				AskBlocks();
-			});
-
-			message.Message.IfPayloadIs<BlockPayload>(block =>
+			}
+			else if (message.Message.Payload is BlockPayload block)
 			{
-				block.Object.Header.PrecomputeHash(false, false);
-				Download o;
-				if(_InFlights.ContainsKey(block.Object.GetHash()))
-				{
-					var currentLocation = Chain.GetLocator(block.Object.GetHash());
-					if(currentLocation == null)
-						return;
-					_CurrentLocation = currentLocation;
-					if(_InFlights.TryRemove(block.Object.GetHash(), out o))
-					{
-						foreach(var tx in block.Object.Transactions)
-							tx.PrecomputeHash(false, true);
-
-						var matches =
-							block.Object.Transactions
-							.SelectMany(tx => Repository.GetMatches(tx))
-							.ToArray();
-
-						var blockHash = block.Object.GetHash();
-						SaveMatches(matches, blockHash);
-						//Save index progress everytimes if not synching, or once every 100 blocks otherwise
-						if(!IsSynching() || blockHash.GetLow32() % 100 == 0)
-							Repository.SetIndexProgress(currentLocation);
-						_EventAggregator.Publish(new Events.NewBlockEvent(this._Repository.Network.CryptoCode, blockHash));
-					}
-					if(_InFlights.Count == 0)
-						AskBlocks();
-				}
-			});
-
-			message.Message.IfPayloadIs<TxPayload>(txPayload =>
+				Task.Run(() => SaveMatches(block.Object));
+			}
+			else if (message.Message.Payload is TxPayload txPayload)
 			{
-				var matches = Repository.GetMatches(txPayload.Object).ToArray();
-				SaveMatches(matches, null);
-			});
-
+				Task.Run(() => SaveMatches(txPayload.Object));
+			}
 		}
 
-		private void SaveMatches(TransactionMatch[] matches, uint256 blockHash)
+		private async Task SaveMatches(Block block)
 		{
-			DateTimeOffset now = DateTimeOffset.UtcNow;
-			var matchedTransactions = matches.Select(m => new MatchedTransaction()
+			block.Header.PrecomputeHash(false, false);
+			Download o;
+			if (_InFlights.ContainsKey(block.GetHash()))
 			{
-				BlockId = blockHash,
-				Match = m,
-			}).ToArray();
-			Repository.SaveMatches(now, matchedTransactions);
-			AddressPoolService.RefillAddressPoolIfNeeded(Network, matchedTransactions);
-			var saved = Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
+				var currentLocation = Chain.GetLocator(block.GetHash());
+				if (currentLocation == null)
+					return;
+				CurrentLocation = currentLocation;
+				if (_InFlights.TryRemove(block.GetHash(), out o))
+				{
+					foreach (var tx in block.Transactions)
+						tx.PrecomputeHash(false, true);
+
+					var blockHash = block.GetHash();
+					DateTimeOffset now = DateTimeOffset.UtcNow;
+					var matches =
+						block.Transactions
+						.Select(tx => Repository.GetMatches(tx, blockHash, now))
+						.ToArray();
+					await Task.WhenAll(matches);
+					await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
+					//Save index progress everytimes if not synching, or once every 100 blocks otherwise
+					if (!IsSynching() || blockHash.GetLow32() % 100 == 0)
+						await Repository.SetIndexProgress(currentLocation);
+					var hasHeight = Chain.TryGetHeight(blockHash, out int blockHeight);
+					_EventAggregator.Publish(new Events.NewBlockEvent(_Repository.Network.CryptoCode, blockHash, hasHeight ? (int?)blockHeight : null));
+				}
+				if (_InFlights.Count == 0)
+					AskBlocks();
+			}
+		}
+
+		private async Task SaveMatches(Transaction transaction)
+		{
+			var now = DateTimeOffset.UtcNow;
+			var matches = (await Repository.GetMatches(transaction, null, now)).ToArray();
+			await SaveMatches(matches, null, now);
+		}
+
+		private async Task SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
+		{
+			await Repository.SaveMatches(matches);
+			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
+			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
-			for(int i = 0; i < matches.Length; i++)
+			for (int i = 0; i < matches.Length; i++)
 			{
 				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]));
 			}
 		}
-
 		public bool IsSynching()
 		{
-			var location = _CurrentLocation;
-			if(location == null)
+			var location = CurrentLocation;
+			if (location == null)
 				return true;
 			var fork = Chain.FindFork(location);
 			return Chain.Height - fork.Height > 10;
@@ -272,15 +274,15 @@ namespace NBXplorer
 
 		private void AttachedNode_StateChanged(Node node, NodeState oldState)
 		{
-			if(node.State == NodeState.HandShaked)
+			if (node.State == NodeState.HandShaked)
 			{
 				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Handshaked node");
 				node.SendMessageAsync(new MempoolPayload());
 				AskBlocks();
 			}
-			if(node.State == NodeState.Offline)
+			if (node.State == NodeState.Offline)
 				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Closed connection with node");
-			if(node.State == NodeState.Failed)
+			if (node.State == NodeState.Failed)
 				Logs.Explorer.LogError($"{Network.CryptoCode}: Connection unexpectedly failed: {node.DisconnectReason.Reason}");
 		}
 	}

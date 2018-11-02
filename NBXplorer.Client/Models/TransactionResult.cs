@@ -32,7 +32,7 @@ namespace NBXplorer.Models
 				_BlockId = value;
 			}
 		}
-
+		public uint256 TransactionHash { get; set; }
 		Transaction _Transaction;
 		public Transaction Transaction
 		{

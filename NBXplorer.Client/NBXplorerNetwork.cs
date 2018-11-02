@@ -53,11 +53,6 @@ namespace NBXplorer
 			get;
 			set;
 		} = TimeSpan.FromMinutes(15);
-		public bool SupportEstimatesSmartFee
-		{
-			get;
-			set;
-		} = true;
 
 		/// <summary>
 		/// Minimum blocks to keep if pruning is activated

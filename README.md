@@ -1,10 +1,11 @@
 [![NuGet](https://img.shields.io/nuget/v/NBxplorer.Client.svg)](https://www.nuget.org/packages/NBxplorer.Client) [![Docker Automated buil](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/nicolasdorier/nbxplorer/)
+[![Build status](https://ci.appveyor.com/api/projects/status/c7kqj7a3nf7vmhsk?svg=true)](https://ci.appveyor.com/project/NicolasDorier/nbxplorer)
 
 # NBXplorer
 
 A minimalist UTXO tracker for HD Wallets.
 The goal is to have a flexible, .NET based UTXO tracker for HD wallets.
-The explorer supports only P2PKH derivation for now but will be able to support more complex generation in near future. (m-n, segwit, p2sh)
+The explorer supports P2SH,P2PKH,P2WPKH,P2WSH and Multi-sig derivation.
 
 This explorer is not meant to be exposed on internet, but should be used as an internal tool for tracking the UTXOs of your own service.
 
@@ -13,6 +14,7 @@ It currently supports:
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
 * Bitcoin
+* Bitcore
 * ColossusXT
 * Dash
 * Dogecoin
@@ -28,7 +30,7 @@ It currently supports:
 
 ## Prerequisite
 
-* Install [.NET Core 2.1](https://www.microsoft.com/net/download)
+* Install [.NET Core SDK v2.1.4 (with patch version >= 402)](https://www.microsoft.com/net/download)
 * Bitcoin Core instance synched and running (at least 0.16.0).
 
 ## API Specification
