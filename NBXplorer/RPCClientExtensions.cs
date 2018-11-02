@@ -1,9 +1,12 @@
-﻿using NBitcoin.RPC;
+﻿using NBitcoin;
+using Newtonsoft.Json.Linq;
+using NBitcoin.RPC;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {

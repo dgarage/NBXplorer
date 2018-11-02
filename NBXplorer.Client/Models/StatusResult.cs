@@ -35,8 +35,14 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
+		public NodeCapabilities Capabilities { get; set; }
 	}
-    public class StatusResult
+	public class NodeCapabilities
+	{
+		public bool CanScanTxoutSet { get; set; }
+		public bool CanSupportSegwit { get; set; }
+	}
+	public class StatusResult
     {
 		public BitcoinStatus BitcoinStatus
 		{

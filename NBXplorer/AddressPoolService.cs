@@ -68,13 +68,16 @@ namespace NBXplorer
 			return _Channel.Reader.Completion;
 		}
 
-		internal void RefillAddressPoolIfNeeded(NBXplorerNetwork network, MatchedTransaction[] matches)
+		internal void RefillAddressPoolIfNeeded(NBXplorerNetwork network, TrackedTransaction[] matches)
 		{
 			foreach(var m in matches)
 			{
-				foreach(var feature in m.Match.Inputs.Concat(m.Match.Outputs).Select(_ => _.Feature).Distinct())
+				var derivationStrategy = (m.TrackedSource as Models.DerivationSchemeTrackedSource)?.DerivationStrategy;
+				if (derivationStrategy == null)
+						continue;
+				foreach (var feature in m.KnownKeyPathMapping.Select(kv => DerivationStrategyBase.GetFeature(kv.Value)))
 				{
-					RefillAddressPoolIfNeeded(network, m.Match.DerivationStrategy, feature);
+					RefillAddressPoolIfNeeded(network, derivationStrategy, feature);
 				}
 			}
 		}

@@ -54,6 +54,15 @@ namespace NBXplorer
 			var data = Encoding.UTF8.GetBytes(derivation.ToString());
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
 		}
+		internal static uint160 GetHash(this TrackedSource trackedSource)
+		{
+			if (trackedSource is DerivationSchemeTrackedSource t)
+				return t.DerivationStrategy.GetHash();
+			var data = Encoding.UTF8.GetBytes(trackedSource.ToString());
+			return new uint160(Hashes.RIPEMD160(data, data.Length));
+		}
+
+
 		public static async Task<DateTimeOffset?> GetBlockTimeAsync(this RPCClient client, uint256 blockId, bool throwIfNotFound = true)
 		{
 			var response = await client.SendCommandAsync(new RPCRequest("getblockheader", new object[] { blockId }), throwIfNotFound).ConfigureAwait(false);
@@ -68,51 +77,14 @@ namespace NBXplorer
 			return null;
 		}
 
-		public static IEnumerable<TransactionMatch> GetMatches(this Repository repository, Transaction tx)
+		public static NewTransactionEvent SetMatch(this NewTransactionEvent evt, TrackedTransaction match)
 		{
-			var matches = new Dictionary<DerivationStrategyBase, TransactionMatch>();
-			HashSet<Script> inputScripts = new HashSet<Script>();
-			HashSet<Script> outputScripts = new HashSet<Script>();
-			HashSet<Script> scripts = new HashSet<Script>();
-			foreach(var input in tx.Inputs)
-			{
-				var signer = input.GetSigner();
-				if(signer != null)
-				{
-					inputScripts.Add(signer.ScriptPubKey);
-					scripts.Add(signer.ScriptPubKey);
-				}
-			}
-
-			foreach(var output in tx.Outputs)
-			{
-				outputScripts.Add(output.ScriptPubKey);
-				scripts.Add(output.ScriptPubKey);
-			}
-
-			var keyInformations = repository.GetKeyInformations(scripts.ToArray());
-			foreach(var keyInfoByScripts in keyInformations)
-			{
-				foreach(var keyInfo in keyInfoByScripts.Value)
-				{
-					if(!matches.TryGetValue(keyInfo.DerivationStrategy, out TransactionMatch match))
-					{
-						match = new TransactionMatch();
-						matches.Add(keyInfo.DerivationStrategy, match);
-						match.DerivationStrategy = keyInfo.DerivationStrategy;
-						match.Transaction = tx;
-					}
-
-					if(outputScripts.Contains(keyInfo.ScriptPubKey))
-						match.Outputs.Add(keyInfo);
-
-					if(inputScripts.Contains(keyInfo.ScriptPubKey))
-						match.Inputs.Add(keyInfo);
-				}
-			}
-			return matches.Values;
+			evt.TrackedSource = match.TrackedSource;
+			var derivation = (match.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+			evt.Outputs.AddRange(match.GetReceivedOutputs(evt.TrackedSource));
+			evt.DerivationStrategy = derivation;
+			return evt;
 		}
-
 
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
 		{
@@ -175,6 +147,8 @@ namespace NBXplorer
 			services.TryAddSingleton<AddressPoolServiceAccessor>();
 			services.AddSingleton<IHostedService, AddressPoolService>();
 			services.TryAddSingleton<BitcoinDWaitersAccessor>();
+			services.AddSingleton<IHostedService, ScanUTXOSetService>();
+			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
 			services.AddSingleton<IHostedService, BrokerHostedService>();
 
@@ -198,14 +172,25 @@ namespace NBXplorer
 			return services;
 		}
 
-		internal static string ToPrettyStrategyString(this DerivationStrategyBase strat)
+		internal static string ToPrettyString(this TrackedSource trackedSource)
 		{
-			var strategy = strat.ToString();
-			if(strategy.Length > 35)
+			if (trackedSource is DerivationSchemeTrackedSource derivation)
 			{
-				strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
+				var strategy = derivation.DerivationStrategy.ToString();
+				if (strategy.Length > 35)
+				{
+					strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
+				}
+				return strategy;
 			}
-			return strategy;
+			else if (trackedSource is AddressTrackedSource addressDerivation)
+			{
+				return addressDerivation.Address.ToString();
+			}
+			else
+			{
+				return trackedSource.ToString();
+			}
 		}
 
 		internal class NoObjectModelValidator : IObjectModelValidator

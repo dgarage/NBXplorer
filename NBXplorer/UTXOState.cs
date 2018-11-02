@@ -34,84 +34,81 @@ namespace NBXplorer
 	public class UTXOState
 	{
 
-		public Dictionary<OutPoint, Coin> UTXOByOutpoint
+		internal UTXOByOutpoint UTXOByOutpoint
 		{
 			get; set;
-		} = new Dictionary<OutPoint, Coin>();
+		} = new UTXOByOutpoint();
 
 		public Func<Script[], bool[]> MatchScript
 		{
 			get; set;
 		}
 
-		public List<UTXOEvent> Events
-		{
-			get; set;
-		} = new List<UTXOEvent>();
-
 		public HashSet<OutPoint> SpentUTXOs
 		{
 			get; set;
 		} = new HashSet<OutPoint>();
-
-		public ApplyTransactionResult Apply(Transaction tx)
+		public ApplyTransactionResult Apply(TrackedTransaction trackedTransaction)
 		{
 			var result = ApplyTransactionResult.Passed;
-			var hash = tx.GetHash();
+			var hash = trackedTransaction.Key.TxId;
 
-			for(int i = 0; i < tx.Outputs.Count; i++)
+			foreach(var coin in trackedTransaction.ReceivedCoins)
 			{
-				var output = tx.Outputs[i];
-				var outpoint = new OutPoint(hash, i);
-				if(UTXOByOutpoint.ContainsKey(outpoint))
+				if(UTXOByOutpoint.ContainsKey(coin.Outpoint))
 				{
 					result = ApplyTransactionResult.Conflict;
-					Conflicts.Add(outpoint, hash);
+					Conflicts.Add(coin.Outpoint, hash);
 				}
 			}
 
-			for(int i = 0; i < tx.Inputs.Count; i++)
+			foreach(var spentOutpoint in trackedTransaction.SpentOutpoints)
 			{
-				var input = tx.Inputs[i];
-				if(_KnownInputs.Contains(input.PrevOut) || 
-					(!UTXOByOutpoint.ContainsKey(input.PrevOut) && SpentUTXOs.Contains(input.PrevOut)))
+				if(_KnownInputs.Contains(spentOutpoint) || 
+					(!UTXOByOutpoint.ContainsKey(spentOutpoint) && SpentUTXOs.Contains(spentOutpoint)))
 				{
 					result = ApplyTransactionResult.Conflict;
-					Conflicts.Add(input.PrevOut, hash);
+					Conflicts.Add(spentOutpoint, hash);
 				}
 			}
 			if(result == ApplyTransactionResult.Conflict)
 				return result;
 
-			var matches = MatchScript == null ? null : MatchScript(tx.Outputs.Select(o => o.ScriptPubKey).ToArray());
-			for(int i = 0; i < tx.Outputs.Count; i++)
+			_TransactionTimes.Add(trackedTransaction.FirstSeen);
+
+			foreach(var coin in trackedTransaction.ReceivedCoins)
 			{
-				var output = tx.Outputs[i];
-				var matched = matches == null ? true : matches[i];
-				if(matched)
+				if(UTXOByOutpoint.TryAdd(coin.Outpoint, coin))
 				{
-					var outpoint = new OutPoint(hash, i);
-					if(UTXOByOutpoint.TryAdd(outpoint, new Coin(outpoint, output)))
-					{
-						AddEvent(new UTXOEvent() { Received = true, Outpoint = outpoint, TxId = hash });
-					}
+					AddEvent(new UTXOEvent() { Received = true, Outpoint = coin.Outpoint, TxId = hash });
 				}
 			}
 
-			for(int i = 0; i < tx.Inputs.Count; i++)
+			if (trackedTransaction.ReceivedCoins.Count == 0 && trackedTransaction.Transaction != null)
+				UTXOByOutpoint.Prunable.Add(new Prunable() { PrunedBy = hash, TransactionId = hash });
+
+			foreach (var spentOutpoint in trackedTransaction.SpentOutpoints)
 			{
-				var input = tx.Inputs[i];
-				if(UTXOByOutpoint.Remove(input.PrevOut))
+				if(UTXOByOutpoint.Remove(spentOutpoint, hash))
 				{
-					AddEvent(new UTXOEvent() { Received = false, Outpoint = input.PrevOut, TxId = hash });
-					SpentUTXOs.Add(input.PrevOut);
+					AddEvent(new UTXOEvent() { Received = false, Outpoint = spentOutpoint, TxId = hash });
+					SpentUTXOs.Add(spentOutpoint);
 				}
-				_KnownInputs.Add(input.PrevOut);
+				_KnownInputs.Add(spentOutpoint);
 			}
 			return result;
 		}
-
 		HashSet<OutPoint> _KnownInputs = new HashSet<OutPoint>();
+		List<DateTimeOffset> _TransactionTimes = new List<DateTimeOffset>();
+		public DateTimeOffset? GetQuarterTransactionTime()
+		{
+			var times = _TransactionTimes.ToArray();
+			Array.Sort(times);
+			var quarter = times.Length / 4;
+			if (times.Length <= quarter)
+				return null;
+			return times[quarter];
+		}
 
 		public MultiValueDictionary<OutPoint, uint256> Conflicts
 		{
@@ -133,7 +130,6 @@ namespace NBXplorer
 
 		private void AddEvent(UTXOEvent evt)
 		{
-			Events.Add(evt);
 			_BookmarkProcessor.PushNew();
 			_BookmarkProcessor.AddData(evt.TxId.ToBytes());
 			_BookmarkProcessor.AddData(evt.Outpoint);
@@ -145,12 +141,12 @@ namespace NBXplorer
 		{
 			return new UTXOState()
 			{
-				UTXOByOutpoint = new Dictionary<OutPoint, Coin>(UTXOByOutpoint),
+				UTXOByOutpoint = new UTXOByOutpoint(UTXOByOutpoint),
 				Conflicts = new MultiValueDictionary<OutPoint, uint256>(Conflicts),
-				Events = new List<UTXOEvent>(Events),
-				MatchScript = MatchScript,
 				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
-				_BookmarkProcessor = _BookmarkProcessor.Clone()
+				_BookmarkProcessor = _BookmarkProcessor.Clone(),
+				_KnownInputs = new HashSet<OutPoint>(_KnownInputs),
+				_TransactionTimes = new List<DateTimeOffset>(_TransactionTimes)
 			};
 		}
 		
@@ -158,7 +154,6 @@ namespace NBXplorer
 		internal void ResetEvents()
 		{
 			_BookmarkProcessor.Clear();
-			Events.Clear();
 		}
 	}
 }
