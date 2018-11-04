@@ -86,6 +86,15 @@ namespace NBXplorer
 			return evt;
 		}
 
+		internal static KeyPathInformation AddAddress(this KeyPathInformation keyPathInformation, Network network)
+		{
+			if(keyPathInformation.Address == null)
+			{
+				keyPathInformation.Address = keyPathInformation.ScriptPubKey.GetDestinationAddress(network).ToString();
+			}
+			return keyPathInformation;
+		}
+
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
 		{
 			public void Configure(MvcJsonOptions options)

@@ -45,11 +45,12 @@ namespace NBXplorer.Models
 			get; set;
 		}
 		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+		public string Address { get; set; }
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public Script Redeem
 		{
 			get; set;
 		}
-
 		public int GetIndex()
 		{
 			return (int)KeyPath.Indexes[KeyPath.Indexes.Length - 1];

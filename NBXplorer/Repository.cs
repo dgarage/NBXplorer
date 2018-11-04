@@ -495,7 +495,7 @@ namespace NBXplorer
 				var rows = availableTable.SelectForwardSkip(n);
 				if (rows.Length == 0)
 					return null;
-				var keyInfo = ToObject<KeyPathInformation>(rows[0].Value);
+				var keyInfo = ToObject<KeyPathInformation>(rows[0].Value).AddAddress(Network.NBitcoinNetwork);
 				if (reserve)
 				{
 					availableTable.RemoveKey(keyInfo.GetIndex());
@@ -725,7 +725,7 @@ namespace NBXplorer
 					{
 						var table = GetScriptsIndex(tx, script);
 						var keyInfos = table.SelectForwardSkip(0)
-											.Select(r => ToObject<KeyPathInformation>(r.Value))
+											.Select(r => ToObject<KeyPathInformation>(r.Value).AddAddress(Network.NBitcoinNetwork))
 											// Because xpub are mutable (several xpub map to same script)
 											// an attacker could generate lot's of xpub mapping to the same script
 											// and this would blow up here. This we take only 5 results max.

@@ -304,6 +304,7 @@ Returns:
   "derivationStrategy": "tpubD6NzVbkrYhZ4Wo2RMq8Xbnrorf1xnABkKMS3EGshPkQ3Z4N4GN8uyLuDPvnK7Ekc2FHdXbLvcuZny1gPiohMksFGKmaX3APD2DbTeBWj751-[p2sh]",
   "keyPath": "0/2",
   "scriptPubKey": "a91412cbf6154ef6d9aecf9c978dc2bdc43f1881dd5f87",
+  "address": "2MtxcVDMiRrJ3V4zfsAwZGbZfPiDUxSXDY2",
   "redeem": "0014e2eb89edba1fe6c6c0863699eeb78f6ec3271b45"
 }
 ```
@@ -325,7 +326,8 @@ Returns:
   "feature": "Deposit",
   "derivationStrategy": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
   "keyPath": "0/0",
-  "scriptPubKey": "001460c25d29559774803f262acf5ee5c922eff52ccd"
+  "scriptPubKey": "001460c25d29559774803f262acf5ee5c922eff52ccd",
+  "address": "tb1qvrp96224ja6gq0ex9t84aewfythl2txdkpdmu0"
 }
 ```
 
