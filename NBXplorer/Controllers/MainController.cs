@@ -357,7 +357,7 @@ namespace NBXplorer.Controllers
 					{
 						CryptoCode = o.CryptoCode,
 						BlockId = blockHeader?.Hash,
-						TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
+						TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }, network.Network.NBitcoinNetwork),
 					}.SetMatch(o.TrackedTransaction));
 				}
 			}));
@@ -437,7 +437,7 @@ namespace NBXplorer.Controllers
 			var result = await RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if (result.Length == 0)
 				return NotFound();
-			return Json(Utils.ToTransactionResult(includeTransaction, chain, result));
+			return Json(Utils.ToTransactionResult(includeTransaction, chain, result, network.NBitcoinNetwork));
 		}
 
 		[HttpPost]
