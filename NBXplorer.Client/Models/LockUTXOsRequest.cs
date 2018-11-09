@@ -20,5 +20,6 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
+		public bool SubstractFees { get; set; }
 	}
 }
