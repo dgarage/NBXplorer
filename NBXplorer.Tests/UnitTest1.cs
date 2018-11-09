@@ -362,6 +362,22 @@ namespace NBXplorer.Tests
 				// We should have 2 utxo now!
 				utxo = tester.Client.GetUTXOs(alice, null);
 				Assert.Equal(2, utxo.GetUnspentCoins().Length);
+
+				var moneyLeft = utxo.GetUnspentCoins().Select(c => (Money)c.Amount).Sum();
+				locked = tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
+				{
+					Destination = bob.ToString(),
+					Amount = moneyLeft,
+					FeeRate = new FeeRate(Money.Satoshis(1), 1),
+					SubstractFees = true
+				});
+
+				// We should not have any utxo now
+				utxo = tester.Client.GetUTXOs(alice, null);
+				Assert.Empty(utxo.GetUnspentCoins());
+
+				Assert.Equal(2, locked.Transaction.Inputs.Count);
+				Assert.Equal(moneyLeft, locked.Fee + locked.Transaction.Outputs.Select(o => o.Value).Sum());
 			}
 		}
 
