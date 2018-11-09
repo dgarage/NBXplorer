@@ -514,6 +514,8 @@ namespace NBXplorer.Controllers
 				var txBuilder = network.NBitcoinNetwork.CreateTransactionBuilder();
 				txBuilder.AddCoins(unspentCoins);
 				txBuilder.Send(destinationAddress, request.Amount);
+				if (request.SubstractFees)
+					txBuilder.SubtractFees();
 				txBuilder.SetChange(change.ScriptPubKey);
 				txBuilder.SendEstimatedFees(feeRate);
 				var tx = txBuilder.BuildTransaction(false);

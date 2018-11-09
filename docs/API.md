@@ -510,7 +510,9 @@ Request:
   "amount":40000000,
   "destination":"mjkuTBMFAD6RjuCF1Gd7zacfvuDtw5rHEP",
   # feeRate is optional, specifying it will override default fee estimation
-  "feeRate":1
+  "feeRate":1,
+  # true if the destination pays the fees
+  "substractFees": false
 }
 ```
 
