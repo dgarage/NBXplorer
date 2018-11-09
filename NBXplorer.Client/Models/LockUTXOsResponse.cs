@@ -57,6 +57,7 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
+		public Money Fee { get; set; }
 
 		public Transaction Sign(DerivationStrategyBase derivationScheme, ExtKey key, Network network)
 		{

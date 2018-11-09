@@ -517,8 +517,8 @@ namespace NBXplorer.Controllers
 				txBuilder.SetChange(change.ScriptPubKey);
 				txBuilder.SendEstimatedFees(feeRate);
 				var tx = txBuilder.BuildTransaction(false);
-
 				LockUTXOsResponse result = new LockUTXOsResponse();
+				result.Fee = tx.GetFee(txBuilder.FindSpentCoins(tx));
 				var spentCoins = txBuilder.FindSpentCoins(tx).OfType<ScriptCoin>().ToArray();
 				result.SpentCoins = spentCoins.Select(r => new LockUTXOsResponse.SpentCoin()
 				{

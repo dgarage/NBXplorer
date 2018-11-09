@@ -325,7 +325,8 @@ namespace NBXplorer.Tests
 					Amount = Money.Coins(0.4m),
 					FeeRate = new FeeRate(Money.Satoshis(1), 1)
 				});
-
+				Assert.NotNull(locked.Fee);
+				Assert.True(locked.Fee > Money.Satoshis(1));
 				Assert.Single(locked.SpentCoins);
 				Assert.Equal(Money.Coins(1.0m), locked.SpentCoins[0].Value);
 				Assert.NotNull(locked.ChangeInformation);
