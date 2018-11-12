@@ -1949,6 +1949,22 @@ namespace NBXplorer.Tests
 				Assert.Equal(2, evts.Events.Length);
 				Assert.IsType<Models.NewBlockEvent>(evts.Events[0]);
 				Assert.IsType<Models.NewTransactionEvent>(evts.Events[1]);
+
+				// Check no dups
+				var repos = (NBXplorer.RepositoryProvider)tester.Host.Services.GetService(typeof(NBXplorer.RepositoryProvider));
+				var repo = repos.GetRepository(tester.Network.NetworkSet.CryptoCode);
+
+				JsonSerializerSettings serializer = new JsonSerializerSettings();
+				repo.Serializer.ConfigureSerializer(serializer);
+				var savedId = repo.SaveEvent(evts.Events[0].ToJObject(serializer), evts.Events[0].GetEventId()).GetAwaiter().GetResult();
+				Assert.True(savedId <= evts.LastEventId);
+				savedId = repo.SaveEvent(evts.Events[1].ToJObject(serializer), evts.Events[1].GetEventId()).GetAwaiter().GetResult();
+				Assert.True(savedId <= evts.LastEventId);
+
+				evts = tester.Client.GetEvents();
+				Assert.Equal(2, evts.Events.Length);
+				Assert.IsType<Models.NewBlockEvent>(evts.Events[0]);
+				Assert.IsType<Models.NewTransactionEvent>(evts.Events[1]);
 			}
 		}
 

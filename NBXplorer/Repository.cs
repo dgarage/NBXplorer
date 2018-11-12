@@ -58,6 +58,11 @@ namespace NBXplorer
 			_Repositories.TryGetValue(network.CryptoCode, out Repository repository);
 			return repository;
 		}
+		public Repository GetRepository(string cryptoCode)
+		{
+			_Repositories.TryGetValue(cryptoCode, out Repository repository);
+			return repository;
+		}
 	}
 
 	public class Repository
