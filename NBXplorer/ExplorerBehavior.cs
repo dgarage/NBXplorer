@@ -16,6 +16,7 @@ using System.Net.Http;
 using NBXplorer.Models;
 using NBXplorer.Events;
 using NBXplorer.Configuration;
+using Newtonsoft.Json;
 
 namespace NBXplorer
 {
@@ -237,8 +238,10 @@ namespace NBXplorer
 					//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 					if (!IsSynching() || blockHash.GetLow32() % 100 == 0)
 						await Repository.SetIndexProgress(currentLocation);
-					var hasHeight = Chain.TryGetHeight(blockHash, out int blockHeight);
-					_EventAggregator.Publish(new Events.NewBlockEvent(_Repository.Network.CryptoCode, blockHash, hasHeight ? (int?)blockHeight : null));
+					var slimBlock = Chain.GetBlock(blockHash);
+					var blockEvent = new Events.NewBlockEvent(_Repository.Network.CryptoCode, blockHash, slimBlock.Height);
+					await SaveEvent(blockEvent.ToExternalEvent(slimBlock));
+					_EventAggregator.Publish(blockEvent);
 				}
 				if (_InFlights.Count == 0)
 					AskBlocks();
@@ -257,11 +260,22 @@ namespace NBXplorer
 			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
 			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
+			var slimBlock = blockHash == null ? null : Chain.GetBlock(blockHash);
 			for (int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]));
+				var matchEvent = new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]);
+				await SaveEvent(matchEvent.ToExternalEvent(false, Chain, slimBlock));
+				_EventAggregator.Publish(matchEvent);
 			}
 		}
+
+		private Task SaveEvent(NewEventBase evt)
+		{
+			JsonSerializerSettings settings = new JsonSerializerSettings();
+			Repository.Serializer.ConfigureSerializer(settings);
+			return Repository.SaveEvent(evt.ToJObject(settings), evt.GetEventId());
+		}
+
 		public bool IsSynching()
 		{
 			var location = CurrentLocation;

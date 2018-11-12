@@ -823,3 +823,60 @@ The state can be:
 Error codes:
 
 * HTTP 404 `scanutxoset-info-not-found` if the scan has been done above the last 24H.
+
+## Query event stream
+
+All notifications sent through websocket are also saved in a global event stream.
+
+HTTP GET v1/cryptos/{cryptoCode}/events
+
+Query parameters:
+
+* `lastEventId`: Will query all events which happened after this event id, the first event has id 1 (default: 0)
+* `longPolling`: If no events have been received since `lastEventId`, the call will block up until 10 seconds or until a new event arrives, whichever comes first. (default: false)
+* `limit`: Limit the maximum number of events to return (default: null)
+
+All events are registered in a query stream which you can replay by keeping track of the `lastEventId`.
+
+```json
+{
+  "lastEventId": 2,
+  "events": [
+    {
+      "type": "newblock",
+      "data": {
+        "height": 104,
+        "hash": "36592d3adda13e23729299bb746bc9b727901d538a9033018ff6e6fb8e71e851",
+        "previousBlockHash": "0b3b36ff452032bc299bafbdebf1601cc8bb5ed87dc6393e01a1cb6456c8414d",
+        "cryptoCode": "BTC"
+      }
+    },
+    {
+      "type": "newtransaction",
+      "data": {
+        "blockId": null,
+        "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4YXenE66vYZswy7MLe8h9EwcZLebLueTPx6p4HDmRPG5cTwt9zcjgq1Ya167VUEM7dAHEdZGkBP51niznxSS4z1NLNDSY9xM",
+        "derivationStrategy": "tpubD6NzVbkrYhZ4YXenE66vYZswy7MLe8h9EwcZLebLueTPx6p4HDmRPG5cTwt9zcjgq1Ya167VUEM7dAHEdZGkBP51niznxSS4z1NLNDSY9xM",
+        "transactionData": {
+          "confirmations": 0,
+          "blockId": null,
+          "transactionHash": "a1dd84b32b022cebe31e3724a00b960b6074be350cdb329909f70273c14692c7",
+          "transaction": null,
+          "height": null,
+          "timestamp": 1542033228
+        },
+        "outputs": [
+          {
+            "keyPath": "0/0",
+            "scriptPubKey": "0014b7448d7ae34fb30cdd51d8d170af9905a9c5cefe",
+            "address": "bcrt1qkazg67hrf7eseh23mrghptueqk5utnh7fhk8xt",
+            "index": 1,
+            "value": 100000000
+          }
+        ],
+        "cryptoCode": "BTC"
+      }
+    }
+  ]
+}
+```

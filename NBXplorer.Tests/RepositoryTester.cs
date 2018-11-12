@@ -22,7 +22,8 @@ namespace NBXplorer.Tests
 			_Name = name;
 			ServerTester.DeleteFolderRecursive(name);
 
-			var dbFactory = new DB.NBXplorerContextFactory(Environment.GetEnvironmentVariable("TESTS_POSTGRES") ?? "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorerr", null);
+			var dbName = caching ? "nbxplorerr" : "nbxplorer" + RandomUtils.GetUInt32();
+			var dbFactory = new DB.NBXplorerContextFactory(Environment.GetEnvironmentVariable("TESTS_POSTGRES") ?? $"User ID=postgres;Host=127.0.0.1;Port=39382;Database={dbName}", null);
 			dbFactory.Migrate();
 			_Provider = new RepositoryProvider(dbFactory, new NBXplorerNetworkProvider(NetworkType.Regtest),
 											   new Configuration.ExplorerConfiguration()

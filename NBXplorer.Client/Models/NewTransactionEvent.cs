@@ -33,6 +33,11 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		} = new List<MatchedOutput>();
+
+		protected override object[] GetEventIdCore()
+		{
+			return new object[] { "newtx", BlockId, TransactionData.TransactionHash, TrackedSource };
+		}
 	}
 
 	public class MatchedOutput

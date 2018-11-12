@@ -39,6 +39,58 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public async Task CanGetEvents()
+		{
+			using (var tester = RepositoryTester.Create(false))
+			{
+				JObject evt1 = new JObject();
+				evt1.Add(new JProperty("test", 1));
+				JObject evt2 = new JObject();
+				evt2.Add(new JProperty("test", 2));
+				var id = await tester.Repository.SaveEvent(evt1, "evt1");
+				Assert.Equal(1, id);
+
+				// Well saved?
+				var evts = await tester.Repository.GetEvents(-1);
+				Assert.Single(evts.Objects);
+				Assert.Equal(1, (int)evts.Objects[0]["test"]);
+
+				// If same eventId, this operation should be idempotent
+				id = await tester.Repository.SaveEvent(evt2, "evt1");
+				Assert.Equal(1, id);
+
+				// Check that evt1 has not been overwritten by the previous save
+				evts = await tester.Repository.GetEvents(-1);
+				Assert.Single(evts.Objects);
+				Assert.Equal(1, (int)evts.Objects[0]["test"]);
+
+				// But evt2 should be saved if there is a different eventId
+				id = await tester.Repository.SaveEvent(evt2, "evt2");
+				// It turns out that we can have gaps in the sequenceIds, because the previous operation failed, 
+				// the sequence number increased to 3, not 2
+				Assert.Equal(3, id);
+
+				// Let's see if both evts are returned correctly
+				evts = await tester.Repository.GetEvents(-1);
+				Assert.True(evts.Objects.Count == 2);
+				Assert.Equal(1, (int)evts.Objects[0]["test"]);
+				Assert.Equal(2, (int)evts.Objects[1]["test"]);
+
+				// Or only 1 if we pass the first param
+				evts = await tester.Repository.GetEvents(1);
+				Assert.Equal(3, evts.LastEventId);
+				Assert.Single(evts.Objects);
+				Assert.Equal(2, (int)evts.Objects[0]["test"]);
+
+				// Or only 1 if we pass limit
+				evts = await tester.Repository.GetEvents(-1, 1);
+				Assert.Equal(1, evts.LastEventId);
+				Assert.Single(evts.Objects);
+				Assert.Equal(1, (int)evts.Objects[0]["test"]);
+			}
+		}
+
+		[Fact]
 		public async Task RepositoryCanLock()
 		{
 			using(var tester = RepositoryTester.Create(true))
@@ -1851,6 +1903,52 @@ namespace NBXplorer.Tests
 
 				utxo = tester.Client.GetUTXOs(pubkey, utxo, false);
 				Assert.False(utxo.HasChanges);
+			}
+		}
+
+		[Fact(Timeout = 60 * 1000)]
+		public void CanUseLongPollingOnEvents()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				//WaitServerStarted not needed, just a sanity check
+				tester.Client.WaitServerStarted(Timeout);
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				tester.Client.Track(pubkey);
+
+				Logs.Tester.LogInformation("Get events should not returns with long polling as not event happen");
+				var evts = tester.Client.GetEvents(longPolling: false);
+				var lastId = evts.LastEventId;
+				DateTimeOffset now = DateTimeOffset.UtcNow;
+				evts = tester.Client.GetEvents(lastEventId: evts.LastEventId, longPolling: true);
+				Assert.Equal(lastId, evts.LastEventId);
+				Assert.True(DateTimeOffset.UtcNow - now > TimeSpan.FromSeconds(5.0));
+
+				Logs.Tester.LogInformation("Get events should returns when the block get mined");
+				now = DateTimeOffset.UtcNow;
+				var gettingEvts = tester.Client.GetEventsAsync(lastEventId: evts.LastEventId, longPolling: true);
+				Thread.Sleep(1000);
+				Assert.False(gettingEvts.IsCompleted);
+				tester.RPC.Generate(1);
+				Logs.Tester.LogInformation("Block mined");
+				evts = gettingEvts.GetAwaiter().GetResult();
+				Assert.Equal(lastId + 1, evts.LastEventId);
+				Assert.Single(evts.Events);
+				Assert.True(DateTimeOffset.UtcNow - now < TimeSpan.FromSeconds(5.0));
+				Logs.Tester.LogInformation("Event returned");
+
+				Logs.Tester.LogInformation("Should return immediately because the wallet received money");
+				now = DateTimeOffset.UtcNow;
+				tester.RPC.SendToAddress(tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).ScriptPubKey, Money.Coins(1.0m));
+				evts = tester.Client.GetEvents(lastEventId: evts.LastEventId, longPolling: true);
+				Assert.True(DateTimeOffset.UtcNow - now < TimeSpan.FromSeconds(5.0));
+				Logs.Tester.LogInformation("Event returned");
+
+				evts = tester.Client.GetEvents();
+				Assert.Equal(2, evts.Events.Length);
+				Assert.IsType<Models.NewBlockEvent>(evts.Events[0]);
+				Assert.IsType<Models.NewTransactionEvent>(evts.Events[1]);
 			}
 		}
 

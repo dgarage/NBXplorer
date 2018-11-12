@@ -14,6 +14,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.WebSockets;
+using Newtonsoft.Json.Linq;
 
 namespace NBXplorer
 {
@@ -291,6 +292,33 @@ namespace NBXplorer
 			return new NotSupportedException($"Unsupported {trackedSource.GetType().Name}");
 		}
 
+		public async Task<GetEventsResponse> GetEventsAsync(long lastEventId = 0, int? limit = null, bool longPolling = false, CancellationToken cancellation = default)
+		{
+			List<string> parameters = new List<string>();
+			if (lastEventId != 0)
+				parameters.Add($"lastEventId={lastEventId}");
+			if (limit != null)
+				parameters.Add($"limit={limit.Value}");
+			if (longPolling)
+				parameters.Add($"longPolling={longPolling}");
+			var parametersString = parameters.Count == 0 ? string.Empty : $"?{String.Join("&", parameters.ToArray<object>())}";
+			var evts = await SendAsync<JObject>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/events{parametersString}", null, cancellation);
+			var jsonSerializer = new Newtonsoft.Json.JsonSerializerSettings();
+			_Serializer.ConfigureSerializer(jsonSerializer);
+
+			var resp = new GetEventsResponse();
+			resp.LastEventId = evts["lastEventId"].Value<long>();
+			resp.Events = ((JArray)evts["events"])
+				  .Select(ev => ExtensionsClient.ParseNotificationMessage((JObject)ev, jsonSerializer))
+				  .OfType<NewEventBase>()
+				  .ToArray();
+			return resp;
+		}
+		public GetEventsResponse GetEvents(long lastEventId = 0, int? limit = null, bool longPolling = false, CancellationToken cancellation = default)
+		{
+			return GetEventsAsync(lastEventId, limit, longPolling, cancellation).GetAwaiter().GetResult();
+		}
+
 		public void CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default)
 		{
 			CancelReservationAsync(strategy, keyPaths, cancellation).GetAwaiter().GetResult();
@@ -436,7 +464,7 @@ namespace NBXplorer
 			var relativePath = $"v1/cryptos/{CryptoCode}/locks/{unlockId}/cancel";
 			HttpRequestMessage message = CreateMessage(HttpMethod.Post, null, relativePath, null);
 			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
-			if((int)result.StatusCode == 404)
+			if ((int)result.StatusCode == 404)
 			{
 				return false;
 			}

@@ -317,13 +317,7 @@ namespace NBXplorer.Controllers
 					var block = chain.GetBlock(o.BlockId);
 					if (block != null)
 					{
-						await server.Send(new Models.NewBlockEvent()
-						{
-							CryptoCode = o.CryptoCode,
-							Hash = block.Hash,
-							Height = block.Height,
-							PreviousBlockHash = block?.Previous
-						});
+						await server.Send(o.ToExternalEvent(block));
 					}
 				}
 			}));
@@ -353,12 +347,7 @@ namespace NBXplorer.Controllers
 					var blockHeader = o.BlockId == null ? null : chain.GetBlock(o.BlockId);
 
 					var derivation = (o.TrackedTransaction.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-					await server.Send(new Models.NewTransactionEvent()
-					{
-						CryptoCode = o.CryptoCode,
-						BlockId = blockHeader?.Hash,
-						TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
-					}.SetMatch(o.TrackedTransaction));
+					await server.Send(o.ToExternalEvent(includeTransaction, chain, blockHeader));
 				}
 			}));
 			try
@@ -422,6 +411,30 @@ namespace NBXplorer.Controllers
 			}
 			finally { subscriptions.Dispose(); await server.DisposeAsync(cancellation); }
 			return new EmptyResult();
+		}
+
+		[Route("cryptos/{cryptoCode}/events")]
+		public async Task<JObject> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false)
+		{
+			var network = GetNetwork(cryptoCode, false);
+
+			using (CompositeDisposable subscriptions = new CompositeDisposable())
+			using (SemaphoreSlim semaphore = new SemaphoreSlim(0))
+			{
+				subscriptions.Add(_EventAggregator.Subscribe<Events.NewBlockEvent>(o => semaphore.Release()));
+				subscriptions.Add(_EventAggregator.Subscribe<Events.NewTransactionMatchEvent>(o => semaphore.Release()));
+				retry:
+				var result = await RepositoryProvider.GetRepository(network).GetEvents(lastEventId, limit);
+				if (result.Objects.Count == 0 && longPolling)
+				{
+					if(await semaphore.WaitAsync(LongPollTimeout))
+						goto retry;
+				}
+				var jobj = new JObject();
+				jobj.Add("lastEventId", result.LastEventId);
+				jobj.Add("events", new JArray(result.Objects));
+				return jobj;
+			}
 		}
 
 		[HttpGet]

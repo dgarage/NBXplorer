@@ -21,6 +21,7 @@ using NBXplorer.Configuration;
 using static NBXplorer.RepositoryProvider;
 using static NBXplorer.Repository;
 using NBXplorer.DB;
+using Newtonsoft.Json.Linq;
 
 namespace NBXplorer
 {
@@ -524,6 +525,48 @@ namespace NBXplorer
 				get;
 				set;
 			}
+		}
+
+		public async Task<long> SaveEvent(JObject evt, string eventId)
+		{
+			using (var tx = await _ContextFactory.GetContext())
+			{
+				using (var command = tx.Connection.CreateCommand())
+				{
+					command.CommandText = "insert_event";
+					command.CommandType = System.Data.CommandType.StoredProcedure;
+					command.Parameters.Add(new Npgsql.NpgsqlParameter("event_id_arg", eventId));
+					command.Parameters.Add(new Npgsql.NpgsqlParameter("data_arg", ToBytes(evt)));
+					return (long)(await command.ExecuteScalarAsync());
+				}
+			}
+		}
+
+		public async Task<(long LastEventId, IList<JObject> Objects)> GetEvents(int afterId, int? limit = null)
+		{
+			List<JObject> result = new List<JObject>();
+			long lastEventId = 0;
+			using (var tx = await _ContextFactory.GetContext())
+			{
+				using (var command = tx.Connection.CreateCommand())
+				{
+					var limitCondition = string.Empty;
+					if (limit != null)
+						limitCondition = $" LIMIT {limit.Value}";
+
+					command.CommandText = $"SELECT \"id\", \"data\" FROM \"Events\" WHERE \"id\" > {afterId} ORDER BY \"id\"{limitCondition};";
+					using(var reader = await command.ExecuteReaderAsync())
+					{
+						while (await reader.ReadAsync())
+						{
+							var bytes = (byte[])reader["data"];
+							result.Add(ToObject<JObject>(bytes));
+							lastEventId = (long)reader["id"];
+						}
+					}
+				}
+			}
+			return (lastEventId, result);
 		}
 
 		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)

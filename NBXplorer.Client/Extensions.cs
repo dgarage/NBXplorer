@@ -75,16 +75,21 @@ namespace NBXplorer
 
 		public static object ParseNotificationMessage(string str, JsonSerializerSettings settings)
 		{
-			if(str == null)
+			if (str == null)
 				throw new ArgumentNullException(nameof(str));
 			JObject jobj = JObject.Parse(str);
+			return ParseNotificationMessage(jobj, settings);
+		}
+
+		public static object ParseNotificationMessage(JObject jobj, JsonSerializerSettings settings)
+		{
 			var type = (jobj["type"] as JValue)?.Value<string>();
-			if(type == null)
+			if (type == null)
 				throw new FormatException("'type' property not found");
-			if(!_TypeByName.TryGetValue(type, out Type typeObject))
+			if (!_TypeByName.TryGetValue(type, out Type typeObject))
 				throw new FormatException("unknown 'type'");
 			var data = (jobj["data"] as JObject);
-			if(data == null)
+			if (data == null)
 				throw new FormatException("'data' property not found");
 
 			return JsonConvert.DeserializeObject(data.ToString(), typeObject, settings);

@@ -17,5 +17,10 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
+
+		protected override object[] GetEventIdCore()
+		{
+			return new object[] { "newblock", Hash };
+		}
 	}
 }

@@ -204,7 +204,7 @@ namespace NBXplorer.DB
 				bool likePattern = partitionKeyRowKey.EndsWith('%');
 				using (var result = (NpgsqlDataReader)await command.ExecuteReaderAsync())
 				{
-					while (result.Read())
+					while (await result.ReadAsync())
 					{
 
 						partitionKeyRowKey = (likePattern ? null : partitionKeyRowKey) ?? (string)result["PartitionKeyRowKey"];

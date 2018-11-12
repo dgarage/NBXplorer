@@ -125,8 +125,14 @@ namespace NBXplorer.DB
 					Thread.Sleep(5000);
 					goto retry;
 				}
+
 				var command = connection.CreateCommand();
-				command.CommandText = $"CREATE TABLE IF NOT EXISTS \"GenericTables\" (\"PartitionKeyRowKey\" text PRIMARY KEY, \"Value\" bytea, \"DeletedAt\" timestamp)";
+				command.CommandText = String.Join(";", new[]
+				{
+					$"CREATE TABLE IF NOT EXISTS \"GenericTables\" (\"PartitionKeyRowKey\" text PRIMARY KEY, \"Value\" bytea, \"DeletedAt\" timestamp)",
+					"CREATE TABLE IF NOT EXISTS \"Events\" ( \"id\" BIGSERIAL PRIMARY KEY, \"data\" bytea NOT NULL, \"event_id\" VARCHAR(40) UNIQUE)",
+					"CREATE OR REPLACE FUNCTION insert_event(\"data_arg\" bytea, \"event_id_arg\" VARCHAR(40)) RETURNS BIGINT AS $$\r\nDECLARE\r\n\t\"inserted_id\" BIGINT;\r\nBEGIN\r\n\tPERFORM pg_advisory_xact_lock(183620);\r\n\tINSERT INTO \"Events\" (\"data\", \"event_id\") VALUES (\"data_arg\", \"event_id_arg\") \r\n\t\tRETURNING \"id\" INTO \"inserted_id\";\r\n\tRETURN \"inserted_id\";\r\nEXCEPTION  WHEN unique_violation THEN\r\n\tSELECT \"id\" FROM \"Events\" WHERE \"event_id\" = \"event_id_arg\" INTO \"inserted_id\";\r\n\tRETURN \"inserted_id\";\r\nEND;\r\n$$ LANGUAGE PLpgSQL;\r\n"
+				});
 				command.ExecuteNonQuery();
 			}
 		}

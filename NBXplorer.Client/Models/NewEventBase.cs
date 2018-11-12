@@ -1,6 +1,9 @@
 ﻿using Newtonsoft.Json;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Text;
+using NBitcoin.DataEncoders;
 
 namespace NBXplorer.Models
 {
@@ -24,6 +27,19 @@ namespace NBXplorer.Models
 			jobj.Add(new JProperty("data", data));
 
 			return jobj;
+		}
+
+		static Encoding UTF8 = new UTF8Encoding(false);
+		public string GetEventId()
+		{
+			var str = String.Join("-", GetEventIdCore().Select(e => e == null ? string.Empty : e.ToString()).ToArray());
+			var hash = NBitcoin.Crypto.Hashes.SHA256(UTF8.GetBytes(str));
+			return Encoders.Hex.EncodeData(hash, 0, 20);
+		}
+
+		protected virtual object[] GetEventIdCore()
+		{
+			return new object[0];
 		}
 
 		public string ToJson(JsonSerializerSettings settings)

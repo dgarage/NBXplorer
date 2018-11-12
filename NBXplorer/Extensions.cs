@@ -99,6 +99,27 @@ namespace NBXplorer
 			return evt;
 		}
 
+		public static Models.NewBlockEvent ToExternalEvent(this Events.NewBlockEvent o, SlimChainedBlock block)
+		{
+			return new Models.NewBlockEvent()
+			{
+				CryptoCode = o.CryptoCode,
+				Hash = block.Hash,
+				Height = block.Height,
+				PreviousBlockHash = block?.Previous
+			};
+		}
+
+		public static NewTransactionEvent ToExternalEvent(this Events.NewTransactionMatchEvent o, bool includeTransaction, SlimChain chain, SlimChainedBlock blockHeader)
+		{
+			return new Models.NewTransactionEvent()
+			{
+				CryptoCode = o.CryptoCode,
+				BlockId = blockHeader?.Hash,
+				TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
+			}.SetMatch(o.TrackedTransaction);
+		}
+
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
 		{
 			public void Configure(MvcJsonOptions options)
