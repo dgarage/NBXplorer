@@ -41,7 +41,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public async Task RepositoryCanLock()
 		{
-			using(var tester = RepositoryTester.Create(true))
+			using (var tester = RepositoryTester.Create(true))
 			{
 				var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20)).Token;
 				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
@@ -202,7 +202,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanSpendFromUnconfirmed()
 		{
-			using(var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create())
 			{
 				var satoshi = new Key().GetWif(tester.Network).GetAddress();
 				var aliceExtKey = new ExtKey();
@@ -244,10 +244,10 @@ namespace NBXplorer.Tests
 				var broadcast = tester.Client.Broadcast(signed);
 				Assert.True(broadcast.Success);
 
-				while(true)
+				while (true)
 				{
 					aliceUtxo = tester.Client.GetUTXOs(alice, aliceUtxo);
-					if(aliceUtxo.Unconfirmed.UTXOs.Any(u => u.Outpoint.Hash == signed.GetHash()))
+					if (aliceUtxo.Unconfirmed.UTXOs.Any(u => u.Outpoint.Hash == signed.GetHash()))
 						break;
 				}
 
@@ -268,10 +268,10 @@ namespace NBXplorer.Tests
 				Assert.True(broadcast.Success);
 
 				UTXOChanges bobUtxo = null;
-				while(true)
+				while (true)
 				{
 					bobUtxo = tester.Client.GetUTXOs(bob, bobUtxo);
-					if(bobUtxo.Unconfirmed.UTXOs.Any(u => u.Outpoint.Hash == signed.GetHash()))
+					if (bobUtxo.Unconfirmed.UTXOs.Any(u => u.Outpoint.Hash == signed.GetHash()))
 						break;
 				}
 
@@ -285,7 +285,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanLockUTXOs()
 		{
-			using(var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create())
 			{
 				var bob = new Key().GetWif(tester.Network).GetAddress();
 				var aliceExtKey = new ExtKey();
@@ -365,6 +365,97 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanLockUTXOs2()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var wallet1 = CreateWallet(tester);
+				var wallet2 = CreateWallet(tester);
+				tester.Client.Track(wallet1.DerivationScheme);
+				tester.Client.Track(wallet2.DerivationScheme);
+				tester.RPC.Generate(20);
+				Logs.Tester.LogInformation($"Sending 20 coins in 20 utxos to wallet1 ({wallet1.DerivationScheme})...");
+				var sendingMoney = Enumerable.Range(0, 20)
+					.Select(async (_) =>
+					{
+						var address = await tester.Client.GetUnusedAsync(wallet1.DerivationScheme, DerivationFeature.Deposit, reserve: true);
+						await tester.SendToAddressAsync(address.ScriptPubKey, Money.Coins(1.0m));
+					}).ToArray();
+				Task.WaitAll(sendingMoney);
+
+				Logs.Tester.LogInformation($"Waiting the balance of wallet1 to reflect 20 BTC...");
+				var timeout = Timeout;
+				while (true)
+				{
+					var balance = tester.Client.GetBalance(wallet1.DerivationScheme);
+					if (balance.Spendable == Money.Coins(20))
+						break;
+					Thread.Sleep(100);
+					timeout.ThrowIfCancellationRequested();
+				}
+				// If we don't mine, we'll get a chain too long exception because the funder is making lot's of chained transactions
+				tester.RPC.Generate(1);
+				Logs.Tester.LogInformation($"Now, let's send 20 coins from wallet1 to wallet2 ({wallet2.DerivationScheme})");
+
+				var signing = Enumerable.Range(0, 20)
+					.Select(async (_) =>
+					{
+						var address = await tester.Client.GetUnusedAsync(wallet2.DerivationScheme, DerivationFeature.Deposit, reserve: true);
+						var locked = await tester.Client.LockUTXOsAsync(wallet1.DerivationScheme, new LockUTXOsRequest()
+						{
+							Amount = Money.Coins(0.6m),
+							Destination = address.Address,
+							FeeRate = new FeeRate(Money.Satoshis(1m), 1),
+							SubstractFees = false
+						});
+
+						TransactionBuilder builder = tester.Network.CreateTransactionBuilder();
+						foreach (var c in locked.SpentCoins)
+						{
+							var derived = wallet1.DerivationScheme.Derive(c.KeyPath);
+							var coin = new Coin(c.Outpoint, new TxOut(c.Value, derived.ScriptPubKey)).ToScriptCoin(derived.Redeem);
+							var key = wallet1.Key.Derive(c.KeyPath);
+							builder.AddCoins(coin);
+							builder.AddKeys(key.PrivateKey);
+						}
+						builder.SignTransactionInPlace(locked.Transaction);
+						var paths = string.Join(", ", locked.SpentCoins.Select(c => c.KeyPath.ToString()).ToArray());
+						Logs.Tester.LogInformation($"Spending {paths} in {locked.Transaction.GetHash().ToPrettyString()}");
+						Assert.True(builder.Verify(locked.Transaction));
+						return locked.Transaction;
+					}).ToArray();
+				Task.WaitAll(signing);
+				Logs.Tester.LogInformation($"Everything is signed, broadcasting...");
+
+				var broadcasting = signing.Select(s => tester.Client.BroadcastAsync(s.Result)).ToArray();
+				Task.WaitAll(broadcasting);
+
+				foreach (var broadcast in broadcasting)
+				{
+					Assert.Null(broadcast.Result.RPCMessage);
+				}
+
+				Logs.Tester.LogInformation($"Now, let's wait wallet2 received all the coins...");
+				timeout = Timeout;
+				while (true)
+				{
+					var balance = tester.Client.GetBalance(wallet2.DerivationScheme);
+					if (balance.Spendable == Money.Coins(0.6m * 20))
+						break;
+					Thread.Sleep(100);
+					timeout.ThrowIfCancellationRequested();
+				}
+			}
+		}
+
+		private (ExtKey Key, DerivationStrategyBase DerivationScheme) CreateWallet(ServerTester tester)
+		{
+			var k = new ExtKey();
+			var alice = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(k.Neuter(), new DerivationStrategyOptions() { P2SH = true });
+			return (k, alice);
+		}
+
+		[Fact]
 		public void CanEasilySpendUTXOs()
 		{
 			using (var tester = ServerTester.Create())
@@ -394,7 +485,7 @@ namespace NBXplorer.Tests
 				{
 					Money expected = i == 0 ? Money.Coins(2.0m) :
 									 i == 1 ? Money.Coins(1.49977400m) : null;
-					if(expected != null)
+					if (expected != null)
 					{
 						var balance = tester.Client.GetBalance(userDerivationScheme);
 						Assert.Equal(expected, balance.Spendable);
@@ -1367,7 +1458,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanReserveAddress()
 		{
-			using(var tester = ServerTester.Create(opts: new ServerTester.Options()
+			using (var tester = ServerTester.Create(opts: new ServerTester.Options()
 			{
 				MinGap = 10,
 				MaxGap = 20
@@ -1381,7 +1472,7 @@ namespace NBXplorer.Tests
 
 				var tasks = new List<Task<KeyPathInformation>>();
 
-				for(int i = 0; i < 10; i++)
+				for (int i = 0; i < 10; i++)
 				{
 					tasks.Add(tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, reserve: true));
 				}
@@ -1401,7 +1492,7 @@ namespace NBXplorer.Tests
 			var network = Network.TestNet;
 			var factory = new DerivationStrategyFactory(network);
 			Random rand = new Random();
-			for(int i = 0; i < 3; i++)
+			for (int i = 0; i < 3; i++)
 			{
 				var req1 = rand.Next(1, 3);
 				var keys1Count = rand.Next(req1, 3);
@@ -1905,7 +1996,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanReserveDirectAddress()
 		{
-			using(var tester = ServerTester.Create(opts: new ServerTester.Options()
+			using (var tester = ServerTester.Create(opts: new ServerTester.Options()
 			{
 				MinGap = 10,
 				MaxGap = 20
@@ -1936,7 +2027,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanGetKeyInformations()
 		{
-			using(var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -1950,7 +2041,7 @@ namespace NBXplorer.Tests
 #pragma warning restore CS0618 // Type or member is obsolete
 				Assert.NotNull(keyinfos);
 				Assert.True(keyinfos.Length > 0);
-				foreach(var k in keyinfos)
+				foreach (var k in keyinfos)
 				{
 					Assert.Equal(pubkey, k.DerivationStrategy);
 					Assert.Equal(script, k.ScriptPubKey);

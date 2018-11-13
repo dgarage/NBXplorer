@@ -117,6 +117,18 @@ namespace NBXplorer.DB
 				return await command.ExecuteNonQueryAsync() == 1;
 			}
 		}
+		internal async Task<bool> ReleaseLock(string partitionKey, string rowKey)
+		{
+			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
+			using (var command = Connection.CreateCommand())
+			{
+				var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
+				command.Parameters.Add(partitionKeyParam);
+				command.CommandText = "DELETE FROM \"GenericTables\" " +
+									  "WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey";
+				return await command.ExecuteNonQueryAsync() == 1;
+			}
+		}
 
 		private string PartitionKeyRowKey(string partitionKey, string rowKey)
 		{
@@ -146,19 +158,6 @@ namespace NBXplorer.DB
 						$"LIMIT 1";
 			var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
 			return (await QueryGenericRows<TValue>(query, partitionKeyParam)).FirstOrDefault();
-		}
-
-		internal async Task<bool> ReleaseLock(string partitionKey, string rowKey)
-		{
-			var partitionKeyRowKey = PartitionKeyRowKey(partitionKey, rowKey);
-			using (var command = Connection.CreateCommand())
-			{
-				var partitionKeyParam = new NpgsqlParameter("partitionKeyRowKey", partitionKeyRowKey);
-				command.Parameters.Add(partitionKeyParam);
-				command.CommandText = "DELETE FROM \"GenericTables\" " +
-									  "WHERE \"PartitionKeyRowKey\" = @partitionKeyRowKey";
-				return await command.ExecuteNonQueryAsync() == 1;
-			}
 		}
 
 		internal Task<IEnumerable<GenericRow<TValue>>> SelectForward<TValue>(string partitionKey)

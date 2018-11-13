@@ -194,6 +194,13 @@ namespace NBXplorer
 			return services;
 		}
 
+		public static string ToPrettyString(this uint256 value)
+		{
+			var txId = value.ToString();
+			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
+			return txId;
+		}
+
 		internal static string ToPrettyString(this TrackedSource trackedSource)
 		{
 			if (trackedSource is DerivationSchemeTrackedSource derivation)
