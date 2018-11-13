@@ -405,8 +405,7 @@ namespace NBXplorer.Tests
 						{
 							Amount = Money.Coins(0.6m),
 							Destination = address.Address,
-							FeeRate = new FeeRate(Money.Satoshis(1m), 1),
-							SubstractFees = false
+							FeeRate = new FeeRate(Money.Satoshis(1m), 1)
 						});
 
 						TransactionBuilder builder = tester.Network.CreateTransactionBuilder();
