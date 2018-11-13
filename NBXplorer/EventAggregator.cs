@@ -148,6 +148,17 @@ namespace NBXplorer
 			return Subscribe(new Action<IEventAggregatorSubscription, T>((sub, t) => subscription(t)));
 		}
 
+		public IEventAggregatorSubscription Subscribe<T>(Func<T, Task> subscription)
+		{
+			return Subscribe(new Action<IEventAggregatorSubscription, T>((sub, t) => subscription(t).ContinueWith(prev =>
+			{
+				if(prev.Status == TaskStatus.Faulted)
+				{
+					Logs.Events.LogError(prev.Exception, $"Error while calling event handler");
+				}
+			})));
+		}
+
 		public void Dispose()
 		{
 			lock(_Subscriptions)
