@@ -301,14 +301,17 @@ namespace NBXplorer
 
 		public async Task<DBLock> TakeWalletLock(DerivationStrategyBase derivationStrategy, CancellationToken cancellation = default(CancellationToken))
 		{
-			using (var tx = await _ContextFactory.GetContext())
+			while(true)
 			{
-				var index = new Index(tx, $"{_Suffix}Locks", $"{new DerivationSchemeTrackedSource(derivationStrategy, Network.NBitcoinNetwork).GetHash()}");
-				while (!await index.TakeLock())
+				using (var tx = await _ContextFactory.GetContext())
 				{
-					await Task.Delay(500, cancellation);
+					var index = new Index(tx, $"{_Suffix}Locks", $"{new DerivationSchemeTrackedSource(derivationStrategy, Network.NBitcoinNetwork).GetHash()}");
+					if(await index.TakeLock())
+					{
+						return new DBLock(this, index);
+					}
 				}
-				return new DBLock(this, index);
+				await Task.Delay(500, cancellation);
 			}
 		}
 

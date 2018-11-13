@@ -62,8 +62,11 @@ namespace NBXplorer
 				if(_KnownInputs.Contains(spentOutpoint) || 
 					(!UTXOByOutpoint.ContainsKey(spentOutpoint) && SpentUTXOs.Contains(spentOutpoint)))
 				{
-					result = ApplyTransactionResult.Conflict;
-					Conflicts.Add(spentOutpoint, hash);
+					if (!IsLockMarker(spentOutpoint))
+					{
+						result = ApplyTransactionResult.Conflict;
+						Conflicts.Add(spentOutpoint, hash);
+					}
 				}
 			}
 			if(result == ApplyTransactionResult.Conflict)
@@ -97,6 +100,12 @@ namespace NBXplorer
 			}
 			return result;
 		}
+
+		private static bool IsLockMarker(OutPoint spentOutpoint)
+		{
+			return new OutPoint(uint256.One, uint.MaxValue) == spentOutpoint;
+		}
+
 		HashSet<OutPoint> _KnownInputs = new HashSet<OutPoint>();
 		List<DateTimeOffset> _TransactionTimes = new List<DateTimeOffset>();
 		public DateTimeOffset? GetQuarterTransactionTime()

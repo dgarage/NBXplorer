@@ -41,8 +41,6 @@ namespace NBXplorer.Events
 			var conf = (BlockId == null ? "unconfirmed" : "confirmed");
 
 			string strategy = TrackedTransaction.TrackedSource.ToPrettyString();
-			var txId = TrackedTransaction.TransactionHash.ToString();
-			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
 
 			string keyPathSuffix = string.Empty;
 			if (TrackedTransaction.KnownKeyPathMapping.Count != 0)
@@ -50,7 +48,7 @@ namespace NBXplorer.Events
 				var keyPaths = TrackedTransaction.KnownKeyPathMapping.Values.Select(v => v.ToString()).ToArray();
 				keyPathSuffix = $" ({String.Join(", ", keyPaths)})";
 			}
-			return $"{CryptoCode}: {strategy} matching {conf} transaction {txId}{keyPathSuffix}";
+			return $"{CryptoCode}: {strategy} matching {conf} transaction {TrackedTransaction.TransactionHash.ToPrettyString()}{keyPathSuffix}";
 		}
 	}
 }
