@@ -510,7 +510,16 @@ namespace NBXplorer
 						IsRelay = false
 					}))
 					{
-						node.VersionHandshake(handshakeTimeout.Token);
+						try
+						{
+							node.VersionHandshake(handshakeTimeout.Token);
+						}
+						catch (OperationCanceledException) when (handshakeTimeout.IsCancellationRequested)
+						{
+							Logs.Explorer.LogWarning($"{Network.CryptoCode}: NBXplorer could not complete the handshake with the remote node. This is probably because NBXplorer is not whitelisted by your node." +
+								$"You can use \"whitebind\" or \"whitelist\" in your node configuration. (typically whitelist=127.0.0.1 if NBXplorer and the node are on the same machine.)");
+							throw;
+						}
 						handshaked = true;
 						var loadChainTimeout = _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(15);
 						if(_Chain.Height < 5)
