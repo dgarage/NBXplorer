@@ -549,8 +549,17 @@ namespace NBXplorer
 									.FirstOrDefault(p => p.SubVersion == userAgent);
 						if(peer != null && !peer.IsWhiteListed)
 						{
+							var addressStr = peer.Address?.Address?.ToString();
+							if (addressStr == null)
+							{
+								addressStr = peer.AddressString;
+								var portDelimiter = addressStr.LastIndexOf(':');
+								if (portDelimiter != -1)
+									addressStr = addressStr.Substring(0, portDelimiter);
+							}
+
 							Logs.Explorer.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
-								$" you should add \"whitelist={peer.Address.Address}\" to the configuration file of your node. (Or use whitebind)");
+								$" you should add \"whitelist={addressStr}\" to the configuration file of your node. (Or use whitebind)");
 						}
 						if(peer != null && peer.IsWhiteListed)
 						{
