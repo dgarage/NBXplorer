@@ -516,8 +516,9 @@ namespace NBXplorer
 						}
 						catch (OperationCanceledException) when (handshakeTimeout.IsCancellationRequested)
 						{
-							Logs.Explorer.LogWarning($"{Network.CryptoCode}: NBXplorer could not complete the handshake with the remote node. This is probably because NBXplorer is not whitelisted by your node." +
-								$"You can use \"whitebind\" or \"whitelist\" in your node configuration. (typically whitelist=127.0.0.1 if NBXplorer and the node are on the same machine.)");
+							Logs.Explorer.LogWarning($"{Network.CryptoCode}: NBXplorer could not complete the handshake with the remote node. This is probably because NBXplorer is not whitelisted by your node.{Environment.NewLine}" +
+								$"You can use \"whitebind\" or \"whitelist\" in your node configuration. (typically whitelist=127.0.0.1 if NBXplorer and the node are on the same machine.){Environment.NewLine}" +
+								$"This issue can also happen because NBXplorer do not manage to connect to the P2P port of your node at all.");
 							throw;
 						}
 						handshaked = true;
