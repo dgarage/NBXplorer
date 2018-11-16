@@ -1807,6 +1807,7 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation($"So finally we should have 2 UTXO, on 0/50 and 0/51");
 				utxo = tester.Client.GetUTXOs(pubkey, null, false);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
+				Assert.NotEqual(NBitcoin.Utils.UnixTimeToDateTime(0), utxo.Confirmed.UTXOs[0].Timestamp);
 			}
 		}
 
