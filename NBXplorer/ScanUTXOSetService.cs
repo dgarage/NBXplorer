@@ -258,11 +258,10 @@ namespace NBXplorer
 
 			var headers = new ConcurrentDictionary<uint256, BlockHeader>();
 			var clientBatch = client.PrepareBatch();
-			var gettingBlockHeaders = data.Select(async o =>
+			var gettingBlockHeaders = Task.WhenAll(data.Select(async o =>
 			{
-				var header = await clientBatch.GetBlockHeaderAsync(o.BlockId);
-				headers.TryAdd(o.BlockId, header);
-			}).Concat(new[] { clientBatch.SendBatchAsync() }).ToArray();
+				headers.TryAdd(o.BlockId, await clientBatch.GetBlockHeaderAsync(o.BlockId));
+			}).Concat(new[] { clientBatch.SendBatchAsync() }).ToArray());
 			await repo.SaveKeyInformations(scannedItems.
 				KeyPathInformations.
 				Select(p => p.Value).
@@ -274,12 +273,12 @@ namespace NBXplorer
 					return p.KeyPath.Indexes.Last() <= highest.Value;
 				}).ToArray());
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
-			await Task.WhenAll(gettingBlockHeaders);
+			await gettingBlockHeaders;
 			DateTimeOffset now = DateTimeOffset.UtcNow;
 			await repo.SaveMatches(data.Select(o => new TrackedTransaction(new TrackedTransactionKey(o.TxId, o.BlockId, true), trackedSource, o.Coins, o.KeyPathInformations)
 			{
 				Inserted = now,
-				FirstSeen = headers[o.BlockId].BlockTime
+				FirstSeen = headers.TryGetValue(o.BlockId, out var header) ? header.BlockTime : NBitcoin.Utils.UnixTimeToDateTime(0)
 			}).ToArray());
 		}
 
