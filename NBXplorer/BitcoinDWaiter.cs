@@ -177,7 +177,7 @@ namespace NBXplorer
 
 			_Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 			_Loop = StartLoop(_Cts.Token, _Tick);
-			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(s =>
+			_Subscription = _EventAggregator.Subscribe<Models.NewBlockEvent>(s =>
 			{
 				_Tick.Set();
 			});

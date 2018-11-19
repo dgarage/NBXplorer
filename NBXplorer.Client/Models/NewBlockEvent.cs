@@ -17,5 +17,10 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
+
+		public override string ToString()
+		{
+			return $"{CryptoCode}: New block {Hash} ({Height})";
+		}
 	}
 }

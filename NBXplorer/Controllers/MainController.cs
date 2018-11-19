@@ -269,24 +269,11 @@ namespace NBXplorer.Controllers
 
 			WebsocketMessageListener server = new WebsocketMessageListener(await HttpContext.WebSockets.AcceptWebSocketAsync(), _SerializerSettings);
 			CompositeDisposable subscriptions = new CompositeDisposable();
-			subscriptions.Add(_EventAggregator.Subscribe<Events.NewBlockEvent>(async o =>
+			subscriptions.Add(_EventAggregator.Subscribe<Models.NewBlockEvent>(async o =>
 			{
 				if (listenedBlocks.ContainsKey(o.CryptoCode))
 				{
-					var chain = ChainProvider.GetChain(o.CryptoCode);
-					if (chain == null)
-						return;
-					var block = chain.GetBlock(o.BlockId);
-					if (block != null)
-					{
-						await server.Send(new Models.NewBlockEvent()
-						{
-							CryptoCode = o.CryptoCode,
-							Hash = block.Hash,
-							Height = block.Height,
-							PreviousBlockHash = block?.Previous
-						});
-					}
+					await server.Send(o);
 				}
 			}));
 			subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(async o =>

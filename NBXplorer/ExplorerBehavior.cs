@@ -237,8 +237,15 @@ namespace NBXplorer
 					//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 					if (!IsSynching() || blockHash.GetLow32() % 100 == 0)
 						await Repository.SetIndexProgress(currentLocation);
-					var hasHeight = Chain.TryGetHeight(blockHash, out int blockHeight);
-					_EventAggregator.Publish(new Events.NewBlockEvent(_Repository.Network.CryptoCode, blockHash, hasHeight ? (int?)blockHeight : null));
+					var slimBlockHeader = Chain.GetBlock(blockHash);
+					if (slimBlockHeader != null)
+						_EventAggregator.Publish(new Models.NewBlockEvent()
+						{
+							CryptoCode = _Repository.Network.CryptoCode,
+							Hash = blockHash,
+							Height = slimBlockHeader.Height,
+							PreviousBlockHash = slimBlockHeader.Previous
+						});
 				}
 				if (_InFlights.Count == 0)
 					AskBlocks();

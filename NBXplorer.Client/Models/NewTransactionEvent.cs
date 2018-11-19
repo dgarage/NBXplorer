@@ -39,7 +39,7 @@ namespace NBXplorer.Models
 			var conf = (BlockId == null ? "unconfirmed" : "confirmed");
 
 			string strategy = TrackedSource.ToPrettyString();
-			var txId = TransactionData.ToString();
+			var txId = TransactionData.TransactionHash.ToString();
 			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
 
 			string keyPathSuffix = string.Empty;
