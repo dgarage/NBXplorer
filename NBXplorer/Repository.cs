@@ -379,9 +379,13 @@ namespace NBXplorer
 				tx.Insert(TableName, $"{PrimaryKey}-{key}", value);
 			}
 
-			public (string Key, byte[] Value)[] SelectForwardSkip(int n)
+			public (string Key, byte[] Value)[] SelectForwardSkip(int n, string startWith = null)
 			{
-				return tx.SelectForwardStartsWith<string, byte[]>(TableName, PrimaryKey).Skip(n).Select(c => (c.Key, c.Value)).ToArray();
+				if (startWith == null)
+					startWith = PrimaryKey;
+				else
+					startWith = $"{PrimaryKey}-{startWith}";
+				return tx.SelectForwardStartsWith<string, byte[]>(TableName, startWith).Skip(n).Select(c => (c.Key, c.Value)).ToArray();
 			}
 
 			public int Count()
@@ -792,7 +796,7 @@ namespace NBXplorer
 			get; set;
 		} = 30;
 
-		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource)
+		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null)
 		{
 
 			bool needUpdate = false;
@@ -803,7 +807,7 @@ namespace NBXplorer
 				var table = GetTransactionsIndex(tx, trackedSource);
 				tx.ValuesLazyLoadingIsOn = false;
 				var result = new List<TransactionMatchData>();
-				foreach (var row in table.SelectForwardSkip(0))
+				foreach (var row in table.SelectForwardSkip(0, txId?.ToString()))
 				{
 					MemoryStream ms = new MemoryStream(row.Value);
 					BitcoinStream bs = new BitcoinStream(ms, false);

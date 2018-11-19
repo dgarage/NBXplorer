@@ -1281,6 +1281,12 @@ namespace NBXplorer.Tests
 				var result = tester.Client.GetTransactions(pubkey, new[] { Bookmark.Start }, new[] { Bookmark.Start }, new[] { Bookmark.Start });
 				Assert.True(result.HasChanges());
 				Assert.Single(result.UnconfirmedTransactions.Transactions);
+				// Sanity check that if we filter the transaction, we get only the expected one
+				var tx1 = tester.Client.GetTransaction(pubkey, txId);
+				Assert.NotNull(tx1);
+				Assert.Equal(Money.Coins(1.0m), tx1.BalanceChange);
+				Assert.Null(tester.Client.GetTransaction(pubkey, uint256.One));
+
 				var height = result.Height;
 				var timestampUnconf = result.UnconfirmedTransactions.Transactions[0].Timestamp;
 				Assert.Null(result.UnconfirmedTransactions.Transactions[0].BlockHash);
@@ -1322,7 +1328,10 @@ namespace NBXplorer.Tests
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var txId3 = tester.SendToAddress(tester.AddressOf(key, "0/1"), Money.Coins(0.2m));
 				result = tester.Client.GetTransactions(pubkey, result);
+				Assert.Equal(2, result.UnconfirmedTransactions.Transactions.Count);
 				Assert.Equal(Money.Coins(-0.8m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
+				var tx3 = tester.Client.GetTransaction(pubkey, txId3);
+				Assert.Equal(Money.Coins(-0.8m), tx3.BalanceChange);
 			}
 		}
 

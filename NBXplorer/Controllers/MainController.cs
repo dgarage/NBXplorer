@@ -426,9 +426,9 @@ namespace NBXplorer.Controllers
 
 		static TimeSpan LongPollTimeout = TimeSpan.FromSeconds(10);
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions")]
-		[Route("cryptos/{cryptoCode}/addresses/{address}/transactions")]
-		public async Task<GetTransactionsResponse> GetTransactions(
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId?}")]
+		[Route("cryptos/{cryptoCode}/addresses/{address}/transactions/{txId?}")]
+		public async Task<IActionResult> GetTransactions(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
@@ -440,13 +440,23 @@ namespace NBXplorer.Controllers
 			HashSet<Bookmark> confirmedBookmarks = null,
 			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
 			HashSet<Bookmark> replacedBookmarks = null,
+			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
+			uint256 txId = null,
 			bool includeTransaction = true,
 			bool longPolling = false)
 		{
+			if(txId != null)
+			{
+				unconfirmedBookmarks = null;
+				confirmedBookmarks = null;
+				replacedBookmarks = null;
+				longPolling = false;
+			}
 			var trackedSource = GetTrackedSource(derivationScheme, address);
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
 			GetTransactionsResponse response = null;
+			TransactionInformation fetchedTransactionInfo = null;
 			using (CancellationTokenSource cts = new CancellationTokenSource())
 			{
 				if (longPolling)
@@ -460,7 +470,7 @@ namespace NBXplorer.Controllers
 					response = new GetTransactionsResponse();
 					int currentHeight = chain.Height;
 					response.Height = currentHeight;
-					var txs = await GetAnnotatedTransactions(repo, chain, trackedSource);
+					var txs = await GetAnnotatedTransactions(repo, chain, trackedSource, txId);
 					foreach (var item in new[]
 					{
 					new
@@ -506,7 +516,10 @@ namespace NBXplorer.Controllers
 								Outputs = tx.Record.GetReceivedOutputs().ToList()
 							};
 
-							item.TxSet.Transactions.Add(txInfo);
+							if(txId == null || txId == txInfo.TransactionId)
+								item.TxSet.Transactions.Add(txInfo);
+							if (txId != null && txId == txInfo.TransactionId)
+								fetchedTransactionInfo = txInfo;
 
 							txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).Sum() - txInfo.Inputs.Select(o => o.Value).Sum();
 
@@ -525,7 +538,19 @@ namespace NBXplorer.Controllers
 						break;
 				}
 			}
-			return response;
+
+			if (txId == null)
+			{
+				return Json(response);
+			}
+			else if(fetchedTransactionInfo == null)
+			{
+				return NotFound();
+			}
+			else
+			{
+				return Json(fetchedTransactionInfo);
+			}
 		}
 
 		[HttpPost]
@@ -842,12 +867,24 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, SlimChain chain, TrackedSource trackedSource)
+		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, SlimChain chain, TrackedSource trackedSource, uint256 txId = null)
 		{
-			var annotatedTransactions = new AnnotatedTransactionCollection((await repo
-				.GetTransactions(trackedSource))
-				.Select(t => new AnnotatedTransaction(t, chain))
+			var transactions = await repo.GetTransactions(trackedSource, txId);
+
+			// If the called is interested by only a single txId, we need to fetch the parents as well
+			if(txId != null)
+			{
+				var spentOutpoints = transactions.SelectMany(t => t.SpentOutpoints.Select(o => o.Hash)).ToHashSet();
+				var gettingParents = spentOutpoints.Select(async h => await repo.GetTransactions(trackedSource, h)).ToList();
+				await Task.WhenAll(gettingParents);
+				transactions = gettingParents.SelectMany(p => p.GetAwaiter().GetResult()).Concat(transactions).ToArray();
+			}
+
+			var annotatedTransactions = new AnnotatedTransactionCollection(
+				transactions.Select(t => new AnnotatedTransaction(t, chain))
 				.ToList(), trackedSource);
+
+
 			var cleaned = annotatedTransactions.DuplicatedTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
 			if (cleaned.Length != 0)
 			{

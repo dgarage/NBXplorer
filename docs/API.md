@@ -221,6 +221,41 @@ Returns:
 
 If `knownBookmark` is not null, the response is just a differential on the state the client already know on top of the specified bookmark.
 
+## Query a single transaction associated to a address or derivation scheme
+
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}
+HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions/{txId}
+
+Error codes:
+
+* HTTP 404: Transaction not found
+
+Optional Parameters:
+
+* `includeTransaction` includes the hex of the transaction, not only information (default: true)
+
+Returns:
+
+```json
+{
+    "blockHash": null,
+    "confirmations": 0,
+    "height": null,
+    "transactionId": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1",
+    "transaction": null,
+    "outputs": [
+        {
+        "scriptPubKey": "0014b39fc4eb5c6dd238d39449b70a2e30d575426d99",
+        "index": 1,
+        "value": 100000000
+        }
+    ],
+    "inputs": [],
+    "timestamp": 1540381889,
+    "balanceChange": 100000000
+}
+```
+
 ## Get a transaction
 
 HTTP GET v1/cryptos/{cryptoCode}/transactions/{txId}

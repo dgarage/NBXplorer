@@ -367,6 +367,40 @@ namespace NBXplorer
 				throw UnSupported(trackedSource);
 		}
 
+
+		public TransactionInformation GetTransaction(TrackedSource trackedSource, uint256 txId, CancellationToken cancellation = default)
+		{
+			return this.GetTransactionAsync(trackedSource, txId, cancellation).GetAwaiter().GetResult();
+		}
+		public TransactionInformation GetTransaction(DerivationStrategyBase derivationStrategyBase, uint256 txId, CancellationToken cancellation = default)
+		{
+			return this.GetTransactionAsync(derivationStrategyBase, txId, cancellation).GetAwaiter().GetResult();
+		}
+		public Task<TransactionInformation> GetTransactionAsync(DerivationStrategyBase derivationStrategyBase, uint256 txId, CancellationToken cancellation = default)
+		{
+			if (derivationStrategyBase == null)
+				throw new ArgumentNullException(nameof(derivationStrategyBase));
+			return GetTransactionAsync(new DerivationSchemeTrackedSource(derivationStrategyBase), txId, cancellation);
+		}
+
+		public Task<TransactionInformation> GetTransactionAsync(TrackedSource trackedSource, uint256 txId, CancellationToken cancellation = default)
+		{
+			if (txId == null)
+				throw new ArgumentNullException(nameof(txId));
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			if (trackedSource is DerivationSchemeTrackedSource dsts)
+			{
+				return SendAsync<TransactionInformation>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{dsts.DerivationStrategy}/transactions/{txId}", null, cancellation);
+			}
+			else if (trackedSource is AddressTrackedSource asts)
+			{
+				return SendAsync<TransactionInformation>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/addresses/{asts.Address}/transactions/{txId}", null, cancellation);
+			}
+			else
+				throw UnSupported(trackedSource);
+		}
+
 		public Task RescanAsync(RescanRequest rescanRequest, CancellationToken cancellation = default)
 		{
 			if (rescanRequest == null)
