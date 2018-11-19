@@ -62,21 +62,9 @@ namespace NBXplorer.MessageBrokers
 			}));
 
 
-			_subscriptions.Add(_EventAggregator.Subscribe<Events.NewTransactionMatchEvent>(async o =>
+			_subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(async o =>
 			{
-				var network = Waiters.GetWaiter(o.CryptoCode);
-				if(network == null)
-					return;
-				var chain = ChainProvider.GetChain(o.CryptoCode);
-				if(chain == null)
-					return;
-				var txe = new Models.NewTransactionEvent()
-				{
-					CryptoCode = o.CryptoCode,
-					BlockId = o.BlockId,
-					TransactionData = Utils.ToTransactionResult(true, chain, new[] { o.SavedTransaction }),
-				}.SetMatch(o.TrackedTransaction);
-				await _senderTransactions.Send(txe);
+				await _senderTransactions.Send(o);
 			}));
 			return Task.CompletedTask;
 		}

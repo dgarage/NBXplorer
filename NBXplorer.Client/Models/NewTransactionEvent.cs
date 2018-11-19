@@ -33,6 +33,23 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		} = new List<MatchedOutput>();
+
+		public override string ToString()
+		{
+			var conf = (BlockId == null ? "unconfirmed" : "confirmed");
+
+			string strategy = TrackedSource.ToPrettyString();
+			var txId = TransactionData.ToString();
+			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
+
+			string keyPathSuffix = string.Empty;
+			var keyPaths = Outputs.Select(v => v.KeyPath?.ToString()).Where(k => k != null).ToArray();
+			if (keyPaths.Length != 0)
+			{
+				keyPathSuffix = $" ({String.Join(", ", keyPaths)})";
+			}
+			return $"{CryptoCode}: {strategy} matching {conf} transaction {txId}{keyPathSuffix}";
+		}
 	}
 
 	public class MatchedOutput

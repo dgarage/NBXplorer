@@ -258,9 +258,32 @@ namespace NBXplorer
 			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
 			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
+
+			int? maybeHeight = null;
+			var chainHeight = Chain.Height;
+			if (blockHash != null && Chain.TryGetHeight(blockHash, out int height))
+			{
+				maybeHeight = height;
+			}
 			for (int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]));
+				_EventAggregator.Publish(new Models.NewTransactionEvent()
+				{
+					TrackedSource = matches[i].TrackedSource,
+					DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
+					CryptoCode = Network.CryptoCode,
+					BlockId = blockHash,
+					TransactionData = new TransactionResult()
+					{
+						BlockId = blockHash,
+						Height = maybeHeight,
+						Confirmations = maybeHeight == null ? 0 : chainHeight - maybeHeight.Value + 1,
+						Timestamp = now,
+						Transaction = matches[i].Transaction,
+						TransactionHash = matches[i].TransactionHash
+					},
+					Outputs = matches[i].GetReceivedOutputs().ToList()
+				});
 			}
 		}
 		public bool IsSynching()

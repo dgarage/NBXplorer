@@ -125,13 +125,13 @@ namespace NBXplorer{
 			return KnownKeyPathMapping.Values.Select(v => new KeyPathInformation(v, derivationStrategy));
 		}
 
-		public IEnumerable<MatchedOutput> GetReceivedOutputs(TrackedSource trackedSource)
+		public IEnumerable<MatchedOutput> GetReceivedOutputs()
 		{
 			return this.ReceivedCoins
 							.Select(o => (Index: (int)o.Outpoint.N,
 												   Output: o,
 												   KeyPath: KnownKeyPathMapping.TryGet(o.ScriptPubKey)))
-							.Where(o => o.KeyPath != null || o.Output.ScriptPubKey == (trackedSource as IDestination)?.ScriptPubKey)
+							.Where(o => o.KeyPath != null || o.Output.ScriptPubKey == (TrackedSource as IDestination)?.ScriptPubKey)
 							.Select(o => new MatchedOutput()
 							{
 								Index = o.Index,

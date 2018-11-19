@@ -77,15 +77,6 @@ namespace NBXplorer
 			return null;
 		}
 
-		public static NewTransactionEvent SetMatch(this NewTransactionEvent evt, TrackedTransaction match)
-		{
-			evt.TrackedSource = match.TrackedSource;
-			var derivation = (match.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-			evt.Outputs.AddRange(match.GetReceivedOutputs(evt.TrackedSource));
-			evt.DerivationStrategy = derivation;
-			return evt;
-		}
-
 		internal static KeyPathInformation AddAddress(this KeyPathInformation keyPathInformation, Network network)
 		{
 			if(keyPathInformation.Address == null)
@@ -179,27 +170,6 @@ namespace NBXplorer
 				o.LoadArgs(conf);
 			});
 			return services;
-		}
-
-		internal static string ToPrettyString(this TrackedSource trackedSource)
-		{
-			if (trackedSource is DerivationSchemeTrackedSource derivation)
-			{
-				var strategy = derivation.DerivationStrategy.ToString();
-				if (strategy.Length > 35)
-				{
-					strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
-				}
-				return strategy;
-			}
-			else if (trackedSource is AddressTrackedSource addressDerivation)
-			{
-				return addressDerivation.Address.ToString();
-			}
-			else
-			{
-				return trackedSource.ToString();
-			}
 		}
 
 		internal class NoObjectModelValidator : IObjectModelValidator

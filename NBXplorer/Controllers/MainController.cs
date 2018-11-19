@@ -289,14 +289,14 @@ namespace NBXplorer.Controllers
 					}
 				}
 			}));
-			subscriptions.Add(_EventAggregator.Subscribe<Events.NewTransactionMatchEvent>(async o =>
+			subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(async o =>
 			{
 				var network = Waiters.GetWaiter(o.CryptoCode);
 				if (network == null)
 					return;
 
 				bool forward = false;
-				var derivationScheme = (o.TrackedTransaction.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+				var derivationScheme = (o.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 				if (derivationScheme != null)
 				{
 					forward |= listenAllDerivationSchemes == "*" ||
@@ -305,22 +305,12 @@ namespace NBXplorer.Controllers
 				}
 
 				forward |= listenAllTrackedSource == "*" || listenAllTrackedSource == o.CryptoCode ||
-							listenedTrackedSource.ContainsKey((network.Network.NBitcoinNetwork, o.TrackedTransaction.TrackedSource));
+							listenedTrackedSource.ContainsKey((network.Network.NBitcoinNetwork, o.TrackedSource));
 
 				if (forward)
 				{
-					var chain = ChainProvider.GetChain(o.CryptoCode);
-					if (chain == null)
-						return;
-					var blockHeader = o.BlockId == null ? null : chain.GetBlock(o.BlockId);
-
-					var derivation = (o.TrackedTransaction.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-					await server.Send(new Models.NewTransactionEvent()
-					{
-						CryptoCode = o.CryptoCode,
-						BlockId = blockHeader?.Hash,
-						TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
-					}.SetMatch(o.TrackedTransaction));
+					var derivation = (o.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+					await server.Send(o);
 				}
 			}));
 			try
@@ -399,7 +389,10 @@ namespace NBXplorer.Controllers
 			var result = await RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if (result.Length == 0)
 				return NotFound();
-			return Json(Utils.ToTransactionResult(includeTransaction, chain, result));
+			var tx = Utils.ToTransactionResult(chain, result);
+			if (!includeTransaction)
+				tx.Transaction = null;
+			return Json(tx);
 		}
 
 		[HttpPost]
@@ -523,7 +516,7 @@ namespace NBXplorer.Controllers
 								Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 								Timestamp = txs.GetByTxId(tx.Record.TransactionHash).Select(t => t.Record.FirstSeen).First(),
 								Inputs = tx.Record.SpentOutpoints.Select(o => txs.GetUTXO(o)).Where(o => o != null).ToList(),
-								Outputs = tx.Record.GetReceivedOutputs(trackedSource).ToList()
+								Outputs = tx.Record.GetReceivedOutputs().ToList()
 							};
 
 							item.TxSet.Transactions.Add(txInfo);
@@ -887,7 +880,7 @@ namespace NBXplorer.Controllers
 		{
 			try
 			{
-				await _EventAggregator.WaitNext<NewTransactionMatchEvent>(e => e.TrackedTransaction.TrackedSource.Equals(trackedSource), cancellationToken);
+				await _EventAggregator.WaitNext<Models.NewTransactionEvent>(e => e.TrackedSource.Equals(trackedSource), cancellationToken);
 				return true;
 			}
 			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

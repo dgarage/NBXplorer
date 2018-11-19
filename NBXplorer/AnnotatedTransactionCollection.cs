@@ -111,7 +111,7 @@ namespace NBXplorer
         {
             if (_TxById.TryGetValue(outpoint.Hash, out var txs))
             {
-                return txs.SelectMany(t => t.Record.GetReceivedOutputs(TrackedSource).Where(c => c.Index == outpoint.N))
+                return txs.SelectMany(t => t.Record.GetReceivedOutputs().Where(c => c.Index == outpoint.N))
                           .FirstOrDefault();
             }
             return null;
