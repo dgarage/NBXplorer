@@ -756,3 +756,59 @@ The state can be:
 Error codes:
 
 * HTTP 404 `scanutxoset-info-not-found` if the scan has been done above the last 24H.
+
+## Query event stream
+
+All notifications sent through websocket are also saved in a global event stream.
+
+HTTP GET v1/cryptos/{cryptoCode}/events
+
+Query parameters:
+
+* `lastEventId`: Will query all events which happened after this event id, the first event has id 1 (default: 0)
+* `longPolling`: If no events have been received since `lastEventId`, the call will block up until 10 seconds or until a new event arrives, whichever comes first. (default: false)
+* `limit`: Limit the maximum number of events to return (default: null)
+
+All events are registered in a query stream which you can replay by keeping track of the `lastEventId`.
+The smallest `eventId` is 1.
+
+```json
+[
+  {
+    "eventId": 1,
+    "type": "newblock",
+    "data": {
+      "height": 104,
+      "hash": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35",
+      "previousBlockHash": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
+      "cryptoCode": "BTC",
+    }
+  },
+  {
+	"eventId": 2,
+    "type": "newtransaction",
+    "data": {
+      "blockId": null,
+      "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
+      "derivationStrategy": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
+      "transactionData": {
+        "confirmations": 0,
+        "blockId": null,
+        "transactionHash": "500359d971698c021587ea952bd38bd57dafc2b99615f71f7f978af394682737",
+        "transaction": "0200000001b8af58c5dbed4bd0ea60ae8ba7e68e66143440b8c1c69b6eaaf719566676ab1b0000000048473044022040b419aeb9042a53fb2d03abec911901ed42fc50d6a143e322bc61d51e4e35a9022073c10fe827b53332d50fbde581e36ad31f57b98ec35a125562dc8c739762ec8901feffffff028c02102401000000160014b6bedaf0cb795c01a1e427bd7752d6ef058964f100e1f50500000000160014c5e0b07f40b8dbe69b22864d84d83d5b4120835368000000",
+        "height": null,
+        "timestamp": 1542703963
+      },
+      "outputs": [
+        {
+          "keyPath": "0/0",
+          "scriptPubKey": "0014c5e0b07f40b8dbe69b22864d84d83d5b41208353",
+          "index": 1,
+          "value": 100000000
+        }
+      ],
+      "cryptoCode": "BTC",
+    }
+  }
+]
+```

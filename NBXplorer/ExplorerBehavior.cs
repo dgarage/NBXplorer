@@ -239,13 +239,18 @@ namespace NBXplorer
 						await Repository.SetIndexProgress(currentLocation);
 					var slimBlockHeader = Chain.GetBlock(blockHash);
 					if (slimBlockHeader != null)
-						_EventAggregator.Publish(new Models.NewBlockEvent()
+					{
+						var blockEvent = new Models.NewBlockEvent()
 						{
 							CryptoCode = _Repository.Network.CryptoCode,
 							Hash = blockHash,
 							Height = slimBlockHeader.Height,
 							PreviousBlockHash = slimBlockHeader.Previous
-						});
+						};
+						var saving = Repository.SaveEvent(blockEvent);
+						_EventAggregator.Publish(blockEvent);
+						await saving;
+					}
 				}
 				if (_InFlights.Count == 0)
 					AskBlocks();
@@ -272,9 +277,10 @@ namespace NBXplorer
 			{
 				maybeHeight = height;
 			}
+			Task[] saving = new Task[matches.Length];
 			for (int i = 0; i < matches.Length; i++)
 			{
-				_EventAggregator.Publish(new Models.NewTransactionEvent()
+				var txEvt = new Models.NewTransactionEvent()
 				{
 					TrackedSource = matches[i].TrackedSource,
 					DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
@@ -290,8 +296,11 @@ namespace NBXplorer
 						TransactionHash = matches[i].TransactionHash
 					},
 					Outputs = matches[i].GetReceivedOutputs().ToList()
-				});
+				};
+				saving[i] = Repository.SaveEvent(txEvt);
+				_EventAggregator.Publish(txEvt);
 			}
+			await Task.WhenAll(saving);
 		}
 		public bool IsSynching()
 		{

@@ -39,6 +39,67 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public async Task CanGetEvents()
+		{
+			using (var tester = RepositoryTester.Create(false))
+			{
+				var evt1 = new NewBlockEvent() { Height = 1 };
+				var evt2 = new NewBlockEvent() { Height = 2 };
+				var id = await tester.Repository.SaveEvent(evt1);
+				Assert.Equal(1, id);
+
+				// Well saved?
+				var evts = await tester.Repository.GetEvents(-1);
+				Assert.Single(evts);
+				Assert.Equal(1, ((NewBlockEvent)evts[0]).Height);
+
+				// But evt2 should be saved if there is a different eventId
+				id = await tester.Repository.SaveEvent(evt2);
+				Assert.Equal(2, id);
+
+				// Let's see if both evts are returned correctly
+				evts = await tester.Repository.GetEvents(-1);
+				Assert.True(evts.Count == 2);
+				Assert.Equal(1, ((NewBlockEvent)evts[0]).Height);
+				Assert.Equal(2, ((NewBlockEvent)evts[1]).Height);
+
+				// Or only 1 if we pass the first param
+				evts = await tester.Repository.GetEvents(1);
+				Assert.Single(evts);
+				Assert.Equal(2, ((NewBlockEvent)evts[0]).Height);
+
+				// Or only 1 if we pass limit
+				evts = await tester.Repository.GetEvents(-1, 1);
+				Assert.Single(evts);
+				Assert.Equal(1, ((NewBlockEvent)evts[0]).Height);
+
+				var evt3 = new NewBlockEvent() { Height = 3 };
+				await tester.Repository.SaveEvent(evt3);
+
+				evts = await tester.Repository.GetEvents(1, 1);
+				Assert.Equal(2, evts[0].EventId);
+				Assert.Single(evts);
+				Assert.Equal(2, ((NewBlockEvent)evts[0]).Height);
+
+				for (int i = 0; i < 20; i++)
+				{
+					var evt = new NewBlockEvent() { Height = 4 + i };
+					await tester.Repository.SaveEvent(evt);
+				}
+				evts = await tester.Repository.GetEvents(0);
+				Assert.Equal(23, evts.Count);
+				int prev = 0;
+				foreach (var item in evts)
+				{
+					Assert.Equal(prev + 1, ((NewBlockEvent)item).Height);
+					Assert.Equal(prev + 1, item.EventId);
+					prev = ((NewBlockEvent)item).Height;
+				}
+			}
+		}
+
+
+		[Fact]
 		public void CanSerializeKeyPathFast()
 		{
 			using (var tester = RepositoryTester.Create(true))
@@ -717,7 +778,7 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
 				tester.Client.Track(pubkey);
-				using (var connected = tester.Client.CreateNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSession())
 				{
 					connected.ListenNewBlock();
 					var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
@@ -732,7 +793,7 @@ namespace NBXplorer.Tests
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
 				}
 
-				using (var connected = tester.Client.CreateNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSession())
 				{
 					connected.ListenAllDerivationSchemes();
 					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
@@ -741,9 +802,48 @@ namespace NBXplorer.Tests
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
 				}
 
-				using (var connected = tester.Client.CreateNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSession())
 				{
 					connected.ListenAllTrackedSource();
+					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+
+					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					Assert.Equal(txEvent.DerivationStrategy, pubkey);
+				}
+			}
+		}
+
+		[Fact]
+		public void CanUseLongPollingNotifications()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+				var connected = tester.Client.CreateLongPollingNotificationSession();
+				{
+					var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
+					var blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
+					Assert.Equal(expectedBlockId, blockEvent.Hash);
+					Assert.NotEqual(0, blockEvent.Height);
+					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+
+					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					Assert.Equal(txEvent.DerivationStrategy, pubkey);
+				}
+
+				connected = tester.Client.CreateLongPollingNotificationSession(connected.LastEventId);
+				{
+					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+
+					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					Assert.Equal(txEvent.DerivationStrategy, pubkey);
+				}
+
+				connected = tester.Client.CreateLongPollingNotificationSession(connected.LastEventId);
+				{
 					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
@@ -765,7 +865,7 @@ namespace NBXplorer.Tests
 
 				tester.Client.Track(pubkey);
 				tester.Client.Track(pubkey2);
-				using (var connected = tester.Client.CreateNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSession())
 				{
 					connected.ListenAllDerivationSchemes();
 					tester.Explorer.CreateRPCClient().SendCommand(RPCOperations.sendmany, "",
@@ -865,7 +965,7 @@ namespace NBXplorer.Tests
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
 				tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
-				var events = tester.Client.CreateNotificationSession();
+				var events = tester.Client.CreateWebsocketNotificationSession();
 				events.ListenDerivationSchemes(new[] { pubkey });
 
 				var id = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
@@ -962,7 +1062,7 @@ namespace NBXplorer.Tests
 				var key = new Key();
 				var pubkey = TrackedSource.Create(key.PubKey.GetAddress(tester.Network));
 				tester.Client.Track(pubkey);
-				using (var connected = tester.Client.CreateNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSession())
 				{
 					connected.ListenNewBlock();
 					var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
@@ -979,7 +1079,7 @@ namespace NBXplorer.Tests
 					Assert.Equal(txEvent.TrackedSource, pubkey);
 				}
 
-				using (var connected = tester.Client.CreateNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSession())
 				{
 					connected.ListenAllTrackedSource();
 					tester.SendToAddress(pubkey.Address, Money.Coins(1.0m));
@@ -1004,7 +1104,7 @@ namespace NBXplorer.Tests
 
 				tester.Client.Track(pubkey);
 				tester.Client.Track(pubkey2);
-				using (var connected = tester.Client.CreateNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSession())
 				{
 					connected.ListenAllTrackedSource();
 					tester.Explorer.CreateRPCClient().SendCommand(RPCOperations.sendmany, "",
@@ -1386,7 +1486,7 @@ namespace NBXplorer.Tests
 				var txId3 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				var txId4 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				var tx4 = tester.RPC.GetRawTransaction(txId4);
-				var notify = tester.Client.CreateNotificationSession();
+				var notify = tester.Client.CreateWebsocketNotificationSession();
 				notify.ListenNewBlock();
 				var blockId = tester.RPC.Generate(1)[0];
 				var blockId2 = tester.RPC.Generate(1)[0];
@@ -1567,7 +1667,54 @@ namespace NBXplorer.Tests
 				Assert.False(utxo.HasChanges);
 			}
 		}
+		[Fact(Timeout = 60 * 1000)]
+		public void CanUseLongPollingOnEvents()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				//WaitServerStarted not needed, just a sanity check
+				tester.Client.WaitServerStarted(Timeout);
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				tester.Client.Track(pubkey);
 
+				Logs.Tester.LogInformation("Get events should not returns with long polling as not event happen");
+				var session = tester.Client.CreateLongPollingNotificationSession();
+				var evts = session.GetEvents();
+				long lastId = 0;
+				if(evts.Length != 0)
+					lastId = evts.Last().EventId;
+				DateTimeOffset now = DateTimeOffset.UtcNow;
+				evts = session.GetEvents(lastId, longPolling: true);
+				long lastId2 = 0;
+				if (evts.Length != 0)
+					lastId2 = evts.Last().EventId;
+				Assert.Equal(lastId, lastId2);
+				Assert.True(DateTimeOffset.UtcNow - now > TimeSpan.FromSeconds(5.0));
+				Logs.Tester.LogInformation("Get events should returns when the block get mined");
+				now = DateTimeOffset.UtcNow;
+				var gettingEvts = session.GetEventsAsync(lastEventId: lastId, longPolling: true);
+				Thread.Sleep(1000);
+				Assert.False(gettingEvts.IsCompleted);
+				tester.RPC.Generate(1);
+				Logs.Tester.LogInformation("Block mined");
+				evts = gettingEvts.GetAwaiter().GetResult();
+				Assert.Equal(lastId + 1, evts.Last().EventId);
+				Assert.Single(evts);
+				Assert.True(DateTimeOffset.UtcNow - now < TimeSpan.FromSeconds(5.0));
+				Logs.Tester.LogInformation("Event returned");
+				Logs.Tester.LogInformation("Should return immediately because the wallet received money");
+				now = DateTimeOffset.UtcNow;
+				tester.RPC.SendToAddress(tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).ScriptPubKey, Money.Coins(1.0m));
+				evts = session.GetEvents(lastEventId: evts.Last().EventId, longPolling: true);
+				Assert.True(DateTimeOffset.UtcNow - now < TimeSpan.FromSeconds(5.0));
+				Logs.Tester.LogInformation("Event returned");
+				evts = session.GetEvents();
+				Assert.Equal(2, evts.Length);
+				Assert.IsType<Models.NewBlockEvent>(evts[0]);
+				Assert.IsType<Models.NewTransactionEvent>(evts[1]);
+			}
+		}
 		private void LockTestCoins(RPCClient rpc, HashSet<Script> keepAddresses = null)
 		{
 			if (keepAddresses == null)

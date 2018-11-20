@@ -363,6 +363,32 @@ namespace NBXplorer.Controllers
 			return new EmptyResult();
 		}
 
+
+		[Route("cryptos/{cryptoCode}/events")]
+		public async Task<JArray> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false)
+		{
+			if (limit != null && limit.Value < 0)
+				throw new NBXplorerError(400, "invalid-limit", "limit should be more than 0").AsException();
+			var network = GetNetwork(cryptoCode, false);
+
+			using (CompositeDisposable subscriptions = new CompositeDisposable())
+			using (SemaphoreSlim semaphore = new SemaphoreSlim(0))
+			{
+				subscriptions.Add(_EventAggregator.Subscribe<NewBlockEvent>(o => semaphore.Release()));
+				subscriptions.Add(_EventAggregator.Subscribe<NewTransactionEvent>(o => semaphore.Release()));
+			retry:
+				var repo = RepositoryProvider.GetRepository(network);
+				var result = await repo.GetEvents(lastEventId, limit);
+				if (result.Count == 0 && longPolling)
+				{
+					if (await semaphore.WaitAsync(LongPollTimeout))
+						goto retry;
+				}
+				return new JArray(result.Select(o => o.ToJObject(repo.Serializer.Settings)));
+			}
+		}
+
+
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/transactions/{txId}")]
 		public async Task<IActionResult> GetTransaction(

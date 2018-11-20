@@ -81,7 +81,7 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(network));
 			_Address = serverAddress;
 			_Network = network;
-			_Serializer = new Serializer(network.NBitcoinNetwork);
+			Serializer = new Serializer(network.NBitcoinNetwork);
 			_CryptoCode = _Network.CryptoCode;
 			_Factory = new DerivationStrategy.DerivationStrategyFactory(Network.NBitcoinNetwork);
 			SetCookieAuth(network.DefaultSettings.DefaultCookieFile);
@@ -112,7 +112,6 @@ namespace NBXplorer
 			}
 		}
 
-		Serializer _Serializer;
 		DerivationStrategy.DerivationStrategyFactory _Factory;
 		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, UTXOChanges previousChange, bool longPolling = true, CancellationToken cancellation = default)
 		{
@@ -179,14 +178,19 @@ namespace NBXplorer
 			return GetScanUTXOSetInformationAsync(extKey, cancellation).GetAwaiter().GetResult();
 		}
 
-		public NotificationSession CreateNotificationSession(CancellationToken cancellation = default)
+		public LongPollingNotificationSession CreateLongPollingNotificationSession(long lastEventId = 0, CancellationToken cancellation = default)
 		{
-			return CreateNotificationSessionAsync(cancellation).GetAwaiter().GetResult();
+			return new LongPollingNotificationSession(lastEventId, this);
 		}
 
-		public async Task<NotificationSession> CreateNotificationSessionAsync(CancellationToken cancellation = default)
+		public WebsocketNotificationSession CreateWebsocketNotificationSession(CancellationToken cancellation = default)
 		{
-			var session = new NotificationSession(this);
+			return CreateWebsocketNotificationSessionAsync(cancellation).GetAwaiter().GetResult();
+		}
+
+		public async Task<WebsocketNotificationSession> CreateWebsocketNotificationSessionAsync(CancellationToken cancellation = default)
+		{
+			var session = new WebsocketNotificationSession(this);
 			await session.ConnectAsync(cancellation).ConfigureAwait(false);
 			return session;
 		}
@@ -518,7 +522,7 @@ namespace NBXplorer
 		{
 			get; set;
 		} = true;
-
+		public Serializer Serializer { get; private set; }
 
 		internal string GetFullUri(string relativePath, params object[] parameters)
 		{
@@ -540,7 +544,7 @@ namespace NBXplorer
 		{
 			return SendAsync<T>(HttpMethod.Get, null, relativePath, parameters, cancellation);
 		}
-		private async Task<T> SendAsync<T>(HttpMethod method, object body, string relativePath, object[] parameters, CancellationToken cancellation)
+		internal async Task<T> SendAsync<T>(HttpMethod method, object body, string relativePath, object[] parameters, CancellationToken cancellation)
 		{
 			HttpRequestMessage message = CreateMessage(method, body, relativePath, parameters);
 			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
@@ -569,7 +573,7 @@ namespace NBXplorer
 				if (body is byte[])
 					message.Content = new ByteArrayContent((byte[])body);
 				else
-					message.Content = new StringContent(_Serializer.ToString(body), Encoding.UTF8, "application/json");
+					message.Content = new StringContent(Serializer.ToString(body), Encoding.UTF8, "application/json");
 			}
 
 			return message;
@@ -583,14 +587,14 @@ namespace NBXplorer
 					if (response.Content.Headers.ContentLength == 0)
 						return default(T);
 					else if (response.Content.Headers.ContentType.MediaType.Equals("application/json", StringComparison.Ordinal))
-						return _Serializer.ToObject<T>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+						return Serializer.ToObject<T>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
 					else if (response.Content.Headers.ContentType.MediaType.Equals("application/octet-stream", StringComparison.Ordinal))
 					{
 						return (T)(object)await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
 					}
 				if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
 					response.EnsureSuccessStatusCode();
-				var error = _Serializer.ToObject<NBXplorerError>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+				var error = Serializer.ToObject<NBXplorerError>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
 				if (error == null)
 					response.EnsureSuccessStatusCode();
 				throw error.AsException();
@@ -605,7 +609,7 @@ namespace NBXplorer
 					return;
 				if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
 					response.EnsureSuccessStatusCode();
-				var error = _Serializer.ToObject<NBXplorerError>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
+				var error = Serializer.ToObject<NBXplorerError>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
 				if (error == null)
 					response.EnsureSuccessStatusCode();
 				throw error.AsException();

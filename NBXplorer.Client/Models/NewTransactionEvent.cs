@@ -34,6 +34,9 @@ namespace NBXplorer.Models
 			get; set;
 		} = new List<MatchedOutput>();
 
+		[JsonIgnore]
+		public override string EventType => "newtransaction";
+
 		public override string ToString()
 		{
 			var conf = (BlockId == null ? "unconfirmed" : "confirmed");

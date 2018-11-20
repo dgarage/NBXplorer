@@ -37,7 +37,7 @@ namespace NBXplorer
 		ArraySegment<byte> _Buffer;
 
 		UTF8Encoding UTF8 = new UTF8Encoding(false, true);
-		public async Task<object> NextMessageAsync(CancellationToken cancellation)
+		public async Task<NewEventBase> NextMessageAsync(CancellationToken cancellation)
 		{
 			var buffer = _Buffer;
 			var array = _Buffer.Array;
@@ -100,7 +100,7 @@ namespace NBXplorer
 		}
 		
 
-		private object ParseMessage(ArraySegment<byte> buffer)
+		private NewEventBase ParseMessage(ArraySegment<byte> buffer)
 		{
 			var str = UTF8.GetString(buffer.Array, 0, buffer.Count);
 			return NewEventBase.ParseEvent(str, _SerializerSettings);
