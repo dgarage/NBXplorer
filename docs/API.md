@@ -759,7 +759,7 @@ Error codes:
 
 ## Query event stream
 
-All notifications sent through websocket are also saved in a global event stream.
+All notifications sent through websocket are also saved in a crypto specifc event stream.
 
 HTTP GET v1/cryptos/{cryptoCode}/events
 
