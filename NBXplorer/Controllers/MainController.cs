@@ -371,18 +371,31 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerError(400, "invalid-limit", "limit should be more than 0").AsException();
 			var network = GetNetwork(cryptoCode, false);
 
-			using (CompositeDisposable subscriptions = new CompositeDisposable())
-			using (SemaphoreSlim semaphore = new SemaphoreSlim(0))
+			TaskCompletionSource<bool> waitNextEvent = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+			Action<NewEventBase> maySetNextEvent = (NewEventBase ev) =>
 			{
-				subscriptions.Add(_EventAggregator.Subscribe<NewBlockEvent>(o => semaphore.Release()));
-				subscriptions.Add(_EventAggregator.Subscribe<NewTransactionEvent>(o => semaphore.Release()));
+				if (ev.CryptoCode == network.CryptoCode)
+					waitNextEvent.TrySetResult(true);
+			};
+			using (CompositeDisposable subscriptions = new CompositeDisposable())
+			using (CancellationTokenSource cts = new CancellationTokenSource(LongPollTimeout))
+			{
+				subscriptions.Add(_EventAggregator.Subscribe<NewBlockEvent>(maySetNextEvent));
+				subscriptions.Add(_EventAggregator.Subscribe<NewTransactionEvent>(maySetNextEvent));
 			retry:
 				var repo = RepositoryProvider.GetRepository(network);
 				var result = await repo.GetEvents(lastEventId, limit);
 				if (result.Count == 0 && longPolling)
 				{
-					if (await semaphore.WaitAsync(LongPollTimeout))
+					try
+					{
+						await waitNextEvent.Task.WithCancellation(cts.Token);
 						goto retry;
+					}
+					catch when (cts.Token.IsCancellationRequested)
+					{
+
+					}
 				}
 				return new JArray(result.Select(o => o.ToJObject(repo.Serializer.Settings)));
 			}
