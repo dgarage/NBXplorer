@@ -785,7 +785,7 @@ The smallest `eventId` is 1.
     }
   },
   {
-	"eventId": 2,
+    "eventId": 2,
     "type": "newtransaction",
     "data": {
       "blockId": null,
