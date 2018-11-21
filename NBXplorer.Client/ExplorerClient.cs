@@ -331,58 +331,30 @@ namespace NBXplorer
 		{
 			return SendAsync<StatusResult>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/status", null, cancellation);
 		}
-		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, GetTransactionsResponse previous = null, bool longPolling = true, CancellationToken cancellation = default)
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(strategy, previous, longPolling, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(strategy, cancellation).GetAwaiter().GetResult();
 		}
-		public GetTransactionsResponse GetTransactions(TrackedSource trackedSource, GetTransactionsResponse previous = null, bool longPolling = true, CancellationToken cancellation = default)
+		public GetTransactionsResponse GetTransactions(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(trackedSource, previous, longPolling, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(trackedSource, cancellation).GetAwaiter().GetResult();
 		}
-		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, Bookmark[] replacedBookmarks, bool longPolling = true, CancellationToken cancellation = default)
+
+		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(strategy, confirmedBookmarks, unconfirmedBookmarks, replacedBookmarks, longPolling, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(TrackedSource.Create(strategy), cancellation);
 		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, GetTransactionsResponse previous, bool longPolling, CancellationToken cancellation = default)
-		{
-			return GetTransactionsAsync(strategy,
-										previous == null ? null : new[] { previous.ConfirmedTransactions.Bookmark },
-										previous == null ? null : new[] { previous.UnconfirmedTransactions.Bookmark },
-										previous == null ? null : new[] { previous.ReplacedTransactions.Bookmark }, longPolling, cancellation);
-		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(TrackedSource trackedSource, GetTransactionsResponse previous, bool longPolling, CancellationToken cancellation = default)
-		{
-			return GetTransactionsAsync(trackedSource,
-										previous == null ? null : new[] { previous.ConfirmedTransactions.Bookmark },
-										previous == null ? null : new[] { previous.UnconfirmedTransactions.Bookmark },
-										previous == null ? null : new[] { previous.ReplacedTransactions.Bookmark }, longPolling, cancellation);
-		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, Bookmark[] replacedBookmarks, bool longPolling, CancellationToken cancellation = default)
-		{
-			return GetTransactionsAsync(TrackedSource.Create(strategy), confirmedBookmarks, unconfirmedBookmarks, replacedBookmarks, longPolling, cancellation);
-		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(TrackedSource trackedSource, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, Bookmark[] replacedBookmarks, bool longPolling, CancellationToken cancellation = default)
+		public Task<GetTransactionsResponse> GetTransactionsAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
-			Dictionary<string, string> parameters = new Dictionary<string, string>();
-			if (confirmedBookmarks != null)
-				parameters.Add("confirmedBookmarks", String.Join(",", confirmedBookmarks.Select(b => b.ToString())));
-			if (unconfirmedBookmarks != null)
-				parameters.Add("unconfirmedBookmarks", String.Join(",", unconfirmedBookmarks.Select(b => b.ToString())));
-			if (replacedBookmarks != null)
-				parameters.Add("replacedBookmarks", String.Join(",", replacedBookmarks.Select(b => b.ToString())));
-			parameters.Add("longPolling", longPolling.ToString());
-			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
-
-
 			if (trackedSource is DerivationSchemeTrackedSource dsts)
 			{
-				return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{dsts.DerivationStrategy}/transactions?" + query, null, cancellation);
+				return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{dsts.DerivationStrategy}/transactions", null, cancellation);
 			}
 			else if (trackedSource is AddressTrackedSource asts)
 			{
-				return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/addresses/{asts.Address}/transactions?" + query, null, cancellation);
+				return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/addresses/{asts.Address}/transactions", null, cancellation);
 			}
 			else
 				throw UnSupported(trackedSource);

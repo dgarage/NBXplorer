@@ -320,7 +320,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(replacement.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 
-				var txs = tester.Client.GetTransactions(bob, null);
+				var txs = tester.Client.GetTransactions(bob);
 				Assert.Single(txs.UnconfirmedTransactions.Transactions);
 				Assert.Equal(replacement.GetHash(), txs.UnconfirmedTransactions.Transactions[0].TransactionId);
 				Assert.Single(txs.ReplacedTransactions.Transactions);
@@ -638,7 +638,6 @@ namespace NBXplorer.Tests
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
 
-				// Now it should get pruned
 				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey, null);
 				AssertPruned(tester, pubkey, fundingTxId);
@@ -671,7 +670,7 @@ namespace NBXplorer.Tests
 			while (true)
 			{
 				retry++;
-				var txs = tester.Client.GetTransactions(pubkey, null, false);
+				var txs = tester.Client.GetTransactions(pubkey);
 				tx = txs.ConfirmedTransactions.Transactions.Where(t => t.TransactionId == txid).FirstOrDefault();
 				if (tx == null && retry < 10)
 				{
@@ -1373,22 +1372,17 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = ServerTester.Create())
 			{
-				tester.Client.WaitServerStarted(Timeout);
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
-
 				tester.Client.Track(pubkey);
-				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
 
+				Logs.Tester.LogInformation("Let's send 1.0BTC to 0/0");
 				var txId = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
-				var result = tester.Client.GetTransactions(pubkey, new[] { Bookmark.Start }, new[] { Bookmark.Start }, new[] { Bookmark.Start });
+				tester.Notifications.WaitForTransaction(pubkey, txId);
+				Logs.Tester.LogInformation("Check if the tx exists");
+				var result = tester.Client.GetTransactions(pubkey);
 				Assert.True(result.HasChanges());
 				Assert.Single(result.UnconfirmedTransactions.Transactions);
-				// Sanity check that if we filter the transaction, we get only the expected one
-				var tx1 = tester.Client.GetTransaction(pubkey, txId);
-				Assert.NotNull(tx1);
-				Assert.Equal(Money.Coins(1.0m), tx1.BalanceChange);
-				Assert.Null(tester.Client.GetTransaction(pubkey, uint256.One));
 
 				var height = result.Height;
 				var timestampUnconf = result.UnconfirmedTransactions.Transactions[0].Timestamp;
@@ -1398,39 +1392,37 @@ namespace NBXplorer.Tests
 				Assert.Equal(result.UnconfirmedTransactions.Transactions[0].Transaction.GetHash(), result.UnconfirmedTransactions.Transactions[0].TransactionId);
 				Assert.Equal(Money.Coins(1.0m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
 
+				Logs.Tester.LogInformation("Sanity check that if we filter the transaction, we get only the expected one");
+				var tx1 = tester.Client.GetTransaction(pubkey, txId);
+				Assert.NotNull(tx1);
+				Assert.Equal(Money.Coins(1.0m), tx1.BalanceChange);
+				Assert.Null(tester.Client.GetTransaction(pubkey, uint256.One));
+
 				tester.Client.IncludeTransaction = false;
-				result = tester.Client.GetTransactions(pubkey, new[] { Bookmark.Start }, new[] { Bookmark.Start }, new[] { Bookmark.Start });
+				result = tester.Client.GetTransactions(pubkey);
 				Assert.Null(result.UnconfirmedTransactions.Transactions[0].Transaction);
 
-				result = tester.Client.GetTransactions(pubkey, result, false);
-				Assert.False(result.HasChanges());
-
+				Logs.Tester.LogInformation("Let's mine and send 1.0BTC to 0");
 				tester.RPC.EnsureGenerate(1);
-				result = tester.Client.GetTransactions(pubkey, result);
-				Assert.True(result.HasChanges());
-				Assert.Null(result.UnconfirmedTransactions.KnownBookmark);
-
-				var gotConf = result.ConfirmedTransactions.Bookmark;
-
+				tester.Notifications.WaitForTransaction(pubkey, txId);
+				result = tester.Client.GetTransactions(pubkey);
 				var txId2 = tester.SendToAddress(tester.AddressOf(key, "0"), Money.Coins(1.0m));
-				result = tester.Client.GetTransactions(pubkey, result);
-				Assert.True(result.HasChanges());
-				Assert.Equal(gotConf, result.ConfirmedTransactions.KnownBookmark);
-				Assert.Single(result.UnconfirmedTransactions.Transactions);
-				Assert.Equal(txId2, result.UnconfirmedTransactions.Transactions[0].TransactionId);
-
-				result = tester.Client.GetTransactions(pubkey, null, null, null, false);
+				tester.Notifications.WaitForTransaction(pubkey, txId2);
+				Logs.Tester.LogInformation("We should now have two transactions");
+				result = tester.Client.GetTransactions(pubkey);
 				Assert.True(result.HasChanges());
 				Assert.Single(result.ConfirmedTransactions.Transactions);
 				Assert.Single(result.UnconfirmedTransactions.Transactions);
+				Assert.Equal(txId2, result.UnconfirmedTransactions.Transactions[0].TransactionId);
 				Assert.Equal(txId, result.ConfirmedTransactions.Transactions[0].TransactionId);
 				Assert.Equal(timestampUnconf, result.ConfirmedTransactions.Transactions[0].Timestamp);
-				Assert.Equal(txId2, result.UnconfirmedTransactions.Transactions[0].TransactionId);
 
+				Logs.Tester.LogInformation("Let's send from 0/0 to 0/1");
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var txId3 = tester.SendToAddress(tester.AddressOf(key, "0/1"), Money.Coins(0.2m));
-				result = tester.Client.GetTransactions(pubkey, result);
+				tester.Notifications.WaitForTransaction(pubkey, txId3);
+				result = tester.Client.GetTransactions(pubkey);
 				Assert.Equal(2, result.UnconfirmedTransactions.Transactions.Count);
 				Assert.Equal(Money.Coins(-0.8m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
 				var tx3 = tester.Client.GetTransaction(pubkey, txId3);
@@ -1523,7 +1515,7 @@ namespace NBXplorer.Tests
 						var tx = tester.Client.GetTransaction(txid);
 						Assert.Equal(2, tx.Confirmations);
 					}
-					Assert.Equal(3, tester.Client.GetTransactions(pubkey, null, false).ConfirmedTransactions.Transactions.Count);
+					Assert.Equal(3, tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions.Count);
 					foreach (var utxo in utxos.Confirmed.UTXOs)
 						Assert.Equal(2, utxo.Confirmations);
 					foreach (var txid in new[] { txId2 })
@@ -1915,7 +1907,7 @@ namespace NBXplorer.Tests
 				tester.WaitSynchronized();
 
 				// Nothing has been tracked because it is way out of bound and the first address is always unused
-				var transactions = tester.Client.GetTransactions(pubkey, null, false);
+				var transactions = tester.Client.GetTransactions(pubkey);
 				Assert.Empty(transactions.ConfirmedTransactions.Transactions);
 				Assert.Equal(0, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex());
 
