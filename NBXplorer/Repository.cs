@@ -601,16 +601,19 @@ namespace NBXplorer
 				idx.Insert(0, lastEventIndex);
 				idx.Insert(lastEventIndex, this.ToBytes(evt.ToJObject(Serializer.Settings)));
 				tx.Commit();
+				lastKnownEventIndex = lastEventIndex;
 				return lastEventIndex;
 			});
 		}
-
+		long lastKnownEventIndex = -1;
 		public Task<IList<NewEventBase>> GetEvents(long lastEventId, int? limit = null)
 		{
 			if (lastEventId < 1 && limit.HasValue && limit.Value != int.MaxValue) 
 				limit = limit.Value + 1; // The row with key 0 holds the lastEventId
 			return _Engine.DoAsync((tx) =>
 			{
+				if (lastKnownEventIndex != -1 && lastKnownEventIndex == lastEventId)
+					return new List<NewEventBase>();
 				tx.ValuesLazyLoadingIsOn = false;
 				var idx = GetEventsIndex(tx);
 				var query = idx.SelectFrom(lastEventId, limit);
