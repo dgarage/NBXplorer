@@ -212,21 +212,6 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
-		public void ShouldBlockIfNoChange()
-		{
-			using (var tester = ServerTester.Create())
-			{
-				var bob = tester.CreateDerivationStrategy();
-				var utxo = tester.Client.GetUTXOs(bob, null, false);
-				Stopwatch watch = new Stopwatch();
-				watch.Start();
-				var result = tester.Client.GetUTXOs(bob, utxo);
-				watch.Stop();
-				Assert.True(watch.Elapsed > TimeSpan.FromSeconds(10));
-			}
-		}
-
-		[Fact]
 		public void CanEasilySpendUTXOs()
 		{
 			using (var tester = ServerTester.Create())
@@ -238,19 +223,20 @@ namespace NBXplorer.Tests
 					Legacy = true
 				});
 				tester.Client.Track(userDerivationScheme);
-				var utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
 
 				// Send 1 BTC
 				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
-				tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
-				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+				var txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
+				var utxos = tester.Client.GetUTXOs(userDerivationScheme);
 
 				// Send 1 more BTC
 				newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
-				tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
-				utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
+				txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
+				utxos = tester.Client.GetUTXOs(userDerivationScheme);
 
-				utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
+				utxos = tester.Client.GetUTXOs(userDerivationScheme);
 				Assert.Equal(2, utxos.GetUnspentCoins().Length);
 				for (int i = 0; i < 3; i++)
 				{
@@ -270,9 +256,8 @@ namespace NBXplorer.Tests
 					var tx = builder.BuildTransaction(true);
 					Assert.True(builder.Verify(tx));
 					Assert.True(tester.Client.Broadcast(tx).Success);
-
-					utxos = tester.Client.GetUTXOs(userDerivationScheme, utxos, true);
-					utxos = tester.Client.GetUTXOs(userDerivationScheme, null, false);
+					tester.Notifications.WaitForTransaction(userDerivationScheme, tx.GetHash());
+					utxos = tester.Client.GetUTXOs(userDerivationScheme);
 
 					if (i == 0)
 						Assert.Equal(2, utxos.GetUnspentCoins().Length);
@@ -290,15 +275,14 @@ namespace NBXplorer.Tests
 			{
 				var bob = tester.CreateDerivationStrategy();
 				tester.Client.Track(bob);
-				var utxo = tester.Client.GetUTXOs(bob, null, false); //Track things do not wait
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 
 				var payment1 = Money.Coins(0.04m);
 				var payment2 = Money.Coins(0.08m);
 
 				var tx1 = tester.RPC.SendToAddress(a1.ScriptPubKey, payment1, replaceable: true);
-
-				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
+				tester.Notifications.WaitForTransaction(bob, tx1);
+				var utxo = tester.Client.GetUTXOs(bob); //Wait tx received
 				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 
 				var tx = tester.RPC.GetRawTransaction(new uint256(tx1));
@@ -313,9 +297,9 @@ namespace NBXplorer.Tests
 				var replacement = tester.RPC.SignRawTransaction(tx);
 
 				tester.RPC.SendRawTransaction(replacement);
-
+				tester.Notifications.WaitForTransaction(bob, replacement.GetHash());
 				var prevUtxo = utxo;
-				utxo = tester.Client.GetUTXOs(bob, prevUtxo); //Wait tx received
+				utxo = tester.Client.GetUTXOs(bob); //Wait tx received
 				Assert.Null(utxo.Unconfirmed.KnownBookmark);
 				Assert.Equal(replacement.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
@@ -334,7 +318,7 @@ namespace NBXplorer.Tests
 			using (var tester = ServerTester.Create())
 			{
 				var bob = tester.CreateDerivationStrategy();
-				var utxo = tester.Client.GetUTXOs(bob, null, false); //Track things do not wait
+				var utxo = tester.Client.GetUTXOs(bob); //Track things do not wait
 
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 				Assert.Null(a1);
@@ -362,13 +346,9 @@ namespace NBXplorer.Tests
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				//   0/0 and 0/2 used
 				tester.SendToAddressAsync(a1.ScriptPubKey, Money.Coins(1.0m));
-				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
-
 				tester.SendToAddressAsync(a3.ScriptPubKey, Money.Coins(1.0m));
-				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
-
-				tester.SendToAddressAsync(a4.ScriptPubKey, Money.Coins(1.0m));
-				utxo = tester.Client.GetUTXOs(bob, utxo); //Wait tx received
+				var txId = tester.SendToAddressAsync(a4.ScriptPubKey, Money.Coins(1.0m)).GetAwaiter().GetResult();
+				tester.Notifications.WaitForTransaction(bob, txId);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 				Assert.Equal(a1.ScriptPubKey, bob.Derive(new KeyPath("0/1")).ScriptPubKey);
@@ -585,14 +565,12 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
 				tester.Client.Track(pubkey);
-
-				var utxo = tester.Client.GetUTXOs(pubkey, null, false);
-
 				tester.RPC.SendCommand(RPCOperations.sendmany, "",
 						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/0")}\": \"0.5\" }}"));
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				var utxo = tester.Client.GetUTXOs(pubkey);
 				tester.RPC.EnsureGenerate(1);
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
+				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
 
@@ -616,8 +594,8 @@ namespace NBXplorer.Tests
 
 
 				Logs.Tester.LogInformation("After activating pruning, it still should not pruned, because there is still one coin");
-				utxo = tester.Client.GetUTXOs(pubkey, null, false);
-				utxo = tester.Client.GetUTXOs(pubkey, null, false);
+				utxo = tester.Client.GetUTXOs(pubkey);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				AssertNotPruned(tester, pubkey, fundingTxId);
 				AssertNotPruned(tester, pubkey, spending1);
 
@@ -639,7 +617,7 @@ namespace NBXplorer.Tests
 				tester.WaitSynchronized();
 
 				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned");
-				utxo = tester.Client.GetUTXOs(pubkey, null);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				AssertPruned(tester, pubkey, fundingTxId);
 				AssertPruned(tester, pubkey, spending1);
 				AssertPruned(tester, pubkey, spending2);
@@ -697,13 +675,13 @@ namespace NBXplorer.Tests
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
 				tester.Client.Track(pubkey);
 
-				var utxo = tester.Client.GetUTXOs(pubkey, null, false);
+				var utxo = tester.Client.GetUTXOs(pubkey);
 
 				tester.RPC.SendCommand(RPCOperations.sendmany, "",
 						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/0")}\": \"0.5\" }}"));
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
-				tester.RPC.EnsureGenerate(1);
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				utxo = tester.Client.GetUTXOs(pubkey);
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
 				Logs.Tester.LogInformation($"Sent funding tx fundingTx({fundingTxId}) to 0/1 and 0/0");
@@ -716,9 +694,11 @@ namespace NBXplorer.Tests
 				var coinDestinationAddress = coinDestination.ScriptPubKey;
 				var spending1 = tester.RPC.SendToAddress(coinDestinationAddress, Money.Coins(0.1m));
 				Logs.Tester.LogInformation($"Spent the coin to 0/1 in spending1({spending1})");
+				tester.Notifications.WaitForTransaction(pubkey ,spending1);
 				LockTestCoins(tester.RPC, new HashSet<Script>());
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, coinDestination.KeyPath.ToString()));
 				var spending2 = tester.RPC.SendToAddress(new Key().ScriptPubKey, Money.Coins(0.01m));
+				tester.Notifications.WaitForTransaction(pubkey, spending2);
 				Logs.Tester.LogInformation($"Spent again the coin in spending2({spending2})");
 				var tx = tester.RPC.GetRawTransactionAsync(spending2).Result;
 				Assert.Contains(tx.Inputs, (i) => i.PrevOut.Hash == spending1);
@@ -730,14 +710,14 @@ namespace NBXplorer.Tests
 				{
 					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.01m));
 				}
-				tester.RPC.EnsureGenerate(1);
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 				tester.WaitSynchronized();
 
 				tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
 
 				// spending1 should not be pruned because fundingTx still can't be pruned
 				Logs.Tester.LogInformation($"Spending spending1({spending1}) and spending2({spending2} can't be pruned, because a common ancestor fundingTx({fundingTxId}) can't be pruned");
-				utxo = tester.Client.GetUTXOs(pubkey, null);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				AssertNotPruned(tester, pubkey, fundingTxId);
 				AssertNotPruned(tester, pubkey, spending1);
 				AssertNotPruned(tester, pubkey, spending2);
@@ -747,6 +727,7 @@ namespace NBXplorer.Tests
 				LockTestCoins(tester.RPC, new HashSet<Script>());
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var spending3 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				tester.Notifications.WaitForTransaction(pubkey, spending3);
 				Logs.Tester.LogInformation($"Spent the second coin to 0/0 in spending3({spending3})");
 				// Let's add some transactions spending to push the spending in the first quarter
 				// [funding, spending1, spending2, tx1, tx2, tx3, tx4, tx5, *spending3*, tx21, tx22, ..., tx232]
@@ -757,11 +738,11 @@ namespace NBXplorer.Tests
 						tester.RPC.EnsureGenerate(1); // Can't have too big chain on unconf
 					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.001m));
 				}
-				tester.RPC.EnsureGenerate(1);
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 				tester.WaitSynchronized();
 
 				Logs.Tester.LogInformation($"Now fundingTx({fundingTxId}), spendgin1({spending1}) and spending2({spending2}) should be pruned");
-				utxo = tester.Client.GetUTXOs(pubkey, null);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				AssertPruned(tester, pubkey, fundingTxId);
 				AssertPruned(tester, pubkey, spending1);
 				AssertPruned(tester, pubkey, spending2);
@@ -1006,14 +987,14 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
-				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
 
 				var addresses = new HashSet<Script>();
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var id = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(pubkey, id);
 				addresses.Add(tester.AddressOf(key, "0/0").ScriptPubKey);
 
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				var utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.True(utxo.HasChanges);
 
 				var coins = Money.Coins(1.0m);
@@ -1025,6 +1006,7 @@ namespace NBXplorer.Tests
 				{
 					tester.Client.GetUnused(pubkey, DerivationFeature.Deposit, reserve: true);
 				}
+				uint256 lastTx = null;
 				for (i = 0; i < 20; i++)
 				{
 					LockTestCoins(tester.RPC, addresses);
@@ -1036,26 +1018,16 @@ namespace NBXplorer.Tests
 					var txId = tester.SendToAddress(destination, coins);
 					Logs.Tester.LogInformation($"Sent to {path} in {txId}");
 					addresses.Add(destination.ScriptPubKey);
+					lastTx = txId;
 				}
 
-				while (true)
-				{
-					utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
-					if (!utxo.HasChanges)
-						continue;
-					Assert.NotNull(utxo.Confirmed.KnownBookmark);
-					Assert.True(utxo.Unconfirmed.HasChanges);
-					Assert.Single(utxo.Unconfirmed.UTXOs);
-					if (new KeyPath($"0/{i}").Equals(utxo.Unconfirmed.UTXOs[0].KeyPath))
-						break;
-				}
-
+				tester.Notifications.WaitForTransaction(pubkey, lastTx);
 				tester.RPC.EnsureGenerate(1);
+				tester.Notifications.WaitForTransaction(pubkey, lastTx);
 
-				utxo = tester.Client.GetUTXOs(pubkey, utxo, true, Timeout);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Single(utxo.Confirmed.UTXOs);
-				Assert.True(utxo.Confirmed.HasChanges);
-				Assert.Empty(utxo.Confirmed.SpentOutpoints);
+				Assert.Equal(lastTx, utxo.Confirmed.UTXOs[0].TransactionHash);
 			}
 		}
 
@@ -1156,7 +1128,7 @@ namespace NBXplorer.Tests
 				var unused = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
 				Assert.Equal(new KeyPath("0/0"), unused.KeyPath);
 				Assert.Equal(address.ScriptPubKey, unused.ScriptPubKey);
-				utxo = tester.Client.GetUTXOs(pubkey, null);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Empty(utxo.Unconfirmed.UTXOs);
 
 				Logs.Tester.LogInformation("But this end up tracked once the block is mined");
@@ -1264,7 +1236,6 @@ namespace NBXplorer.Tests
 				var bob = tester.CreateDerivationStrategy();
 				tester.Client.WaitServerStarted();
 				tester.Client.Track(bob);
-				var utxo = tester.Client.GetUTXOs(bob, null, false); //Track things do not wait
 
 				var tasks = new List<Task<KeyPathInformation>>();
 				for (int i = 0; i < 100; i++)
@@ -1492,7 +1463,7 @@ namespace NBXplorer.Tests
 				notify.NextEvent();
 				tester.Client.Track(pubkey);
 
-				var utxos = tester.Client.GetUTXOs(pubkey, null, false);
+				var utxos = tester.Client.GetUTXOs(pubkey);
 				Assert.Empty(utxos.Confirmed.UTXOs);
 
 				for (int i = 0; i < 2; i++)
@@ -1508,7 +1479,7 @@ namespace NBXplorer.Tests
 						}
 					});
 
-					utxos = tester.Client.GetUTXOs(pubkey, null, false);
+					utxos = tester.Client.GetUTXOs(pubkey);
 					foreach (var txid in new[] { txId1, txId4, txId3 })
 					{
 						Assert.Contains(utxos.Confirmed.UTXOs, u => u.AsCoin().Outpoint.Hash == txid);
@@ -1612,9 +1583,9 @@ namespace NBXplorer.Tests
 				txId = tester.SendToAddress(tester.AddressOf(key, "0/2"), Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(pubkey, txId);
 				var txId1 = txId;
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
-				Assert.Empty(utxo.Confirmed.UTXOs);
+				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 				Assert.Equal(new KeyPath("0/2"), utxo.Unconfirmed.UTXOs[0].KeyPath);
 				tester.RPC.EnsureGenerate(1);
 				tester.Notifications.WaitForTransaction(pubkey, txId);
@@ -1642,8 +1613,6 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0/3"), utxo.Unconfirmed.UTXOs[0].KeyPath);
 				Assert.Equal(txId01, utxo.Unconfirmed.SpentOutpoints[0].Hash);
 
-				utxo = tester.Client.GetUTXOs(pubkey, utxo, false);
-				Assert.False(utxo.HasChanges);
 				tester.RPC.EnsureGenerate(1);
 				tester.Notifications.WaitForTransaction(pubkey, txId);
 
@@ -1763,33 +1732,6 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
-		public void CanReserveDirectAddress()
-		{
-			using (var tester = ServerTester.Create())
-			{
-				//WaitServerStarted not needed, just a sanity check
-				var bob = tester.CreateDerivationStrategy();
-				tester.Client.WaitServerStarted();
-				tester.Client.Track(bob);
-				var utxo = tester.Client.GetUTXOs(bob, null, false); //Track things do not wait
-
-				var tasks = new List<Task<KeyPathInformation>>();
-				for (int i = 0; i < 10; i++)
-				{
-					tasks.Add(tester.Client.GetUnusedAsync(bob, DerivationFeature.Direct, reserve: true));
-				}
-				Task.WaitAll(tasks.ToArray());
-
-				var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
-				Assert.Equal(9, paths.Select(p => p.Value.GetIndex()).Max());
-
-				tester.Client.CancelReservation(bob, new[] { new KeyPath("0") });
-				var path = tester.Client.GetUnused(bob, DerivationFeature.Direct).KeyPath;
-				Assert.Equal(new KeyPath("0"), path);
-			}
-		}
-
-		[Fact]
 		public void CanGetKeyInformations()
 		{
 			using (var tester = ServerTester.Create())
@@ -1895,7 +1837,7 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
-				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
+				var utxo = tester.Client.GetUTXOs(pubkey); //Track things do not wait
 
 				int gaplimit = 1000;
 				int batchsize = 100;
@@ -1926,7 +1868,7 @@ namespace NBXplorer.Tests
 				Assert.Null(info.Progress.HighestKeyIndexFound[DerivationFeature.Change]);
 				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be the next unused address");
 				Assert.Equal(51, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex());
-				utxo = tester.Client.GetUTXOs(pubkey, null, false);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].TransactionHash);
 
 				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be monitored, but not 0/150");
@@ -1949,7 +1891,7 @@ namespace NBXplorer.Tests
 				AssertNotPruned(tester, pubkey, txId2);
 
 				Logs.Tester.LogInformation($"So finally we should have 2 UTXO, on 0/50 and 0/51");
-				utxo = tester.Client.GetUTXOs(pubkey, null, false);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 				Assert.NotEqual(NBitcoin.Utils.UnixTimeToDateTime(0), utxo.Confirmed.UTXOs[0].Timestamp);
 			}

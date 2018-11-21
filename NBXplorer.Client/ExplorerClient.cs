@@ -119,23 +119,9 @@ namespace NBXplorer
 		}
 		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, CancellationToken cancellation = default)
 		{
-			return GetUTXOsAsync(extKey, null, false, cancellation);
-		}
-		public UTXOChanges GetUTXOs(TrackedSource trackedSource, CancellationToken cancellation = default)
-		{
-			return GetUTXOsAsync(trackedSource, cancellation).GetAwaiter().GetResult();
-		}
-		public Task<UTXOChanges> GetUTXOsAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
-		{
-			return GetUTXOsAsync(trackedSource, null, false, cancellation);
-		}
-		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, UTXOChanges previousChange, bool longPolling = true, CancellationToken cancellation = default)
-		{
-			return GetUTXOsAsync(extKey, previousChange, longPolling, cancellation).GetAwaiter().GetResult();
-		}
-		public UTXOChanges GetUTXOs(TrackedSource trackedSource, UTXOChanges previousChange, bool longPolling = true, CancellationToken cancellation = default)
-		{
-			return GetUTXOsAsync(trackedSource, previousChange, longPolling, cancellation).GetAwaiter().GetResult();
+			if (extKey == null)
+				throw new ArgumentNullException(nameof(extKey));
+			return GetUTXOsAsync(TrackedSource.Create(extKey), cancellation);
 		}
 
 		public async Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default)
@@ -146,21 +132,6 @@ namespace NBXplorer
 		public TransactionResult GetTransaction(uint256 txId, CancellationToken cancellation = default)
 		{
 			return GetTransactionAsync(txId, cancellation).GetAwaiter().GetResult();
-		}
-
-		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, UTXOChanges previousChange, bool longPolling = true, CancellationToken cancellation = default)
-		{
-			return GetUTXOsAsync(extKey, previousChange?.Confirmed?.Bookmark, previousChange?.Unconfirmed?.Bookmark, longPolling, cancellation);
-		}
-
-		public Task<UTXOChanges> GetUTXOsAsync(TrackedSource trackedSource, UTXOChanges previousChange, bool longPolling = true, CancellationToken cancellation = default)
-		{
-			return GetUTXOsAsync(trackedSource, previousChange?.Confirmed?.Bookmark, previousChange?.Unconfirmed?.Bookmark, longPolling, cancellation);
-		}
-
-		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool longPolling = true, CancellationToken cancellation = default)
-		{
-			return GetUTXOsAsync(extKey, confirmedBookmark, unconfirmedBookmark, longPolling, cancellation).GetAwaiter().GetResult();
 		}
 
 		public async Task ScanUTXOSetAsync(DerivationStrategyBase extKey, int? batchSize = null, int? gapLimit = null, int? fromIndex = null, CancellationToken cancellation = default)
@@ -211,36 +182,16 @@ namespace NBXplorer
 			return session;
 		}
 
-		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool longPolling = true, CancellationToken cancellation = default)
+		public UTXOChanges GetUTXOs(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
-			return GetUTXOsAsync(extKey,
-				confirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { confirmedBookmark },
-				unconfirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { unconfirmedBookmark }, longPolling, cancellation);
+			return GetUTXOsAsync(trackedSource, cancellation).GetAwaiter().GetResult();
 		}
-
-		public Task<UTXOChanges> GetUTXOsAsync(TrackedSource trackedSource, Bookmark confirmedBookmark, Bookmark unconfirmedBookmark, bool longPolling = true, CancellationToken cancellation = default)
-		{
-			return GetUTXOsAsync(trackedSource,
-				confirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { confirmedBookmark },
-				unconfirmedBookmark == null ? null as Bookmark[] : new Bookmark[] { unconfirmedBookmark }, longPolling, cancellation);
-		}
-
-		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, bool longPolling = true, CancellationToken cancellation = default)
-		{
-			if (extKey == null)
-				throw new ArgumentNullException(nameof(extKey));
-			return GetUTXOsAsync(TrackedSource.Create(extKey), confirmedBookmarks, unconfirmedBookmarks, longPolling, cancellation);
-		}
-		public async Task<UTXOChanges> GetUTXOsAsync(TrackedSource trackedSource, Bookmark[] confirmedBookmarks, Bookmark[] unconfirmedBookmarks, bool longPolling = true, CancellationToken cancellation = default)
+		public async Task<UTXOChanges> GetUTXOsAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
 			Dictionary<string, string> parameters = new Dictionary<string, string>();
-			if (confirmedBookmarks != null)
-				parameters.Add("confirmedBookmarks", String.Join(",", confirmedBookmarks.Select(b => b.ToString())));
-			if (unconfirmedBookmarks != null)
-				parameters.Add("unconfirmedBookmarks", String.Join(",", unconfirmedBookmarks.Select(b => b.ToString())));
-			parameters.Add("longPolling", longPolling.ToString());
+			parameters.Add("longPolling", "false");
 
 			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
 
