@@ -1618,6 +1618,26 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0/3"), utxo.Confirmed.UTXOs[2].KeyPath);
 			}
 		}
+		[Fact]
+		public void CanCacheTransactions()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				Logs.Tester.LogInformation("Let's check an unconf miss result get properly cached: Let's send coins to 0/1 before tracking it");
+				tester.RPC.Generate(1);
+				var txId = tester.SendToAddress(tester.AddressOf(key, "0/1"), Money.Coins(1.0m));
+				Logs.Tester.LogInformation($"Sent {txId}");
+				Thread.Sleep(1000);
+				tester.Client.Track(pubkey);
+				Logs.Tester.LogInformation($"Tracked, let's mine");
+				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
+				var utxo = tester.Client.GetUTXOs(pubkey);
+				Assert.Empty(utxo.Confirmed.UTXOs);
+				Assert.Empty(utxo.Unconfirmed.UTXOs);
+			}
+		}
 		[Fact(Timeout = 60 * 1000)]
 		public void CanUseLongPollingOnEvents()
 		{

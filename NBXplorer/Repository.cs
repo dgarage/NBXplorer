@@ -608,7 +608,7 @@ namespace NBXplorer
 		long lastKnownEventIndex = -1;
 		public Task<IList<NewEventBase>> GetEvents(long lastEventId, int? limit = null)
 		{
-			if (lastEventId < 1 && limit.HasValue && limit.Value != int.MaxValue) 
+			if (lastEventId < 1 && limit.HasValue && limit.Value != int.MaxValue)
 				limit = limit.Value + 1; // The row with key 0 holds the lastEventId
 			return _Engine.DoAsync((tx) =>
 			{
@@ -618,7 +618,7 @@ namespace NBXplorer
 				var idx = GetEventsIndex(tx);
 				var query = idx.SelectFrom(lastEventId, limit);
 				IList<NewEventBase> evts = new List<NewEventBase>(query.Length);
-				foreach(var value in query)
+				foreach (var value in query)
 				{
 					if (value.Key == 0) // Last Index
 						continue;
@@ -796,7 +796,6 @@ namespace NBXplorer
 			t.Transaction.PrecomputeHash(true, false);
 			return t;
 		}
-
 		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
@@ -1418,8 +1417,14 @@ namespace NBXplorer
 			return needRefill;
 		}
 
+		ConcurrentDictionary<uint256, uint256> noMatchCache = new ConcurrentDictionary<uint256, uint256>();
 		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now)
 		{
+			var h = tx.GetHash();
+			if (blockId != null && noMatchCache.TryRemove(h, out var unused))
+			{
+				return Array.Empty<TrackedTransaction>();
+			}
 			var matches = new Dictionary<string, TrackedTransaction>();
 			HashSet<Script> inputScripts = new HashSet<Script>();
 			HashSet<Script> outputScripts = new HashSet<Script>();
@@ -1449,7 +1454,7 @@ namespace NBXplorer
 					if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 					{
 						match = new TrackedTransaction(
-							new TrackedTransactionKey(tx.GetHash(), blockId, false),
+							new TrackedTransactionKey(h, blockId, false),
 							keyInfo.TrackedSource,
 							tx,
 							new Dictionary<Script, KeyPath>())
@@ -1466,6 +1471,19 @@ namespace NBXplorer
 			foreach (var m in matches.Values)
 			{
 				m.KnownKeyPathMappingUpdated();
+			}
+			if (blockId == null && 
+				matches.Count == 0 && 
+				noMatchCache.TryAdd(h, h) &&
+				h.GetLow32() % 1000 == 0) // Calling .Count is expensive, so we do this once in a while
+			{
+				var count = noMatchCache.Count;
+				if (count > 5000) // Let's keep cache small, no more than 5000 items
+				{
+					foreach (var kv in noMatchCache.Take(count - 5000).ToList())
+						noMatchCache.TryRemove(kv.Key, out var v);
+				}
+				return Array.Empty<TrackedTransaction>();
 			}
 			return matches.Values.ToArray();
 		}
