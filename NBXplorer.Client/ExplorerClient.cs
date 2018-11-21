@@ -178,7 +178,7 @@ namespace NBXplorer
 			return GetScanUTXOSetInformationAsync(extKey, cancellation).GetAwaiter().GetResult();
 		}
 
-		public LongPollingNotificationSession CreateLongPollingNotificationSession(long lastEventId = 0, CancellationToken cancellation = default)
+		public LongPollingNotificationSession CreateLongPollingNotificationSession(long lastEventId = 0)
 		{
 			return new LongPollingNotificationSession(lastEventId, this);
 		}
