@@ -261,6 +261,7 @@ namespace NBXplorer
 					var status = await GetStatusAsync(cancellation).ConfigureAwait(false);
 					if (status.IsFullySynched)
 						break;
+					await Task.Delay(10);
 				}
 				catch (OperationCanceledException) { throw; }
 				catch { }
