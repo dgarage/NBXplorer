@@ -1139,19 +1139,20 @@ namespace NBXplorer.Tests
 			{
 				var extkey = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = new DerivationStrategyFactory(extkey.Network).Parse($"{extkey.Neuter()}-[legacy]");
+				Logs.Tester.LogInformation("Let's make a tracked address from hd pubkey 0/0");
 				var key = extkey.ExtKey.Derive(new KeyPath("0/0")).PrivateKey;
 				var address = key.PubKey.GetAddress(tester.Network);
 				var addressSource = TrackedSource.Create(address);
 				tester.Client.Track(addressSource);
-				var utxo = tester.Client.GetUTXOs(addressSource, null, false); //Track things do not wait
 
+				Logs.Tester.LogInformation("Let's send 0.1BTC to tracked address");
 				var tx1 = tester.SendToAddress(address, Money.Coins(1.0m));
-				utxo = tester.Client.GetUTXOs(addressSource, utxo);
-				Assert.NotNull(utxo.Confirmed.KnownBookmark);
+				tester.Notifications.WaitForTransaction(address, tx1);
+				var utxo = tester.Client.GetUTXOs(addressSource);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 
-				// The address has been only tracked individually, not via the extpubkey
+				Logs.Tester.LogInformation("Let's make sure hd pubkey 0/0 is not tracked because we were not traking it when we broadcasted");
 				tester.Client.Track(pubkey);
 				var unused = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
 				Assert.Equal(new KeyPath("0/0"), unused.KeyPath);
@@ -1159,10 +1160,10 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.GetUTXOs(pubkey, null);
 				Assert.Empty(utxo.Unconfirmed.UTXOs);
 
-				// But this end up tracked once the block is mined
+				Logs.Tester.LogInformation("But this end up tracked once the block is mined");
 				tester.RPC.Generate(1);
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
-				Assert.NotNull(utxo.Confirmed.KnownBookmark);
+				tester.Notifications.WaitForTransaction(pubkey, tx1);
+				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.Equal(tx1, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
 				Assert.NotNull(utxo.TrackedSource);
@@ -1170,37 +1171,40 @@ namespace NBXplorer.Tests
 				var dsts = Assert.IsType<DerivationSchemeTrackedSource>(utxo.TrackedSource);
 				Assert.Equal(utxo.DerivationStrategy, dsts.DerivationStrategy);
 
-				// Make sure the transaction appear for address as well
-				utxo = tester.Client.GetUTXOs(addressSource, null);
+				Logs.Tester.LogInformation("Make sure the transaction appear for tracked address as well");
+				utxo = tester.Client.GetUTXOs(addressSource);
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.Equal(tx1, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
 				Assert.NotNull(utxo.TrackedSource);
 				Assert.Null(utxo.DerivationStrategy);
 				Assert.IsType<AddressTrackedSource>(utxo.TrackedSource);
 
-				// Check it appear in transaction list
-				var tx = tester.Client.GetTransactions(addressSource, null);
+				Logs.Tester.LogInformation("Check it appear in transaction list");
+				var tx = tester.Client.GetTransactions(addressSource);
 				Assert.Equal(tx1, tx.ConfirmedTransactions.Transactions[0].TransactionId);
 
-				tx = tester.Client.GetTransactions(pubkey, null);
+				tx = tester.Client.GetTransactions(pubkey);
 				Assert.Equal(tx1, tx.ConfirmedTransactions.Transactions[0].TransactionId);
 
-				// Trying to send to a single address from a tracked extkey
+				Logs.Tester.LogInformation("Trying to send to a single address from a tracked extkey");
 				var extkey2 = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey2 = new DerivationStrategyFactory(extkey.Network).Parse($"{extkey.Neuter()}-[legacy]");
 				tester.Client.Track(pubkey2);
-				tester.SendToAddress(pubkey2.Derive(new KeyPath("0/0")).ScriptPubKey, Money.Coins(1.0m));
+				var txId = tester.SendToAddress(pubkey2.Derive(new KeyPath("0/0")).ScriptPubKey, Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(pubkey2, txId);
 
-				utxo = tester.Client.GetUTXOs(addressSource, null);
-				var utxo2 = tester.Client.GetUTXOs(pubkey2, null);
+				Logs.Tester.LogInformation("Sending from 0/0 to the tracked address");
+				utxo = tester.Client.GetUTXOs(addressSource);
+				var utxo2 = tester.Client.GetUTXOs(pubkey2);
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(extkey2, "0/0"));
 				var tx2 = tester.SendToAddress(address, Money.Coins(0.6m));
+				tester.Notifications.WaitForTransaction(address, tx2);
 				tester.RPC.EnsureGenerate(1);
 				AssertExist(tester, addressSource, tx2);
 				AssertExist(tester, pubkey2, tx2);
-				utxo = tester.Client.GetUTXOs(addressSource, null);
-				utxo2 = tester.Client.GetUTXOs(pubkey2, null);
+				utxo = tester.Client.GetUTXOs(addressSource);
+				utxo2 = tester.Client.GetUTXOs(pubkey2);
 				Assert.NotEmpty(utxo.Confirmed.UTXOs);
 				Assert.NotEmpty(utxo2.Confirmed.UTXOs);
 				Assert.Contains(utxo2.Confirmed.UTXOs, u => u.TransactionHash == tx2);
@@ -1460,6 +1464,17 @@ namespace NBXplorer.Tests
 				Assert.Single(utxo.Confirmed.UTXOs);
 				Assert.Single(utxo.Unconfirmed.SpentOutpoints);
 				Assert.Equal(fundingTx, utxo.Unconfirmed.SpentOutpoints[0].Hash);
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+
+				Logs.Tester.LogInformation("Let's check if direct addresses can be tracked by sending to 0");
+				var address = tester.Client.GetUnused(pubkey, DerivationFeature.Direct);
+				Assert.Equal(DerivationFeature.Direct, address.Feature);
+				fundingTx = tester.SendToAddress(tester.AddressOf(key, "0"), Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(pubkey, fundingTx);
+				utxo = tester.Client.GetUTXOs(pubkey);
+				Assert.Equal(address.ScriptPubKey, utxo.Unconfirmed.UTXOs[0].ScriptPubKey);
+				var address2 = tester.Client.GetUnused(pubkey, DerivationFeature.Direct);
+				Assert.Equal(new KeyPath(1), address2.KeyPath);
 			}
 		}
 
@@ -1966,59 +1981,5 @@ namespace NBXplorer.Tests
 				Thread.Sleep(100);
 			}
 		}
-
-		[Fact]
-		public void CanTrackDirect()
-		{
-			using (var tester = ServerTester.Create())
-			{
-				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
-				tester.Client.Track(pubkey);
-				var utxo = tester.Client.GetUTXOs(pubkey, null, false); //Track things do not wait
-				var tx1 = tester.SendToAddress(tester.AddressOf(key, "0"), Money.Coins(1.0m));
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
-				Assert.NotNull(utxo.Confirmed.KnownBookmark);
-				Assert.Single(utxo.Unconfirmed.UTXOs);
-				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
-
-
-				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0"));
-				var tx2 = tester.SendToAddress(tester.AddressOf(key, "1"), Money.Coins(0.6m));
-
-				var prevUtxo = utxo;
-				var before = utxo;
-				utxo = before;
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
-				Assert.NotNull(utxo.Unconfirmed.KnownBookmark);
-				Assert.Single(utxo.Unconfirmed.UTXOs);
-				Assert.Equal(tx2, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash); //got the 0.6m
-				Assert.Equal(Money.Coins(0.6m), utxo.Unconfirmed.UTXOs[0].Value); //got the 0.6m
-
-				Assert.Single(utxo.Unconfirmed.SpentOutpoints);
-				Assert.Equal(tx1, utxo.Unconfirmed.SpentOutpoints[0].Hash); //previous coin is spent
-
-				utxo = tester.Client.GetUTXOs(pubkey, prevUtxo.Confirmed.Bookmark, null);
-				Assert.Null(utxo.Unconfirmed.KnownBookmark);
-				Assert.Single(utxo.Unconfirmed.UTXOs);
-				Assert.Empty(utxo.Unconfirmed.SpentOutpoints); //should be skipped as the unconf coin were not known
-
-				tester.SendToAddress(tester.AddressOf(key, "0"), Money.Coins(0.15m));
-
-				utxo = tester.Client.GetUTXOs(pubkey, utxo);
-				Assert.Single(utxo.Unconfirmed.UTXOs);
-				Assert.IsType<Coin>(utxo.Unconfirmed.UTXOs[0].AsCoin(pubkey));
-				Assert.Equal(Money.Coins(0.15m), utxo.Unconfirmed.UTXOs[0].Value);
-				Assert.Empty(utxo.Unconfirmed.SpentOutpoints);
-
-				utxo = tester.Client.GetUTXOs(pubkey, null);
-				Assert.Equal(2, utxo.Unconfirmed.UTXOs.Count); //Should have 0.15 and 0.6
-				Assert.Equal(Money.Coins(0.75m), utxo.Unconfirmed.UTXOs.Select(c => c.Value).Sum());
-				Assert.Empty(utxo.Unconfirmed.SpentOutpoints);
-			}
-		}
-
-
 	}
 }

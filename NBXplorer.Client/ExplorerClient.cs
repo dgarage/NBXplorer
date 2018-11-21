@@ -121,6 +121,14 @@ namespace NBXplorer
 		{
 			return GetUTXOsAsync(extKey, null, false, cancellation);
 		}
+		public UTXOChanges GetUTXOs(TrackedSource trackedSource, CancellationToken cancellation = default)
+		{
+			return GetUTXOsAsync(trackedSource, cancellation).GetAwaiter().GetResult();
+		}
+		public Task<UTXOChanges> GetUTXOsAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
+		{
+			return GetUTXOsAsync(trackedSource, null, false, cancellation);
+		}
 		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, UTXOChanges previousChange, bool longPolling = true, CancellationToken cancellation = default)
 		{
 			return GetUTXOsAsync(extKey, previousChange, longPolling, cancellation).GetAwaiter().GetResult();
@@ -323,11 +331,11 @@ namespace NBXplorer
 		{
 			return SendAsync<StatusResult>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/status", null, cancellation);
 		}
-		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, GetTransactionsResponse previous, bool longPolling = true, CancellationToken cancellation = default)
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, GetTransactionsResponse previous = null, bool longPolling = true, CancellationToken cancellation = default)
 		{
 			return GetTransactionsAsync(strategy, previous, longPolling, cancellation).GetAwaiter().GetResult();
 		}
-		public GetTransactionsResponse GetTransactions(TrackedSource trackedSource, GetTransactionsResponse previous, bool longPolling = true, CancellationToken cancellation = default)
+		public GetTransactionsResponse GetTransactions(TrackedSource trackedSource, GetTransactionsResponse previous = null, bool longPolling = true, CancellationToken cancellation = default)
 		{
 			return GetTransactionsAsync(trackedSource, previous, longPolling, cancellation).GetAwaiter().GetResult();
 		}

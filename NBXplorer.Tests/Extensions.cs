@@ -14,13 +14,21 @@ namespace NBXplorer.Tests
 	{
 		public static void WaitForTransaction(this LongPollingNotificationSession session, DerivationStrategyBase derivationStrategy, uint256 txId)
 		{
+			session.WaitForTransaction(TrackedSource.Create(derivationStrategy), txId);
+		}
+		public static void WaitForTransaction(this LongPollingNotificationSession session, BitcoinAddress address, uint256 txId)
+		{
+			session.WaitForTransaction(TrackedSource.Create(address), txId);
+		}
+		public static void WaitForTransaction(this LongPollingNotificationSession session, TrackedSource trackedSource, uint256 txId)
+		{
 			using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
 			{
-				while(true)
+				while (true)
 				{
 					if (session.NextEvent(cts.Token) is NewTransactionEvent evts)
 					{
-						if (evts.DerivationStrategy == derivationStrategy && evts.TransactionData.TransactionHash == txId)
+						if (evts.TrackedSource == trackedSource && evts.TransactionData.TransactionHash == txId)
 						{
 							break;
 						}
