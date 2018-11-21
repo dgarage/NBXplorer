@@ -1,0 +1,30 @@
+version: 2
+jobs:
+  build:
+    machine:
+      docker_layer_caching: true
+    steps: 
+      - checkout
+  test:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - checkout  
+      - run:
+          command: |
+            lsb_release -a
+            sudo apt update
+            sudo apt install -y qemu qemu-user-static qemu-user binfmt-support
+            sudo docker run --rm --privileged multiarch/qemu-user-static:register --reset
+      - run: 
+          command: |
+            LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+            LATEST_TAG=${LATEST_TAG:1} #trim v from tag
+            sudo docker build --pull -t rockstardev/nbxplorerarm32:$LATEST_TAG -f Dockerfile.bionic-arm32 .
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            sudo docker push rockstardev/nbxplorerarm32:$LATEST_TAG
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - test
