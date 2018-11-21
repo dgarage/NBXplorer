@@ -300,7 +300,6 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(bob, replacement.GetHash());
 				var prevUtxo = utxo;
 				utxo = tester.Client.GetUTXOs(bob); //Wait tx received
-				Assert.Null(utxo.Unconfirmed.KnownBookmark);
 				Assert.Equal(replacement.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 
@@ -974,7 +973,6 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Did we received 5 UTXOs?");
 				utxo = tester.Client.GetUTXOs(pubkey);
-				Assert.True(utxo.HasChanges);
 				Assert.Equal(5, utxo.Confirmed.UTXOs.Count);
 			}
 		}
@@ -995,7 +993,6 @@ namespace NBXplorer.Tests
 				addresses.Add(tester.AddressOf(key, "0/0").ScriptPubKey);
 
 				var utxo = tester.Client.GetUTXOs(pubkey);
-				Assert.True(utxo.HasChanges);
 
 				var coins = Money.Coins(1.0m);
 
@@ -1352,7 +1349,6 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(pubkey, txId);
 				Logs.Tester.LogInformation("Check if the tx exists");
 				var result = tester.Client.GetTransactions(pubkey);
-				Assert.True(result.HasChanges());
 				Assert.Single(result.UnconfirmedTransactions.Transactions);
 
 				var height = result.Height;
@@ -1381,7 +1377,6 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(pubkey, txId2);
 				Logs.Tester.LogInformation("We should now have two transactions");
 				result = tester.Client.GetTransactions(pubkey);
-				Assert.True(result.HasChanges());
 				Assert.Single(result.ConfirmedTransactions.Transactions);
 				Assert.Single(result.UnconfirmedTransactions.Transactions);
 				Assert.Equal(txId2, result.UnconfirmedTransactions.Transactions[0].TransactionId);
@@ -1552,7 +1547,6 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0/0"), utxo.Confirmed.UTXOs[0].KeyPath);
 				Assert.Equal(confTxId, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Equal(1, utxo.Confirmed.UTXOs[0].Confirmations);
-				Assert.True(utxo.HasChanges);
 
 				Logs.Tester.LogInformation("Let's check what happen if querying a non existing transaction");
 				Assert.Null(tester.Client.GetTransaction(uint256.One));

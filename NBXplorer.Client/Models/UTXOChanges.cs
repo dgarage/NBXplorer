@@ -60,18 +60,8 @@ namespace NBXplorer.Models
 			}
 		}
 
-		public bool HasChanges
-		{
-			get
-			{
-				return Confirmed.HasChanges || Unconfirmed.HasChanges;
-			}
-		}
-
 		public Coin[] GetUnspentCoins(bool excludeUnconfirmedUTXOs = false)
 		{
-			if (Confirmed.KnownBookmark != null || Unconfirmed.KnownBookmark != null)
-				throw new InvalidOperationException("This UTXOChanges is partial, it is calculate the unspent coins");
 			return GetUnspentUTXOs(excludeUnconfirmedUTXOs).Select(c => c.AsCoin(DerivationStrategy)).ToArray();
 		}
 
@@ -97,32 +87,6 @@ namespace NBXplorer.Models
 	public class UTXOChange
 	{
 
-		Bookmark _KnownBookmark;
-		public Bookmark KnownBookmark
-		{
-			get
-			{
-				return _KnownBookmark;
-			}
-			set
-			{
-				_KnownBookmark = value;
-			}
-		}
-
-		Bookmark _Bookmark = null;
-		public Bookmark Bookmark
-		{
-			get
-			{
-				return _Bookmark;
-			}
-			set
-			{
-				_Bookmark = value;
-			}
-		}
-
 		List<UTXO> _UTXOs = new List<UTXO>();
 		public List<UTXO> UTXOs
 		{
@@ -146,14 +110,6 @@ namespace NBXplorer.Models
 			set
 			{
 				_SpentOutpoints = value;
-			}
-		}
-
-		public bool HasChanges
-		{
-			get
-			{
-				return KnownBookmark != Bookmark || UTXOs.Count != 0 || SpentOutpoints.Count != 0;
 			}
 		}
 	}

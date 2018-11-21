@@ -32,7 +32,6 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(settings));
 			NBitcoin.JsonConverters.Serializer.RegisterFrontConverters(settings, Network);
 			settings.Converters.Insert(0, new JsonConverters.CachedSerializer(Network));
-			settings.Converters.Insert(0, new JsonConverters.BookmarkJsonConverter());
 			settings.Converters.Insert(0, new JsonConverters.FeeRateJsonConverter());
 		}
 

@@ -9,22 +9,6 @@ using NBXplorer.Models;
 
 namespace NBXplorer
 {
-	public class UTXOEvent
-	{
-		public uint256 TxId
-		{
-			get; set;
-		}
-		public bool Received
-		{
-			get; set;
-		}
-		public OutPoint Outpoint
-		{
-			get; set;
-		}
-	}
-
 	public enum ApplyTransactionResult
 	{
 		Passed,
@@ -78,10 +62,7 @@ namespace NBXplorer
 
 			foreach(var coin in trackedTransaction.ReceivedCoins)
 			{
-				if(UTXOByOutpoint.TryAdd(coin.Outpoint, coin))
-				{
-					AddEvent(new UTXOEvent() { Received = true, Outpoint = coin.Outpoint, TxId = hash });
-				}
+				UTXOByOutpoint.TryAdd(coin.Outpoint, coin);
 			}
 
 			if (trackedTransaction.ReceivedCoins.Count == 0 && trackedTransaction.Transaction != null)
@@ -91,7 +72,6 @@ namespace NBXplorer
 			{
 				if(UTXOByOutpoint.Remove(spentOutpoint, hash))
 				{
-					AddEvent(new UTXOEvent() { Received = false, Outpoint = spentOutpoint, TxId = hash });
 					SpentUTXOs.Add(spentOutpoint);
 				}
 				_KnownInputs.Add(spentOutpoint);
@@ -115,28 +95,6 @@ namespace NBXplorer
 			get; set;
 		} = new MultiValueDictionary<OutPoint, uint256>();
 
-		
-
-		BookmarkProcessor _BookmarkProcessor = new BookmarkProcessor(32 + 32 + 32 + 4 + 1);
-
-		public Bookmark CurrentBookmark
-		{
-			get
-			{
-				return _BookmarkProcessor.CurrentBookmark;
-			}
-		}
-
-
-		private void AddEvent(UTXOEvent evt)
-		{
-			_BookmarkProcessor.PushNew();
-			_BookmarkProcessor.AddData(evt.TxId.ToBytes());
-			_BookmarkProcessor.AddData(evt.Outpoint);
-			_BookmarkProcessor.AddData(evt.Received);
-			_BookmarkProcessor.UpdateBookmark();
-		}
-
 		public UTXOState Snapshot()
 		{
 			return new UTXOState()
@@ -144,16 +102,9 @@ namespace NBXplorer
 				UTXOByOutpoint = new UTXOByOutpoint(UTXOByOutpoint),
 				Conflicts = new MultiValueDictionary<OutPoint, uint256>(Conflicts),
 				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
-				_BookmarkProcessor = _BookmarkProcessor.Clone(),
 				_KnownInputs = new HashSet<OutPoint>(_KnownInputs),
 				_TransactionTimes = new List<DateTimeOffset>(_TransactionTimes)
 			};
-		}
-		
-
-		internal void ResetEvents()
-		{
-			_BookmarkProcessor.Clear();
 		}
 	}
 }
