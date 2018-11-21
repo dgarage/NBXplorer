@@ -138,6 +138,7 @@ namespace NBXplorer.Tests
 				Configuration = conf;
 				_Client = new ExplorerClient(nbxnetwork, Address);
 				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
+				Notifications = _Client.CreateLongPollingNotificationSession();
 				this.Client.WaitServerStarted();
 			}
 			catch
@@ -146,7 +147,7 @@ namespace NBXplorer.Tests
 				throw;
 			}
 		}
-
+		public LongPollingNotificationSession Notifications { get; set; }
 		private NetworkCredential ExtractCredentials(string config)
 		{
 			var user = Regex.Match(config, "rpcuser=([^\r\n]*)");

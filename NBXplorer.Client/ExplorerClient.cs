@@ -113,6 +113,14 @@ namespace NBXplorer
 		}
 
 		DerivationStrategy.DerivationStrategyFactory _Factory;
+		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		{
+			return GetUTXOsAsync(extKey, cancellation).GetAwaiter().GetResult();
+		}
+		public Task<UTXOChanges> GetUTXOsAsync(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		{
+			return GetUTXOsAsync(extKey, null, false, cancellation);
+		}
 		public UTXOChanges GetUTXOs(DerivationStrategyBase extKey, UTXOChanges previousChange, bool longPolling = true, CancellationToken cancellation = default)
 		{
 			return GetUTXOsAsync(extKey, previousChange, longPolling, cancellation).GetAwaiter().GetResult();

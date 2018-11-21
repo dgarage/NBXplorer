@@ -6,11 +6,29 @@ using System.Text;
 using System.Linq;
 using NBXplorer.DerivationStrategy;
 using NBitcoin.RPC;
+using System.Threading;
 
 namespace NBXplorer.Tests
 {
 	public static class Extensions
 	{
+		public static void WaitForTransaction(this LongPollingNotificationSession session, DerivationStrategyBase derivationStrategy, uint256 txId)
+		{
+			using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+			{
+				while(true)
+				{
+					if (session.NextEvent(cts.Token) is NewTransactionEvent evts)
+					{
+						if (evts.DerivationStrategy == derivationStrategy && evts.TransactionData.TransactionHash == txId)
+						{
+							break;
+						}
+					}
+				}
+			}
+		}
+
 		public static IEnumerable<Transaction> TopologicalSort(this IEnumerable<Transaction> transactions)
 		{
 			return transactions
