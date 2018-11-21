@@ -365,12 +365,11 @@ namespace NBXplorer.Controllers
 
 
 		[Route("cryptos/{cryptoCode}/events")]
-		public async Task<JArray> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false)
+		public async Task<JArray> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false, CancellationToken cancellationToken = default)
 		{
 			if (limit != null && limit.Value < 0)
 				throw new NBXplorerError(400, "invalid-limit", "limit should be more than 0").AsException();
 			var network = GetNetwork(cryptoCode, false);
-
 			TaskCompletionSource<bool> waitNextEvent = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 			Action<NewEventBase> maySetNextEvent = (NewEventBase ev) =>
 			{
@@ -378,7 +377,6 @@ namespace NBXplorer.Controllers
 					waitNextEvent.TrySetResult(true);
 			};
 			using (CompositeDisposable subscriptions = new CompositeDisposable())
-			using (CancellationTokenSource cts = new CancellationTokenSource(LongPollTimeout))
 			{
 				subscriptions.Add(_EventAggregator.Subscribe<NewBlockEvent>(maySetNextEvent));
 				subscriptions.Add(_EventAggregator.Subscribe<NewTransactionEvent>(maySetNextEvent));
@@ -389,10 +387,10 @@ namespace NBXplorer.Controllers
 				{
 					try
 					{
-						await waitNextEvent.Task.WithCancellation(cts.Token);
+						await waitNextEvent.Task.WithCancellation(cancellationToken);
 						goto retry;
 					}
-					catch when (cts.Token.IsCancellationRequested)
+					catch when (cancellationToken.IsCancellationRequested)
 					{
 
 					}
@@ -463,7 +461,6 @@ namespace NBXplorer.Controllers
 			return trackedSource;
 		}
 
-		static TimeSpan LongPollTimeout = TimeSpan.FromSeconds(10);
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId?}")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}/transactions/{txId?}")]

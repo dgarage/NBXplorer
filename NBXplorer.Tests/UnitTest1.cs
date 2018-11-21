@@ -1636,12 +1636,24 @@ namespace NBXplorer.Tests
 				if(evts.Length != 0)
 					lastId = evts.Last().EventId;
 				DateTimeOffset now = DateTimeOffset.UtcNow;
-				evts = session.GetEvents(lastId, longPolling: true);
+				using (var cts = new CancellationTokenSource(1000))
+				{
+					try
+					{
+						evts = session.GetEvents(lastId, longPolling: true, cancellation: cts.Token);
+						Assert.False(true, "Should throws");
+					}
+					catch (OperationCanceledException)
+					{
+
+					}
+					Assert.True(cts.IsCancellationRequested);
+				}
 				long lastId2 = 0;
 				if (evts.Length != 0)
 					lastId2 = evts.Last().EventId;
 				Assert.Equal(lastId, lastId2);
-				Assert.True(DateTimeOffset.UtcNow - now > TimeSpan.FromSeconds(5.0));
+				Assert.True(DateTimeOffset.UtcNow - now > TimeSpan.FromSeconds(1.0));
 				Logs.Tester.LogInformation("Get events should returns when the block get mined");
 				now = DateTimeOffset.UtcNow;
 				var gettingEvts = session.GetEventsAsync(lastEventId: lastId, longPolling: true);

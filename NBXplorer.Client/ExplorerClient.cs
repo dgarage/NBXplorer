@@ -487,6 +487,10 @@ namespace NBXplorer
 			{
 				return default(T);
 			}
+			if(result.StatusCode == HttpStatusCode.GatewayTimeout || result.StatusCode == HttpStatusCode.RequestTimeout)
+			{
+				throw new HttpRequestException($"HTTP error {(int)result.StatusCode}", new TimeoutException());
+			}
 			if ((int)result.StatusCode == 401)
 			{
 				if (_Auth.RefreshCache())
