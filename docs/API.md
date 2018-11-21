@@ -42,13 +42,6 @@ For multisig, the public keys are ordered before generating the address by defau
 
 You can use more than one options at same time, example: `2-of-xpub1-xpub2-[legacy]-[keeporder]`
 
-## Bookmarks
-
-Some routes allow the user to specify a bookmark.
-Bookmark are used to decrease the traffic between NBXplorer and the client by providing a way for the client to give his current state.
-
-NBXplorer will then just transmit what changed from the client's known state.
-
 ## CryptoCode
 
 Most of routes asks for a crypto code. This identify the crypto currency to request data from. Currently supported is `BTC` and `LTC`.
@@ -77,11 +70,7 @@ HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions
 
 Optional Parameters:
 
-* `unconfirmedBookmarks` bookmarks known by the client of transactions which have not yet been mined.
-* `confirmedBookmarks` bookmarks known by the client of transactions which have been mined.
-* `replacedBookmarks` bookmark known by the client of transactions which have been replaced. (RBF)
 * `includeTransaction` includes the hex of the transaction, not only information (default: true)
-* `longPolling` blocks the call until a change happens since the passed bookmarks (default: false)
 
 Returns:
 
@@ -89,8 +78,6 @@ Returns:
 {
   "height": 104,
   "confirmedTransactions": {
-    "knownBookmark": null,
-    "bookmark": "94450a854f44e66e0f86b3dab20db07d1e147a5f",
     "transactions": [
       {
         "blockHash": "3e7bcca309f92ab78a47c1cdd1166de9190fa49e97165c93e2b10ae1a14b99eb",
@@ -113,8 +100,6 @@ Returns:
     ]
   },
   "unconfirmedTransactions": {
-    "knownBookmark": null,
-    "bookmark": "ef91fe23d5649d708cc5e22cdb67c17ad4131893",
     "transactions": [
       {
         "blockHash": null,
@@ -137,14 +122,10 @@ Returns:
     ]
   },
   "replacedTransactions": {
-    "knownBookmark": null,
-    "bookmark": "0000000000000000000000000000000000000000",
     "transactions": []
   }
 }
 ```
-
-If `knownBookmark` is not null, the response is just a differential on the state the client already know on top of the specified bookmark.
 
 ## Query transactions associated to a specific address
 
@@ -154,11 +135,7 @@ HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions
 
 Optional Parameters:
 
-* `unconfirmedBookmarks` bookmarks known by the client of transactions which have not yet been mined.
-* `confirmedBookmarks` bookmarks known by the client of transactions which have been mined.
-* `replacedBookmarks` bookmark known by the client of transactions which have been replaced. (RBF)
 * `includeTransaction` includes the hex of the transaction, not only information (default: true)
-* `longPolling` blocks the call until a change happens since the passed bookmarks (default: false)
 
 Returns:
 
@@ -166,8 +143,6 @@ Returns:
 {
   "height": 104,
   "confirmedTransactions": {
-    "knownBookmark": null,
-    "bookmark": "94450a854f44e66e0f86b3dab20db07d1e147a5f",
     "transactions": [
       {
         "blockHash": "3e7bcca309f92ab78a47c1cdd1166de9190fa49e97165c93e2b10ae1a14b99eb",
@@ -189,8 +164,6 @@ Returns:
     ]
   },
   "unconfirmedTransactions": {
-    "knownBookmark": null,
-    "bookmark": "ef91fe23d5649d708cc5e22cdb67c17ad4131893",
     "transactions": [
       {
         "blockHash": null,
@@ -212,14 +185,10 @@ Returns:
     ]
   },
   "replacedTransactions": {
-    "knownBookmark": null,
-    "bookmark": "0000000000000000000000000000000000000000",
     "transactions": []
   }
 }
 ```
-
-If `knownBookmark` is not null, the response is just a differential on the state the client already know on top of the specified bookmark.
 
 ## Query a single transaction associated to a address or derivation scheme
 
@@ -370,12 +339,6 @@ Returns:
 
 HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos
 
-Optional parameters:
-
-* `unconfirmedBookmarks` bookmarks known by the client of UTXOs which have not yet been mined.
-* `confirmedBookmarks` bookmarks known by the client of UTXOs which have been mined.
-* `longPolling` blocks the call until a change happens since the passed bookmarks (default: false)
-
 Error:
 
 * HTTP 404: `cryptoCode-not-supported`
@@ -388,8 +351,6 @@ Result:
   "derivationStrategy": "tpubD6NzVbkrYhZ4XQVi1sSEDBWTcicDqVSCTnYDxpwGwcSZVbPii2b7baRg57YfL64ed36sBRe6GviihHwhy3D1cnBe5uXb27DjrDZCKUA7PQi",
   "currentHeight": 107,
   "unconfirmed": {
-    "knownBookmark": "0000000000000000000000000000000000000000",
-    "bookmark": "643f962b04336a1046b3ac858cb5f76472691365",
     "utxOs": [
       {
         "feature": "Deposit",
@@ -407,8 +368,6 @@ Result:
     "hasChanges": true
   },
   "confirmed": {
-    "knownBookmark": "09612373e3107ceeef87e7eff4d4782dc11c0db6",
-    "bookmark": "4ac671787bbaf2167ed1616dd1abb8b6ea241e34",
     "utxOs": [
       {
         "feature": "Deposit",
@@ -439,12 +398,6 @@ Assuming you use Track on this specific address:
 
 HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/utxos
 
-Optional parameters:
-
-* `unconfirmedBookmarks` bookmarks known by the client of UTXOs which have not yet been mined.
-* `confirmedBookmarks` bookmarks known by the client of UTXOs which have been mined.
-* `longPolling` blocks the call until a change happens since the passed bookmarks (default: false)
-
 Error:
 
 * HTTP 404: `cryptoCode-not-supported`
@@ -456,15 +409,11 @@ Result:
   "trackedSource": "ADDRESS:moD8QpWufPMFP9y7gC8m5ih9rmejavbf3K",
   "currentHeight": 105,
   "unconfirmed": {
-    "knownBookmark": null,
-    "bookmark": "0000000000000000000000000000000000000000",
     "utxOs": [],
     "spentOutpoints": [],
     "hasChanges": true
   },
   "confirmed": {
-    "knownBookmark": null,
-    "bookmark": "0b6f1af55d1bd86a3dbe2cadc45e7dde9b536e99",
     "utxOs": [
       {
         "outpoint": "f532022bebe8d90c72853a2663c26ca9d42fad5d9cde21d35bad38135a5dfd0701000000",
@@ -766,7 +715,7 @@ HTTP GET v1/cryptos/{cryptoCode}/events
 Query parameters:
 
 * `lastEventId`: Will query all events which happened after this event id, the first event has id 1 (default: 0)
-* `longPolling`: If no events have been received since `lastEventId`, the call will block up until 10 seconds or until a new event arrives, whichever comes first. (default: false)
+* `longPolling`: If no events have been received since `lastEventId`, the call will block (default: false)
 * `limit`: Limit the maximum number of events to return (default: null)
 
 All events are registered in a query stream which you can replay by keeping track of the `lastEventId`.
