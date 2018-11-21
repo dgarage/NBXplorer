@@ -29,6 +29,25 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		public static void WaitForBlocks(this LongPollingNotificationSession session, params uint256[] txIds)
+		{
+			if (txIds == null || txIds.Length == 0)
+				return;
+			HashSet<uint256> txidsSet = new HashSet<uint256>(txIds);
+			using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+			{
+				while (true)
+				{
+					if (session.NextEvent(cts.Token) is NewBlockEvent evts)
+					{
+						txidsSet.Remove(evts.Hash);
+						if (txidsSet.Count == 0)
+							break;
+					}
+				}
+			}
+		}
+
 		public static IEnumerable<Transaction> TopologicalSort(this IEnumerable<Transaction> transactions)
 		{
 			return transactions

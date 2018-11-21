@@ -1446,9 +1446,7 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation("Send 1.0BTC to 0/0");
 				var fundingTx = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				var utxo = tester.Client.GetUTXOs(pubkey);
-				tester.RPC.EnsureGenerate(1);
-				tester.Notifications.WaitForTransaction(pubkey, fundingTx); //unconf
-				tester.Notifications.WaitForTransaction(pubkey, fundingTx); //conf
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Single(utxo.Confirmed.UTXOs);
 
@@ -1535,7 +1533,7 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(pubkey, txId);
 				Logs.Tester.LogInformation("Making sure the BTC is properly received");
 				var utxo = tester.Client.GetUTXOs(pubkey);
-				Assert.Equal(tester.Network.Consensus.CoinbaseMaturity + 3, utxo.CurrentHeight);
+				Assert.Equal(tester.Network.Consensus.CoinbaseMaturity + 1, utxo.CurrentHeight);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Equal(txId, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				var unconfTimestamp = utxo.Unconfirmed.UTXOs[0].Timestamp;
@@ -1744,8 +1742,8 @@ namespace NBXplorer.Tests
 				tester.Client.WaitServerStarted();
 				var tx = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
 				tx.Outputs.Add(new TxOut(Money.Coins(1.0m), new Key()));
-				var funded = tester.User1.CreateRPCClient().WithCapabilitiesOf(tester.RPC).FundRawTransaction(tx);
-				var signed = tester.User1.CreateRPCClient().WithCapabilitiesOf(tester.RPC).SignRawTransaction(funded.Transaction);
+				var funded = tester.RPC.FundRawTransaction(tx);
+				var signed = tester.RPC.SignRawTransaction(funded.Transaction);
 				var result = tester.Client.Broadcast(signed);
 				Assert.True(result.Success);
 				signed.Inputs[0].PrevOut.N = 999;
