@@ -70,9 +70,14 @@ namespace NBXplorer
 
 			var tx = new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = includeTransaction ? oldest.Transaction : null, TransactionHash = oldest.Transaction.GetHash(), Height = confBlock?.Height, Timestamp = oldest.Timestamp };
 			tx.Inputs.AddRange(tx.Transaction.Inputs.Select(i => new TransactionInput() { ScriptPubKey = i.GetSigner()?.ScriptPubKey, Index = (int)i.PrevOut.N, TransactionHash = i.PrevOut.Hash }));
+			tx.Outputs.AddRange(tx.Transaction.Outputs.Select(i => new TransactionOutput() { ScriptPubKey = i.ScriptPubKey }));
 			foreach(var i in tx.Inputs)
 			{
 				i.Address = i.ScriptPubKey?.GetDestinationAddress(network)?.ToString();
+			}
+			foreach (var i in tx.Outputs)
+			{
+				i.Address = i.ScriptPubKey.GetDestinationAddress(network)?.ToString();
 			}
 			return tx;
 		}

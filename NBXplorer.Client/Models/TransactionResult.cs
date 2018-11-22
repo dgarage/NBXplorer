@@ -12,6 +12,11 @@ namespace NBXplorer.Models
 		public Script ScriptPubKey { get; set; }
 		public string Address { get; set; }
 	}
+	public class TransactionOutput
+	{
+		public Script ScriptPubKey { get; set; }
+		public string Address { get; set; }
+	}
 	public class TransactionResult
 	{
 		uint _Confirmations;
@@ -54,6 +59,7 @@ namespace NBXplorer.Models
 		}
 
 		public List<TransactionInput> Inputs { get; set; } = new List<TransactionInput>();
+		public List<TransactionOutput> Outputs { get; set; } = new List<TransactionOutput>();
 
 		public int? Height
 		{
