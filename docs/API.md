@@ -612,7 +612,21 @@ Then you will receive such notifications when a transaction is impacting the `de
       "transactionHash": "f135537b40ac7a524273176b60e464b7f279f622031ec53af302d959966d7364",
       "transaction": "0200000001dd7f53b09438fed83abe25dd6cdc30ee2092ce8c855cb9e7b0faa38aba8bc0f500000000484730440220093a837ff4be4b64b2ed4625abb128966caad0cb7830cac7af4f615bbf6b52ce02206227a3ddec3fac9e49f414eeab1388d0e67829620ac3a8fb2f4bbfc5b67bd02901feffffff0200e1f5050000000017a91476de0c5d07fd202880672bc702162b7f18e13aca87640210240100000017a9147cfa038496438a6d3c95cfac990f4dffc6cb44f28768000000",
       "height": null,
-      "timestamp": 1540434424
+      "timestamp": 1540434424,
+	  "inputs": [
+	    {
+		  "transactionHash": "10b0e5178aaf42c4a938f0d37430413b7d76feae14b01fc07e1f23300b8821ce",
+		  "index": 4,
+	      "scriptPubKey": "a91476de0c5d07fd202880672bc702162b7f18e13aca87",
+	      "address": "2N45jj76a7YjGLDoKs2mnQ4tt5N7t6R9xoM"
+		}
+	  ],
+	  "outputs": [
+	    {
+	      "scriptPubKey": "a91476de0c5d07fd202880672bc702162b7f18e13aca87",
+	      "address": "2N45jj76a7YjGLDoKs2mnQ4tt5N7t6R9xoM"
+		}
+	  ]
     },
     "outputs": [
       {

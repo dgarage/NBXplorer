@@ -347,7 +347,7 @@ namespace NBXplorer.Controllers
 					var blockHeader = o.BlockId == null ? null : chain.GetBlock(o.BlockId);
 
 					var derivation = (o.TrackedTransaction.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-					await server.Send(o.ToExternalEvent(includeTransaction, chain, blockHeader));
+					await server.Send(o.ToExternalEvent(includeTransaction, chain, blockHeader, network.Network.NBitcoinNetwork));
 				}
 			}));
 			try
@@ -450,7 +450,7 @@ namespace NBXplorer.Controllers
 			var result = await RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if (result.Length == 0)
 				return NotFound();
-			return Json(Utils.ToTransactionResult(includeTransaction, chain, result));
+			return Json(Utils.ToTransactionResult(includeTransaction, chain, result, network.NBitcoinNetwork));
 		}
 
 		[HttpPost]

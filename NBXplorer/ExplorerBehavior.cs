@@ -264,7 +264,7 @@ namespace NBXplorer
 			for (int i = 0; i < matches.Length; i++)
 			{
 				var matchEvent = new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]);
-				await SaveEvent(matchEvent.ToExternalEvent(false, Chain, slimBlock));
+				await SaveEvent(matchEvent.ToExternalEvent(false, Chain, slimBlock, Network.NBitcoinNetwork));
 				_EventAggregator.Publish(matchEvent);
 			}
 		}

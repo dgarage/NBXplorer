@@ -53,7 +53,7 @@ namespace NBXplorer
 			return result;
 		}
 
-		public static TransactionResult ToTransactionResult(bool includeTransaction, SlimChain chain, Repository.SavedTransaction[] result)
+		public static TransactionResult ToTransactionResult(bool includeTransaction, SlimChain chain, Repository.SavedTransaction[] result, Network network)
 		{
 			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
 			var oldest = result
@@ -68,7 +68,20 @@ namespace NBXplorer
 
 			var conf = confBlock == null ? 0 : chain.Height - confBlock.Height + 1;
 
-			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = includeTransaction ? oldest.Transaction : null, TransactionHash = oldest.Transaction.GetHash(), Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			var tx = new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = oldest.Transaction, TransactionHash = oldest.Transaction.GetHash(), Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			tx.Inputs.AddRange(tx.Transaction.Inputs.Select(i => new TransactionInput() { ScriptPubKey = i.GetSigner()?.ScriptPubKey, Index = (int)i.PrevOut.N, TransactionHash = i.PrevOut.Hash }));
+			tx.Outputs.AddRange(tx.Transaction.Outputs.Select(i => new TransactionOutput() { ScriptPubKey = i.ScriptPubKey }));
+			foreach(var i in tx.Inputs)
+			{
+				i.Address = i.ScriptPubKey?.GetDestinationAddress(network)?.ToString();
+			}
+			foreach (var i in tx.Outputs)
+			{
+				i.Address = i.ScriptPubKey.GetDestinationAddress(network)?.ToString();
+			}
+			if (!includeTransaction)
+				tx.Transaction = null;
+			return tx;
 		}
 	}
 }

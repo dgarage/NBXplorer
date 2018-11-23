@@ -110,13 +110,13 @@ namespace NBXplorer
 			};
 		}
 
-		public static NewTransactionEvent ToExternalEvent(this Events.NewTransactionMatchEvent o, bool includeTransaction, SlimChain chain, SlimChainedBlock blockHeader)
+		public static NewTransactionEvent ToExternalEvent(this Events.NewTransactionMatchEvent o, bool includeTransaction, SlimChain chain, SlimChainedBlock blockHeader, Network network)
 		{
 			return new Models.NewTransactionEvent()
 			{
 				CryptoCode = o.CryptoCode,
 				BlockId = blockHeader?.Hash,
-				TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }),
+				TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }, network),
 			}.SetMatch(o.TrackedTransaction);
 		}
 
