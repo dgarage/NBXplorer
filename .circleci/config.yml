@@ -20,8 +20,7 @@ jobs:
             sudo apt-get install dotnet-sdk-2.1
             dotnet --info
             dotnet build /p:TreatWarningsAsErrors=true
-            cd NBXplorer.Tests
-            dotnet test
+            dotnet test -c Release ./NBXplorer.Tests/NBXplorer.Tests.csproj --filter "Azure!=Azure"
 
   # publish jobs require $DOCKERHUB_REPO, $DOCKERHUB_USER, $DOCKERHUB_PASS defined
   publish_docker_linuxamd64:
