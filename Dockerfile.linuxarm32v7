@@ -1,13 +1,15 @@
-FROM microsoft/dotnet:2.1-sdk AS builder
+# This is a manifest image, will pull the image with the same arch as the builder machine
+FROM microsoft/dotnet:2.1.500-sdk AS builder
 WORKDIR /source
 COPY NBXplorer/NBXplorer.csproj NBXplorer/NBXplorer.csproj
 # Cache some dependencies
-RUN cd NBXplorer && dotnet restore -r linux-arm && cd ..
+RUN cd NBXplorer && dotnet restore && cd ..
 COPY . .
 RUN cd NBXplorer && \
-    dotnet publish -c Release -r linux-arm -o /app/ /p:ShowLinkerSizeComparison=true
+    dotnet publish --output /app/ --configuration Release
 
-FROM microsoft/dotnet:2.1-aspnetcore-runtime-bionic-arm32v7 AS runtime
+# Force the builder machine to take make an arm runtime image. This is fine as long as the builder does not run any program
+FROM microsoft/dotnet:2.1.6-aspnetcore-runtime-stretch-slim-arm32v7
 
 WORKDIR /datadir
 WORKDIR /app
