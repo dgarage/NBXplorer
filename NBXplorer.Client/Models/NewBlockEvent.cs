@@ -1,9 +1,13 @@
 ﻿using NBitcoin;
+using Newtonsoft.Json;
 
 namespace NBXplorer.Models
 {
 	public class NewBlockEvent : NewEventBase
 	{
+		public NewBlockEvent()
+		{
+		}
 		public int Height
 		{
 			get; set;
@@ -21,6 +25,14 @@ namespace NBXplorer.Models
 		protected override object[] GetEventIdCore()
 		{
 			return new object[] { "newblock", Hash };
+		}
+
+		[JsonIgnore]
+		public override string EventType => "newblock";
+
+		public override string ToString()
+		{
+			return $"{CryptoCode}: New block {Hash} ({Height})";
 		}
 	}
 }

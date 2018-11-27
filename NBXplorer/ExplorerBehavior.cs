@@ -238,10 +238,20 @@ namespace NBXplorer
 					//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 					if (!IsSynching() || blockHash.GetLow32() % 100 == 0)
 						await Repository.SetIndexProgress(currentLocation);
-					var slimBlock = Chain.GetBlock(blockHash);
-					var blockEvent = new Events.NewBlockEvent(_Repository.Network.CryptoCode, blockHash, slimBlock.Height);
-					await SaveEvent(blockEvent.ToExternalEvent(slimBlock));
-					_EventAggregator.Publish(blockEvent);
+					var slimBlockHeader = Chain.GetBlock(blockHash);
+					if (slimBlockHeader != null)
+					{
+						var blockEvent = new Models.NewBlockEvent()
+						{
+							CryptoCode = _Repository.Network.CryptoCode,
+							Hash = blockHash,
+							Height = slimBlockHeader.Height,
+							PreviousBlockHash = slimBlockHeader.Previous
+						};
+						var saving = Repository.SaveEvent(blockEvent);
+						_EventAggregator.Publish(blockEvent);
+						await saving;
+					}
 				}
 				if (_InFlights.Count == 0)
 					AskBlocks();
@@ -260,20 +270,38 @@ namespace NBXplorer
 			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
 			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
-			var slimBlock = blockHash == null ? null : Chain.GetBlock(blockHash);
+
+			int? maybeHeight = null;
+			var chainHeight = Chain.Height;
+			if (blockHash != null && Chain.TryGetHeight(blockHash, out int height))
+			{
+				maybeHeight = height;
+			}
+			Task[] saving = new Task[matches.Length];
 			for (int i = 0; i < matches.Length; i++)
 			{
-				var matchEvent = new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]);
-				await SaveEvent(matchEvent.ToExternalEvent(false, Chain, slimBlock, Network.NBitcoinNetwork));
-				_EventAggregator.Publish(matchEvent);
-			}
-		}
+				var txEvt = new Models.NewTransactionEvent()
+				{
+					TrackedSource = matches[i].TrackedSource,
+					DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
+					CryptoCode = Network.CryptoCode,
+					BlockId = blockHash,
+					TransactionData = new TransactionResult()
+					{
+						BlockId = blockHash,
+						Height = maybeHeight,
+						Confirmations = maybeHeight == null ? 0 : chainHeight - maybeHeight.Value + 1,
+						Timestamp = now,
+						Transaction = matches[i].Transaction,
+						TransactionHash = matches[i].TransactionHash
+					},
+					Outputs = matches[i].GetReceivedOutputs().ToList()
+				};
 
-		private Task SaveEvent(NewEventBase evt)
-		{
-			JsonSerializerSettings settings = new JsonSerializerSettings();
-			Repository.Serializer.ConfigureSerializer(settings);
-			return Repository.SaveEvent(evt.ToJObject(settings), evt.GetEventId());
+				saving[i] = Repository.SaveEvent(txEvt);
+				_EventAggregator.Publish(txEvt);
+			}
+			await Task.WhenAll(saving);
 		}
 
 		public bool IsSynching()

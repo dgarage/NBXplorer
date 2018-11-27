@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace NBXplorer
 {
-	public class NotificationSession : IDisposable
+	public class WebsocketNotificationSession : NotificationSessionBase, IDisposable
 	{
 
 		private readonly ExplorerClient _Client;
@@ -23,7 +23,7 @@ namespace NBXplorer
 				return _Client;
 			}
 		}
-		internal NotificationSession(ExplorerClient client)
+		internal WebsocketNotificationSession(ExplorerClient client)
 		{
 			if(client == null)
 				throw new ArgumentNullException(nameof(client));
@@ -143,11 +143,7 @@ namespace NBXplorer
 			return _MessageListener.Send(new Models.NewTransactionEventRequest() { TrackedSources = trackedSources.Select(d => d.ToString()).ToArray(), CryptoCode = _Client.CryptoCode }, cancellation);
 		}
 
-		public object NextEvent(CancellationToken cancellation = default)
-		{
-			return NextEventAsync(cancellation).GetAwaiter().GetResult();
-		}
-		public Task<object> NextEventAsync(CancellationToken cancellation = default)
+		public override Task<NewEventBase> NextEventAsync(CancellationToken cancellation = default)
 		{
 			return _MessageListener.NextMessageAsync(cancellation);
 		}

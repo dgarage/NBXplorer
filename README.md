@@ -15,12 +15,15 @@ It currently supports:
 * BGold (also known as Bitcoin Gold)
 * Bitcoin
 * Bitcore
+* ColossusXT
 * Dash
 * Dogecoin
 * Feathercoin
+* Gobyte
 * Groestlcoin
 * Litecoin
 * Monacoin
+* Monoeci
 * Polis
 * Ufo
 * Viacoin

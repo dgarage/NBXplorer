@@ -90,9 +90,6 @@ namespace NBXplorer.Tests
 				var cryptoSettings = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode(CryptoCode);
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, directory);
 
-
-				User1 = NodeBuilder.CreateNode();
-				User2 = NodeBuilder.CreateNode();
 				Explorer = NodeBuilder.CreateNode();
 				foreach (var node in NodeBuilder.Nodes)
 				{
@@ -100,13 +97,7 @@ namespace NBXplorer.Tests
 					node.CookieAuth = cryptoSettings.SupportCookieAuthentication;
 				}
 				NodeBuilder.StartAll();
-
-				User1.CreateRPCClient().Generate(1);
-				User1.Sync(Explorer, true);
-				Explorer.CreateRPCClient().Generate(1);
-				Explorer.Sync(User2, true);
-				User2.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
-				User1.Sync(User2, true);
+				Explorer.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
 
 				var connectionString = Environment.GetEnvironmentVariable("TESTS_POSTGRES") ?? "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer" + RandomUtils.GetUInt64();
 				var port = CustomServer.FreeTcpPort();
@@ -158,6 +149,7 @@ namespace NBXplorer.Tests
 				Configuration = conf;
 				_Client = new ExplorerClient(nbxnetwork, Address);
 				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
+				Notifications = _Client.CreateLongPollingNotificationSession();
 				this.Client.WaitServerStarted();
 			}
 			catch
@@ -174,7 +166,7 @@ namespace NBXplorer.Tests
 				return (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 			}
 		}
-
+		public LongPollingNotificationSession Notifications { get; set; }
 		private NetworkCredential ExtractCredentials(string config)
 		{
 			var user = Regex.Match(config, "rpcuser=([^\r\n]*)");
@@ -204,16 +196,6 @@ namespace NBXplorer.Tests
 		}
 
 		public CoreNode Explorer
-		{
-			get; set;
-		}
-
-		public CoreNode User1
-		{
-			get; set;
-		}
-
-		public CoreNode User2
 		{
 			get; set;
 		}

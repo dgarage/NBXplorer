@@ -173,9 +173,13 @@ namespace NBXplorer
 				tx.Insert(TableName, $"{PrimaryKey}-{key}", value);
 			}
 
-			public async Task<(string Key, byte[] Value)[]> SelectForwardSkip(int n)
+			public async Task<(string Key, byte[] Value)[]> SelectForwardSkip(int n, string startWith = null)
 			{
-				return (await tx.SelectForwardStartsWith<byte[]>(TableName, PrimaryKey)).Skip(n).Select(c => (c.Key, c.Value)).ToArray();
+				if (startWith == null)
+					startWith = PrimaryKey;
+				else
+					startWith = $"{PrimaryKey}-{startWith}";
+				return (await tx.SelectForwardStartsWith<byte[]>(TableName, startWith)).Skip(n).Select(c => (c.Key, c.Value)).ToArray();
 			}
 
 			public void Insert(int key, byte[] value)
@@ -196,6 +200,11 @@ namespace NBXplorer
 			internal Task<bool> TakeLock()
 			{
 				return tx.TakeLock(TableName, PrimaryKey);
+			}
+			public void Insert(int key, long value)
+			{
+				var bytes = NBitcoin.Utils.ToBytes((ulong)value, false);
+				Insert(key, bytes);
 			}
 		}
 
@@ -535,7 +544,7 @@ namespace NBXplorer
 			}
 		}
 
-		public async Task<long> SaveEvent(JObject evt, string eventId)
+		public async Task<long> SaveEvent(NewEventBase evt)
 		{
 			using (var tx = await _ContextFactory.GetContext())
 			{
@@ -543,17 +552,16 @@ namespace NBXplorer
 				{
 					command.CommandText = "insert_event";
 					command.CommandType = System.Data.CommandType.StoredProcedure;
-					command.Parameters.Add(new Npgsql.NpgsqlParameter("event_id_arg", eventId));
-					command.Parameters.Add(new Npgsql.NpgsqlParameter("data_arg", ToBytes(evt)));
+					command.Parameters.Add(new Npgsql.NpgsqlParameter("event_id_arg", evt.GetEventId()));
+					command.Parameters.Add(new Npgsql.NpgsqlParameter("data_arg", this.ToBytes(evt.ToJObject(Serializer.Settings))));
 					return (long)(await command.ExecuteScalarAsync());
 				}
 			}
 		}
 
-		public async Task<(long LastEventId, IList<JObject> Objects)> GetEvents(int afterId, int? limit = null)
+		public async Task<IList<NewEventBase>> GetEvents(long afterId, int? limit = null)
 		{
-			List<JObject> result = new List<JObject>();
-			long lastEventId = 0;
+			List<NewEventBase> result = new List<NewEventBase>();
 			using (var tx = await _ContextFactory.GetContext())
 			{
 				using (var command = tx.Connection.CreateCommand())
@@ -568,13 +576,14 @@ namespace NBXplorer
 						while (await reader.ReadAsync())
 						{
 							var bytes = (byte[])reader["data"];
-							result.Add(ToObject<JObject>(bytes));
-							lastEventId = (long)reader["id"];
+							var evt = NewEventBase.ParseEvent(ToObject<JObject>(bytes), Serializer.Settings);
+							result.Add(evt);
+							evt.EventId = (long)reader["id"];
 						}
 					}
 				}
 			}
-			return (lastEventId, result);
+			return result;
 		}
 
 		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
@@ -688,7 +697,6 @@ namespace NBXplorer
 			get; set;
 		} = 30;
 
-
 		public async Task MarkAsUsed(KeyPathInformation[] infos)
 		{
 			if (infos.Length == 0)
@@ -715,7 +723,7 @@ namespace NBXplorer
 				await tx.CommitAsync();
 			}
 		}
-		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource)
+		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null)
 		{
 
 			bool needUpdate = false;
@@ -726,7 +734,8 @@ namespace NBXplorer
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
 				tx.ValuesLazyLoadingIsOn = false;
-				foreach (var row in await table.SelectForwardSkip(0))
+				var result = new List<TransactionMatchData>();
+				foreach (var row in await table.SelectForwardSkip(0, txId?.ToString()))
 				{
 					MemoryStream ms = new MemoryStream(row.Value);
 					BitcoinStream bs = new BitcoinStream(ms, false);

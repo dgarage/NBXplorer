@@ -90,34 +90,13 @@ namespace NBXplorer
 			return null;
 		}
 
-		public static NewTransactionEvent SetMatch(this NewTransactionEvent evt, TrackedTransaction match)
+		internal static KeyPathInformation AddAddress(this KeyPathInformation keyPathInformation, Network network)
 		{
-			evt.TrackedSource = match.TrackedSource;
-			var derivation = (match.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-			evt.Outputs.AddRange(match.GetReceivedOutputs(evt.TrackedSource));
-			evt.DerivationStrategy = derivation;
-			return evt;
-		}
-
-		public static Models.NewBlockEvent ToExternalEvent(this Events.NewBlockEvent o, SlimChainedBlock block)
-		{
-			return new Models.NewBlockEvent()
+			if(keyPathInformation.Address == null)
 			{
-				CryptoCode = o.CryptoCode,
-				Hash = block.Hash,
-				Height = block.Height,
-				PreviousBlockHash = block?.Previous
-			};
-		}
-
-		public static NewTransactionEvent ToExternalEvent(this Events.NewTransactionMatchEvent o, bool includeTransaction, SlimChain chain, SlimChainedBlock blockHeader, Network network)
-		{
-			return new Models.NewTransactionEvent()
-			{
-				CryptoCode = o.CryptoCode,
-				BlockId = blockHeader?.Hash,
-				TransactionData = Utils.ToTransactionResult(includeTransaction, chain, new[] { o.SavedTransaction }, network),
-			}.SetMatch(o.TrackedTransaction);
+				keyPathInformation.Address = keyPathInformation.ScriptPubKey.GetDestinationAddress(network).ToString();
+			}
+			return keyPathInformation;
 		}
 
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
@@ -213,34 +192,6 @@ namespace NBXplorer
 				o.LoadArgs(conf);
 			});
 			return services;
-		}
-
-		public static string ToPrettyString(this uint256 value)
-		{
-			var txId = value.ToString();
-			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
-			return txId;
-		}
-
-		internal static string ToPrettyString(this TrackedSource trackedSource)
-		{
-			if (trackedSource is DerivationSchemeTrackedSource derivation)
-			{
-				var strategy = derivation.DerivationStrategy.ToString();
-				if (strategy.Length > 35)
-				{
-					strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
-				}
-				return strategy;
-			}
-			else if (trackedSource is AddressTrackedSource addressDerivation)
-			{
-				return addressDerivation.Address.ToString();
-			}
-			else
-			{
-				return trackedSource.ToString();
-			}
 		}
 
 		internal class NoObjectModelValidator : IObjectModelValidator
