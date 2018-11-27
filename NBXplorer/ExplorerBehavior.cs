@@ -234,7 +234,7 @@ namespace NBXplorer
 						.Select(tx => Repository.GetMatches(tx, blockHash, now))
 						.ToArray();
 					await Task.WhenAll(matches);
-					await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
+					var evts = await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
 					//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 					if (!IsSynching() || blockHash.GetLow32() % 100 == 0)
 						await Repository.SetIndexProgress(currentLocation);
@@ -252,6 +252,7 @@ namespace NBXplorer
 						_EventAggregator.Publish(blockEvent);
 						await saving;
 					}
+					PublishEvents(evts);
 				}
 				if (_InFlights.Count == 0)
 					AskBlocks();
@@ -262,9 +263,17 @@ namespace NBXplorer
 		{
 			var now = DateTimeOffset.UtcNow;
 			var matches = (await Repository.GetMatches(transaction, null, now)).ToArray();
-			await SaveMatches(matches, null, now);
+			var evts = await SaveMatches(matches, null, now);
+			PublishEvents(evts);
 		}
-		private async Task SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
+
+		private void PublishEvents(NewTransactionEvent[] evts)
+		{
+			foreach (var evt in evts)
+				_EventAggregator.Publish(evt);
+		}
+
+		private async Task<Models.NewTransactionEvent[]> SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
 		{
 			await Repository.SaveMatches(matches);
 			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
@@ -278,6 +287,7 @@ namespace NBXplorer
 				maybeHeight = height;
 			}
 			Task[] saving = new Task[matches.Length];
+			var evts = new Models.NewTransactionEvent[matches.Length];
 			for (int i = 0; i < matches.Length; i++)
 			{
 				var txEvt = new Models.NewTransactionEvent()
@@ -297,11 +307,11 @@ namespace NBXplorer
 					},
 					Outputs = matches[i].GetReceivedOutputs().ToList()
 				};
-
+				evts[i] = txEvt;
 				saving[i] = Repository.SaveEvent(txEvt);
-				_EventAggregator.Publish(txEvt);
 			}
 			await Task.WhenAll(saving);
+			return evts;
 		}
 
 		public bool IsSynching()
