@@ -9,7 +9,7 @@
 		<PackageIconUrl>https://aois.blob.core.windows.net/public/Bitcoin.png</PackageIconUrl>
 		<PackageTags>bitcoin</PackageTags>
 		<PackageProjectUrl>https://github.com/dgarage/NBXplorer/</PackageProjectUrl>
-		<PackageLicenseUrl>https://github.com/dgarage/NBXplorer/blob/master/LICENSE</PackageLicenseUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/dgarage/NBXplorer/</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<LangVersion>7.3</LangVersion>
