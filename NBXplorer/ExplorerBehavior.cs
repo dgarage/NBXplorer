@@ -296,17 +296,9 @@ namespace NBXplorer
 					DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
 					CryptoCode = Network.CryptoCode,
 					BlockId = blockHash,
-					TransactionData = new TransactionResult()
-					{
-						BlockId = blockHash,
-						Height = maybeHeight,
-						Confirmations = maybeHeight == null ? 0 : chainHeight - maybeHeight.Value + 1,
-						Timestamp = now,
-						Transaction = matches[i].Transaction,
-						TransactionHash = matches[i].TransactionHash
-					},
 					Outputs = matches[i].GetReceivedOutputs().ToList()
 				};
+				txEvt.TransactionData = Utils.ToTransactionResult(true, Chain, new[] { savedTransactions[matches[i].TransactionHash] }, Network.NBitcoinNetwork);
 				evts[i] = txEvt;
 				saving[i] = Repository.SaveEvent(txEvt);
 			}
