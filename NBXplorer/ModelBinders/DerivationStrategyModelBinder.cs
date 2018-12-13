@@ -39,7 +39,7 @@ namespace NBXplorer.ModelBinders
 
 			var networkProvider = (NBXplorer.NBXplorerNetworkProvider)bindingContext.HttpContext.RequestServices.GetService(typeof(NBXplorer.NBXplorerNetworkProvider));
 			var cryptoCode = bindingContext.ValueProvider.GetValue("cryptoCode").FirstValue;
-			var network = networkProvider.GetFromCryptoCode(cryptoCode ?? "BTC");
+			var network = networkProvider.GetFromCryptoCode((cryptoCode ?? "BTC").ToUpperInvariant());
 			try
 			{
 				var data = new DerivationStrategy.DerivationStrategyFactory(network.NBitcoinNetwork).Parse(key);
