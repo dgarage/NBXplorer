@@ -157,7 +157,7 @@ You can test the NBXplorer API quickly and easily using Postman as follows :
 
 You are now ready to test the API - it is easiest to start with something simple such as the fees endpoint e.g.
 
-```http://localhost:24444/v1/cryptos/btc/fees/3```
+```http://localhost:24444/v1/cryptos/BTC/fees/3```
 
 this should return a JSON payload e.g.
 
