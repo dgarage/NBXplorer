@@ -126,7 +126,7 @@ namespace NBXplorer
 			var invs = Enumerable.Range(0, 50)
 				.Select(i => Chain.GetBlock(i + currentBlock.Height + 1))
 				.Where(_ => _ != null)
-				.Take(40)
+				.Take(10)
 				.Select(b => new InventoryVector(node.AddSupportedOptions(InventoryType.MSG_BLOCK), b.Hash))
 				.Where(b => _InFlights.TryAdd(b.Hash, new Download()))
 				.ToArray();
@@ -236,9 +236,11 @@ namespace NBXplorer
 						.ToArray();
 					await Task.WhenAll(matches);
 					await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
-					//Save index progress everytimes if not synching, or once every 100 blocks otherwise
-					if (!IsSynching() || blockHash.GetLow32() % 100 == 0)
+					if (!IsSynching())
+					{
+						Repository.BatchSize = 100;
 						await Repository.SetIndexProgress(currentLocation);
+					}
 					var slimBlockHeader = Chain.GetBlock(blockHash);
 					if (slimBlockHeader != null)
 					{
@@ -255,7 +257,14 @@ namespace NBXplorer
 					}
 				}
 				if (_InFlights.Count == 0)
+				{
+					if (IsSynching())
+					{
+						Repository.BatchSize = int.MaxValue;
+						await Repository.SetIndexProgress(currentLocation);
+					}
 					AskBlocks();
+				}
 			}
 		}
 
