@@ -109,8 +109,6 @@ namespace NBXplorer
 				return;
 			if (Chain.Height < node.PeerVersion.StartHeight)
 				return;
-			if (_InFlights.Count != 0)
-				return;
 			var currentLocation = CurrentLocation;
 			if (currentLocation == null)
 				return;
@@ -123,26 +121,29 @@ namespace NBXplorer
 				return;
 
 
-			var invs = Enumerable.Range(0, 50)
-				.Select(i => Chain.GetBlock(i + currentBlock.Height + 1))
-				.Where(_ => _ != null)
-				.Take(10)
-				.Select(b => new InventoryVector(node.AddSupportedOptions(InventoryType.MSG_BLOCK), b.Hash))
-				.Where(b => _InFlights.TryAdd(b.Hash, new Download()))
-				.ToArray();
-
-			if (invs.Length != 0)
+			int maxConcurrentBlocks = 10;
+			List<InventoryVector> invs = new List<InventoryVector>();
+			foreach (var i in Enumerable.Range(0, int.MaxValue))
 			{
-				node.SendMessageAsync(new GetDataPayload(invs));
+				var block = Chain.GetBlock(currentBlock.Height + 1 + i);
+				if (block == null)
+					break;
+				if (_InFlights.TryAdd(block.Hash, block.Hash))
+					invs.Add(new InventoryVector(node.AddSupportedOptions(InventoryType.MSG_BLOCK), block.Hash));
+				if (invs.Count == maxConcurrentBlocks)
+					break;
+			}
+
+			if (invs.Count != 0)
+			{
+				Repository.BatchSize = invs.Count == maxConcurrentBlocks ? int.MaxValue : 100;
+				_HighestInFlight = Chain.GetLocator(invs[invs.Count - 1].Hash);
+				node.SendMessageAsync(new GetDataPayload(invs.ToArray()));
 			}
 		}
 
-		class Download
-		{
-		}
-
-		ConcurrentDictionary<uint256, Download> _InFlights = new ConcurrentDictionary<uint256, Download>();
-
+		ConcurrentDictionary<uint256, uint256> _InFlights = new ConcurrentDictionary<uint256, uint256>();
+		BlockLocator _HighestInFlight;
 
 		void Tick(object state)
 		{
@@ -216,52 +217,45 @@ namespace NBXplorer
 		private async Task SaveMatches(Block block)
 		{
 			block.Header.PrecomputeHash(false, false);
-			Download o;
-			if (_InFlights.ContainsKey(block.GetHash()))
-			{
-				var currentLocation = Chain.GetLocator(block.GetHash());
-				if (currentLocation == null)
-					return;
-				if (_InFlights.TryRemove(block.GetHash(), out o))
-				{
-					foreach (var tx in block.Transactions)
-						tx.PrecomputeHash(false, true);
+			foreach (var tx in block.Transactions)
+				tx.PrecomputeHash(false, true);
 
-					var blockHash = block.GetHash();
-					DateTimeOffset now = DateTimeOffset.UtcNow;
-					var matches =
-						block.Transactions
-						.Select(tx => Repository.GetMatches(tx, blockHash, now))
-						.ToArray();
-					await Task.WhenAll(matches);
-					await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
-					var slimBlockHeader = Chain.GetBlock(blockHash);
-					if (slimBlockHeader != null)
-					{
-						var blockEvent = new Models.NewBlockEvent()
-						{
-							CryptoCode = _Repository.Network.CryptoCode,
-							Hash = blockHash,
-							Height = slimBlockHeader.Height,
-							PreviousBlockHash = slimBlockHeader.Previous
-						};
-						var saving = Repository.SaveEvent(blockEvent);
-						_EventAggregator.Publish(blockEvent);
-						await saving;
-						if (!IsSynching() || _InFlights.Count == 0)
-						{
-							Repository.BatchSize = IsSynching() ? int.MaxValue : 100;
-							await Repository.SetIndexProgress(currentLocation);
-							CurrentLocation = currentLocation;
-						}
-					}
-				}
-				if (_InFlights.Count == 0)
+			var blockHash = block.GetHash();
+			DateTimeOffset now = DateTimeOffset.UtcNow;
+			var matches =
+				block.Transactions
+				.Select(tx => Repository.GetMatches(tx, blockHash, now))
+				.ToArray();
+			await Task.WhenAll(matches);
+			await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
+			var slimBlockHeader = Chain.GetBlock(blockHash);
+			if (slimBlockHeader != null)
+			{
+				var blockEvent = new Models.NewBlockEvent()
 				{
-					AskBlocks();
+					CryptoCode = _Repository.Network.CryptoCode,
+					Hash = blockHash,
+					Height = slimBlockHeader.Height,
+					PreviousBlockHash = slimBlockHeader.Previous
+				};
+				var saving = Repository.SaveEvent(blockEvent);
+				_EventAggregator.Publish(blockEvent);
+				await saving;
+			}
+
+			if (_InFlights.TryRemove(blockHash, out var unused) && _InFlights.IsEmpty)
+			{
+				var highestInFlight = _HighestInFlight;
+				_HighestInFlight = null;
+				if (highestInFlight != null)
+				{
+					CurrentLocation = highestInFlight;
+					await Repository.SetIndexProgress(highestInFlight);
 				}
+				AskBlocks();
 			}
 		}
+
 
 		private async Task SaveMatches(Transaction transaction)
 		{

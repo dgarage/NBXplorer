@@ -1066,6 +1066,27 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanBatch()
+		{
+			var input = Enumerable.Range(0, 100);
+			var outputs = input.Batch(30).ToArray();
+
+			Assert.Equal(4, outputs.Length);
+			Assert.True(outputs[0].SequenceEqual(Enumerable.Range(0, 30)));
+			Assert.True(outputs[1].SequenceEqual(Enumerable.Range(30, 30)));
+			Assert.True(outputs[2].SequenceEqual(Enumerable.Range(60, 30)));
+			Assert.True(outputs[3].SequenceEqual(Enumerable.Range(90, 10)));
+
+			input = Enumerable.Range(0, 90);
+			outputs = input.Batch(30).ToArray();
+
+			Assert.Equal(3, outputs.Length);
+			Assert.True(outputs[0].SequenceEqual(Enumerable.Range(0, 30)));
+			Assert.True(outputs[1].SequenceEqual(Enumerable.Range(30, 30)));
+			Assert.True(outputs[2].SequenceEqual(Enumerable.Range(60, 30)));
+		}
+
+		[Fact]
 		public void CanUseWebSocketsOnAddress2()
 		{
 			using (var tester = ServerTester.Create())
