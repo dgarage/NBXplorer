@@ -180,11 +180,13 @@ namespace NBXplorer
 			_Timer.Dispose();
 			_Timer = null;
 		}
-
 		private void AttachedNode_MessageReceived(Node node, IncomingMessage message)
 		{
 			if (message.Message.Payload is InvPayload invs)
 			{
+				// Do not asks transactions if we are synching so that we can process blocks faster
+				if (IsSynching())
+					return;
 				var data = new GetDataPayload();
 				foreach (var inv in invs.Inventory)
 				{
