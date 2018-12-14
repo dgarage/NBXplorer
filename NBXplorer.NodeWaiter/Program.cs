@@ -127,7 +127,7 @@ namespace NBXplorer.NodeWaiter
 
 		private static ExplorerClient GetNetwork(CommandLineExConfigurationProvider config, NBXplorerNetworkProvider networkProvider, string cryptoCode, string validValues)
 		{
-			var network = networkProvider.GetFromCryptoCode(cryptoCode.ToUpperInvariant());
+			var network = networkProvider.GetFromCryptoCode(cryptoCode);
 			if (network == null)
 				throw new NotSupportedException($"{cryptoCode} in --chains is not supported, valid value: {validValues}");
 

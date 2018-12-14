@@ -40,7 +40,7 @@ namespace NBXplorer
 
 		public NBXplorerNetwork GetFromCryptoCode(string cryptoCode)
 		{
-			_Networks.TryGetValue(cryptoCode, out NBXplorerNetwork network);
+			_Networks.TryGetValue(cryptoCode.ToUpperInvariant(), out NBXplorerNetwork network);
 			return network;
 		}
 
