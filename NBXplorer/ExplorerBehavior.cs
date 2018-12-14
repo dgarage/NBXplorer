@@ -254,15 +254,15 @@ namespace NBXplorer
 						var saving = Repository.SaveEvent(blockEvent);
 						_EventAggregator.Publish(blockEvent);
 						await saving;
+						if (IsSynching() && _InFlights.Count == 0)
+						{
+							Repository.BatchSize = int.MaxValue;
+							await Repository.SetIndexProgress(currentLocation);
+						}
 					}
 				}
 				if (_InFlights.Count == 0)
 				{
-					if (IsSynching())
-					{
-						Repository.BatchSize = int.MaxValue;
-						await Repository.SetIndexProgress(currentLocation);
-					}
 					AskBlocks();
 				}
 			}
