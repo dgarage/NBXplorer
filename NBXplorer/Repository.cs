@@ -277,7 +277,7 @@ namespace NBXplorer
 					_Repositories.Add(net.CryptoCode, repo);
 					if (settings.Rescan)
 					{
-						Logs.Configuration.LogInformation($"Rescanning the {net.CryptoCode} chain...");
+						Logs.Configuration.LogInformation($"{net.CryptoCode}: Rescanning the chain...");
 						repo.SetIndexProgress(null);
 					}
 				}
