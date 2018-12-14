@@ -206,14 +206,29 @@ namespace NBXplorer
 			}
 			else if (message.Message.Payload is BlockPayload block)
 			{
-				Task.Run(() => SaveMatches(block.Object));
+				Run(() => SaveMatches(block.Object));
 			}
 			else if (message.Message.Payload is TxPayload txPayload)
 			{
-				Task.Run(() => SaveMatches(txPayload.Object));
+				Run(() => SaveMatches(txPayload.Object));
 			}
 		}
-
+		Task Run(Func<Task> act)
+		{
+			return Task.Run(async () =>
+			{
+				try
+				{
+					await act();
+				}
+				catch (Exception ex)
+				{
+					Logs.Explorer.LogError($"{Network.CryptoCode}: Unhandled error while treating a message");
+					Logs.Explorer.LogError(ex.ToString());
+					this.AttachedNode.DisconnectAsync($"{Network.CryptoCode}: Unhandled error while treating a message", ex);
+				}
+			});
+		}
 		private async Task SaveMatches(Block block)
 		{
 			block.Header.PrecomputeHash(false, false);
