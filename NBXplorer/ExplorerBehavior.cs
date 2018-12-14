@@ -222,7 +222,6 @@ namespace NBXplorer
 				var currentLocation = Chain.GetLocator(block.GetHash());
 				if (currentLocation == null)
 					return;
-				CurrentLocation = currentLocation;
 				if (_InFlights.TryRemove(block.GetHash(), out o))
 				{
 					foreach (var tx in block.Transactions)
@@ -236,11 +235,6 @@ namespace NBXplorer
 						.ToArray();
 					await Task.WhenAll(matches);
 					await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
-					if (!IsSynching())
-					{
-						Repository.BatchSize = 100;
-						await Repository.SetIndexProgress(currentLocation);
-					}
 					var slimBlockHeader = Chain.GetBlock(blockHash);
 					if (slimBlockHeader != null)
 					{
@@ -254,10 +248,11 @@ namespace NBXplorer
 						var saving = Repository.SaveEvent(blockEvent);
 						_EventAggregator.Publish(blockEvent);
 						await saving;
-						if (IsSynching() && _InFlights.Count == 0)
+						if (!IsSynching() || _InFlights.Count == 0)
 						{
-							Repository.BatchSize = int.MaxValue;
+							Repository.BatchSize = IsSynching() ? int.MaxValue : 100;
 							await Repository.SetIndexProgress(currentLocation);
+							CurrentLocation = currentLocation;
 						}
 					}
 				}
