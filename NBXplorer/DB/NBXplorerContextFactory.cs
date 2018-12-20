@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace NBXplorer.DB
 {
-	public class NBXplorerContextFactory : IDisposable
+	public class NBXplorerContextFactory
 	{
 		string _ConnectionString;
 		public NBXplorerContextFactory(string connectionString, IApplicationLifetime applicationLifetime)
@@ -137,12 +137,7 @@ namespace NBXplorer.DB
 			}
 		}
 
-		public void Dispose()
-		{
-			Task.Run(DisposeAsync);
-		}
-
-		async Task DisposeAsync()
+		public async Task DisposeAsync()
 		{
 			_Cts.Cancel();
 

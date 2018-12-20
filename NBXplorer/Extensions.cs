@@ -165,6 +165,8 @@ namespace NBXplorer
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
 			services.AddSingleton<IHostedService, BrokerHostedService>();
 
+			services.AddSingleton<IHostedService, NBXplorerContextFactoryHostedService>();
+
 			services.TryAddSingleton<NBXplorerContextFactory>(o =>
 			{
 				var opts = o.GetRequiredService<ExplorerConfiguration>();
