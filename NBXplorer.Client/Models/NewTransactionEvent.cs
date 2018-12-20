@@ -38,6 +38,25 @@ namespace NBXplorer.Models
 		{
 			return new object[] { "newtx", BlockId, TransactionData.TransactionHash, TrackedSource };
 		}
+
+		[JsonIgnore]
+		public override string EventType => "newtransaction";
+
+		public override string ToString()
+		{
+			var conf = (BlockId == null ? "unconfirmed" : "confirmed");
+
+			string strategy = TrackedSource.ToPrettyString();
+			string txId = TransactionData.TransactionHash.ToPrettyString();
+
+			string keyPathSuffix = string.Empty;
+			var keyPaths = Outputs.Select(v => v.KeyPath?.ToString()).Where(k => k != null).ToArray();
+			if (keyPaths.Length != 0)
+			{
+				keyPathSuffix = $" ({String.Join(", ", keyPaths)})";
+			}
+			return $"{CryptoCode}: {strategy} matching {conf} transaction {txId}{keyPathSuffix}";
+		}
 	}
 
 	public class MatchedOutput

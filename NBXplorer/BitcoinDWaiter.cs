@@ -177,7 +177,7 @@ namespace NBXplorer
 
 			_Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 			_Loop = StartLoop(_Cts.Token, _Tick);
-			_Subscription = _EventAggregator.Subscribe<NewBlockEvent>(s =>
+			_Subscription = _EventAggregator.Subscribe<Models.NewBlockEvent>(s =>
 			{
 				_Tick.Set();
 			});
@@ -371,9 +371,9 @@ namespace NBXplorer
 				{
 					await LoadChainFromNode(timeout.Token);
 				}
-				catch when(!cancellation.IsCancellationRequested)
+				catch (Exception ex) when(!cancellation.IsCancellationRequested)
 				{
-					throw new OperationCanceledException("Loading the chain from the node timed out", timeout.Token);
+					throw new OperationCanceledException("Loading the chain from the node timed out", ex, timeout.Token);
 				}
 			}
 			if(_Configuration.CacheChain && heightBefore != _Chain.Height)
@@ -505,7 +505,19 @@ namespace NBXplorer
 						IsRelay = false
 					}))
 					{
-						node.VersionHandshake(handshakeTimeout.Token);
+						try
+						{
+							Logs.Explorer.LogInformation($"{Network.CryptoCode}: TCP Connection succeed, handshaking...");
+							node.VersionHandshake(handshakeTimeout.Token);
+							Logs.Explorer.LogInformation($"{Network.CryptoCode}: Handshaked");
+						}
+						catch (OperationCanceledException) when (handshakeTimeout.IsCancellationRequested)
+						{
+							Logs.Explorer.LogWarning($"{Network.CryptoCode}: NBXplorer could not complete the handshake with the remote node. This is probably because NBXplorer is not whitelisted by your node.{Environment.NewLine}" +
+								$"You can use \"whitebind\" or \"whitelist\" in your node configuration. (typically whitelist=127.0.0.1 if NBXplorer and the node are on the same machine.){Environment.NewLine}" +
+								$"This issue can also happen because NBXplorer do not manage to connect to the P2P port of your node at all.");
+							throw;
+						}
 						handshaked = true;
 						var loadChainTimeout = _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(15);
 						if(_Chain.Height < 5)
@@ -516,15 +528,17 @@ namespace NBXplorer
 							using(var cts1 = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
 							{
 								cts1.CancelAfter(loadChainTimeout);
+								Logs.Explorer.LogInformation($"{Network.CryptoCode}: Loading chain...");
 								node.SynchronizeSlimChain(_Chain, cancellationToken: cts1.Token);
 							}
 						}
-						catch // Timeout happens with SynchronizeChain, if so, throw away the cached chain
+						catch when (!cancellation.IsCancellationRequested) // Timeout happens with SynchronizeChain, if so, throw away the cached chain
 						{
+							Logs.Explorer.LogInformation($"{Network.CryptoCode}: Failed to load chain before timeout, let's try again without the chain cache...");
 							_Chain.ResetToGenesis();
 							node.SynchronizeSlimChain(_Chain, cancellationToken: cancellation);
 						}
-
+						Logs.Explorer.LogInformation($"{Network.CryptoCode}: Chain loaded");
 
 						var peer = (await _RPC.GetPeersInfoAsync())
 									.FirstOrDefault(p => p.SubVersion == userAgent);
@@ -541,6 +555,10 @@ namespace NBXplorer
 
 							Logs.Explorer.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
 								$" you should add \"whitelist={addressStr}\" to the configuration file of your node. (Or use whitebind)");
+						}
+						if(peer != null && peer.IsWhiteListed)
+						{
+							Logs.Explorer.LogInformation($"{Network.CryptoCode}: NBXplorer is correctly whitelisted by the node");
 						}
 					}
 				}

@@ -120,20 +120,25 @@ namespace NBXplorer{
 			};
 		}
 
-		public IEnumerable<MatchedOutput> GetReceivedOutputs(TrackedSource trackedSource)
+		internal IEnumerable<KeyPathInformation> GetKeyPaths(DerivationStrategyBase derivationStrategy, Network network)
+		{
+			return KnownKeyPathMapping.Values.Select(v => new KeyPathInformation(v, derivationStrategy, network));
+		}
+
+		public IEnumerable<MatchedOutput> GetReceivedOutputs()
 		{
 			return this.ReceivedCoins
 							.Select(o => (Index: (int)o.Outpoint.N,
 												   Output: o,
 												   KeyPath: KnownKeyPathMapping.TryGet(o.ScriptPubKey)))
-							.Where(o => o.KeyPath != null || o.Output.ScriptPubKey == (trackedSource as IDestination)?.ScriptPubKey)
+							.Where(o => o.KeyPath != null || o.Output.ScriptPubKey == (TrackedSource as IDestination)?.ScriptPubKey)
 							.Select(o => new MatchedOutput()
 							{
 								Index = o.Index,
 								Value = o.Output.Amount,
 								KeyPath = o.KeyPath,
 								ScriptPubKey = o.Output.ScriptPubKey,
-								Address = o.Output.ScriptPubKey.GetDestinationAddress(trackedSource.Network).ToString()
+								Address = o.Output.ScriptPubKey.GetDestinationAddress(TrackedSource.Network).ToString()
 							});
 		}
 	}

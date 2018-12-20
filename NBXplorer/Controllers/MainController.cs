@@ -307,28 +307,21 @@ namespace NBXplorer.Controllers
 
 			WebsocketMessageListener server = new WebsocketMessageListener(await HttpContext.WebSockets.AcceptWebSocketAsync(), _SerializerSettings);
 			CompositeDisposable subscriptions = new CompositeDisposable();
-			subscriptions.Add(_EventAggregator.Subscribe<Events.NewBlockEvent>(async o =>
+			subscriptions.Add(_EventAggregator.Subscribe<Models.NewBlockEvent>(async o =>
 			{
 				if (listenedBlocks.ContainsKey(o.CryptoCode))
 				{
-					var chain = ChainProvider.GetChain(o.CryptoCode);
-					if (chain == null)
-						return;
-					var block = chain.GetBlock(o.BlockId);
-					if (block != null)
-					{
-						await server.Send(o.ToExternalEvent(block));
-					}
+					await server.Send(o);
 				}
 			}));
-			subscriptions.Add(_EventAggregator.Subscribe<Events.NewTransactionMatchEvent>(async o =>
+			subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(async o =>
 			{
 				var network = Waiters.GetWaiter(o.CryptoCode);
 				if (network == null)
 					return;
 
 				bool forward = false;
-				var derivationScheme = (o.TrackedTransaction.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+				var derivationScheme = (o.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 				if (derivationScheme != null)
 				{
 					forward |= listenAllDerivationSchemes == "*" ||
@@ -337,17 +330,12 @@ namespace NBXplorer.Controllers
 				}
 
 				forward |= listenAllTrackedSource == "*" || listenAllTrackedSource == o.CryptoCode ||
-							listenedTrackedSource.ContainsKey((network.Network.NBitcoinNetwork, o.TrackedTransaction.TrackedSource));
+							listenedTrackedSource.ContainsKey((network.Network.NBitcoinNetwork, o.TrackedSource));
 
 				if (forward)
 				{
-					var chain = ChainProvider.GetChain(o.CryptoCode);
-					if (chain == null)
-						return;
-					var blockHeader = o.BlockId == null ? null : chain.GetBlock(o.BlockId);
-
-					var derivation = (o.TrackedTransaction.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-					await server.Send(o.ToExternalEvent(includeTransaction, chain, blockHeader, network.Network.NBitcoinNetwork));
+					var derivation = (o.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+					await server.Send(o);
 				}
 			}));
 			try
@@ -413,27 +401,41 @@ namespace NBXplorer.Controllers
 			return new EmptyResult();
 		}
 
+
 		[Route("cryptos/{cryptoCode}/events")]
-		public async Task<JObject> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false)
+		public async Task<JArray> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false)
 		{
+			if (limit != null && limit.Value < 0)
+				throw new NBXplorerError(400, "invalid-limit", "limit should be more than 0").AsException();
 			var network = GetNetwork(cryptoCode, false);
 
-			using (CompositeDisposable subscriptions = new CompositeDisposable())
-			using (SemaphoreSlim semaphore = new SemaphoreSlim(0))
+			TaskCompletionSource<bool> waitNextEvent = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+			Action<NewEventBase> maySetNextEvent = (NewEventBase ev) =>
 			{
-				subscriptions.Add(_EventAggregator.Subscribe<Events.NewBlockEvent>(o => semaphore.Release()));
-				subscriptions.Add(_EventAggregator.Subscribe<Events.NewTransactionMatchEvent>(o => semaphore.Release()));
-				retry:
-				var result = await RepositoryProvider.GetRepository(network).GetEvents(lastEventId, limit);
-				if (result.Objects.Count == 0 && longPolling)
+				if (ev.CryptoCode == network.CryptoCode)
+					waitNextEvent.TrySetResult(true);
+			};
+			using (CompositeDisposable subscriptions = new CompositeDisposable())
+			using (CancellationTokenSource cts = new CancellationTokenSource(LongPollTimeout))
+			{
+				subscriptions.Add(_EventAggregator.Subscribe<NewBlockEvent>(maySetNextEvent));
+				subscriptions.Add(_EventAggregator.Subscribe<NewTransactionEvent>(maySetNextEvent));
+			retry:
+				var repo = RepositoryProvider.GetRepository(network);
+				var result = await repo.GetEvents(lastEventId, limit);
+				if (result.Count == 0 && longPolling)
 				{
-					if(await semaphore.WaitAsync(LongPollTimeout))
+					try
+					{
+						await waitNextEvent.Task.WithCancellation(cts.Token);
 						goto retry;
+					}
+					catch when (cts.Token.IsCancellationRequested)
+					{
+
+					}
 				}
-				var jobj = new JObject();
-				jobj.Add("lastEventId", result.LastEventId);
-				jobj.Add("events", new JArray(result.Objects));
-				return jobj;
+				return new JArray(result.Select(o => o.ToJObject(repo.Serializer.Settings)));
 			}
 		}
 
@@ -450,7 +452,10 @@ namespace NBXplorer.Controllers
 			var result = await RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if (result.Length == 0)
 				return NotFound();
-			return Json(Utils.ToTransactionResult(includeTransaction, chain, result, network.NBitcoinNetwork));
+			var tx = Utils.ToTransactionResult(includeTransaction, chain, result, network.NBitcoinNetwork);
+			if (!includeTransaction)
+				tx.Transaction = null;
+			return Json(tx);
 		}
 
 		[HttpPost]
@@ -627,9 +632,9 @@ namespace NBXplorer.Controllers
 		}
 		static TimeSpan LongPollTimeout = TimeSpan.FromSeconds(10);
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions")]
-		[Route("cryptos/{cryptoCode}/addresses/{address}/transactions")]
-		public async Task<GetTransactionsResponse> GetTransactions(
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId?}")]
+		[Route("cryptos/{cryptoCode}/addresses/{address}/transactions/{txId?}")]
+		public async Task<IActionResult> GetTransactions(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
@@ -641,14 +646,24 @@ namespace NBXplorer.Controllers
 			HashSet<Bookmark> confirmedBookmarks = null,
 			[ModelBinder(BinderType = typeof(BookmarksModelBinding))]
 			HashSet<Bookmark> replacedBookmarks = null,
+			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
+			uint256 txId = null,
 			bool includeTransaction = true,
 			bool longPolling = false)
 		{
 			var network = GetNetwork(cryptoCode, false);
+			if(txId != null)
+			{
+				unconfirmedBookmarks = null;
+				confirmedBookmarks = null;
+				replacedBookmarks = null;
+				longPolling = false;
+			}
 			var trackedSource = GetTrackedSource(derivationScheme, address, network.NBitcoinNetwork);
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
 			GetTransactionsResponse response = null;
+			TransactionInformation fetchedTransactionInfo = null;
 			using (CancellationTokenSource cts = new CancellationTokenSource())
 			{
 				if (longPolling)
@@ -662,7 +677,7 @@ namespace NBXplorer.Controllers
 					response = new GetTransactionsResponse();
 					int currentHeight = chain.Height;
 					response.Height = currentHeight;
-					var txs = await GetAnnotatedTransactions(repo, chain, trackedSource, true);
+					var txs = await GetAnnotatedTransactions(repo, chain, trackedSource, true, txId);
 					foreach (var item in new[]
 					{
 					new
@@ -705,10 +720,13 @@ namespace NBXplorer.Controllers
 								Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 								Timestamp = txs.GetByTxId(tx.Record.TransactionHash).Select(t => t.Record.FirstSeen).First(),
 								Inputs = tx.Record.SpentOutpoints.Select(o => txs.GetUTXO(o)).Where(o => o != null).ToList(),
-								Outputs = tx.Record.GetReceivedOutputs(trackedSource).ToList()
+								Outputs = tx.Record.GetReceivedOutputs().ToList()
 							};
 
-							item.TxSet.Transactions.Add(txInfo);
+							if(txId == null || txId == txInfo.TransactionId)
+								item.TxSet.Transactions.Add(txInfo);
+							if (txId != null && txId == txInfo.TransactionId)
+								fetchedTransactionInfo = txInfo;
 
 							txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).Sum() - txInfo.Inputs.Select(o => o.Value).Sum();
 
@@ -727,7 +745,19 @@ namespace NBXplorer.Controllers
 						break;
 				}
 			}
-			return response;
+
+			if (txId == null)
+			{
+				return Json(response);
+			}
+			else if(fetchedTransactionInfo == null)
+			{
+				return NotFound();
+			}
+			else
+			{
+				return Json(fetchedTransactionInfo);
+			}
 		}
 
 		[HttpPost]
@@ -1087,13 +1117,24 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, SlimChain chain, TrackedSource trackedSource, bool excludeLocks)
+		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, SlimChain chain, TrackedSource trackedSource, bool excludeLocks, uint256 txId = null)
 		{
-			var annotatedTransactions = new AnnotatedTransactionCollection((await repo
-				.GetTransactions(trackedSource))
-				.Where(t => !excludeLocks || !t.IsLockUTXO())
-				.Select(t => new AnnotatedTransaction(t, chain))
+			var transactions = (await repo.GetTransactions(trackedSource, txId)).Where(t => !excludeLocks || !t.IsLockUTXO());
+
+			// If the called is interested by only a single txId, we need to fetch the parents as well
+			if(txId != null)
+			{
+				var spentOutpoints = transactions.SelectMany(t => t.SpentOutpoints.Select(o => o.Hash)).ToHashSet();
+				var gettingParents = spentOutpoints.Select(async h => await repo.GetTransactions(trackedSource, h)).ToList();
+				await Task.WhenAll(gettingParents);
+				transactions = gettingParents.SelectMany(p => p.GetAwaiter().GetResult()).Concat(transactions).ToArray();
+			}
+
+			var annotatedTransactions = new AnnotatedTransactionCollection(
+				transactions.Select(t => new AnnotatedTransaction(t, chain))
 				.ToList(), trackedSource);
+
+
 			var cleaned = annotatedTransactions.DuplicatedTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
 			if (cleaned.Length != 0)
 			{
@@ -1113,7 +1154,7 @@ namespace NBXplorer.Controllers
 		{
 			try
 			{
-				await _EventAggregator.WaitNext<NewTransactionMatchEvent>(e => e.TrackedTransaction.TrackedSource.Equals(trackedSource), cancellationToken);
+				await _EventAggregator.WaitNext<Models.NewTransactionEvent>(e => e.TrackedSource.Equals(trackedSource), cancellationToken);
 				return true;
 			}
 			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

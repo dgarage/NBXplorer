@@ -179,7 +179,7 @@ namespace NBXplorer
 									progressObj.UpdateRemainingBatches(workItem.Options.GapLimit);
 									progressObj.UpdateOverallProgress();
 									Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning of batch {workItem.State.Progress.BatchNumber} for {workItem.DerivationStrategy.ToPrettyString()} complete with {result.Outputs.Length} UTXOs fetched");
-									await UpdateRepository(workItem.DerivationStrategy, repo, chain, result.Outputs, scannedItems, progressObj);
+									await UpdateRepository(rpc, workItem.DerivationStrategy, repo, chain, result.Outputs, scannedItems, progressObj);
 
 									if (progressObj.RemainingBatches <= -1)
 									{
@@ -232,8 +232,9 @@ namespace NBXplorer
 			}
 		}
 
-		private async Task UpdateRepository(DerivationSchemeTrackedSource trackedSource, Repository repo, SlimChain chain, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
+		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, Repository repo, SlimChain chain, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
 		{
+			
 			var data = outputs
 				.GroupBy(o => o.Coin.Outpoint.Hash)
 				.Select(o => (Coins: o.Select(c => c.Coin).ToList(),
@@ -255,6 +256,12 @@ namespace NBXplorer
 					return o;
 				}).ToList();
 
+			var headers = new ConcurrentDictionary<uint256, BlockHeader>();
+			var clientBatch = client.PrepareBatch();
+			var gettingBlockHeaders = Task.WhenAll(data.Select(async o =>
+			{
+				headers.TryAdd(o.BlockId, await clientBatch.GetBlockHeaderAsync(o.BlockId));
+			}).Concat(new[] { clientBatch.SendBatchAsync() }).ToArray());
 			await repo.SaveKeyInformations(scannedItems.
 				KeyPathInformations.
 				Select(p => p.Value).
@@ -265,11 +272,14 @@ namespace NBXplorer
 						return false;
 					return p.KeyPath.Indexes.Last() <= highest.Value;
 				}).ToArray());
-
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
-
+			await gettingBlockHeaders;
 			DateTimeOffset now = DateTimeOffset.UtcNow;
-			await repo.SaveMatches(data.Select(o => new TrackedTransaction(new TrackedTransactionKey(o.TxId, o.BlockId, true), trackedSource, o.Coins, o.KeyPathInformations)).ToArray());
+			await repo.SaveMatches(data.Select(o => new TrackedTransaction(new TrackedTransactionKey(o.TxId, o.BlockId, true), trackedSource, o.Coins, o.KeyPathInformations)
+			{
+				Inserted = now,
+				FirstSeen = headers.TryGetValue(o.BlockId, out var header) && header != null ? header.BlockTime : NBitcoin.Utils.UnixTimeToDateTime(0)
+			}).ToArray());
 		}
 
 		private ScannedItems GetScannedItems(ScanUTXOWorkItem workItem, ScanUTXOProgress progress)

@@ -234,14 +234,25 @@ namespace NBXplorer
 						.Select(tx => Repository.GetMatches(tx, blockHash, now))
 						.ToArray();
 					await Task.WhenAll(matches);
-					await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
+					var evts = await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
 					//Save index progress everytimes if not synching, or once every 100 blocks otherwise
 					if (!IsSynching() || blockHash.GetLow32() % 100 == 0)
 						await Repository.SetIndexProgress(currentLocation);
-					var slimBlock = Chain.GetBlock(blockHash);
-					var blockEvent = new Events.NewBlockEvent(_Repository.Network.CryptoCode, blockHash, slimBlock.Height);
-					await SaveEvent(blockEvent.ToExternalEvent(slimBlock));
-					_EventAggregator.Publish(blockEvent);
+					var slimBlockHeader = Chain.GetBlock(blockHash);
+					if (slimBlockHeader != null)
+					{
+						var blockEvent = new Models.NewBlockEvent()
+						{
+							CryptoCode = _Repository.Network.CryptoCode,
+							Hash = blockHash,
+							Height = slimBlockHeader.Height,
+							PreviousBlockHash = slimBlockHeader.Previous
+						};
+						var saving = Repository.SaveEvent(blockEvent);
+						_EventAggregator.Publish(blockEvent);
+						await saving;
+					}
+					PublishEvents(evts);
 				}
 				if (_InFlights.Count == 0)
 					AskBlocks();
@@ -252,28 +263,47 @@ namespace NBXplorer
 		{
 			var now = DateTimeOffset.UtcNow;
 			var matches = (await Repository.GetMatches(transaction, null, now)).ToArray();
-			await SaveMatches(matches, null, now);
+			var evts = await SaveMatches(matches, null, now);
+			PublishEvents(evts);
 		}
-		private async Task SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
+
+		private void PublishEvents(NewTransactionEvent[] evts)
+		{
+			foreach (var evt in evts)
+				_EventAggregator.Publish(evt);
+		}
+
+		private async Task<Models.NewTransactionEvent[]> SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
 		{
 			await Repository.SaveMatches(matches);
 			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
 			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
-			var slimBlock = blockHash == null ? null : Chain.GetBlock(blockHash);
+
+			int? maybeHeight = null;
+			var chainHeight = Chain.Height;
+			if (blockHash != null && Chain.TryGetHeight(blockHash, out int height))
+			{
+				maybeHeight = height;
+			}
+			Task[] saving = new Task[matches.Length];
+			var evts = new Models.NewTransactionEvent[matches.Length];
 			for (int i = 0; i < matches.Length; i++)
 			{
-				var matchEvent = new NewTransactionMatchEvent(this._Repository.Network.CryptoCode, blockHash, matches[i], savedTransactions[matches[i].Transaction.GetHash()]);
-				await SaveEvent(matchEvent.ToExternalEvent(false, Chain, slimBlock, Network.NBitcoinNetwork));
-				_EventAggregator.Publish(matchEvent);
+				var txEvt = new Models.NewTransactionEvent()
+				{
+					TrackedSource = matches[i].TrackedSource,
+					DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
+					CryptoCode = Network.CryptoCode,
+					BlockId = blockHash,
+					Outputs = matches[i].GetReceivedOutputs().ToList()
+				};
+				txEvt.TransactionData = Utils.ToTransactionResult(true, Chain, new[] { savedTransactions[matches[i].TransactionHash] }, Network.NBitcoinNetwork);
+				evts[i] = txEvt;
+				saving[i] = Repository.SaveEvent(txEvt);
 			}
-		}
-
-		private Task SaveEvent(NewEventBase evt)
-		{
-			JsonSerializerSettings settings = new JsonSerializerSettings();
-			Repository.Serializer.ConfigureSerializer(settings);
-			return Repository.SaveEvent(evt.ToJObject(settings), evt.GetEventId());
+			await Task.WhenAll(saving);
+			return evts;
 		}
 
 		public bool IsSynching()

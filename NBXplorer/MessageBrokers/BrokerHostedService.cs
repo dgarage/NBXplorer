@@ -36,47 +36,21 @@ namespace NBXplorer.MessageBrokers
 
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
-			if(_Disposed)
+			if (_Disposed)
 				throw new ObjectDisposedException(nameof(BrokerHostedService));
 
 			_senderBlock = CreateClientBlock();
 			_senderTransactions = CreateClientTransaction();
 
-			_subscriptions.Add(_EventAggregator.Subscribe<Events.NewBlockEvent>(async o =>
+			_subscriptions.Add(_EventAggregator.Subscribe<Models.NewBlockEvent>(async o =>
 			{
-				var chain = ChainProvider.GetChain(o.CryptoCode);
-				if(chain == null)
-					return;
-				var block = chain.GetBlock(o.BlockId);
-				if(block != null)
-				{
-					var nbe = new Models.NewBlockEvent()
-					{
-						CryptoCode = o.CryptoCode,
-						Hash = block.Hash,
-						Height = block.Height,
-						PreviousBlockHash = block?.Previous
-					};
-					await _senderBlock.Send(nbe);
-				}
+				await _senderBlock.Send(o);
 			}));
 
 
-			_subscriptions.Add(_EventAggregator.Subscribe<Events.NewTransactionMatchEvent>(async o =>
+			_subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(async o =>
 			{
-				var network = Waiters.GetWaiter(o.CryptoCode);
-				if(network == null)
-					return;
-				var chain = ChainProvider.GetChain(o.CryptoCode);
-				if(chain == null)
-					return;
-				var txe = new Models.NewTransactionEvent()
-				{
-					CryptoCode = o.CryptoCode,
-					BlockId = o.BlockId,
-					TransactionData = Utils.ToTransactionResult(true, chain, new[] { o.SavedTransaction }, network.Network.NBitcoinNetwork),
-				}.SetMatch(o.TrackedTransaction);
-				await _senderTransactions.Send(txe);
+				await _senderTransactions.Send(o);
 			}));
 			return Task.CompletedTask;
 		}
@@ -84,11 +58,11 @@ namespace NBXplorer.MessageBrokers
 		IBrokerClient CreateClientTransaction()
 		{
 			var brokers = new List<IBrokerClient>();
-			if(!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
+			if (!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
 			{
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionQueue))
+				if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionQueue))
 					brokers.Add(CreateAzureQueue(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionQueue));
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionTopic))
+				if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionTopic))
 					brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionTopic));
 			}
 			return new CompositeBroker(brokers);
@@ -97,11 +71,11 @@ namespace NBXplorer.MessageBrokers
 		IBrokerClient CreateClientBlock()
 		{
 			var brokers = new List<IBrokerClient>();
-			if(!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
+			if (!string.IsNullOrEmpty(_config.AzureServiceBusConnectionString))
 			{
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockQueue))
+				if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockQueue))
 					brokers.Add(CreateAzureQueue(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockQueue));
-				if(!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockTopic))
+				if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockTopic))
 					brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockTopic));
 			}
 			return new CompositeBroker(brokers);

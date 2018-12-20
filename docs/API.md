@@ -244,6 +244,41 @@ Returns:
 
 If `knownBookmark` is not null, the response is just a differential on the state the client already know on top of the specified bookmark.
 
+## Query a single transaction associated to a address or derivation scheme
+
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}
+HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions/{txId}
+
+Error codes:
+
+* HTTP 404: Transaction not found
+
+Optional Parameters:
+
+* `includeTransaction` includes the hex of the transaction, not only information (default: true)
+
+Returns:
+
+```json
+{
+    "blockHash": null,
+    "confirmations": 0,
+    "height": null,
+    "transactionId": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1",
+    "transaction": null,
+    "outputs": [
+        {
+        "scriptPubKey": "0014b39fc4eb5c6dd238d39449b70a2e30d575426d99",
+        "index": 1,
+        "value": 100000000
+        }
+    ],
+    "inputs": [],
+    "timestamp": 1540381889,
+    "balanceChange": 100000000
+}
+```
+
 ## Get a transaction
 
 HTTP GET v1/cryptos/{cryptoCode}/transactions/{txId}
@@ -327,6 +362,7 @@ Returns:
   "derivationStrategy": "tpubD6NzVbkrYhZ4Wo2RMq8Xbnrorf1xnABkKMS3EGshPkQ3Z4N4GN8uyLuDPvnK7Ekc2FHdXbLvcuZny1gPiohMksFGKmaX3APD2DbTeBWj751-[p2sh]",
   "keyPath": "0/2",
   "scriptPubKey": "a91412cbf6154ef6d9aecf9c978dc2bdc43f1881dd5f87",
+  "address": "2MtxcVDMiRrJ3V4zfsAwZGbZfPiDUxSXDY2",
   "redeem": "0014e2eb89edba1fe6c6c0863699eeb78f6ec3271b45"
 }
 ```
@@ -348,7 +384,8 @@ Returns:
   "feature": "Deposit",
   "derivationStrategy": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
   "keyPath": "0/0",
-  "scriptPubKey": "001460c25d29559774803f262acf5ee5c922eff52ccd"
+  "scriptPubKey": "001460c25d29559774803f262acf5ee5c922eff52ccd",
+  "address": "tb1qvrp96224ja6gq0ex9t84aewfythl2txdkpdmu0"
 }
 ```
 
@@ -840,7 +877,7 @@ Error codes:
 
 ## Query event stream
 
-All notifications sent through websocket are also saved in a global event stream.
+All notifications sent through websocket are also saved in a crypto specifc event stream.
 
 HTTP GET v1/cryptos/{cryptoCode}/events
 
@@ -851,46 +888,45 @@ Query parameters:
 * `limit`: Limit the maximum number of events to return (default: null)
 
 All events are registered in a query stream which you can replay by keeping track of the `lastEventId`.
+The smallest `eventId` is 1.
 
 ```json
-{
-  "lastEventId": 2,
-  "events": [
-    {
-      "type": "newblock",
-      "data": {
-        "height": 104,
-        "hash": "36592d3adda13e23729299bb746bc9b727901d538a9033018ff6e6fb8e71e851",
-        "previousBlockHash": "0b3b36ff452032bc299bafbdebf1601cc8bb5ed87dc6393e01a1cb6456c8414d",
-        "cryptoCode": "BTC"
-      }
-    },
-    {
-      "type": "newtransaction",
-      "data": {
-        "blockId": null,
-        "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4YXenE66vYZswy7MLe8h9EwcZLebLueTPx6p4HDmRPG5cTwt9zcjgq1Ya167VUEM7dAHEdZGkBP51niznxSS4z1NLNDSY9xM",
-        "derivationStrategy": "tpubD6NzVbkrYhZ4YXenE66vYZswy7MLe8h9EwcZLebLueTPx6p4HDmRPG5cTwt9zcjgq1Ya167VUEM7dAHEdZGkBP51niznxSS4z1NLNDSY9xM",
-        "transactionData": {
-          "confirmations": 0,
-          "blockId": null,
-          "transactionHash": "a1dd84b32b022cebe31e3724a00b960b6074be350cdb329909f70273c14692c7",
-          "transaction": null,
-          "height": null,
-          "timestamp": 1542033228
-        },
-        "outputs": [
-          {
-            "keyPath": "0/0",
-            "scriptPubKey": "0014b7448d7ae34fb30cdd51d8d170af9905a9c5cefe",
-            "address": "bcrt1qkazg67hrf7eseh23mrghptueqk5utnh7fhk8xt",
-            "index": 1,
-            "value": 100000000
-          }
-        ],
-        "cryptoCode": "BTC"
-      }
+[
+  {
+    "eventId": 1,
+    "type": "newblock",
+    "data": {
+      "height": 104,
+      "hash": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35",
+      "previousBlockHash": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
+      "cryptoCode": "BTC",
     }
-  ]
-}
+  },
+  {
+    "eventId": 2,
+    "type": "newtransaction",
+    "data": {
+      "blockId": null,
+      "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
+      "derivationStrategy": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
+      "transactionData": {
+        "confirmations": 0,
+        "blockId": null,
+        "transactionHash": "500359d971698c021587ea952bd38bd57dafc2b99615f71f7f978af394682737",
+        "transaction": "0200000001b8af58c5dbed4bd0ea60ae8ba7e68e66143440b8c1c69b6eaaf719566676ab1b0000000048473044022040b419aeb9042a53fb2d03abec911901ed42fc50d6a143e322bc61d51e4e35a9022073c10fe827b53332d50fbde581e36ad31f57b98ec35a125562dc8c739762ec8901feffffff028c02102401000000160014b6bedaf0cb795c01a1e427bd7752d6ef058964f100e1f50500000000160014c5e0b07f40b8dbe69b22864d84d83d5b4120835368000000",
+        "height": null,
+        "timestamp": 1542703963
+      },
+      "outputs": [
+        {
+          "keyPath": "0/0",
+          "scriptPubKey": "0014c5e0b07f40b8dbe69b22864d84d83d5b41208353",
+          "index": 1,
+          "value": 100000000
+        }
+      ],
+      "cryptoCode": "BTC",
+    }
+  }
+]
 ```

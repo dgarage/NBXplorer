@@ -90,6 +90,11 @@ namespace NBXplorer.Models
 				throw new ArgumentException(paramName: nameof(scriptPubKey), message: $"{nameof(scriptPubKey)} can't be translated on an address on {network.Name}");
 			return new AddressTrackedSource(address);
 		}
+
+		public virtual string ToPrettyString()
+		{
+			return ToString();
+		}
 	}
 
 	public class AddressTrackedSource : TrackedSource, IDestination
@@ -135,6 +140,11 @@ namespace NBXplorer.Models
 		{
 			return _FullAddressString;
 		}
+
+		public override string ToPrettyString()
+		{
+			return Address.ToString();
+		}
 	}
 
 	public class DerivationSchemeTrackedSource : TrackedSource
@@ -174,6 +184,15 @@ namespace NBXplorer.Models
 		public override string ToString()
 		{
 			return "DERIVATIONSCHEME:" + DerivationStrategy.ToString();
+		}
+		public override string ToPrettyString()
+		{
+			var strategy = DerivationStrategy.ToString();
+			if (strategy.Length > 35)
+			{
+				strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
+			}
+			return strategy;
 		}
 	}
 }

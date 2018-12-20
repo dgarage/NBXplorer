@@ -17,21 +17,21 @@ namespace NBXplorer.NodeWaiter
 		{
 			var validChains = string.Join(",", new NBXplorerNetworkProvider(NetworkType.Mainnet).GetAll().Select(n => n.CryptoCode.ToLowerInvariant()).ToArray());
 
-			using(CancellationTokenSource stop = new CancellationTokenSource())
-			using(CancelOnExit(stop))
+			using (CancellationTokenSource stop = new CancellationTokenSource())
+			using (CancelOnExit(stop))
 			{
 				var provider = new CommandLineExConfigurationProvider(args, CreateCommandLineApplication);
 				provider.Load();
 
-				if(provider.TryGet("help", out var unused))
+				if (provider.TryGet("help", out var unused))
 				{
 					return 1;
 				}
-				if(!provider.TryGet("chains", out var chains))
+				if (!provider.TryGet("chains", out var chains))
 				{
 					chains = "btc";
 				}
-				if(!provider.TryGet("network", out var network))
+				if (!provider.TryGet("network", out var network))
 				{
 					network = "mainnet";
 				}
@@ -45,16 +45,16 @@ namespace NBXplorer.NodeWaiter
 									  .ToList();
 
 				var wait = TimeSpan.FromSeconds(1);
-				while(true)
+				while (true)
 				{
-					if(await AreSynchedAndStarted(supportedChains, stop.Token))
+					if (await AreSynchedAndStarted(supportedChains, stop.Token))
 					{
 						return 0;
 					}
 					Write($"-----trying again in {(int)wait.TotalSeconds} seconds-----");
 					await Task.Delay(wait, stop.Token);
 					wait = TimeSpan.FromTicks(2 * wait.Ticks);
-					if(wait > TimeSpan.FromMinutes(5))
+					if (wait > TimeSpan.FromMinutes(5))
 						wait = TimeSpan.FromMinutes(5);
 				}
 			}
@@ -81,26 +81,35 @@ namespace NBXplorer.NodeWaiter
 			var tasks = explorerClients
 				.Select(async client =>
 				{
-					var status = await client.GetStatusAsync(token);
-					if(status.IsFullySynched)
+					try
 					{
-						Write($"{client.CryptoCode}: Is fully synched");
-						return true;
+						var status = await client.GetStatusAsync(token);
+
+						if (status.IsFullySynched)
+						{
+							Write($"{client.CryptoCode}: Is fully synched");
+							return true;
+						}
+						else if (status.BitcoinStatus != null && !status.BitcoinStatus.IsSynched)
+						{
+							Write($"{client.CryptoCode}: Is synching {status.BitcoinStatus.Blocks}/{status.BitcoinStatus.Headers} ({Math.Round(status.BitcoinStatus.VerificationProgress * 100, 2)} %)");
+						}
+						else if (status.BitcoinStatus != null && status.BitcoinStatus.IsSynched)
+						{
+							Write($"{client.CryptoCode}: Is fully synched");
+							return true;
+						}
+						else if (status.BitcoinStatus == null)
+						{
+							Write($"{client.CryptoCode}: Is offline");
+						}
+						return false;
 					}
-					else if(status.BitcoinStatus != null && !status.BitcoinStatus.IsSynched)
+					catch (Exception ex)
 					{
-						Write($"{client.CryptoCode}: Is synching {status.BitcoinStatus.Blocks}/{status.BitcoinStatus.Headers} ({Math.Round(status.BitcoinStatus.VerificationProgress * 100, 2)} %)");
+						Write($"{client.CryptoCode}: Error while trying to contact the node {ex.Message}");
+						return false;
 					}
-					else if(status.BitcoinStatus != null && status.BitcoinStatus.IsSynched)
-					{
-						Write($"{client.CryptoCode}: Is fully synched");
-						return true;
-					}
-					else if(status.BitcoinStatus == null)
-					{
-						Write($"{client.CryptoCode}: Is offline");
-					}
-					return false;
 				})
 				.ToArray();
 			await Task.WhenAll(tasks);
@@ -110,7 +119,7 @@ namespace NBXplorer.NodeWaiter
 		static object l = new object();
 		private static void Write(string v)
 		{
-			lock(l)
+			lock (l)
 			{
 				Console.WriteLine(v);
 			}
@@ -119,11 +128,11 @@ namespace NBXplorer.NodeWaiter
 		private static ExplorerClient GetNetwork(CommandLineExConfigurationProvider config, NBXplorerNetworkProvider networkProvider, string cryptoCode, string validValues)
 		{
 			var network = networkProvider.GetFromCryptoCode(cryptoCode.ToUpperInvariant());
-			if(network == null)
+			if (network == null)
 				throw new NotSupportedException($"{cryptoCode} in --chains is not supported, valid value: {validValues}");
 
 			Uri uri = null;
-			if(!config.TryGet($"explorerurl", out var uriStr))
+			if (!config.TryGet($"explorerurl", out var uriStr))
 				uri = network.DefaultSettings.DefaultUrl;
 			else
 				uri = new Uri(uriStr, UriKind.Absolute);
@@ -132,7 +141,7 @@ namespace NBXplorer.NodeWaiter
 
 		private static NetworkType GetNetworkType(string network)
 		{
-			switch(network.ToLowerInvariant())
+			switch (network.ToLowerInvariant())
 			{
 				case "mainnet":
 					return NetworkType.Mainnet;
