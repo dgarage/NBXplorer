@@ -64,9 +64,13 @@ Returns nothing.
 
 ## Query transactions associated to a derivationScheme
 
-Query all transactions of a `derivation scheme`.
+To query all transactions of a `derivation scheme`:
 
 HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions
+
+To query a specific transaction:
+
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}
 
 Optional Parameters:
 
