@@ -29,6 +29,31 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanFixedSizeCache()
+		{
+			FixedSizeCache<uint256, uint256> cache = new FixedSizeCache<uint256, uint256>(2, k => k);
+			Assert.Equal(2, cache.MaxElementsCount);
+			Assert.Throws<ArgumentNullException>(() => cache.Add(null));
+			Assert.Throws<ArgumentNullException>(() => cache.Contains(null));
+			uint256 previous = RandomUtils.GetUInt256();
+
+			int evicted = 0;
+			for (int i = 0; i < 10000; i++)
+			{
+				uint256 newItem = RandomUtils.GetUInt256();
+				cache.Add(newItem);
+				if (cache.Contains(previous))
+					evicted++;
+				Assert.True(cache.Contains(newItem));
+				previous = newItem;
+			}
+
+			// Should be around 5000
+			Assert.True(evicted > 4000);
+			Assert.True(evicted < 6000);
+		}
+
+		[Fact]
 		public void RepositoryCanTrackAddresses()
 		{
 			using (var tester = RepositoryTester.Create(true))

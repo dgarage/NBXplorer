@@ -1417,11 +1417,11 @@ namespace NBXplorer
 			return needRefill;
 		}
 
-		ConcurrentDictionary<uint256, uint256> noMatchCache = new ConcurrentDictionary<uint256, uint256>();
+		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
 		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now)
 		{
 			var h = tx.GetHash();
-			if (blockId != null && noMatchCache.TryRemove(h, out var unused))
+			if (blockId != null && noMatchCache.Contains(h))
 			{
 				return Array.Empty<TrackedTransaction>();
 			}
@@ -1473,16 +1473,9 @@ namespace NBXplorer
 				m.KnownKeyPathMappingUpdated();
 			}
 			if (blockId == null && 
-				matches.Count == 0 && 
-				noMatchCache.TryAdd(h, h) &&
-				h.GetLow32() % 1000 == 0) // Calling .Count is expensive, so we do this once in a while
+				matches.Count == 0)
 			{
-				var count = noMatchCache.Count;
-				if (count > 5000) // Let's keep cache small, no more than 5000 items
-				{
-					foreach (var kv in noMatchCache.Take(count - 5000).ToList())
-						noMatchCache.TryRemove(kv.Key, out var v);
-				}
+				noMatchCache.Add(h);
 				return Array.Empty<TrackedTransaction>();
 			}
 			return matches.Values.ToArray();
