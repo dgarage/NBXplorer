@@ -138,9 +138,9 @@ namespace NBXplorer
 			{
 				Repository.BatchSize = invs.Count == maxConcurrentBlocks ? int.MaxValue : 100;
 				_HighestInFlight = Chain.GetLocator(invs[invs.Count - 1].Hash);
+				node.SendMessageAsync(new GetDataPayload(invs.ToArray()));
 				if (invs.Count > 1)
 					GC.Collect(); // Let's collect memory if we are synching 
-				node.SendMessageAsync(new GetDataPayload(invs.ToArray()));
 			}
 		}
 
