@@ -1421,7 +1421,7 @@ namespace NBXplorer
 		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now)
 		{
 			var h = tx.GetHash();
-			if (blockId != null && noMatchCache.Contains(h))
+			if (blockId != null || noMatchCache.Contains(h))
 			{
 				return Array.Empty<TrackedTransaction>();
 			}
