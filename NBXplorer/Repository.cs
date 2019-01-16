@@ -949,7 +949,7 @@ namespace NBXplorer
 				// This is legacy data, need an update
 				foreach (var data in transactions.Where(t => t.NeedUpdate && t.KnownKeyPathMapping == null))
 				{
-					data.KnownKeyPathMapping = (await this.GetMatches(data.Transaction, data.Key.BlockHash, DateTimeOffset.UtcNow))
+					data.KnownKeyPathMapping = (await this.GetMatches(data.Transaction, data.Key.BlockHash, DateTimeOffset.UtcNow, false))
 											  .Where(m => m.TrackedSource.Equals(trackedSource))
 											  .Select(m => m.KnownKeyPathMapping)
 											  .First();
@@ -1418,10 +1418,10 @@ namespace NBXplorer
 		}
 
 		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
-		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now)
+		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
 			var h = tx.GetHash();
-			if (blockId != null && noMatchCache.Contains(h))
+			if (blockId != null && useCache && noMatchCache.Contains(h))
 			{
 				return Array.Empty<TrackedTransaction>();
 			}

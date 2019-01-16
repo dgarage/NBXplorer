@@ -579,7 +579,7 @@ namespace NBXplorer.Controllers
 				await repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), txs.Key);
 				foreach (var tx in txs)
 				{
-					var matches = await repo.GetMatches(tx.Transaction, txs.Key, tx.BlockTime);
+					var matches = await repo.GetMatches(tx.Transaction, txs.Key, tx.BlockTime, false);
 					await repo.SaveMatches(matches);
 					AddressPoolService.RefillAddressPoolIfNeeded(network, matches);
 				}

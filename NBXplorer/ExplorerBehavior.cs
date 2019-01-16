@@ -241,7 +241,7 @@ namespace NBXplorer
 			DateTimeOffset now = DateTimeOffset.UtcNow;
 			var matches =
 				block.Transactions
-				.Select(tx => Repository.GetMatches(tx, blockHash, now))
+				.Select(tx => Repository.GetMatches(tx, blockHash, now, true))
 				.ToArray();
 			await Task.WhenAll(matches);
 			await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
@@ -277,7 +277,7 @@ namespace NBXplorer
 		private async Task SaveMatches(Transaction transaction)
 		{
 			var now = DateTimeOffset.UtcNow;
-			var matches = (await Repository.GetMatches(transaction, null, now)).ToArray();
+			var matches = (await Repository.GetMatches(transaction, null, now, false)).ToArray();
 			await SaveMatches(matches, null, now);
 		}
 
