@@ -669,8 +669,8 @@ namespace NBXplorer
 
 		public bool IsSynchingCore(GetBlockchainInfoResponse blockchainInfo)
 		{
-			if(blockchainInfo.InitialBlockDownload.HasValue)
-				return blockchainInfo.InitialBlockDownload.Value;
+			if(blockchainInfo.InitialBlockDownload == true)
+				return true;
 			if(blockchainInfo.MedianTime.HasValue && _Network.NBitcoinNetwork.NetworkType != NetworkType.Regtest)
 			{
 				var time = NBitcoin.Utils.UnixTimeToDateTime(blockchainInfo.MedianTime.Value);
