@@ -17,14 +17,34 @@ namespace NBXplorer.NodeWaiter
 	{
 		static async Task<int> Main(string[] args)
 		{
-			var validChains = string.Join(",", new NBXplorerNetworkProvider(NetworkType.Mainnet).GetAll().Select(n => n.CryptoCode.ToLowerInvariant()).ToArray());
+			var childProcessArgSeparatorPos = Array.IndexOf(args, "--");
+			var waiterArgs = args;
+			string[] childProcessArgs = null;
+			string childProcess = null;
+			if (childProcessArgSeparatorPos != -1)
+			{
+				waiterArgs = args.Take(childProcessArgSeparatorPos).ToArray();
+				if (childProcessArgSeparatorPos != args.Length - 1)
+				{
+					childProcess = args.Skip(childProcessArgSeparatorPos + 1).First();
+					childProcessArgs = args.Skip(childProcessArgSeparatorPos + 2).ToArray();
+				}
+			}
 
+
+			var validChains = string.Join(",", new NBXplorerNetworkProvider(NetworkType.Mainnet).GetAll().Select(n => n.CryptoCode.ToLowerInvariant()).ToArray());
 			using (CancellationTokenSource stop = new CancellationTokenSource())
 			{
-				var provider = new CommandLineExConfigurationProvider(args, CreateCommandLineApplication);
+				var provider = new CommandLineExConfigurationProvider(waiterArgs, CreateCommandLineApplication);
 				provider.Load();
 
-				if (provider.TryGet("help", out var unused))
+				if(!provider.TryGet("explorerurl", out var unused) || unused == string.Empty)
+				{
+					Console.WriteLine("explorerurl not configued, skipping waiting");
+					return RunChildProcess(childProcess, childProcessArgs);
+				}
+
+				if (provider.TryGet("help", out unused))
 				{
 					return 1;
 				}
@@ -50,16 +70,7 @@ namespace NBXplorer.NodeWaiter
 				{
 					if (await AreSynchedAndStarted(supportedChains, stop.Token))
 					{
-						var childProcessArgSeparatorPos = Array.IndexOf(args, "--");
-						if (childProcessArgSeparatorPos == -1)
-						{
-							return 0;
-						}
-						var processName = args[childProcessArgSeparatorPos + 1];
-						var childargs = string.Join(" ", args.Skip(childProcessArgSeparatorPos + 1).ToArray());
-						Console.WriteLine("Starting and forwarding signals to: \"" + processName + "\" " + childargs);
-						var exitForwarder = ExitForwarder.ForwardToChild(Process.Start(processName, childargs));
-						return exitForwarder.WaitForExitAndForward();
+						return RunChildProcess(childProcess, childProcessArgs);
 					}
 					Write($"-----trying again in {(int)wait.TotalSeconds} seconds-----");
 					await Task.Delay(wait, stop.Token);
@@ -68,6 +79,17 @@ namespace NBXplorer.NodeWaiter
 						wait = TimeSpan.FromMinutes(5);
 				}
 			}
+		}
+
+		private static int RunChildProcess(string process, string[] args)
+		{
+			if (process == null)
+				return 0;
+			var childargs = string.Join(" ", args);
+			Console.WriteLine("Starting and forwarding signals to: \"" + process + "\" " + childargs);
+			var exitForwarder = ExitForwarder.ForwardToChild(Process.Start(process, childargs));
+			Console.WriteLine("Implementation: " + exitForwarder.GetType().Name);
+			return exitForwarder.WaitForExitAndForward();
 		}
 
 		private static async Task<bool> AreSynchedAndStarted(List<ExplorerClient> explorerClients, CancellationToken token)
