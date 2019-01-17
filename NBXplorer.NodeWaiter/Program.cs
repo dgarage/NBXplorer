@@ -1,13 +1,15 @@
 ﻿using CommandLine;
 using System.Linq;
-using Microsoft.Extensions.Logging;
+//using Microsoft.Extensions.Logging;
 using System;
 using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
-using NBitcoin;
+//using NBitcoin;
 using CommandLine.Configuration;
 using System.Collections.Generic;
+using System.Diagnostics;
+using NBitcoin;
 
 namespace NBXplorer.NodeWaiter
 {
@@ -15,10 +17,23 @@ namespace NBXplorer.NodeWaiter
 	{
 		static async Task<int> Main(string[] args)
 		{
+			ExitForwarder exitForwarder = null;
+			if (args.Length == 0)
+			{
+				Console.WriteLine("The node waiter is not monitoring a child process");
+				exitForwarder = ExitForwarder.ForwardToChild(null);
+			}
+			else
+			{
+				
+			}
+
+			Console.WriteLine("Exit forwarder implementation: " + exitForwarder.GetType().Name);
+			exitForwarder.WaitForExitAndForward();
+
 			var validChains = string.Join(",", new NBXplorerNetworkProvider(NetworkType.Mainnet).GetAll().Select(n => n.CryptoCode.ToLowerInvariant()).ToArray());
 
 			using (CancellationTokenSource stop = new CancellationTokenSource())
-			using (CancelOnExit(stop))
 			{
 				var provider = new CommandLineExConfigurationProvider(args, CreateCommandLineApplication);
 				provider.Load();
@@ -49,7 +64,16 @@ namespace NBXplorer.NodeWaiter
 				{
 					if (await AreSynchedAndStarted(supportedChains, stop.Token))
 					{
-						return 0;
+						var childProcessArgSeparatorPos = Array.IndexOf(args, "--");
+						if (childProcessArgSeparatorPos == -1)
+						{
+							return 0;
+						}
+						var processName = args[childProcessArgSeparatorPos + 1];
+						var childargs = string.Join(" ", args.Skip(childProcessArgSeparatorPos + 1).ToArray());
+						Console.WriteLine("Starting and forwarding signals to: \"" + processName + "\" " + childargs);
+						exitForwarder = ExitForwarder.ForwardToChild(Process.Start(processName, childargs));
+						return exitForwarder.WaitForExitAndForward();
 					}
 					Write($"-----trying again in {(int)wait.TotalSeconds} seconds-----");
 					await Task.Delay(wait, stop.Token);
@@ -58,22 +82,6 @@ namespace NBXplorer.NodeWaiter
 						wait = TimeSpan.FromMinutes(5);
 				}
 			}
-		}
-
-		private static IDisposable CancelOnExit(CancellationTokenSource stop)
-		{
-			Console.CancelKeyPress += (s, e) => Catch(() => stop.Cancel());
-			AssemblyLoadContext.Default.Unloading += (s) => Catch(() => stop.Cancel());
-			AppDomain.CurrentDomain.ProcessExit += (s, e) => Catch(() => stop.Cancel());
-			return null;
-		}
-		static void Catch(Action act)
-		{
-			try
-			{
-				act();
-			}
-			catch { }
 		}
 
 		private static async Task<bool> AreSynchedAndStarted(List<ExplorerClient> explorerClients, CancellationToken token)
