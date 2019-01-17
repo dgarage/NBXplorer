@@ -930,6 +930,13 @@ namespace NBXplorer
 					{
 						needUpdate = true;
 						tx.NeedRemove = true;
+						
+						foreach(var kv in tx.KnownKeyPathMapping)
+						{
+							// The pruned transaction has more info about owned utxo than the unpruned, we need to update the unpruned
+							if (previousConfirmed.KnownKeyPathMapping.TryAdd(kv.Key, kv.Value))
+								previousConfirmed.NeedUpdate = true;
+						}
 					}
 					else
 					{

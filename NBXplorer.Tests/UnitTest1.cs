@@ -1902,6 +1902,41 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanRescanFullyIndexedTransaction()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				tester.Client.Track(pubkey);
+				
+				// In this test, we index a transaction, but miss an address (0/0 is found, but not 0/50 because it is outside the gap limit)
+				tester.RPC.SendCommand(RPCOperations.sendmany, "",
+						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/0")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/50")}\": \"0.5\" }}"));
+				tester.RPC.EnsureGenerate(1);
+				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
+
+				var transaction = tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions.Single();
+				Assert.Single(transaction.Outputs);
+
+				tester.Client.ScanUTXOSet(pubkey, 1000, 100);
+				var info = WaitScanFinish(tester.Client, pubkey);
+				Assert.Equal(2, info.Progress.Found);
+
+				// Rescanning should find 0/50
+				transaction = tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions.Single();
+				Assert.Equal(2, transaction.Outputs.Count());
+
+				tester.RPC.EnsureGenerate(1);
+				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
+
+				// Check again
+				transaction = tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions.Single();
+				Assert.Equal(2, transaction.Outputs.Count());
+			}
+		}
+
+		[Fact]
 		public void CanScanUTXOSet()
 		{
 			using (var tester = ServerTester.Create())
