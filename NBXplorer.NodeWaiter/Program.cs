@@ -17,20 +17,6 @@ namespace NBXplorer.NodeWaiter
 	{
 		static async Task<int> Main(string[] args)
 		{
-			ExitForwarder exitForwarder = null;
-			if (args.Length == 0)
-			{
-				Console.WriteLine("The node waiter is not monitoring a child process");
-				exitForwarder = ExitForwarder.ForwardToChild(null);
-			}
-			else
-			{
-				
-			}
-
-			Console.WriteLine("Exit forwarder implementation: " + exitForwarder.GetType().Name);
-			exitForwarder.WaitForExitAndForward();
-
 			var validChains = string.Join(",", new NBXplorerNetworkProvider(NetworkType.Mainnet).GetAll().Select(n => n.CryptoCode.ToLowerInvariant()).ToArray());
 
 			using (CancellationTokenSource stop = new CancellationTokenSource())
@@ -72,7 +58,7 @@ namespace NBXplorer.NodeWaiter
 						var processName = args[childProcessArgSeparatorPos + 1];
 						var childargs = string.Join(" ", args.Skip(childProcessArgSeparatorPos + 1).ToArray());
 						Console.WriteLine("Starting and forwarding signals to: \"" + processName + "\" " + childargs);
-						exitForwarder = ExitForwarder.ForwardToChild(Process.Start(processName, childargs));
+						var exitForwarder = ExitForwarder.ForwardToChild(Process.Start(processName, childargs));
 						return exitForwarder.WaitForExitAndForward();
 					}
 					Write($"-----trying again in {(int)wait.TotalSeconds} seconds-----");
