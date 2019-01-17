@@ -82,54 +82,9 @@ namespace NBXplorer.Tests
 				NodeBuilder.StartAll();
 				Explorer.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
 
-				var port = CustomServer.FreeTcpPort();
-				var datadir = Path.Combine(directory, "explorer");
+				datadir = Path.Combine(directory, "explorer");
 				DeleteFolderRecursive(datadir);
-				List<(string key, string value)> keyValues = new List<(string key, string value)>();
-				keyValues.Add(("conf", Path.Combine(directory, "explorer", "settings.config")));
-				keyValues.Add(("datadir", datadir));
-				keyValues.Add(("port", port.ToString()));
-				keyValues.Add(("network", "regtest"));
-				keyValues.Add(("chains", CryptoCode.ToLowerInvariant()));
-				keyValues.Add(("verbose", "1"));
-				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcauth", Explorer.GetRPCAuth()));
-				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
-				keyValues.Add(("cachechain", "0"));
-				keyValues.Add(("rpcnotest", "1"));
-				keyValues.Add(("mingapsize", "3"));
-				keyValues.Add(("maxgapsize", "8"));
-				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
-				keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
-				keyValues.Add(("asbcnstr", AzureServiceBusTestConfig.ConnectionString));
-				keyValues.Add(("asbblockq", AzureServiceBusTestConfig.NewBlockQueue));
-				keyValues.Add(("asbtranq", AzureServiceBusTestConfig.NewTransactionQueue));
-				keyValues.Add(("asbblockt", AzureServiceBusTestConfig.NewBlockTopic));
-				keyValues.Add(("asbtrant", AzureServiceBusTestConfig.NewTransactionTopic));
-
-				var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
-				Host = new WebHostBuilder()
-					.UseConfiguration(new DefaultConfiguration().CreateConfiguration(args))
-					.UseKestrel()
-					.ConfigureLogging(l =>
-					{
-						l.SetMinimumLevel(LogLevel.Information)
-							.AddFilter("Microsoft", LogLevel.Error)
-							.AddFilter("Hangfire", LogLevel.Error)
-							.AddFilter("NBXplorer.Authentication.BasicAuthenticationHandler", LogLevel.Critical)
-							.AddProvider(Logs.LogProvider);
-					})
-					.UseStartup<Startup>()
-					.Build();
-
-				RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(CryptoCode);
-				var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
-				Network = nbxnetwork.NBitcoinNetwork;
-				var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
-				Host.Start();
-				Configuration = conf;
-				_Client = new ExplorerClient(nbxnetwork, Address);
-				_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
-				Notifications = _Client.CreateLongPollingNotificationSession();
+				StartNBXplorer();
 				this.Client.WaitServerStarted();
 			}
 			catch
@@ -138,6 +93,66 @@ namespace NBXplorer.Tests
 				throw;
 			}
 		}
+
+		private void StartNBXplorer()
+		{
+			var port = CustomServer.FreeTcpPort();
+			List<(string key, string value)> keyValues = new List<(string key, string value)>();
+			keyValues.Add(("conf", Path.Combine(datadir, "settings.config")));
+			keyValues.Add(("datadir", datadir));
+			keyValues.Add(("port", port.ToString()));
+			keyValues.Add(("network", "regtest"));
+			keyValues.Add(("chains", CryptoCode.ToLowerInvariant()));
+			keyValues.Add(("verbose", "1"));
+			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcauth", Explorer.GetRPCAuth()));
+			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
+			keyValues.Add(("cachechain", "0"));
+			keyValues.Add(("rpcnotest", "1"));
+			keyValues.Add(("mingapsize", "3"));
+			keyValues.Add(("maxgapsize", "8"));
+			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
+			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
+			keyValues.Add(("asbcnstr", AzureServiceBusTestConfig.ConnectionString));
+			keyValues.Add(("asbblockq", AzureServiceBusTestConfig.NewBlockQueue));
+			keyValues.Add(("asbtranq", AzureServiceBusTestConfig.NewTransactionQueue));
+			keyValues.Add(("asbblockt", AzureServiceBusTestConfig.NewBlockTopic));
+			keyValues.Add(("asbtrant", AzureServiceBusTestConfig.NewTransactionTopic));
+
+			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
+			Host = new WebHostBuilder()
+				.UseConfiguration(new DefaultConfiguration().CreateConfiguration(args))
+				.UseKestrel()
+				.ConfigureLogging(l =>
+				{
+					l.SetMinimumLevel(LogLevel.Information)
+						.AddFilter("Microsoft", LogLevel.Error)
+						.AddFilter("Hangfire", LogLevel.Error)
+						.AddFilter("NBXplorer.Authentication.BasicAuthenticationHandler", LogLevel.Critical)
+						.AddProvider(Logs.LogProvider);
+				})
+				.UseStartup<Startup>()
+				.Build();
+
+			RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(CryptoCode);
+			var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
+			Network = nbxnetwork.NBitcoinNetwork;
+			var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
+			Host.Start();
+			Configuration = conf;
+			_Client = new ExplorerClient(nbxnetwork, Address);
+			_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
+			Notifications = _Client.CreateLongPollingNotificationSession();
+		}
+
+		string datadir;
+
+		public void ResetExplorer()
+		{
+			Host.Dispose();
+			DeleteFolderRecursive(datadir);
+			StartNBXplorer();
+		}
+
 		public LongPollingNotificationSession Notifications { get; set; }
 		private NetworkCredential ExtractCredentials(string config)
 		{
@@ -156,7 +171,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		public ExplorerConfiguration Configuration { get; }
+		public ExplorerConfiguration Configuration { get; private set;  }
 
 		ExplorerClient _Client;
 		public ExplorerClient Client
