@@ -177,15 +177,12 @@ namespace NBXplorer.Controllers
 			var waiter = Waiters.GetWaiter(network);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
-			var now = DateTimeOffset.UtcNow;
-
-
+			
 			var location = waiter.GetLocation();
 
 			var blockchainInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetBlockchainInfoAsyncEx() : null;
 			var networkInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetNetworkInfoAsync() : null;
-			await repo.Ping();
-			var pingAfter = DateTimeOffset.UtcNow;
+			
 
 			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
 			GetNetworkInfoResponse networkInfo = networkInfoAsync == null ? null : await networkInfoAsync;
@@ -195,14 +192,8 @@ namespace NBXplorer.Controllers
 				CryptoCode = network.CryptoCode,
 				Version = typeof(MainController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version,
 				SupportedCryptoCodes = Waiters.All().Select(w => w.Network.CryptoCode).ToArray(),
-				RepositoryPingTime = (pingAfter - now).TotalSeconds,
 				IsFullySynched = true
 			};
-
-			if (status.RepositoryPingTime > 30)
-			{
-				Logs.Explorer.LogWarning($"Repository ping exceeded 30 seconds ({(int)status.RepositoryPingTime}), please report the issue to NBXplorer developers");
-			}
 
 			if (blockchainInfo != null)
 			{
@@ -228,6 +219,17 @@ namespace NBXplorer.Controllers
 									&& waiter.State == BitcoinDWaiterState.Ready
 									&& status.SyncHeight.HasValue
 									&& blockchainInfo.Headers - status.SyncHeight.Value < 3;
+			if(status.IsFullySynched)
+			{
+				var now = DateTimeOffset.UtcNow;
+				await repo.Ping();
+				var pingAfter = DateTimeOffset.UtcNow;
+				status.RepositoryPingTime = (pingAfter - now).TotalSeconds;
+				if (status.RepositoryPingTime > 30)
+				{
+					Logs.Explorer.LogWarning($"Repository ping exceeded 30 seconds ({(int)status.RepositoryPingTime}), please report the issue to NBXplorer developers");
+				}
+			}
 			return Json(status);
 		}
 
