@@ -109,7 +109,7 @@ namespace NBXplorer
 				return;
 			if (Chain.Height < node.PeerVersion.StartHeight)
 				return;
-			var currentLocation = CurrentLocation;
+			var currentLocation = (_HighestInFlight ?? CurrentLocation);
 			if (currentLocation == null)
 				return;
 			var currentBlock = Chain.FindFork(currentLocation);
