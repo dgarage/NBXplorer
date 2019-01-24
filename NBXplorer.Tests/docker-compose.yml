@@ -11,16 +11,19 @@ services:
       - bitcoind
       - litecoind
   bitcoind:
-    image: nicolasdorier/docker-bitcoin:0.16.0
+    restart: unless-stopped
+    image: nicolasdorier/docker-bitcoin:0.17.0
     environment:
+      BITCOIN_NETWORK: regtest
       BITCOIN_EXTRA_ARGS: |
         rpcuser=ceiwHEbqWI83
         rpcpassword=DwubwWsoo3
-        regtest=1
         server=1
         rpcport=43782
         port=39388
         whitelist=0.0.0.0/0
+        zmqpubrawblock=tcp://0.0.0.0:28332
+        zmqpubrawtx=tcp://0.0.0.0:28333
     ports: 
       - "43792:43782"
       - "43793:39388"
