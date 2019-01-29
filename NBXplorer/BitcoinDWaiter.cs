@@ -83,7 +83,7 @@ namespace NBXplorer
 		}
 		public BitcoinDWaiter GetWaiter(string cryptoCode)
 		{
-			_Waiters.TryGetValue(cryptoCode, out BitcoinDWaiter waiter);
+			_Waiters.TryGetValue(cryptoCode.ToUpperInvariant(), out BitcoinDWaiter waiter);
 			return waiter;
 		}
 
