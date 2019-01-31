@@ -1,13 +1,15 @@
 ﻿using CommandLine;
 using System.Linq;
-using Microsoft.Extensions.Logging;
+//using Microsoft.Extensions.Logging;
 using System;
 using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
-using NBitcoin;
+//using NBitcoin;
 using CommandLine.Configuration;
 using System.Collections.Generic;
+using System.Diagnostics;
+using NBitcoin;
 
 namespace NBXplorer.NodeWaiter
 {
@@ -15,15 +17,34 @@ namespace NBXplorer.NodeWaiter
 	{
 		static async Task<int> Main(string[] args)
 		{
-			var validChains = string.Join(",", new NBXplorerNetworkProvider(NetworkType.Mainnet).GetAll().Select(n => n.CryptoCode.ToLowerInvariant()).ToArray());
-
-			using (CancellationTokenSource stop = new CancellationTokenSource())
-			using (CancelOnExit(stop))
+			var childProcessArgSeparatorPos = Array.IndexOf(args, "--");
+			var waiterArgs = args;
+			string[] childProcessArgs = null;
+			string childProcess = null;
+			if (childProcessArgSeparatorPos != -1)
 			{
-				var provider = new CommandLineExConfigurationProvider(args, CreateCommandLineApplication);
+				waiterArgs = args.Take(childProcessArgSeparatorPos).ToArray();
+				if (childProcessArgSeparatorPos != args.Length - 1)
+				{
+					childProcess = args.Skip(childProcessArgSeparatorPos + 1).First();
+					childProcessArgs = args.Skip(childProcessArgSeparatorPos + 2).ToArray();
+				}
+			}
+
+
+			var validChains = string.Join(",", new NBXplorerNetworkProvider(NetworkType.Mainnet).GetAll().Select(n => n.CryptoCode.ToLowerInvariant()).ToArray());
+			using (CancellationTokenSource stop = new CancellationTokenSource())
+			{
+				var provider = new CommandLineExConfigurationProvider(waiterArgs, CreateCommandLineApplication);
 				provider.Load();
 
-				if (provider.TryGet("help", out var unused))
+				if(!provider.TryGet("explorerurl", out var unused) || unused == string.Empty)
+				{
+					Console.WriteLine("explorerurl not configued, skipping waiting");
+					return RunChildProcess(childProcess, childProcessArgs);
+				}
+
+				if (provider.TryGet("help", out unused))
 				{
 					return 1;
 				}
@@ -49,7 +70,7 @@ namespace NBXplorer.NodeWaiter
 				{
 					if (await AreSynchedAndStarted(supportedChains, stop.Token))
 					{
-						return 0;
+						return RunChildProcess(childProcess, childProcessArgs);
 					}
 					Write($"-----trying again in {(int)wait.TotalSeconds} seconds-----");
 					await Task.Delay(wait, stop.Token);
@@ -60,20 +81,15 @@ namespace NBXplorer.NodeWaiter
 			}
 		}
 
-		private static IDisposable CancelOnExit(CancellationTokenSource stop)
+		private static int RunChildProcess(string process, string[] args)
 		{
-			Console.CancelKeyPress += (s, e) => Catch(() => stop.Cancel());
-			AssemblyLoadContext.Default.Unloading += (s) => Catch(() => stop.Cancel());
-			AppDomain.CurrentDomain.ProcessExit += (s, e) => Catch(() => stop.Cancel());
-			return null;
-		}
-		static void Catch(Action act)
-		{
-			try
-			{
-				act();
-			}
-			catch { }
+			if (process == null)
+				return 0;
+			var childargs = string.Join(" ", args);
+			Console.WriteLine("Starting and forwarding signals to: \"" + process + "\" " + childargs);
+			var exitForwarder = ExitForwarder.ForwardToChild(Process.Start(process, childargs));
+			Console.WriteLine("Implementation: " + exitForwarder.GetType().Name);
+			return exitForwarder.WaitForExitAndForward();
 		}
 
 		private static async Task<bool> AreSynchedAndStarted(List<ExplorerClient> explorerClients, CancellationToken token)
@@ -127,7 +143,7 @@ namespace NBXplorer.NodeWaiter
 
 		private static ExplorerClient GetNetwork(CommandLineExConfigurationProvider config, NBXplorerNetworkProvider networkProvider, string cryptoCode, string validValues)
 		{
-			var network = networkProvider.GetFromCryptoCode(cryptoCode.ToUpperInvariant());
+			var network = networkProvider.GetFromCryptoCode(cryptoCode);
 			if (network == null)
 				throw new NotSupportedException($"{cryptoCode} in --chains is not supported, valid value: {validValues}");
 

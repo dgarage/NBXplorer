@@ -37,7 +37,19 @@ namespace NBXplorer
 					return evt;
 				}
 			}
-			var evts = await GetEventsAsync(evtId, 30, true, cancellation);
+			NewEventBase[] evts = null;
+			try
+			{
+				evts = await GetEventsAsync(evtId, 30, true, cancellation);
+			}
+			catch(HttpRequestException ex) when (ex.InnerException is TimeoutException)
+			{
+				goto retry;
+			}
+			catch(OperationCanceledException) when (!cancellation.IsCancellationRequested)
+			{
+				goto retry;
+			}
 			lock (_EventsToProcess)
 			{
 				if (_EventsToProcess.Count != 0)
@@ -65,8 +77,6 @@ namespace NBXplorer
 			if (longPolling)
 				parameters.Add($"longPolling={longPolling}");
 			var parametersString = parameters.Count == 0 ? string.Empty : $"?{String.Join("&", parameters.ToArray<object>())}";
-
-
 			var evts = await Client.SendAsync<JArray>(HttpMethod.Get, null, $"v1/cryptos/{Client.CryptoCode}/events{parametersString}", null, cancellation);
 
 			var evtsObj = evts.Select(ev => NewEventBase.ParseEvent((JObject)ev, Client.Serializer.Settings))

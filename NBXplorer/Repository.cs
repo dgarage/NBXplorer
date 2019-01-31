@@ -46,7 +46,7 @@ namespace NBXplorer
 					_Repositories.Add(net.CryptoCode, repo);
 					if (settings.Rescan)
 					{
-						Logs.Configuration.LogInformation($"Rescanning the {net.CryptoCode} chain...");
+						Logs.Configuration.LogInformation($"{net.CryptoCode}: Rescanning the chain...");
 						repo.SetIndexProgress(null).GetAwaiter().GetResult();
 					}
 				}
@@ -611,7 +611,6 @@ namespace NBXplorer
 			t.Transaction.PrecomputeHash(true, false);
 			return t;
 		}
-
 		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
@@ -776,6 +775,13 @@ namespace NBXplorer
 					{
 						needUpdate = true;
 						tx.NeedRemove = true;
+
+						foreach(var kv in tx.KnownKeyPathMapping)
+						{
+							// The pruned transaction has more info about owned utxo than the unpruned, we need to update the unpruned
+							if (previousConfirmed.KnownKeyPathMapping.TryAdd(kv.Key, kv.Value))
+								previousConfirmed.NeedUpdate = true;
+						}
 					}
 					else
 					{
@@ -795,7 +801,7 @@ namespace NBXplorer
 				// This is legacy data, need an update
 				foreach (var data in transactions.Where(t => t.NeedUpdate && t.KnownKeyPathMapping == null))
 				{
-					data.KnownKeyPathMapping = (await this.GetMatches(data.Transaction, data.Key.BlockHash, DateTimeOffset.UtcNow))
+					data.KnownKeyPathMapping = (await this.GetMatches(data.Transaction, data.Key.BlockHash, DateTimeOffset.UtcNow, false))
 											  .Where(m => m.TrackedSource.Equals(trackedSource))
 											  .Select(m => m.KnownKeyPathMapping)
 											  .First();
@@ -1326,8 +1332,14 @@ namespace NBXplorer
 			return needRefill;
 		}
 
-		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now)
+		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
+		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
+			var h = tx.GetHash();
+			if (blockId != null && useCache && noMatchCache.Contains(h))
+			{
+				return Array.Empty<TrackedTransaction>();
+			}
 			var matches = new Dictionary<string, TrackedTransaction>();
 			HashSet<Script> inputScripts = new HashSet<Script>();
 			HashSet<Script> outputScripts = new HashSet<Script>();
@@ -1357,7 +1369,7 @@ namespace NBXplorer
 					if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 					{
 						match = new TrackedTransaction(
-							new TrackedTransactionKey(tx.GetHash(), blockId, false),
+							new TrackedTransactionKey(h, blockId, false),
 							keyInfo.TrackedSource,
 							tx,
 							new Dictionary<Script, KeyPath>())
@@ -1374,6 +1386,12 @@ namespace NBXplorer
 			foreach (var m in matches.Values)
 			{
 				m.KnownKeyPathMappingUpdated();
+			}
+			if (blockId == null &&
+				matches.Count == 0)
+			{
+				noMatchCache.Add(h);
+				return Array.Empty<TrackedTransaction>();
 			}
 			return matches.Values.ToArray();
 		}

@@ -29,6 +29,31 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanFixedSizeCache()
+		{
+			FixedSizeCache<uint256, uint256> cache = new FixedSizeCache<uint256, uint256>(2, k => k);
+			Assert.Equal(2, cache.MaxElementsCount);
+			Assert.Throws<ArgumentNullException>(() => cache.Add(null));
+			Assert.Throws<ArgumentNullException>(() => cache.Contains(null));
+			uint256 previous = RandomUtils.GetUInt256();
+
+			int evicted = 0;
+			for (int i = 0; i < 10000; i++)
+			{
+				uint256 newItem = RandomUtils.GetUInt256();
+				cache.Add(newItem);
+				if (cache.Contains(previous))
+					evicted++;
+				Assert.True(cache.Contains(newItem));
+				previous = newItem;
+			}
+
+			// Should be around 5000
+			Assert.True(evicted > 4000);
+			Assert.True(evicted < 6000);
+		}
+
+		[Fact]
 		public async Task RepositoryCanTrackAddresses()
 		{
 			using (var tester = RepositoryTester.Create(true))
@@ -283,7 +308,7 @@ namespace NBXplorer.Tests
 
 				// Alice send 0.3 to bob
 				var bobAddress = tester.Client.GetUnused(bob, DerivationFeature.Direct, reserve: true);
-				var tx = tester.Client.LockUTXOs(alice, new LockUTXOsRequest() { Amount = Money.Coins(0.3m), Destination = bobAddress.Address, FeeRate = new FeeRate(100, 1) });
+				var tx = tester.Client.LockUTXOs(alice, new LockUTXOsRequest() { Amount = Money.Coins(0.3m), Destination = bobAddress.Address, FeeRate = new FeeRate(100UL, 1) });
 
 				// Only locked, bob has nothing
 				var bobBalance = tester.Client.GetBalance(bob);
@@ -311,7 +336,7 @@ namespace NBXplorer.Tests
 				Assert.True(aliceBalance.Total.Almost(Money.Coins(1.7m), 0.01m));
 
 				// Now Bob sends 0.1 to satoshi
-				tx = tester.Client.LockUTXOs(bob, new LockUTXOsRequest() { Amount = Money.Coins(0.1m), Destination = satoshi.ToString(), FeeRate = new FeeRate(100, 1) });
+				tx = tester.Client.LockUTXOs(bob, new LockUTXOsRequest() { Amount = Money.Coins(0.1m), Destination = satoshi.ToString(), FeeRate = new FeeRate(100UL, 1) });
 				signed = tx.Sign(bob, bobExtKey, tester.Network);
 				broadcast = tester.Client.Broadcast(signed);
 				Assert.True(broadcast.Success);
@@ -614,7 +639,6 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(bob, replacement.GetHash());
 				var prevUtxo = utxo;
 				utxo = tester.Client.GetUTXOs(bob); //Wait tx received
-				Assert.Null(utxo.Unconfirmed.KnownBookmark);
 				Assert.Equal(replacement.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 
@@ -1292,7 +1316,6 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Did we received 5 UTXOs?");
 				utxo = tester.Client.GetUTXOs(pubkey);
-				Assert.True(utxo.HasChanges);
 				Assert.Equal(5, utxo.Confirmed.UTXOs.Count);
 			}
 		}
@@ -1313,7 +1336,6 @@ namespace NBXplorer.Tests
 				addresses.Add(tester.AddressOf(key, "0/0").ScriptPubKey);
 
 				var utxo = tester.Client.GetUTXOs(pubkey);
-				Assert.True(utxo.HasChanges);
 
 				var coins = Money.Coins(1.0m);
 
@@ -1384,6 +1406,27 @@ namespace NBXplorer.Tests
 					Assert.Equal(txEvent.TrackedSource, pubkey);
 				}
 			}
+		}
+
+		[Fact]
+		public void CanBatch()
+		{
+			var input = Enumerable.Range(0, 100);
+			var outputs = input.Batch(30).ToArray();
+
+			Assert.Equal(4, outputs.Length);
+			Assert.True(outputs[0].SequenceEqual(Enumerable.Range(0, 30)));
+			Assert.True(outputs[1].SequenceEqual(Enumerable.Range(30, 30)));
+			Assert.True(outputs[2].SequenceEqual(Enumerable.Range(60, 30)));
+			Assert.True(outputs[3].SequenceEqual(Enumerable.Range(90, 10)));
+
+			input = Enumerable.Range(0, 90);
+			outputs = input.Batch(30).ToArray();
+
+			Assert.Equal(3, outputs.Length);
+			Assert.True(outputs[0].SequenceEqual(Enumerable.Range(0, 30)));
+			Assert.True(outputs[1].SequenceEqual(Enumerable.Range(30, 30)));
+			Assert.True(outputs[2].SequenceEqual(Enumerable.Range(60, 30)));
 		}
 
 		[Fact]
@@ -1734,7 +1777,6 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(pubkey, txId);
 				Logs.Tester.LogInformation("Check if the tx exists");
 				var result = tester.Client.GetTransactions(pubkey);
-				Assert.True(result.HasChanges());
 				Assert.Single(result.UnconfirmedTransactions.Transactions);
 
 				var height = result.Height;
@@ -1764,7 +1806,6 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(pubkey, txId2);
 				Logs.Tester.LogInformation("We should now have two transactions");
 				result = tester.Client.GetTransactions(pubkey);
-				Assert.True(result.HasChanges());
 				Assert.Single(result.ConfirmedTransactions.Transactions);
 				Assert.Single(result.UnconfirmedTransactions.Transactions);
 				Assert.Equal(txId2, result.UnconfirmedTransactions.Transactions[0].TransactionId);
@@ -1936,7 +1977,6 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0/0"), utxo.Confirmed.UTXOs[0].KeyPath);
 				Assert.Equal(confTxId, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Equal(1, utxo.Confirmed.UTXOs[0].Confirmations);
-				Assert.True(utxo.HasChanges);
 
 				Logs.Tester.LogInformation("Let's check what happen if querying a non existing transaction");
 				Assert.Null(tester.Client.GetTransaction(uint256.One));
@@ -2008,6 +2048,26 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0/3"), utxo.Confirmed.UTXOs[2].KeyPath);
 			}
 		}
+		[Fact]
+		public void CanCacheTransactions()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				Logs.Tester.LogInformation("Let's check an unconf miss result get properly cached: Let's send coins to 0/1 before tracking it");
+				tester.RPC.Generate(1);
+				var txId = tester.SendToAddress(tester.AddressOf(key, "0/1"), Money.Coins(1.0m));
+				Logs.Tester.LogInformation($"Sent {txId}");
+				Thread.Sleep(1000);
+				tester.Client.Track(pubkey);
+				Logs.Tester.LogInformation($"Tracked, let's mine");
+				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
+				var utxo = tester.Client.GetUTXOs(pubkey);
+				Assert.Empty(utxo.Confirmed.UTXOs);
+				Assert.Empty(utxo.Unconfirmed.UTXOs);
+			}
+		}
 		[Fact(Timeout = 60 * 1000)]
 		public void CanUseLongPollingOnEvents()
 		{
@@ -2025,12 +2085,24 @@ namespace NBXplorer.Tests
 				if(evts.Length != 0)
 					lastId = evts.Last().EventId;
 				DateTimeOffset now = DateTimeOffset.UtcNow;
-				evts = session.GetEvents(lastId, longPolling: true);
+				using (var cts = new CancellationTokenSource(1000))
+				{
+					try
+					{
+						evts = session.GetEvents(lastId, longPolling: true, cancellation: cts.Token);
+						Assert.False(true, "Should throws");
+					}
+					catch (OperationCanceledException)
+					{
+
+					}
+					Assert.True(cts.IsCancellationRequested);
+				}
 				long lastId2 = 0;
 				if (evts.Length != 0)
 					lastId2 = evts.Last().EventId;
 				Assert.Equal(lastId, lastId2);
-				Assert.True(DateTimeOffset.UtcNow - now > TimeSpan.FromSeconds(5.0));
+				Assert.True(DateTimeOffset.UtcNow - now > TimeSpan.FromSeconds(1.0));
 				Logs.Tester.LogInformation("Get events should returns when the block get mined");
 				now = DateTimeOffset.UtcNow;
 				var gettingEvts = session.GetEventsAsync(lastEventId: lastId, longPolling: true);
@@ -2220,6 +2292,41 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanRescanFullyIndexedTransaction()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+				tester.Client.Track(pubkey);
+				
+				// In this test, we index a transaction, but miss an address (0/0 is found, but not 0/50 because it is outside the gap limit)
+				tester.RPC.SendCommand(RPCOperations.sendmany, "",
+						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/0")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/50")}\": \"0.5\" }}"));
+				tester.RPC.EnsureGenerate(1);
+				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
+
+				var transaction = tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions.Single();
+				Assert.Single(transaction.Outputs);
+
+				tester.Client.ScanUTXOSet(pubkey, 1000, 100);
+				var info = WaitScanFinish(tester.Client, pubkey);
+				Assert.Equal(2, info.Progress.Found);
+
+				// Rescanning should find 0/50
+				transaction = tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions.Single();
+				Assert.Equal(2, transaction.Outputs.Count());
+
+				tester.RPC.EnsureGenerate(1);
+				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
+
+				// Check again
+				transaction = tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions.Single();
+				Assert.Equal(2, transaction.Outputs.Count());
+			}
+		}
+
+		[Fact]
 		public void CanScanUTXOSet()
 		{
 			using (var tester = ServerTester.Create())
@@ -2284,6 +2391,47 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 				Assert.NotEqual(NBitcoin.Utils.UnixTimeToDateTime(0), utxo.Confirmed.UTXOs[0].Timestamp);
+
+				Logs.Tester.LogInformation($"Let's try to spend to ourselves");
+				var changeAddress = tester.Client.GetUnused(pubkey, DerivationFeature.Change);
+				var us = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/52"), us.KeyPath);
+				Assert.Equal(new KeyPath("1/0"), changeAddress.KeyPath);
+				TransactionBuilder builder = tester.Network.CreateTransactionBuilder();
+				builder.AddCoins(utxo.GetUnspentCoins());
+				builder.AddKeys(utxo.GetKeys(key));
+				builder.Send(us.ScriptPubKey, Money.Coins(1.1m));
+				builder.SetChange(changeAddress.ScriptPubKey);
+				var fallbackFeeRate = new FeeRate(Money.Satoshis(100), 1);
+				var feeRate = tester.Client.GetFeeRate(1, fallbackFeeRate).FeeRate;
+				builder.SendEstimatedFees(feeRate);
+				var tx = builder.BuildTransaction(true);
+				Assert.Equal(2, tx.Outputs.Count);
+				Assert.True(tester.Client.Broadcast(tx).Success);
+				tester.RPC.EnsureGenerate(1);
+				AssertNotPruned(tester, pubkey, tx.GetHash());
+				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
+				info = WaitScanFinish(tester.Client, pubkey);
+				Assert.Equal(2, info.Progress.Found);
+				utxo = tester.Client.GetUTXOs(pubkey);
+				Assert.Equal(2, utxo.GetUnspentUTXOs().Count());
+				Assert.Contains(us.KeyPath, utxo.GetUnspentUTXOs().Select(u => u.KeyPath));
+				Assert.Contains(changeAddress.KeyPath, utxo.GetUnspentUTXOs().Select(u => u.KeyPath));
+
+				Logs.Tester.LogInformation($"Let's try to dump our server and rescan");
+				tester.ResetExplorer();
+				tester.Client.Track(pubkey);
+				utxo = tester.Client.GetUTXOs(pubkey);
+				Assert.Empty(utxo.GetUnspentUTXOs());
+				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
+				info = WaitScanFinish(tester.Client, pubkey);
+				Assert.Equal(2, info.Progress.Found);
+				utxo = tester.Client.GetUTXOs(pubkey);
+				Assert.Equal(2, utxo.GetUnspentUTXOs().Count());
+				Assert.Contains(us.KeyPath, utxo.GetUnspentUTXOs().Select(u => u.KeyPath));
+				Assert.Contains(changeAddress.KeyPath, utxo.GetUnspentUTXOs().Select(u => u.KeyPath));
+				// But we lost the historic of the past transactions
+				Assert.Single(tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions);
 			}
 		}
 

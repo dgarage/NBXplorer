@@ -7,8 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\NBXplorer.Client\NBXplorer.Client.csproj" />
+    <PackageReference Include="Mono.Posix.NETStandard" Version="1.0.0" />
 	  <PackageReference Include="NicolasDorier.CommandLine.Configuration" Version="1.0.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NBXplorer\NBXplorer.csproj" />
   </ItemGroup>
 
 </Project>

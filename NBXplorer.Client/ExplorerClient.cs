@@ -191,18 +191,13 @@ namespace NBXplorer
 		{
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
-			Dictionary<string, string> parameters = new Dictionary<string, string>();
-			parameters.Add("longPolling", "false");
-
-			var query = String.Join("&", parameters.Select(p => p.Key + "=" + p.Value).ToArray());
-
 			if (trackedSource is DerivationSchemeTrackedSource dsts)
 			{
-				return await SendAsync<UTXOChanges>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/utxos?" + query, new object[] { CryptoCode, dsts.DerivationStrategy.ToString() }, cancellation).ConfigureAwait(false);
+				return await SendAsync<UTXOChanges>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/utxos", new object[] { CryptoCode, dsts.DerivationStrategy.ToString() }, cancellation).ConfigureAwait(false);
 			}
 			else if (trackedSource is AddressTrackedSource asts)
 			{
-				return await SendAsync<UTXOChanges>(HttpMethod.Get, null, "v1/cryptos/{0}/addresses/{1}/utxos?" + query, new object[] { CryptoCode, asts.Address }, cancellation).ConfigureAwait(false);
+				return await SendAsync<UTXOChanges>(HttpMethod.Get, null, "v1/cryptos/{0}/addresses/{1}/utxos", new object[] { CryptoCode, asts.Address }, cancellation).ConfigureAwait(false);
 			}
 			else
 				throw UnSupported(trackedSource);
@@ -567,6 +562,10 @@ namespace NBXplorer
 			if ((int)result.StatusCode == 404)
 			{
 				return default(T);
+			}
+			if(result.StatusCode == HttpStatusCode.GatewayTimeout || result.StatusCode == HttpStatusCode.RequestTimeout)
+			{
+				throw new HttpRequestException($"HTTP error {(int)result.StatusCode}", new TimeoutException());
 			}
 			if ((int)result.StatusCode == 401)
 			{

@@ -63,12 +63,10 @@ namespace NBXplorer
 
 		public ScanUTXOSetService(ScanUTXOSetServiceAccessor accessor,
 								  RPCClientProvider rpcClients,
-								  ChainProvider chains,
 								  RepositoryProvider repositories)
 		{
 			accessor.Instance = this;
 			RpcClients = rpcClients;
-			Chains = chains;
 			Repositories = repositories;
 		}
 		Channel<string> _Channel = Channel.CreateBounded<string>(500);
@@ -116,7 +114,6 @@ namespace NBXplorer
 		Task _Task;
 		CancellationTokenSource _Cts = new CancellationTokenSource();
 		public RPCClientProvider RpcClients { get; }
-		public ChainProvider Chains { get; }
 		public RepositoryProvider Repositories { get; }
 
 		public Task StartAsync(CancellationToken cancellationToken)
@@ -138,7 +135,6 @@ namespace NBXplorer
 					}
 					Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning {workItem.DerivationStrategy.ToPrettyString()} from index {workItem.Options.From} with gap limit {workItem.Options.GapLimit}, batch size {workItem.Options.BatchSize}");
 					var rpc = RpcClients.GetRPCClient(workItem.Network);
-					var chain = Chains.GetChain(workItem.Network);
 					try
 					{
 						var repo = Repositories.GetRepository(workItem.Network);
@@ -179,7 +175,7 @@ namespace NBXplorer
 									progressObj.UpdateRemainingBatches(workItem.Options.GapLimit);
 									progressObj.UpdateOverallProgress();
 									Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning of batch {workItem.State.Progress.BatchNumber} for {workItem.DerivationStrategy.ToPrettyString()} complete with {result.Outputs.Length} UTXOs fetched");
-									await UpdateRepository(rpc, workItem.DerivationStrategy, repo, chain, result.Outputs, scannedItems, progressObj);
+									await UpdateRepository(rpc, workItem.DerivationStrategy, repo, result.Outputs, scannedItems, progressObj);
 
 									if (progressObj.RemainingBatches <= -1)
 									{
@@ -232,13 +228,19 @@ namespace NBXplorer
 			}
 		}
 
-		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, Repository repo, SlimChain chain, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
+		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, Repository repo, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
 		{
-			
+			var clientBatch = client.PrepareBatch();
+			var blockIdsByHeight = new ConcurrentDictionary<int, uint256>();
+			await Task.WhenAll(outputs.Select(async o =>
+			{
+				blockIdsByHeight.TryAdd(o.Height, await clientBatch.GetBlockHashAsync(o.Height));
+			}).Concat(new[] { clientBatch.SendBatchAsync() }).ToArray());
+
 			var data = outputs
 				.GroupBy(o => o.Coin.Outpoint.Hash)
 				.Select(o => (Coins: o.Select(c => c.Coin).ToList(),
-							  BlockId: chain.GetBlock(o.First().Height)?.Hash,
+							  BlockId: blockIdsByHeight.TryGet(o.First().Height),
 							  TxId: o.Select(c => c.Coin.Outpoint.Hash).FirstOrDefault(),
 							  KeyPathInformations: o.Select(c => scannedItems.KeyPathInformations[c.Coin.ScriptPubKey]).ToList()))
 				.Where(o => o.BlockId != null)
@@ -256,11 +258,11 @@ namespace NBXplorer
 					return o;
 				}).ToList();
 
-			var headers = new ConcurrentDictionary<uint256, BlockHeader>();
-			var clientBatch = client.PrepareBatch();
+			var blockHeadersByBlockId = new ConcurrentDictionary<uint256, BlockHeader>();
+			clientBatch = client.PrepareBatch();
 			var gettingBlockHeaders = Task.WhenAll(data.Select(async o =>
 			{
-				headers.TryAdd(o.BlockId, await clientBatch.GetBlockHeaderAsync(o.BlockId));
+				blockHeadersByBlockId.TryAdd(o.BlockId, await clientBatch.GetBlockHeaderAsync(o.BlockId));
 			}).Concat(new[] { clientBatch.SendBatchAsync() }).ToArray());
 			await repo.SaveKeyInformations(scannedItems.
 				KeyPathInformations.
@@ -278,7 +280,7 @@ namespace NBXplorer
 			await repo.SaveMatches(data.Select(o => new TrackedTransaction(new TrackedTransactionKey(o.TxId, o.BlockId, true), trackedSource, o.Coins, o.KeyPathInformations)
 			{
 				Inserted = now,
-				FirstSeen = headers.TryGetValue(o.BlockId, out var header) && header != null ? header.BlockTime : NBitcoin.Utils.UnixTimeToDateTime(0)
+				FirstSeen = blockHeadersByBlockId.TryGetValue(o.BlockId, out var header) && header != null ? header.BlockTime : NBitcoin.Utils.UnixTimeToDateTime(0)
 			}).ToArray());
 		}
 

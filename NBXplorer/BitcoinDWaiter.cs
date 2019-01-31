@@ -83,7 +83,7 @@ namespace NBXplorer
 		}
 		public BitcoinDWaiter GetWaiter(string cryptoCode)
 		{
-			_Waiters.TryGetValue(cryptoCode, out BitcoinDWaiter waiter);
+			_Waiters.TryGetValue(cryptoCode.ToUpperInvariant(), out BitcoinDWaiter waiter);
 			return waiter;
 		}
 
@@ -664,8 +664,8 @@ namespace NBXplorer
 
 		public bool IsSynchingCore(GetBlockchainInfoResponse blockchainInfo)
 		{
-			if(blockchainInfo.InitialBlockDownload.HasValue)
-				return blockchainInfo.InitialBlockDownload.Value;
+			if(blockchainInfo.InitialBlockDownload == true)
+				return true;
 			if(blockchainInfo.MedianTime.HasValue && _Network.NBitcoinNetwork.NetworkType != NetworkType.Regtest)
 			{
 				var time = NBitcoin.Utils.UnixTimeToDateTime(blockchainInfo.MedianTime.Value);
