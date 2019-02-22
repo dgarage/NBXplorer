@@ -56,11 +56,8 @@ namespace NBXplorer.NodeWaiter
 							Mono.Unix.Native.Syscall.kill(ChildProcess.Id, signal);
 						}
 					}
-					Mono.Unix.Native.Syscall.waitpid(ChildProcess.Id, out int status, 0);
-					if (childKill)
-					{
-						return Mono.Unix.Native.Syscall.WEXITSTATUS(status);
-					}
+					ChildProcess.WaitForExit();
+					return Mono.Unix.Native.Syscall.WEXITSTATUS(ChildProcess.ExitCode);
 				}
 				return 0;
 			}
