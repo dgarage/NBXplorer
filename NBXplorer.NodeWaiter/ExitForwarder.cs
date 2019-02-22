@@ -23,16 +23,17 @@ namespace NBXplorer.NodeWaiter
 				return new WindowsForwarder(childProcess);
 			}
 		}
-
 		public ExitForwarder(Process childProcess)
 		{
 			ChildProcess = childProcess;
 		}
 		class LinuxForwarder : ExitForwarder
 		{
+			int pid;
 			public LinuxForwarder(Process childProcess) : base(childProcess)
 			{
-
+				pid = childProcess.Id;
+				childProcess.Dispose();
 			}
 			public override int WaitForExitAndForward()
 			{
@@ -47,21 +48,20 @@ namespace NBXplorer.NodeWaiter
 				}
 
 				var childKill = exitedSignals.Contains(Mono.Unix.Native.Signum.SIGCHLD);
-				if (ChildProcess != null)
+				
+				if (!childKill)
 				{
-					if (!childKill)
+					foreach (var signal in exitedSignals)
 					{
-						foreach (var signal in exitedSignals)
-						{
-							Mono.Unix.Native.Syscall.kill(ChildProcess.Id, signal);
-						}
-					}
-					Mono.Unix.Native.Syscall.waitpid(ChildProcess.Id, out int status, 0);
-					if (childKill)
-					{
-						return Mono.Unix.Native.Syscall.WEXITSTATUS(status);
+						Mono.Unix.Native.Syscall.kill(pid, signal);
 					}
 				}
+				Mono.Unix.Native.Syscall.waitpid(pid, out int status, 0);
+				if (childKill)
+				{
+					return Mono.Unix.Native.Syscall.WEXITSTATUS(status);
+				}
+				
 				return 0;
 			}
 		}
