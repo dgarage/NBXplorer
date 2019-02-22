@@ -16,6 +16,7 @@ namespace NBXplorer.Models
 	{
 		public Script ScriptPubKey { get; set; }
 		public string Address { get; set; }
+		public Money Value { get; set; }
 	}
 	public class TransactionResult
 	{
