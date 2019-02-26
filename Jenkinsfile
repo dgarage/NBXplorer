@@ -34,7 +34,7 @@ pipeline {
           sh '''
             env
             docker login -u ${M3T4C0_REGISTRY_USR} -p ${M3T4C0_REGISTRY_PSW} registry.m3t4c0.com
-            docker build -t registry.m3t4c0.com/silo-dev/nbxplorer:${DOCKER_TAG} .
+            docker build -t registry.m3t4c0.com/silo-dev/nbxplorer:${DOCKER_TAG} -f Dockerfile.linuxamd64 .
             docker push registry.m3t4c0.com/silo-dev/nbxplorer:${DOCKER_TAG}
             '''
       }
@@ -45,7 +45,7 @@ pipeline {
       steps {
           sh '''
             docker login -u ${M3T4C0_REGISTRY_USR} -p ${M3T4C0_REGISTRY_PSW} registry.metaco.network
-            docker build -t registry.metaco.network/silo/nbxplorer:${TAG_NAME} .
+            docker build -t registry.metaco.network/silo/nbxplorer:${TAG_NAME} -f Dockerfile.linuxamd64 .
             docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e DOCKER_CONTENT_TRUST=1 \
