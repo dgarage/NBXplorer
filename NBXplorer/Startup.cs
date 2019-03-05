@@ -38,6 +38,7 @@ namespace NBXplorer
 
 		public void ConfigureServices(IServiceCollection services)
 		{
+			services.AddHttpClient();
 			services.AddNBXplorer();
 			services.ConfigureNBxplorer(Configuration);
 			services.AddMvcCore()
