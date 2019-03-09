@@ -38,7 +38,7 @@ pipeline {
           }
           sh '''
             docker login -u ${M3T4C0_REGISTRY_USR} -p ${M3T4C0_REGISTRY_PSW} ${DOCKER_REGISTRY}
-            docker build -t ${DOCKER_IMG}:${BRANCH_NAME} .
+            docker build -t ${DOCKER_IMG}:${BRANCH_NAME} -f Dockerfile.linuxamd64 .
             docker push ${DOCKER_IMG}:${BRANCH_NAME}
             '''
       }
@@ -50,7 +50,7 @@ pipeline {
       steps {
           sh '''
               docker login -u ${M3T4C0_REGISTRY_USR} -p ${M3T4C0_REGISTRY_PSW} ${DOCKER_CONTENT_TRUST_REGISTRY}
-              docker build -t ${DOCKER_BUILDER_IMG}:${TAG_NAME}
+              docker build -t ${DOCKER_BUILDER_IMG}:${TAG_NAME} -f Dockerfile.linuxamd64 .
               docker run --rm \
               -v /var/run/docker.sock:/var/run/docker.sock \
               -e DOCKER_CONTENT_TRUST=1 \
