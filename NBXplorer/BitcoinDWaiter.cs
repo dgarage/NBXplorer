@@ -15,6 +15,7 @@ using NBitcoin.Protocol.Behaviors;
 using Microsoft.Extensions.Hosting;
 using NBXplorer.Events;
 using Newtonsoft.Json.Linq;
+using System.Text;
 
 namespace NBXplorer
 {
@@ -249,7 +250,7 @@ namespace NBXplorer
 			catch { }
 			return _Loop;
 		}
-
+		bool _BanListLoaded;
 		async Task<bool> StepAsync(CancellationToken token)
 		{
 			var oldState = State;
@@ -261,7 +262,14 @@ namespace NBXplorer
 					try
 					{
 						blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
-						if(blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest)
+						if (_Network.CryptoCode == "BTC" &&
+							_Network.NBitcoinNetwork.NetworkType == NetworkType.Mainnet &&
+							!_BanListLoaded)
+						{
+							if (await LoadBanList())
+								_BanListLoaded = true;
+						}
+						if (blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest)
 						{
 							if(await WarmupBlockchain())
 							{
@@ -347,6 +355,32 @@ namespace NBXplorer
 			}
 
 			return changed;
+		}
+
+		private async Task<bool> LoadBanList()
+		{
+			var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("NBXplorer.banlist.cli.txt");
+			string content = null;
+			using (var reader = new StreamReader(stream, Encoding.UTF8))
+			{
+				content = reader.ReadToEnd();
+			}
+			var bannedLines = content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+			var batch = _RPC.PrepareBatch();
+			var commands = bannedLines
+						.Where(o => o.Length > 0 && o[0] != '#')
+						.Select(b => b.Split(' ')[2])
+						.Select(ip => batch.SendCommandAsync(new RPCRequest("setban", new object[] { ip, "add", 31557600 }), false))
+						.ToArray();
+			await batch.SendBatchAsync();
+			foreach (var command in commands)
+			{
+				var result = await command;
+				if (result.Error != null && result.Error.Code != RPCErrorCode.RPC_CLIENT_NODE_ALREADY_ADDED)
+					result.ThrowIfError();
+			}
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Node banlist loaded");
+			return true;
 		}
 
 		private async Task ConnectToBitcoinD(CancellationToken cancellation)
