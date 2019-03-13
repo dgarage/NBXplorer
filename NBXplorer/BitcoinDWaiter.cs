@@ -104,6 +104,7 @@ namespace NBXplorer
 		private Repository _Repository;
 		EventAggregator _EventAggregator;
 		private readonly ChainConfiguration _ChainConfiguration;
+		readonly string RPCReadyFile;
 
 		public BitcoinDWaiter(
 			RPCClient rpc,
@@ -125,6 +126,7 @@ namespace NBXplorer
 			State = BitcoinDWaiterState.NotStarted;
 			_EventAggregator = eventAggregator;
 			_ChainConfiguration = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
+			RPCReadyFile = Path.Combine(configuration.DataDir, $"{network.CryptoCode.ToLowerInvariant()}_fully_synched");
 		}
 		public NodeState NodeState
 		{
@@ -240,6 +242,7 @@ namespace NBXplorer
 				_Group = null;
 			}
 			State = BitcoinDWaiterState.NotStarted;
+			EnsureRPCReadyFileDeleted();
 			_Chain = null;
 			_Tick.Set();
 			_Tick.Dispose();
@@ -352,9 +355,22 @@ namespace NBXplorer
 			if(changed)
 			{
 				_EventAggregator.Publish(new BitcoinDStateChangedEvent(_Network, oldState, State));
+				if (State == BitcoinDWaiterState.Ready)
+				{
+					await File.WriteAllTextAsync(RPCReadyFile, NBitcoin.Utils.DateTimeToUnixTime(DateTimeOffset.UtcNow).ToString());
+				}
 			}
-
+			if (State != BitcoinDWaiterState.Ready)
+			{
+				EnsureRPCReadyFileDeleted();
+			}
 			return changed;
+		}
+
+		private void EnsureRPCReadyFileDeleted()
+		{
+			if (File.Exists(RPCReadyFile))
+				File.Delete(RPCReadyFile);
 		}
 
 		private async Task<bool> LoadBanList()
