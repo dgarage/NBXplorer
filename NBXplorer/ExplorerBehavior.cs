@@ -102,23 +102,23 @@ namespace NBXplorer
 
 
 
-		public void AskBlocks()
+		public int AskBlocks()
 		{
 			var node = AttachedNode;
 			if (node == null || node.State != NodeState.HandShaked)
-				return;
+				return 0;
 			if (Chain.Height < node.PeerVersion.StartHeight)
-				return;
+				return 0;
 			var currentLocation = (_HighestInFlight ?? CurrentLocation);
 			if (currentLocation == null)
-				return;
+				return 0;
 			var currentBlock = Chain.FindFork(currentLocation);
 			if (currentBlock.Height < StartHeight)
 				currentBlock = Chain.GetBlock(StartHeight) ?? Chain.TipBlock;
 
 			//Up to date
 			if (Chain.TipBlock.Hash == currentBlock.Hash)
-				return;
+				return 0;
 
 
 			int maxConcurrentBlocks = 10;
@@ -142,16 +142,27 @@ namespace NBXplorer
 				if (invs.Count > 1)
 					GC.Collect(); // Let's collect memory if we are synching 
 			}
+			return invs.Count;
 		}
 
 		ConcurrentDictionary<uint256, uint256> _InFlights = new ConcurrentDictionary<uint256, uint256>();
 		BlockLocator _HighestInFlight;
-
+		DateTimeOffset? _LastBlockDownloaded;
+		readonly static TimeSpan DownloadHangingTimeout = TimeSpan.FromMinutes(1.0);
 		void Tick(object state)
 		{
+			var node = AttachedNode;
+			if (node == null)
+				return;
 			try
 			{
-				AskBlocks();
+				if (AskBlocks() == 0 &&
+					!_InFlights.IsEmpty &&
+					LongTimeNoDownload(node))
+				{
+					Logs.Explorer.LogInformation($"{Network.CryptoCode}: Block download seems to hang, let's reconnect to this node");
+					node.DisconnectAsync("Block download is hanging");
+				}
 			}
 			catch (Exception ex)
 			{
@@ -160,6 +171,16 @@ namespace NBXplorer
 				Logs.Explorer.LogError($"{Network.CryptoCode}: Exception in ExplorerBehavior tick loop");
 				Logs.Explorer.LogError(ex.ToString());
 			}
+		}
+
+		private bool LongTimeNoDownload(Node node)
+		{
+			DateTimeOffset lastActivity;
+			if (_LastBlockDownloaded is DateTimeOffset lastBlockDownloaded)
+				lastActivity = lastBlockDownloaded;
+			else
+				lastActivity = node.ConnectedAt;
+			return (DateTimeOffset.UtcNow - lastActivity) >= DownloadHangingTimeout;
 		}
 
 		public NBXplorerNetwork Network
@@ -233,6 +254,7 @@ namespace NBXplorer
 		}
 		private async Task SaveMatches(Block block)
 		{
+			_LastBlockDownloaded = DateTimeOffset.UtcNow;
 			block.Header.PrecomputeHash(false, false);
 			foreach (var tx in block.Transactions)
 				tx.PrecomputeHash(false, true);
