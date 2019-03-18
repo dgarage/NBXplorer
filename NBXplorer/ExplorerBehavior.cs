@@ -158,7 +158,7 @@ namespace NBXplorer
 			{
 				if (AskBlocks() == 0 &&
 					!_InFlights.IsEmpty &&
-					LongTimeNoDownload(node))
+					IsHanging(node))
 				{
 					Logs.Explorer.LogInformation($"{Network.CryptoCode}: Block download seems to hang, let's reconnect to this node");
 					node.DisconnectAsync("Block download is hanging");
@@ -173,7 +173,7 @@ namespace NBXplorer
 			}
 		}
 
-		private bool LongTimeNoDownload(Node node)
+		private bool IsHanging(Node node)
 		{
 			DateTimeOffset lastActivity;
 			if (_LastBlockDownloaded is DateTimeOffset lastBlockDownloaded)

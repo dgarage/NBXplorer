@@ -135,6 +135,8 @@ namespace NBXplorer
 					}
 					Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning {workItem.DerivationStrategy.ToPrettyString()} from index {workItem.Options.From} with gap limit {workItem.Options.GapLimit}, batch size {workItem.Options.BatchSize}");
 					var rpc = RpcClients.GetRPCClient(workItem.Network);
+					rpc = rpc.Clone();
+					rpc.RequestTimeout = TimeSpan.FromMinutes(10.0);
 					try
 					{
 						var repo = Repositories.GetRepository(workItem.Network);
