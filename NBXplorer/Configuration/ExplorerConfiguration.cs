@@ -60,7 +60,7 @@ namespace NBXplorer.Configuration
 		{
 			get; set;
 		}
-
+		public string SignalFilesDir { get; set; }
 		public NBXplorerNetworkProvider NetworkProvider
 		{
 			get; set;
@@ -143,8 +143,12 @@ namespace NBXplorer.Configuration
 			if(!Directory.Exists(BaseDataDir))
 				Directory.CreateDirectory(BaseDataDir);
 			DataDir = Path.Combine(BaseDataDir, NBXplorerDefaultSettings.GetFolderName(NetworkProvider.NetworkType));
-			if(!Directory.Exists(DataDir))
+			if (!Directory.Exists(DataDir))
 				Directory.CreateDirectory(DataDir);
+			SignalFilesDir = config.GetOrDefault<string>("signalfilesdir", null);
+			SignalFilesDir = SignalFilesDir ?? DataDir;
+			if (!Directory.Exists(SignalFilesDir))
+				Directory.CreateDirectory(SignalFilesDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 

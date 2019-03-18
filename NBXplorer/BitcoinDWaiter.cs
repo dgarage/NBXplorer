@@ -126,7 +126,7 @@ namespace NBXplorer
 			State = BitcoinDWaiterState.NotStarted;
 			_EventAggregator = eventAggregator;
 			_ChainConfiguration = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
-			RPCReadyFile = Path.Combine(configuration.DataDir, $"{network.CryptoCode.ToLowerInvariant()}_fully_synched");
+			RPCReadyFile = Path.Combine(configuration.SignalFilesDir, $"{network.CryptoCode.ToLowerInvariant()}_fully_synched");
 		}
 		public NodeState NodeState
 		{
