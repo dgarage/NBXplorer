@@ -35,6 +35,7 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
+		public string[] ExternalAddresses { get; set; }
 		public NodeCapabilities Capabilities { get; set; }
 	}
 	public class NodeCapabilities
