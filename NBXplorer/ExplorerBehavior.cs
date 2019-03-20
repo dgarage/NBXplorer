@@ -151,17 +151,13 @@ namespace NBXplorer
 		readonly static TimeSpan DownloadHangingTimeout = TimeSpan.FromMinutes(1.0);
 		void Tick(object state)
 		{
-			var node = AttachedNode;
-			if (node == null)
-				return;
 			try
 			{
 				if (AskBlocks() == 0 &&
-					!_InFlights.IsEmpty &&
-					IsHanging(node))
+					IsHanging())
 				{
 					Logs.Explorer.LogInformation($"{Network.CryptoCode}: Block download seems to hang, let's reconnect to this node");
-					node.DisconnectAsync("Block download is hanging");
+					AttachedNode?.DisconnectAsync("Block download is hanging");
 				}
 			}
 			catch (Exception ex)
@@ -173,13 +169,29 @@ namespace NBXplorer
 			}
 		}
 
-		private bool IsHanging(Node node)
+		public bool IsDownloading => !_InFlights.IsEmpty;
+
+		public bool IsHanging()
 		{
+			var node = AttachedNode;
+			if (node == null)
+				return false;
 			DateTimeOffset lastActivity;
-			if (_LastBlockDownloaded is DateTimeOffset lastBlockDownloaded)
-				lastActivity = lastBlockDownloaded;
-			else
+			if (IsDownloading) // If we download
+			{
+				if (_LastBlockDownloaded is DateTimeOffset lastBlockDownloaded)
+					lastActivity = lastBlockDownloaded;
+				else
+					lastActivity = node.ConnectedAt;
+			}
+			else if (IsSynching()) // Not downloading but synching
+			{
 				lastActivity = node.ConnectedAt;
+			}
+			else // If we do not download and we do not sync, we are ok
+			{
+				return false;
+			}
 			return (DateTimeOffset.UtcNow - lastActivity) >= DownloadHangingTimeout;
 		}
 
