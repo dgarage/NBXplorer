@@ -43,11 +43,20 @@ namespace NBXplorer
 
 	public class GetNetworkInfoResponse
 	{
+		public class LocalAddress
+		{
+			public string address { get; set; }
+			public int port { get; set; }
+		}
 		public double relayfee
 		{
 			get; set;
 		}
 		public double incrementalfee
+		{
+			get; set;
+		}
+		public LocalAddress[] localaddresses
 		{
 			get; set;
 		}
