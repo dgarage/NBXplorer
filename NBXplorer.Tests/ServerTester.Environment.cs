@@ -74,9 +74,13 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Colossus.Instance.Regtest;
 			//RPCSupportSegwit = false;
 
-			CryptoCode = "BTC";
-			nodeDownloadData = NodeDownloadData.Bitcoin.v0_17_0;
-			Network = NBitcoin.Network.RegTest;
+			CryptoCode = "STRAT";
+			nodeDownloadData = NodeDownloadData.Stratis.v3_0_0;
+			Network = NBitcoin.Altcoins.Stratis.Instance.Regtest;
+
+			//CryptoCode = "BTC";
+			//nodeDownloadData = NodeDownloadData.Bitcoin.v0_17_0;
+			//Network = NBitcoin.Network.RegTest;
 		}
 	}
 }
