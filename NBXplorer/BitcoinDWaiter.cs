@@ -15,6 +15,7 @@ using NBitcoin.Protocol.Behaviors;
 using Microsoft.Extensions.Hosting;
 using NBXplorer.Events;
 using Newtonsoft.Json.Linq;
+using System.Text;
 
 namespace NBXplorer
 {
@@ -103,6 +104,7 @@ namespace NBXplorer
 		private Repository _Repository;
 		EventAggregator _EventAggregator;
 		private readonly ChainConfiguration _ChainConfiguration;
+		readonly string RPCReadyFile;
 
 		public BitcoinDWaiter(
 			RPCClient rpc,
@@ -124,6 +126,7 @@ namespace NBXplorer
 			State = BitcoinDWaiterState.NotStarted;
 			_EventAggregator = eventAggregator;
 			_ChainConfiguration = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
+			RPCReadyFile = Path.Combine(configuration.SignalFilesDir, $"{network.CryptoCode.ToLowerInvariant()}_fully_synched");
 		}
 		public NodeState NodeState
 		{
@@ -239,6 +242,7 @@ namespace NBXplorer
 				_Group = null;
 			}
 			State = BitcoinDWaiterState.NotStarted;
+			EnsureRPCReadyFileDeleted();
 			_Chain = null;
 			_Tick.Set();
 			_Tick.Dispose();
@@ -249,7 +253,7 @@ namespace NBXplorer
 			catch { }
 			return _Loop;
 		}
-
+		bool _BanListLoaded;
 		async Task<bool> StepAsync(CancellationToken token)
 		{
 			var oldState = State;
@@ -261,9 +265,17 @@ namespace NBXplorer
 					try
 					{
 						blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
+
+						if (_Network.CryptoCode == "BTC" &&
+							_Network.NBitcoinNetwork.NetworkType == NetworkType.Mainnet &&
+							!_BanListLoaded)
+						{
+							if (await LoadBanList())
+								_BanListLoaded = true;
+						}
 						if(blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest && !_ChainConfiguration.NoWarmup)
 						{
-							if(await WarmupBlockchain())
+							if (await WarmupBlockchain())
 							{
 								blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
 							}
@@ -344,9 +356,48 @@ namespace NBXplorer
 			if(changed)
 			{
 				_EventAggregator.Publish(new BitcoinDStateChangedEvent(_Network, oldState, State));
+				if (State == BitcoinDWaiterState.Ready)
+				{
+					await File.WriteAllTextAsync(RPCReadyFile, NBitcoin.Utils.DateTimeToUnixTime(DateTimeOffset.UtcNow).ToString());
+				}
 			}
-
+			if (State != BitcoinDWaiterState.Ready)
+			{
+				EnsureRPCReadyFileDeleted();
+			}
 			return changed;
+		}
+
+		private void EnsureRPCReadyFileDeleted()
+		{
+			if (File.Exists(RPCReadyFile))
+				File.Delete(RPCReadyFile);
+		}
+
+		private async Task<bool> LoadBanList()
+		{
+			var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("NBXplorer.banlist.cli.txt");
+			string content = null;
+			using (var reader = new StreamReader(stream, Encoding.UTF8))
+			{
+				content = reader.ReadToEnd();
+			}
+			var bannedLines = content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+			var batch = _RPC.PrepareBatch();
+			var commands = bannedLines
+						.Where(o => o.Length > 0 && o[0] != '#')
+						.Select(b => b.Split(' ')[2])
+						.Select(ip => batch.SendCommandAsync(new RPCRequest("setban", new object[] { ip, "add", 31557600 }), false))
+						.ToArray();
+			await batch.SendBatchAsync();
+			foreach (var command in commands)
+			{
+				var result = await command;
+				if (result.Error != null && result.Error.Code != RPCErrorCode.RPC_CLIENT_NODE_ALREADY_ADDED)
+					result.ThrowIfError();
+			}
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Node banlist loaded");
+			return true;
 		}
 
 		private async Task ConnectToBitcoinD(CancellationToken cancellation)

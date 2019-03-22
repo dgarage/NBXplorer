@@ -35,6 +35,8 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
+		[JsonIgnore] // Because low side crashes when we add new fields, let's disable this
+		public string[] ExternalAddresses { get; set; }
 		public NodeCapabilities Capabilities { get; set; }
 	}
 	public class NodeCapabilities

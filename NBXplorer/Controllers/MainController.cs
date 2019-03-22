@@ -220,7 +220,6 @@ namespace NBXplorer.Controllers
 
 			var blockchainInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetBlockchainInfoAsyncEx() : null;
 			var networkInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetNetworkInfoAsync() : null;
-			
 
 			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
 			GetNetworkInfoResponse networkInfo = networkInfoAsync == null ? null : await networkInfoAsync;
@@ -247,7 +246,9 @@ namespace NBXplorer.Controllers
 					{
 						CanScanTxoutSet = waiter.RPC.Capabilities.SupportScanUTXOSet,
 						CanSupportSegwit = waiter.RPC.Capabilities.SupportSegwit
-					}
+					},
+					ExternalAddresses = (networkInfo.localaddresses ?? Array.Empty<GetNetworkInfoResponse.LocalAddress>())
+										.Select(l => $"{l.address}:{l.port}").ToArray()
 				};
 				status.IsFullySynched &= status.BitcoinStatus.IsSynched;
 			}
