@@ -1729,6 +1729,14 @@ namespace NBXplorer.Tests
 			var multione = Assert.IsType<MultisigPlusOneDerivationStrategy>(Assert.IsType<P2WSHDerivationStrategy>(multioneP2WSHP2SH.Inner).Inner);
 			Assert.Equal($"2-of-{toto}-{tata}-and-{tata}", multione.ToString());
 			multione.GetLineFor(new KeyPath(0));
+
+			network = NBitcoin.Altcoins.BCash.Instance.Mainnet;
+
+			toto = toto.ToNetwork(network);
+			tata = tata.ToNetwork(network);
+			factory = new DerivationStrategy.DerivationStrategyFactory(network);
+			Assert.IsType<MultisigPlusOneDerivationStrategy>(Assert.IsType<P2SHDerivationStrategy>(factory.Parse($"2-of-{toto}-{tata}-and-{tata}-[legacy]")).Inner);
+			Assert.IsType<MultisigAndMultisigDerivationStrategy>(Assert.IsType<P2SHDerivationStrategy>(factory.Parse($"2-of-{toto}-{tata}-and-1-of-{tata}-[legacy]")).Inner);
 		}
 
 		private static Derivation Generate(DerivationStrategyBase strategy)

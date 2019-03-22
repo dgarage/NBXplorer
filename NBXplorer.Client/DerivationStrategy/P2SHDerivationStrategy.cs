@@ -8,7 +8,7 @@ using NBitcoin.Crypto;
 
 namespace NBXplorer.DerivationStrategy
 {
-	public class P2SHDerivationStrategy : DerivationStrategyBase
+	public class P2SHDerivationStrategy : DerivationStrategyBase, IHasInternStrategy
 	{
 		bool addSuffix;
 		internal P2SHDerivationStrategy(DerivationStrategyBase inner, bool addSuffix)

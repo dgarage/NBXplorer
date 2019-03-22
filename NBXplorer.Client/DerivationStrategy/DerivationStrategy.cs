@@ -94,19 +94,20 @@ namespace NBXplorer.DerivationStrategy
 					options = options ?? new DerivationStrategyOptions();
 
 					var noTag = new DerivationStrategyOptions();
+					noTag.Legacy = !_Network.Consensus.SupportSegwit;
 					DerivationStrategyBase derivationStrategy = null;
 					if(match2.Success)
 					{
 						derivationStrategy = new MultisigAndMultisigDerivationStrategy(
-							(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match1)).Inner,
-							(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match2)).Inner,
+							(MultisigDerivationStrategy)((IHasInternStrategy)CreateMultisigFromMatch(noTag, match1)).Inner,
+							(MultisigDerivationStrategy)((IHasInternStrategy)CreateMultisigFromMatch(noTag, match2)).Inner,
 							options.Legacy);
 					}
 					else
 					{
 						var key = _Network.Parse<BitcoinExtPubKey>(splitted[1]);
 						derivationStrategy = new MultisigPlusOneDerivationStrategy(
-							(MultisigDerivationStrategy)((P2WSHDerivationStrategy)CreateMultisigFromMatch(noTag, match1)).Inner,
+							(MultisigDerivationStrategy)((IHasInternStrategy)CreateMultisigFromMatch(noTag, match1)).Inner,
 							((DirectDerivationStrategy)CreateDirectDerivationStrategy(key, noTag)),
 							options.Legacy);
 					}

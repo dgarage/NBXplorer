@@ -8,7 +8,7 @@ using NBitcoin.Crypto;
 
 namespace NBXplorer.DerivationStrategy
 {
-	public class P2WSHDerivationStrategy : DerivationStrategyBase
+	public class P2WSHDerivationStrategy : DerivationStrategyBase, IHasInternStrategy
 	{
 		internal P2WSHDerivationStrategy(DerivationStrategyBase inner)
 		{
