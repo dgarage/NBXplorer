@@ -73,15 +73,18 @@ namespace NBXplorer.Tests
 				var id = await tester.Repository.SaveEvent(evt1);
 				Assert.Equal(1, id);
 
+				Func<JObject, NewEventBase> ToNewEventBase = o => NewEventBase.ParseEvent(o.ToString(), tester.Repository.Serializer.Settings);
 				// Well saved?
-				var evts = await tester.Repository.GetEvents(-1);
+				var evts = (await tester.Repository.GetEvents(-1))
+						.Select(ToNewEventBase).ToList();
 				Assert.Single(evts);
 				Assert.Equal(1, ((NewBlockEvent)evts[0]).Height);
 
 				// If same eventId, this operation should be idempotent
 				id = await tester.Repository.SaveEvent(evt1);
 				await tester.Repository.SaveEvent(evt1);
-				evts = await tester.Repository.GetEvents(-1);
+				evts = (await tester.Repository.GetEvents(-1))
+						.Select(ToNewEventBase).ToList();
 				Assert.Single(evts);
 				Assert.Equal(1, ((NewBlockEvent)evts[0]).Height);
 
@@ -91,25 +94,29 @@ namespace NBXplorer.Tests
 				Assert.Equal(4, id);
 
 				// Let's see if both evts are returned correctly
-				evts = await tester.Repository.GetEvents(-1);
+				evts = (await tester.Repository.GetEvents(-1))
+					.Select(ToNewEventBase).ToList();
 				Assert.True(evts.Count == 2);
 				Assert.Equal(1, ((NewBlockEvent)evts[0]).Height);
 				Assert.Equal(2, ((NewBlockEvent)evts[1]).Height);
 
 				// Or only 1 if we pass the first param
-				evts = await tester.Repository.GetEvents(1);
+				evts = (await tester.Repository.GetEvents(1))
+					.Select(ToNewEventBase).ToList();
 				Assert.Single(evts);
 				Assert.Equal(2, ((NewBlockEvent)evts[0]).Height);
 
 				// Or only 1 if we pass limit
-				evts = await tester.Repository.GetEvents(-1, 1);
+				evts = (await tester.Repository.GetEvents(-1, 1))
+					.Select(ToNewEventBase).ToList();
 				Assert.Single(evts);
 				Assert.Equal(1, ((NewBlockEvent)evts[0]).Height);
 
 				var evt3 = new NewBlockEvent() { Height = 3, Hash = RandomUtils.GetUInt256() };
 				await tester.Repository.SaveEvent(evt3);
 
-				evts = await tester.Repository.GetEvents(1, 1);
+				evts = (await tester.Repository.GetEvents(1, 1))
+					.Select(ToNewEventBase).ToList();
 				Assert.Equal(4, evts[0].EventId);
 				Assert.Single(evts);
 				Assert.Equal(2, ((NewBlockEvent)evts[0]).Height);
@@ -119,7 +126,8 @@ namespace NBXplorer.Tests
 					var evt = new NewBlockEvent() { Height = 4 + i, Hash = RandomUtils.GetUInt256() };
 					await tester.Repository.SaveEvent(evt);
 				}
-				evts = await tester.Repository.GetEvents(0);
+				evts = (await tester.Repository.GetEvents(0))
+					.Select(ToNewEventBase).ToList();
 				Assert.Equal(23, evts.Count);
 				int prev = 0;
 				foreach (var item in evts)

@@ -559,9 +559,9 @@ namespace NBXplorer
 			}
 		}
 
-		public async Task<IList<NewEventBase>> GetEvents(long afterId, int? limit = null)
+		public async Task<IList<JObject>> GetEvents(long afterId, int? limit = null)
 		{
-			List<NewEventBase> result = new List<NewEventBase>();
+			List<JObject> result = new List<JObject>();
 			using (var tx = await _ContextFactory.GetContext())
 			{
 				using (var command = tx.Connection.CreateCommand())
@@ -576,9 +576,9 @@ namespace NBXplorer
 						while (await reader.ReadAsync())
 						{
 							var bytes = (byte[])reader["data"];
-							var evt = NewEventBase.ParseEvent(ToObject<JObject>(bytes), Serializer.Settings);
+							var evt = ToObject<JObject>(bytes);
 							result.Add(evt);
-							evt.EventId = (long)reader["id"];
+							evt["eventId"] = (long)reader["id"];
 						}
 					}
 				}

@@ -408,14 +408,16 @@ namespace NBXplorer.Controllers
 		[Route("cryptos/{cryptoCode}/events")]
 		public async Task<JArray> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false, CancellationToken cancellationToken = default)
 		{
+			// WARNING: Event though this route has 1 stream per network on upstream nbxplorer, our fork have 1 stream for all cryptos
+			// So we can safely ignore cryptoCode
+
 			if (limit != null && limit.Value < 0)
 				throw new NBXplorerError(400, "invalid-limit", "limit should be more than 0").AsException();
 			var network = GetNetwork(cryptoCode, false);
 			TaskCompletionSource<bool> waitNextEvent = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 			Action<NewEventBase> maySetNextEvent = (NewEventBase ev) =>
 			{
-				if (ev.CryptoCode == network.CryptoCode)
-					waitNextEvent.TrySetResult(true);
+				waitNextEvent.TrySetResult(true);
 			};
 			using (CompositeDisposable subscriptions = new CompositeDisposable())
 			{
@@ -423,6 +425,7 @@ namespace NBXplorer.Controllers
 				subscriptions.Add(_EventAggregator.Subscribe<NewTransactionEvent>(maySetNextEvent));
 			retry:
 				var repo = RepositoryProvider.GetRepository(network);
+				// Actually all the
 				var result = await repo.GetEvents(lastEventId, limit);
 				if (result.Count == 0 && longPolling)
 				{
@@ -436,7 +439,7 @@ namespace NBXplorer.Controllers
 
 					}
 				}
-				return new JArray(result.Select(o => o.ToJObject(repo.Serializer.Settings)));
+				return new JArray(result.Select(o => o));
 			}
 		}
 
