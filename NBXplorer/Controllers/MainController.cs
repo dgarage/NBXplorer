@@ -179,12 +179,26 @@ namespace NBXplorer.Controllers
 			var repo = RepositoryProvider.GetRepository(network);
 			
 			var location = waiter.GetLocation();
+			GetBlockchainInfoResponse blockchainInfo = null;
+			GetNetworkInfoResponse networkInfo = null;
+			if (waiter.RPCAvailable)
+			{
+				try
+				{
+					var batch = waiter.RPC.PrepareBatch();
+					batch.RequestTimeout = TimeSpan.FromMinutes(1.0);
+					var blockchainInfoAsync = batch.GetBlockchainInfoAsyncEx();
+					var networkInfoAsync = batch.GetNetworkInfoAsync();
+					await batch.SendBatchAsync();
+					blockchainInfo = await blockchainInfoAsync;
+					networkInfo = await networkInfoAsync;
+				}
+				catch(OperationCanceledException) // Timeout, can happen if core is really busy
+				{
 
-			var blockchainInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetBlockchainInfoAsyncEx() : null;
-			var networkInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetNetworkInfoAsync() : null;
+				}
+			}
 
-			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
-			GetNetworkInfoResponse networkInfo = networkInfoAsync == null ? null : await networkInfoAsync;
 			var status = new StatusResult()
 			{
 				NetworkType = network.NBitcoinNetwork.NetworkType,
