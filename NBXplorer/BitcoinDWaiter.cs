@@ -96,7 +96,8 @@ namespace NBXplorer
 
 	public class BitcoinDWaiter : IHostedService
 	{
-		RPCClient _RPC;
+		RPCClient _RPCWithTimeout;
+		RPCClient _OriginalRPC;
 		NBXplorerNetwork _Network;
 		ExplorerConfiguration _Configuration;
 		private readonly AddressPoolService _AddressPoolService;
@@ -117,8 +118,9 @@ namespace NBXplorer
 		{
 			if(addressPoolService == null)
 				throw new ArgumentNullException(nameof(addressPoolService));
-			_RPC = rpc.Clone();
-			_RPC.RequestTimeout = TimeSpan.FromMinutes(1.0);
+			_OriginalRPC = rpc;
+			_RPCWithTimeout = rpc.Clone();
+			_RPCWithTimeout.RequestTimeout = TimeSpan.FromMinutes(1.0);
 			_Configuration = configuration;
 			_AddressPoolService = addressPoolService;
 			_Network = network;
@@ -150,7 +152,7 @@ namespace NBXplorer
 		{
 			get
 			{
-				return _RPC;
+				return _RPCWithTimeout;
 			}
 		}
 
@@ -261,11 +263,12 @@ namespace NBXplorer
 			switch(State)
 			{
 				case BitcoinDWaiterState.NotStarted:
-					await RPCArgs.TestRPCAsync(_Network, _RPC, token);
+					await RPCArgs.TestRPCAsync(_Network, _RPCWithTimeout, token);
+					_OriginalRPC.Capabilities = _RPCWithTimeout.Capabilities;
 					GetBlockchainInfoResponse blockchainInfo = null;
 					try
 					{
-						blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
+						blockchainInfo = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
 						if (_Network.CryptoCode == "BTC" &&
 							_Network.NBitcoinNetwork.NetworkType == NetworkType.Mainnet &&
 							!_BanListLoaded)
@@ -277,7 +280,7 @@ namespace NBXplorer
 						{
 							if(await WarmupBlockchain())
 							{
-								blockchainInfo = await _RPC.GetBlockchainInfoAsyncEx();
+								blockchainInfo = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
 							}
 						}
 					}
@@ -300,7 +303,7 @@ namespace NBXplorer
 					GetBlockchainInfoResponse blockchainInfo2 = null;
 					try
 					{
-						blockchainInfo2 = await _RPC.GetBlockchainInfoAsyncEx();
+						blockchainInfo2 = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
 					}
 					catch(Exception ex)
 					{
@@ -321,7 +324,7 @@ namespace NBXplorer
 						GetBlockchainInfoResponse blockchainInfo3 = null;
 						try
 						{
-							blockchainInfo3 = await _RPC.GetBlockchainInfoAsyncEx();
+							blockchainInfo3 = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
 						}
 						catch(Exception ex)
 						{
@@ -383,7 +386,7 @@ namespace NBXplorer
 				content = reader.ReadToEnd();
 			}
 			var bannedLines = content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-			var batch = _RPC.PrepareBatch();
+			var batch = _RPCWithTimeout.PrepareBatch();
 			var commands = bannedLines
 						.Where(o => o.Length > 0 && o[0] != '#')
 						.Select(b => b.Split(' ')[2])
@@ -408,7 +411,7 @@ namespace NBXplorer
 			if (_Configuration.CacheChain)
 			{
 				LoadChainFromCache();
-				if (!await HasBlock(_RPC, _Chain.Tip))
+				if (!await HasBlock(_RPCWithTimeout, _Chain.Tip))
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: The cached chain contains a tip unknown to the node, dropping the cache...");
 					_Chain.ResetToGenesis();
@@ -596,7 +599,7 @@ namespace NBXplorer
 						}
 						Logs.Explorer.LogInformation($"{Network.CryptoCode}: Chain loaded");
 
-						var peer = (await _RPC.GetPeersInfoAsync())
+						var peer = (await _RPCWithTimeout.GetPeersInfoAsync())
 									.FirstOrDefault(p => p.SubVersion == userAgent);
 						if(peer != null && !peer.IsWhiteListed)
 						{
@@ -689,29 +692,29 @@ namespace NBXplorer
 
 		private async Task<bool> WarmupBlockchain()
 		{
-			if(await _RPC.GetBlockCountAsync() < _Network.NBitcoinNetwork.Consensus.CoinbaseMaturity)
+			if(await _RPCWithTimeout.GetBlockCountAsync() < _Network.NBitcoinNetwork.Consensus.CoinbaseMaturity)
 			{
 				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Less than {_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity} blocks, mining some block for regtest");
-				await _RPC.EnsureGenerateAsync(_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity + 1);
+				await _RPCWithTimeout.EnsureGenerateAsync(_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity + 1);
 				return true;
 			}
 			else
 			{
-				var hash = await _RPC.GetBestBlockHashAsync();
+				var hash = await _RPCWithTimeout.GetBestBlockHashAsync();
 
 				BlockHeader header = null;
 				try
 				{
-					header = await _RPC.GetBlockHeaderAsync(hash);
+					header = await _RPCWithTimeout.GetBlockHeaderAsync(hash);
 				}
 				catch(RPCException ex) when(ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
 				{
-					header = (await _RPC.GetBlockAsync(hash)).Header;
+					header = (await _RPCWithTimeout.GetBlockAsync(hash)).Header;
 				}
 				if((DateTimeOffset.UtcNow - header.BlockTime) > TimeSpan.FromSeconds(24 * 60 * 60))
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: It has been a while nothing got mined on regtest... mining 10 blocks");
-					await _RPC.GenerateAsync(10);
+					await _RPCWithTimeout.GenerateAsync(10);
 					return true;
 				}
 				return false;
