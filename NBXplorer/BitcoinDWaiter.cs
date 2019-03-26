@@ -117,7 +117,8 @@ namespace NBXplorer
 		{
 			if(addressPoolService == null)
 				throw new ArgumentNullException(nameof(addressPoolService));
-			_RPC = rpc;
+			_RPC = rpc.Clone();
+			_RPC.RequestTimeout = TimeSpan.FromMinutes(1.0);
 			_Configuration = configuration;
 			_AddressPoolService = addressPoolService;
 			_Network = network;
