@@ -502,7 +502,9 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-amount", "amount should be equal or less than 0 satoshi"));
 
 			var firstAddress = derivationScheme.Derive(new KeyPath("0")).ScriptPubKey;
-			if (!firstAddress.IsPayToScriptHash && !firstAddress.IsWitness)
+			var needParentTransactions = !firstAddress.IsPayToScriptHash && !firstAddress.IsWitness;
+			needParentTransactions &= network.CryptoCode != "BCH"; // P2PKH for BCH is safe as utxos are included in sig
+			if (needParentTransactions)
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-derivationScheme", "Only P2SH or segwit derivation schemes are supported"));
 
 			var chain = ChainProvider.GetChain(network);
