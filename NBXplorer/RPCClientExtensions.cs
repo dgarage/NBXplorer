@@ -64,6 +64,23 @@ namespace NBXplorer
 
 	public static class RPCClientExtensions
     {
+		public static async Task<EstimateSmartFeeResponse> TryEstimateSmartFeeAsyncEx(this RPCClient client, int confirmationTarget, EstimateSmartFeeMode estimateMode = EstimateSmartFeeMode.Conservative)
+		{
+			// BCH removed estimatesmartfee and removed arguments to estimatefee so special case for them...
+			if (client.Network.NetworkSet.CryptoCode == "BCH") 
+			{
+				var response = await client.SendCommandAsync(RPCOperations.estimatefee).ConfigureAwait(false);
+				var result = response.Result.Value<decimal>();
+				var money = Money.Coins(result);
+				if (money.Satoshi < 0)
+					return null;
+				return new EstimateSmartFeeResponse() { FeeRate = new FeeRate(money), Blocks = confirmationTarget };
+			}
+			else
+			{
+				return await client.TryEstimateSmartFeeAsync(confirmationTarget, estimateMode);
+			}
+		}
 		public static async Task<GetBlockchainInfoResponse> GetBlockchainInfoAsyncEx(this RPCClient client)
 		{
 			var result = await client.SendCommandAsync("getblockchaininfo").ConfigureAwait(false);

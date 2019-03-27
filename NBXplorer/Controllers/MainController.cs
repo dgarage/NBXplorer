@@ -84,7 +84,7 @@ namespace NBXplorer.Controllers
 			EstimateSmartFeeResponse rate = null;
 			try
 			{
-				rate = await waiter.RPC.TryEstimateSmartFeeAsync(blockCount);
+				rate = await waiter.RPC.TryEstimateSmartFeeAsyncEx(blockCount);
 			}
 			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
 			{
