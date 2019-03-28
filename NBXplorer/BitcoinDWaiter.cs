@@ -466,7 +466,7 @@ namespace NBXplorer
 		private async Task LoadGroup()
 		{
 			AddressManager manager = new AddressManager();
-			manager.Add(new NetworkAddress(_ChainConfiguration.NodeEndpoint), IPAddress.Loopback);
+			await manager.AddAsync(_ChainConfiguration.NodeEndpoint);
 			NodesGroup group = new NodesGroup(_Network.NBitcoinNetwork, new NodeConnectionParameters()
 			{
 				Services = NodeServices.Nothing,

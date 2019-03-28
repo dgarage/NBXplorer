@@ -27,7 +27,7 @@ namespace NBXplorer.Configuration
 			get;
 			internal set;
 		}
-		public IPEndPoint NodeEndpoint
+		public EndPoint NodeEndpoint
 		{
 			get;
 			internal set;
@@ -122,7 +122,7 @@ namespace NBXplorer.Configuration
 							$"Please use {network.CryptoCode.ToLowerInvariant()}rpcuser and {network.CryptoCode.ToLowerInvariant()}rpcpassword settings in NBXplorer" +
 							$"And configure rpcuser and rpcpassword in the configuration file or in commandline or your node");
 					}
-					chainConfiguration.NodeEndpoint = DefaultConfiguration.ConvertToEndpoint(config.GetOrDefault<string>($"{network.CryptoCode}.node.endpoint", "127.0.0.1"), network.NBitcoinNetwork.DefaultPort);
+					chainConfiguration.NodeEndpoint = NBitcoin.Utils.ParseEndpoint(config.GetOrDefault<string>($"{network.CryptoCode}.node.endpoint", "127.0.0.1"), network.NBitcoinNetwork.DefaultPort);
 					chainConfiguration.StartHeight = config.GetOrDefault<int>($"{network.CryptoCode}.startheight", -1);
 
 					ChainConfigurations.Add(chainConfiguration);

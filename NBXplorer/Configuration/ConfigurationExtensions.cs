@@ -30,15 +30,6 @@ namespace NBXplorer.Configuration
 				return (T)(object)new Uri(str, UriKind.Absolute);
 			else if(typeof(T) == typeof(string))
 				return (T)(object)str;
-			else if(typeof(T) == typeof(IPEndPoint))
-			{
-				var separator = str.LastIndexOf(":");
-				if(separator == -1)
-					throw new FormatException();
-				var ip = str.Substring(0, separator);
-				var port = str.Substring(separator + 1);
-				return (T)(object)new IPEndPoint(IPAddress.Parse(ip), int.Parse(port));
-			}
 			else if(typeof(T) == typeof(int))
 			{
 				return (T)(object)int.Parse(str, CultureInfo.InvariantCulture);

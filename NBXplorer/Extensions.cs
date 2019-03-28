@@ -29,11 +29,40 @@ using NBXplorer.Authentication;
 using NBitcoin.DataEncoders;
 using System.Text.RegularExpressions;
 using NBXplorer.MessageBrokers;
+using NBitcoin.Protocol;
 
 namespace NBXplorer
 {
 	public static class Extensions
 	{
+		internal static async Task AddAsync(this AddressManager addrman, EndPoint endpoint, IPAddress source = null)
+		{
+			if (addrman == null)
+				throw new ArgumentNullException(nameof(addrman));
+			if (endpoint == null)
+				throw new ArgumentNullException(nameof(endpoint));
+			if (source == null)
+				source = IPAddress.Loopback;
+			if (endpoint is IPEndPoint ip)
+			{
+				addrman.Add(new NetworkAddress(ip), IPAddress.Loopback);
+			}
+			else if (endpoint.AsOnionCatIPEndpoint() is IPEndPoint ip2)
+			{
+				addrman.Add(new NetworkAddress(ip2), IPAddress.Loopback);
+			}
+			else if (endpoint.AsOnionDNSEndpoint() is DnsEndPoint dns)
+			{
+				var ips = await Dns.GetHostAddressesAsync(dns.Host);
+				foreach (var ip3 in ips)
+				{
+					addrman.Add(new NetworkAddress(new IPEndPoint(ip3, dns.Port)), IPAddress.Loopback);
+				}
+			}
+			else
+				throw new NotSupportedException(endpoint.ToString());
+		}
+
 		internal static Task WaitOneAsync(this WaitHandle waitHandle)
 		{
 			if(waitHandle == null)
