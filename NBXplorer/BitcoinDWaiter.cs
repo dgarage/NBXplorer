@@ -557,7 +557,7 @@ namespace NBXplorer
 				try
 				{
 					handshakeTimeout.CancelAfter(TimeSpan.FromSeconds(10));
-					using(var node = Node.Connect(_Network.NBitcoinNetwork, _ChainConfiguration.NodeEndpoint, new NodeConnectionParameters()
+					using(var node = await Node.ConnectAsync(_Network.NBitcoinNetwork, _ChainConfiguration.NodeEndpoint, new NodeConnectionParameters()
 					{
 						UserAgent = userAgent,
 						ConnectCancellation = handshakeTimeout.Token,
