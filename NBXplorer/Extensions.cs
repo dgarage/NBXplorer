@@ -35,40 +35,6 @@ namespace NBXplorer
 {
 	public static class Extensions
 	{
-		/// <returns></returns>
-		internal static async Task AddAsync(this AddressManager addrman, EndPoint endpoint, IPAddress source = null)
-		{
-			if (endpoint == null)
-				throw new ArgumentNullException(nameof(endpoint));
-			if (source == null)
-				source = IPAddress.Loopback;
-			foreach (var ip in (await endpoint.ResolveToIPEndpointsAsync().ConfigureAwait(false)))
-			{
-				addrman.Add(new NetworkAddress(ip), source);
-			}
-		}
-
-		internal static async Task<IPEndPoint[]> ResolveToIPEndpointsAsync(this EndPoint endpoint)
-		{
-			if (endpoint == null)
-				throw new ArgumentNullException(nameof(endpoint));
-			if (endpoint is IPEndPoint ip)
-			{
-				return new[] { ip };
-			}
-			else if (endpoint.AsOnionCatIPEndpoint() is IPEndPoint ip2)
-			{
-				return new[] { ip2 };
-			}
-			else if (endpoint is DnsEndPoint dns)
-			{
-				var ips = await Dns.GetHostAddressesAsync(dns.Host);
-				return ips.Select(i => new IPEndPoint(i, dns.Port)).ToArray();
-			}
-			else
-				throw new NotSupportedException(endpoint.ToString());
-		}
-
 		internal static Task WaitOneAsync(this WaitHandle waitHandle)
 		{
 			if(waitHandle == null)
