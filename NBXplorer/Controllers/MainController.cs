@@ -545,26 +545,29 @@ namespace NBXplorer.Controllers
 				var tx = txBuilder.BuildTransaction(false);
 				LockUTXOsResponse result = new LockUTXOsResponse();
 				result.Fee = tx.GetFee(txBuilder.FindSpentCoins(tx));
-				var spentCoins = txBuilder.FindSpentCoins(tx).OfType<ScriptCoin>().ToArray();
+				var spentCoins = txBuilder.FindSpentCoins(tx).ToArray();
 				result.SpentCoins = spentCoins.Select(r => new LockUTXOsResponse.SpentCoin()
 				{
-					KeyPath = transactions.GetKeyPath(r.ScriptPubKey),
+					KeyPath = transactions.GetKeyPath(r.TxOut.ScriptPubKey),
 					Outpoint = r.Outpoint,
-					Value = r.Amount
+					Value = r.TxOut.Value
 				})
 					.ToArray();
 				foreach (var input in tx.Inputs)
 				{
 					var coin = spentCoins.Single(s => s.Outpoint == input.PrevOut);
-					if (coin.RedeemType == RedeemType.P2SH)
+					if (coin is ScriptCoin scriptCoin)
 					{
-						input.ScriptSig = new Script(Op.GetPushOp(coin.Redeem.ToBytes()));
-					}
-					else if (coin.RedeemType == RedeemType.WitnessV0)
-					{
-						input.WitScript = new Script(Op.GetPushOp(coin.Redeem.ToBytes()));
-						if (coin.IsP2SH)
-							input.ScriptSig = new Script(Op.GetPushOp(coin.Redeem.WitHash.ScriptPubKey.ToBytes()));
+						if (scriptCoin.RedeemType == RedeemType.P2SH)
+						{
+							input.ScriptSig = new Script(Op.GetPushOp(scriptCoin.Redeem.ToBytes()));
+						}
+						else if (scriptCoin.RedeemType == RedeemType.WitnessV0)
+						{
+							input.WitScript = new Script(Op.GetPushOp(scriptCoin.Redeem.ToBytes()));
+							if (scriptCoin.IsP2SH)
+								input.ScriptSig = new Script(Op.GetPushOp(scriptCoin.Redeem.WitHash.ScriptPubKey.ToBytes()));
+						}
 					}
 				}
 				result.Transaction = tx.Clone();
