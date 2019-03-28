@@ -501,7 +501,9 @@ namespace NBXplorer.Controllers
 			if (request.Amount == null || request.Amount <= Money.Zero)
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-amount", "amount should be equal or less than 0 satoshi"));
 
-			var firstAddress = derivationScheme.Derive(new KeyPath("0")).ScriptPubKey;
+			var firstDerivation = derivationScheme.Derive(new KeyPath("0"));
+			var firstAddress = firstDerivation.ScriptPubKey;
+			bool hasRedeemScript = firstDerivation.Redeem != null;
 			var needParentTransactions = !firstAddress.IsPayToScriptHash && !firstAddress.IsWitness;
 			needParentTransactions &= network.CryptoCode != "BCH"; // P2PKH for BCH is safe as utxos are included in sig
 			if (needParentTransactions)
@@ -529,7 +531,7 @@ namespace NBXplorer.Controllers
 
 				// TODO: We might want to cache this as the Derive operation is computionally expensive
 				var unspentCoins = changes.GetUnspentCoins()
-					   .Select(c => Task.Run(() => c.ToScriptCoin(derivationScheme.Derive(transactions.GetKeyPath(c.ScriptPubKey)).Redeem)))
+					   .Select(c => hasRedeemScript ? Task.Run(() => (Coin)c.ToScriptCoin(derivationScheme.Derive(transactions.GetKeyPath(c.ScriptPubKey)).Redeem)) : Task.FromResult(c))
 						 .Select(t => t.Result)
 						 .ToArray();
 
