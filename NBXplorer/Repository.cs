@@ -27,6 +27,20 @@ using Newtonsoft.Json.Linq;
 
 namespace NBXplorer
 {
+	public class GenerateAddressQuery
+	{
+		public GenerateAddressQuery()
+		{
+
+		}
+		public GenerateAddressQuery(int? minAddresses, int? maxAddresses)
+		{
+			MinAddresses = minAddresses;
+			MaxAddresses = maxAddresses;
+		}
+		public int? MinAddresses { get; set; }
+		public int? MaxAddresses { get; set; }
+	}
 	public class RepositoryProvider : IDisposable
 	{
 		internal class CustomThreadPool
@@ -658,12 +672,20 @@ namespace NBXplorer
 			});
 		}
 
-		public Task<int> RefillAddressPoolIfNeeded(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int maxAddreses = int.MaxValue)
+		public Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int maxAddresses)
 		{
+			return GenerateAddresses(strategy, derivationFeature, new GenerateAddressQuery(null, maxAddresses));
+		}
+		public Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, GenerateAddressQuery query = null)
+		{
+			query = query ?? new GenerateAddressQuery();
 			return _Engine.DoAsync((tx) =>
 			{
 				var toGenerate = GetAddressToGenerateCount(tx, strategy, derivationFeature);
-				toGenerate = Math.Min(maxAddreses, toGenerate);
+				if (query.MaxAddresses is int max)
+					toGenerate = Math.Min(max, toGenerate);
+				if (query.MinAddresses is int min)
+					toGenerate = Math.Max(min, toGenerate);
 				RefillAvailable(tx, strategy, derivationFeature, toGenerate);
 				return toGenerate;
 			});

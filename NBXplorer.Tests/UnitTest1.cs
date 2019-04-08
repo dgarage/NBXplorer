@@ -150,7 +150,7 @@ namespace NBXplorer.Tests
 
 		private static void RepositoryCanTrackAddressesCore(RepositoryTester tester, DerivationStrategyBase dummy)
 		{
-			Assert.Equal(2, tester.Repository.RefillAddressPoolIfNeeded(dummy, DerivationFeature.Deposit, 2).Result);
+			Assert.Equal(2, tester.Repository.GenerateAddresses(dummy, DerivationFeature.Deposit, 2).Result);
 			var keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(0).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 			Assert.Equal(new KeyPath("0/0"), keyInfo.KeyPath);
@@ -163,8 +163,8 @@ namespace NBXplorer.Tests
 
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(2).ScriptPubKey);
 			Assert.Null(keyInfo);
-			Assert.Equal(28, tester.Repository.RefillAddressPoolIfNeeded(dummy, DerivationFeature.Deposit).Result);
-			Assert.Equal(30, tester.Repository.RefillAddressPoolIfNeeded(dummy, DerivationFeature.Change).Result);
+			Assert.Equal(28, tester.Repository.GenerateAddresses(dummy, DerivationFeature.Deposit).Result);
+			Assert.Equal(30, tester.Repository.GenerateAddresses(dummy, DerivationFeature.Change).Result);
 
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(29).ScriptPubKey);
 			Assert.NotNull(keyInfo);
@@ -196,13 +196,13 @@ namespace NBXplorer.Tests
 
 			for (int i = 0; i < 10; i++)
 			{
-				Assert.Equal(0, tester.Repository.RefillAddressPoolIfNeeded(dummy, DerivationFeature.Deposit).Result);
+				Assert.Equal(0, tester.Repository.GenerateAddresses(dummy, DerivationFeature.Deposit).Result);
 				MarkAsUsed(tester.Repository, dummy, new KeyPath("0/" + i));
 			}
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.Null(keyInfo);
 			MarkAsUsed(tester.Repository, dummy, new KeyPath("0/10"));
-			Assert.Equal(11, tester.Repository.RefillAddressPoolIfNeeded(dummy, DerivationFeature.Deposit).Result);
+			Assert.Equal(11, tester.Repository.GenerateAddresses(dummy, DerivationFeature.Deposit).Result);
 			keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(30).ScriptPubKey);
 			Assert.NotNull(keyInfo);
 
