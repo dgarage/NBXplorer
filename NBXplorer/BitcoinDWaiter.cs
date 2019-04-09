@@ -41,6 +41,8 @@ namespace NBXplorer
 	public class BitcoinDWaiters : IHostedService
 	{
 		Dictionary<string, BitcoinDWaiter> _Waiters;
+		private readonly RepositoryProvider repositoryProvider;
+
 		public BitcoinDWaiters(
 							BitcoinDWaitersAccessor accessor,
 							AddressPoolServiceAccessor addressPool,
@@ -67,15 +69,18 @@ namespace NBXplorer
 												addressPool.Instance,
 												eventAggregator))
 				.ToDictionary(s => s.Network.CryptoCode, s => s);
+			this.repositoryProvider = repositoryProvider;
 		}
-		public Task StartAsync(CancellationToken cancellationToken)
+		public async Task StartAsync(CancellationToken cancellationToken)
 		{
-			return Task.WhenAll(_Waiters.Select(s => s.Value.StartAsync(cancellationToken)).ToArray());
+			await repositoryProvider.StartAsync();
+			await Task.WhenAll(_Waiters.Select(s => s.Value.StartAsync(cancellationToken)).ToArray());
 		}
 
-		public Task StopAsync(CancellationToken cancellationToken)
+		public async Task StopAsync(CancellationToken cancellationToken)
 		{
-			return Task.WhenAll(_Waiters.Select(s => s.Value.StopAsync(cancellationToken)).ToArray());
+			await Task.WhenAll(_Waiters.Select(s => s.Value.StopAsync(cancellationToken)).ToArray());
+			await repositoryProvider.DisposeAsync();
 		}
 
 		public BitcoinDWaiter GetWaiter(NBXplorerNetwork network)
