@@ -55,53 +55,63 @@ namespace NBXplorer
 			{
 				while (await _Channel.Reader.WaitToReadAsync())
 				{
-					_Channel.Reader.TryRead(out var modelItem);
-					if (modelItem == null)
-						continue;
-				retry:
-					RefillPoolRequest nextItem = null;
 					List<RefillPoolRequest> pendingRequests = new List<RefillPoolRequest>();
-					pendingRequests.Add(modelItem);
-
-					// Try to batch several requests together
-					while (_Channel.Reader.TryRead(out var item))
+					try
 					{
-						if (modelItem.DerivationStrategy == item.DerivationStrategy &&
-							modelItem.Feature == item.Feature)
+						_Channel.Reader.TryRead(out var modelItem);
+						if (modelItem == null)
+							continue;
+						retry:
+						RefillPoolRequest nextItem = null;
+						pendingRequests.Add(modelItem);
+
+						// Try to batch several requests together
+						while (_Channel.Reader.TryRead(out var item))
 						{
-							pendingRequests.Add(item);
+							if (modelItem.DerivationStrategy == item.DerivationStrategy &&
+								modelItem.Feature == item.Feature)
+							{
+								pendingRequests.Add(item);
+							}
+							else
+							{
+								nextItem = item;
+								break;
+							}
 						}
-						else
+
+						var query = new GenerateAddressQuery();
+						foreach (var i in pendingRequests.Where(o => o.MinAddresses is int).Select(o => o.MinAddresses.Value))
 						{
-							nextItem = item;
-							break;
+							if (query.MinAddresses is int min)
+							{
+								query.MinAddresses = min + i;
+							}
+							else
+							{
+								query.MinAddresses = new int?(i);
+							}
+						}
+
+						if (query.MinAddresses is int)
+						{
+							query.MinAddresses = Math.Min(1000, query.MinAddresses.Value);
+						}
+
+						var c = await _Repository.GenerateAddresses(modelItem.DerivationStrategy, modelItem.Feature, query);
+						pendingRequests.ForEach(i => i.Done?.TrySetResult(true));
+						if (nextItem != null)
+						{
+							modelItem = nextItem;
+							pendingRequests.Clear();
+							goto retry;
 						}
 					}
-
-					var query = new GenerateAddressQuery();
-					foreach (var i in pendingRequests.Where(o => o.MinAddresses is int).Select(o => o.MinAddresses.Value))
+					catch (Exception ex)
 					{
-						if (query.MinAddresses is int min)
-						{
-							query.MinAddresses = min + i;
-						}
-						else
-						{
-							query.MinAddresses = new int?(i);
-						}
-					}
-
-					if (query.MinAddresses is int)
-					{
-						query.MinAddresses = Math.Min(1000, query.MinAddresses.Value);
-					}
-
-					var c = await _Repository.GenerateAddresses(modelItem.DerivationStrategy, modelItem.Feature, query);
-					pendingRequests.ForEach(i => i.Done?.TrySetResult(true));
-					if (nextItem != null)
-					{
-						modelItem = nextItem;
-						goto retry;
+						pendingRequests.ForEach(i => i.Done?.TrySetException(ex));
+						Logs.Explorer.LogError(ex, $"{_Repository.Network.CryptoCode}: Error in the Listen of the AddressPoolService");
+						await Task.Delay(1000);
 					}
 				}
 			}
@@ -121,7 +131,8 @@ namespace NBXplorer
 		public Task GenerateAddresses(NBXplorerNetwork network, DerivationStrategyBase derivationStrategy, DerivationFeature feature, int? minAddresses = null)
 		{
 			var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-			_AddressPoolByNetwork[network]._Channel.Writer.TryWrite(new RefillPoolRequest() { DerivationStrategy = derivationStrategy, Feature = feature, Done = completion, MinAddresses = minAddresses });
+			if (!_AddressPoolByNetwork[network]._Channel.Writer.TryWrite(new RefillPoolRequest() { DerivationStrategy = derivationStrategy, Feature = feature, Done = completion, MinAddresses = minAddresses }))
+				completion.TrySetCanceled();
 			return completion.Task;
 		}
 
