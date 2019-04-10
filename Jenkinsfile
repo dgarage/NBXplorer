@@ -15,8 +15,8 @@ pipeline {
   }
 
   parameters {
-    booleanParam(name: 'UNIT_TESTS', defaultValue: true, description: 'Shall run unit tests??')
-    booleanParam(name: 'DOCKER_BUILD', defaultValue: false, description: 'Shall build the docker images??')
+    booleanParam(name: 'DOCKER_PROD', defaultValue: false, description: 'Deploy signed images to prod?')
+    booleanParam(name: 'DOCKER_BUILD', defaultValue: false, description: 'Shall build the docker images?')
   }
 
   options {
@@ -44,8 +44,24 @@ pipeline {
       }
     }
 
+    stage('Build Docker tag') {
+      when { tag "*" }
+      steps {
+        sh '''
+          docker login -u ${M3T4C0_REGISTRY_USR} -p ${M3T4C0_REGISTRY_PSW} ${DOCKER_REGISTRY}
+          docker build -t ${DOCKER_IMG}:${TAG_NAME} -f Dockerfile.linuxamd64 .
+          docker push ${DOCKER_IMG}:${TAG_NAME}
+        '''
+      }
+    }
+
     stage('Deploy Docker Sign Sign') {
-      when { tag 'r[0-9]+\\.[0-9]+\\.[0-9]+$' }
+      when { 
+        allOf {
+          expression { params.DOCKER_PROD == true }
+          tag 'v*'
+        }
+      }
 
       steps {
           sh '''
