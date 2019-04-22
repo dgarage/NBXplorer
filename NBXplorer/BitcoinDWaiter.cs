@@ -199,29 +199,42 @@ namespace NBXplorer
 		{
 			try
 			{
+				int errors = 0;
 				while (!token.IsCancellationRequested)
 				{
+					errors = Math.Min(11, errors);
 					try
 					{
 						while (await StepAsync(token))
 						{
 						}
 						await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(PollingInterval, token));
+						errors = 0;
 					}
 					catch (ConfigException) when (!token.IsCancellationRequested)
 					{
 						// Probably RPC errors, don't spam
+						await Wait(errors, tick, token);
+						errors++;
 					}
 					catch (Exception ex) when (!token.IsCancellationRequested)
 					{
 						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled in Waiter loop");
-						await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(TimeSpan.FromSeconds(5.0), token));
+						await Wait(errors, tick, token);
+						errors++;
 					}
 				}
 			}
 			catch when (token.IsCancellationRequested)
 			{
 			}
+		}
+
+		private async Task Wait(int errors, AutoResetEvent tick, CancellationToken token)
+		{
+			var timeToWait = TimeSpan.FromSeconds(5.0) * (errors + 1);
+			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Testing again in {(int)timeToWait.TotalSeconds} seconds");
+			await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(timeToWait, token));
 		}
 
 		public BlockLocator GetLocation()
