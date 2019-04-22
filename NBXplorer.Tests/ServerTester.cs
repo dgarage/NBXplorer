@@ -125,6 +125,7 @@ namespace NBXplorer.Tests
 				.ConfigureLogging(l =>
 				{
 					l.SetMinimumLevel(LogLevel.Information)
+						.AddFilter("System.Net.Http.HttpClient", LogLevel.Error)
 						.AddFilter("Microsoft", LogLevel.Error)
 						.AddFilter("Hangfire", LogLevel.Error)
 						.AddFilter("NBXplorer.Authentication.BasicAuthenticationHandler", LogLevel.Critical)

@@ -247,21 +247,20 @@ namespace NBXplorer
 			get; set;
 		} = TimeSpan.FromMinutes(1.0);
 
-		public Task StopAsync(CancellationToken cancellationToken)
+		public async Task StopAsync(CancellationToken cancellationToken)
 		{
 			_Disposed = true;
 			_Cts.Cancel();
 			_Subscription.Dispose();
 			EnsureNodeDisposed();
 			State = BitcoinDWaiterState.NotStarted;
-			EnsureRPCReadyFileDeleted();
 			_Chain = null;
 			try
 			{
-				_Loop.Wait();
+				await _Loop;
 			}
 			catch { }
-			return _Loop;
+			EnsureRPCReadyFileDeleted();
 		}
 		bool _BanListLoaded;
 		async Task<bool> StepAsync(CancellationToken token)
