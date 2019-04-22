@@ -208,6 +208,10 @@ namespace NBXplorer
 						}
 						await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(PollingInterval, token));
 					}
+					catch (ConfigException) when (!token.IsCancellationRequested)
+					{
+						// Probably RPC errors, don't spam
+					}
 					catch (Exception ex) when (!token.IsCancellationRequested)
 					{
 						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Unhandled in Waiter loop");
