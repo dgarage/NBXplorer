@@ -193,9 +193,9 @@ namespace NBXplorer
 			return Task.CompletedTask;
 		}
 
-		AutoResetEvent _Tick = new AutoResetEvent(false);
+		Signaler _Tick = new Signaler();
 
-		private async Task StartLoop(CancellationToken token, AutoResetEvent tick)
+		private async Task StartLoop(CancellationToken token, Signaler tick)
 		{
 			try
 			{
@@ -208,7 +208,7 @@ namespace NBXplorer
 						while (await StepAsync(token))
 						{
 						}
-						await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(PollingInterval, token));
+						await tick.Wait(PollingInterval, token);
 						errors = 0;
 					}
 					catch (ConfigException) when (!token.IsCancellationRequested)
@@ -230,11 +230,11 @@ namespace NBXplorer
 			}
 		}
 
-		private async Task Wait(int errors, AutoResetEvent tick, CancellationToken token)
+		private async Task Wait(int errors, Signaler tick, CancellationToken token)
 		{
 			var timeToWait = TimeSpan.FromSeconds(5.0) * (errors + 1);
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Testing again in {(int)timeToWait.TotalSeconds} seconds");
-			await Task.WhenAny(tick.WaitOneAsync(), Task.Delay(timeToWait, token));
+			await tick.Wait(timeToWait, token);
 		}
 
 		public BlockLocator GetLocation()
@@ -256,8 +256,6 @@ namespace NBXplorer
 			State = BitcoinDWaiterState.NotStarted;
 			EnsureRPCReadyFileDeleted();
 			_Chain = null;
-			_Tick.Set();
-			_Tick.Dispose();
 			try
 			{
 				_Loop.Wait();
@@ -552,6 +550,7 @@ namespace NBXplorer
 
 		private void Node_StateChanged(Node node, NodeState oldState)
 		{
+			Logs.Explorer.LogInformation("TICK");
 			_Tick.Set();
 		}
 
