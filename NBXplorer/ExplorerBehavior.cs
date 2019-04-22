@@ -74,11 +74,9 @@ namespace NBXplorer
 		{
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
-			Run(Init);
-			_Timer = new Timer(Tick, null, 0, (int)TimeSpan.FromSeconds(30).TotalMilliseconds);
 		}
 
-		private async Task Init()
+		public async Task Init()
 		{
 			var currentLocation = await Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
 			var fork = Chain.FindFork(currentLocation);
@@ -89,6 +87,7 @@ namespace NBXplorer
 			}
 			CurrentLocation = currentLocation;
 			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting scan at block " + fork.Height);
+			_Timer = new Timer(Tick, null, 0, (int)TimeSpan.FromSeconds(30).TotalMilliseconds);
 		}
 
 		private BlockLocator GetDefaultCurrentLocation()
