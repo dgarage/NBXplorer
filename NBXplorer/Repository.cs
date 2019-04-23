@@ -1,4 +1,4 @@
-﻿using DBreeze;
+﻿using DBriize;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
@@ -15,10 +15,10 @@ using NBXplorer.Models;
 using System.Threading.Tasks;
 using System.Threading;
 using NBitcoin.DataEncoders;
-using DBreeze.Utils;
+using DBriize.Utils;
 using System.Runtime.Serialization;
 using Newtonsoft.Json;
-using DBreeze.Exceptions;
+using DBriize.Exceptions;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using static NBXplorer.RepositoryProvider;
@@ -43,7 +43,7 @@ namespace NBXplorer
 	}
 	public class RepositoryProvider
 	{
-		DBreezeEngine _Engine;
+		DBriizeEngine _Engine;
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
 
 		public RepositoryProvider(NBXplorerNetworkProvider networks, ExplorerConfiguration configuration)
@@ -56,7 +56,7 @@ namespace NBXplorer
 		retry:
 			try
 			{
-				_Engine = new DBreezeEngine(directory);
+				_Engine = new DBriizeEngine(directory);
 			}
 			catch when (tried < 10)
 			{
@@ -148,8 +148,8 @@ namespace NBXplorer
 
 		class Index
 		{
-			DBreeze.Transactions.Transaction tx;
-			public Index(DBreeze.Transactions.Transaction tx, string tableName, string primaryKey)
+			DBriize.Transactions.Transaction tx;
+			public Index(DBriize.Transactions.Transaction tx, string tableName, string primaryKey)
 			{
 				TableName = tableName;
 				PrimaryKey = primaryKey;
@@ -255,32 +255,32 @@ namespace NBXplorer
 			}
 		}
 
-		Index GetAvailableKeysIndex(DBreeze.Transactions.Transaction tx, DerivationStrategyBase trackedSource, DerivationFeature feature)
+		Index GetAvailableKeysIndex(DBriize.Transactions.Transaction tx, DerivationStrategyBase trackedSource, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}AvailableKeys", $"{trackedSource.GetHash()}-{feature}");
 		}
 
-		Index GetScriptsIndex(DBreeze.Transactions.Transaction tx, Script scriptPubKey)
+		Index GetScriptsIndex(DBriize.Transactions.Transaction tx, Script scriptPubKey)
 		{
 			return new Index(tx, $"{_Suffix}Scripts", $"{scriptPubKey.Hash}");
 		}
 
-		Index GetHighestPathIndex(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
+		Index GetHighestPathIndex(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}HighestPath", $"{strategy.GetHash()}-{feature}");
 		}
 
-		Index GetReservedKeysIndex(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
+		Index GetReservedKeysIndex(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}ReservedKeys", $"{strategy.GetHash()}-{feature}");
 		}
 
-		Index GetTransactionsIndex(DBreeze.Transactions.Transaction tx, TrackedSource trackedSource)
+		Index GetTransactionsIndex(DBriize.Transactions.Transaction tx, TrackedSource trackedSource)
 		{
 			return new Index(tx, $"{_Suffix}Transactions", $"{trackedSource.GetHash()}");
 		}
 
-		Index GetEventsIndex(DBreeze.Transactions.Transaction tx)
+		Index GetEventsIndex(DBriize.Transactions.Transaction tx)
 		{
 			return new Index(tx, $"{_Suffix}Events", string.Empty);
 		}
@@ -295,15 +295,15 @@ namespace NBXplorer
 			}
 		}
 
-		DBreezeTransactionContext _TxContext;
-		internal Repository(DBreezeEngine engine, NBXplorerNetwork network)
+		DBriizeTransactionContext _TxContext;
+		internal Repository(DBriizeEngine engine, NBXplorerNetwork network)
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			Serializer = new Serializer(_Network.NBitcoinNetwork);
 			_Network = network;
-			_TxContext = new DBreezeTransactionContext(engine);
+			_TxContext = new DBriizeTransactionContext(engine);
 			_TxContext.UnhandledException += (s, ex) =>
 			{
 				Logs.Explorer.LogCritical(ex, $"{network.CryptoCode}: Unhandled exception in the repository");
@@ -368,7 +368,7 @@ namespace NBXplorer
 			});
 		}
 
-		int GetAddressToGenerateCount(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
+		int GetAddressToGenerateCount(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
 			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
 			var currentlyAvailable = availableTable.Count();
@@ -377,7 +377,7 @@ namespace NBXplorer
 			return Math.Max(0, MaxPoolSize - currentlyAvailable);
 		}
 
-		private void RefillAvailable(DBreeze.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature, int toGenerate)
+		private void RefillAvailable(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature, int toGenerate)
 		{
 			if (toGenerate <= 0)
 				return;

@@ -14,12 +14,11 @@
     <EmbeddedResource Include="banlist.cli.txt" />
   </ItemGroup>
   <ItemGroup>
-	<PackageReference Include="DBreeze" Version="1.92.0" />
 	  <PackageReference Include="Microsoft.AspNetCore.App" Version="2.1.9" />
 	  <PackageReference Include="Microsoft.Azure.ServiceBus" Version="3.1.1" />
+    <PackageReference Include="DBriize" Version="1.0.0.1" />
 	<PackageReference Include="NicolasDorier.CommandLine" Version="1.0.0.2" />
 	<PackageReference Include="NicolasDorier.CommandLine.Configuration" Version="1.0.0.3" />
-    <PackageReference Include="System.Xml.XmlSerializer" Version="4.3.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NBXplorer.Client\NBXplorer.Client.csproj" />

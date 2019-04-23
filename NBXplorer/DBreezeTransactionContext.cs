@@ -1,4 +1,4 @@
-﻿using DBreeze;
+﻿using DBriize;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -8,17 +8,17 @@ using System.Threading.Tasks;
 
 namespace NBXplorer
 {
-	public class DBreezeTransactionContext
+	public class DBriizeTransactionContext
 	{
-		DBreezeEngine _Engine;
-		DBreeze.Transactions.Transaction _Tx;
+		DBriizeEngine _Engine;
+		DBriize.Transactions.Transaction _Tx;
 		Thread _Loop;
 		readonly BlockingCollection<(Action, TaskCompletionSource<object>)> _Actions = new BlockingCollection<(Action, TaskCompletionSource<object>)>(new ConcurrentQueue<(Action, TaskCompletionSource<object>)>());
 		TaskCompletionSource<bool> _Done;
 		CancellationTokenSource _Cancel;
 		bool _IsDisposed;
 		bool _IsStarted;
-		public DBreezeTransactionContext(DBreezeEngine engine)
+		public DBriizeTransactionContext(DBriizeEngine engine)
 		{
 			if (engine == null)
 				throw new ArgumentNullException(nameof(engine));
@@ -28,7 +28,7 @@ namespace NBXplorer
 		public async Task StartAsync()
 		{
 			if (_IsDisposed)
-				throw new ObjectDisposedException(nameof(DBreezeTransactionContext));
+				throw new ObjectDisposedException(nameof(DBriizeTransactionContext));
 			if (_IsStarted)
 				return;
 			_IsStarted = true;
@@ -41,7 +41,7 @@ namespace NBXplorer
 			_Loop.Start();
 			await DoAsync((tx) => { _Tx = _Engine.GetTransaction(); });
 		}
-		public event Action<DBreezeTransactionContext, Exception> UnhandledException;
+		public event Action<DBriizeTransactionContext, Exception> UnhandledException;
 		void Loop()
 		{
 			try
@@ -73,26 +73,26 @@ namespace NBXplorer
 			_Done.TrySetResult(true);
 		}
 
-		public Task DoAsync(Action<DBreeze.Transactions.Transaction> action)
+		public Task DoAsync(Action<DBriize.Transactions.Transaction> action)
 		{
 			if (_IsDisposed)
-				throw new ObjectDisposedException(nameof(DBreezeTransactionContext));
+				throw new ObjectDisposedException(nameof(DBriizeTransactionContext));
 			return DoAsyncCore(action);
 		}
-		public Task<T> DoAsync<T>(Func<DBreeze.Transactions.Transaction, T> action)
+		public Task<T> DoAsync<T>(Func<DBriize.Transactions.Transaction, T> action)
 		{
 			if (_IsDisposed)
-				throw new ObjectDisposedException(nameof(DBreezeTransactionContext));
+				throw new ObjectDisposedException(nameof(DBriizeTransactionContext));
 			return DoAsyncCore(action);
 		}
 
-		private Task DoAsyncCore(Action<DBreeze.Transactions.Transaction> action)
+		private Task DoAsyncCore(Action<DBriize.Transactions.Transaction> action)
 		{
 			var completion = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
 			_Actions.Add((() => { action(_Tx); completion.TrySetResult(true); }, completion));
 			return completion.Task;
 		}
-		private async Task<T> DoAsyncCore<T>(Func<DBreeze.Transactions.Transaction, T> action)
+		private async Task<T> DoAsyncCore<T>(Func<DBriize.Transactions.Transaction, T> action)
 		{
 			var completion = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
 			_Actions.Add((() => { completion.TrySetResult(action(_Tx)); }, completion));
