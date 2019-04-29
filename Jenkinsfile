@@ -41,8 +41,8 @@ pipeline {
           }
           sh '''
             docker login -u ${M3T4C0_REGISTRY_USR} -p ${M3T4C0_REGISTRY_PSW} ${DOCKER_REGISTRY}
-            docker build -t ${DOCKER_IMG}:${BRANCH_NAME} -f Dockerfile.linuxamd64 .
-            docker push ${DOCKER_IMG}:${BRANCH_NAME}
+            docker build -t ${DOCKER_IMG}:${DOCKER_TAG} -f Dockerfile.linuxamd64 .
+            docker push ${DOCKER_IMG}:${DOCKER_TAG}
             '''
       }
     }
