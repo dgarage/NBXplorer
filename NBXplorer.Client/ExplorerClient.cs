@@ -415,6 +415,18 @@ namespace NBXplorer
 		{
 			return GetAsync<GetFeeRateResult>("v1/cryptos/{0}/fees/{1}", new object[] { CryptoCode, blockCount }, cancellation);
 		}
+		public CreatePSBTResponse CreatePSBT(DerivationStrategyBase derivationStrategy, CreatePSBTRequest request, CancellationToken cancellation = default)
+		{
+			return CreatePSBTAsync(derivationStrategy, request, cancellation).GetAwaiter().GetResult();
+		}
+		public Task<CreatePSBTResponse> CreatePSBTAsync(DerivationStrategyBase derivationStrategy, CreatePSBTRequest request, CancellationToken cancellation = default)
+		{
+			if (derivationStrategy == null)
+				throw new ArgumentNullException(nameof(derivationStrategy));
+			if (request == null)
+				throw new ArgumentNullException(nameof(request));
+			return this.SendAsync<CreatePSBTResponse>(HttpMethod.Post, request, "v1/cryptos/{0}/derivations/{1}/psbt/create", new object[] { CryptoCode, derivationStrategy }, cancellation);
+		}
 
 		public BroadcastResult Broadcast(Transaction tx, CancellationToken cancellation = default)
 		{

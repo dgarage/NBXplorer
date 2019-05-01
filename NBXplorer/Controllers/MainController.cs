@@ -30,7 +30,7 @@ namespace NBXplorer.Controllers
 {
 	[Route("v1")]
 	[Authorize]
-	public class MainController : Controller
+	public partial class MainController : Controller
 	{
 		JsonSerializerSettings _SerializerSettings;
 		public MainController(

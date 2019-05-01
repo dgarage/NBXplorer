@@ -294,6 +294,202 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanCreatePSBT()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var userExtKey = new ExtKey();
+				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
+				{
+					// Use non-segwit
+					Legacy = true
+				});
+				tester.Client.Track(userDerivationScheme);
+
+				// Send 1 BTC
+				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
+				var txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
+				var utxos = tester.Client.GetUTXOs(userDerivationScheme);
+
+				// Send 1 more BTC
+				newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+				txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
+				utxos = tester.Client.GetUTXOs(userDerivationScheme);
+
+				utxos = tester.Client.GetUTXOs(userDerivationScheme);
+				Assert.Equal(2, utxos.GetUnspentCoins().Length);
+				for (int i = 0; i < 3; i++)
+				{
+					var substractFee = i == 1;
+					var explicitFee = i == 2;
+					var psbt = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+					{
+						Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Amount = Money.Coins(0.5m),
+								SubstractFees = substractFee
+							}
+						},
+						FeePreference = new FeePreference()
+						{
+							FallbackFeeRate = explicitFee ? null : new FeeRate(Money.Satoshis(100), 1),
+							ExplicitFee = explicitFee ? Money.Coins(0.00001m) : null,
+						}
+					});
+
+					psbt.PSBT.SignAll(userExtKey);
+					Assert.True(psbt.PSBT.TryGetFee(out var fee));
+					if (explicitFee)
+						Assert.Equal(Money.Coins(0.00001m), fee);
+					Assert.Equal(-(Money.Coins(0.5m) + (substractFee ? Money.Zero : fee)), psbt.PSBT.GetBalance(userExtKey));
+					psbt.PSBT.Finalize();
+					var tx = psbt.PSBT.ExtractTransaction();
+					Assert.True(tester.Client.Broadcast(tx).Success);
+					tester.Notifications.WaitForTransaction(userDerivationScheme, tx.GetHash());
+					utxos = tester.Client.GetUTXOs(userDerivationScheme);
+
+					if (i == 0)
+						Assert.Equal(2, utxos.GetUnspentCoins().Length);
+					Assert.Contains(utxos.GetUnspentCoins(), u => u.ScriptPubKey == psbt.ChangeAddress.ScriptPubKey);
+					Assert.Contains(utxos.Unconfirmed.UTXOs, u => u.ScriptPubKey == psbt.ChangeAddress.ScriptPubKey && u.Feature == DerivationFeature.Change);
+				}
+
+				var balance = tester.Client.GetUTXOs(userDerivationScheme).GetUnspentCoins().Select(c => c.Amount).Sum();
+				var psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								SweepAll = true
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.00001m),
+					}
+				});
+				Assert.Equal(-balance, psbt2.PSBT.GetBalance(userExtKey));
+				Assert.Null(psbt2.ChangeAddress);
+
+				Logs.Tester.LogInformation("Let's check that if ReserveChangeAddress is false, all call to CreatePSBT send the same change address");
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Amount = Money.Coins(0.3m),
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false
+				});
+				var changeAddress = psbt2.ChangeAddress;
+
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Amount = Money.Coins(0.3m),
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false
+				});
+				Assert.Equal(changeAddress, psbt2.ChangeAddress);
+				Logs.Tester.LogInformation("Let's check that if ReserveChangeAddress is true, next call to CreatePSBT will create a new change address");
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Amount = Money.Coins(0.3m),
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = true
+				});
+				Assert.Equal(changeAddress, psbt2.ChangeAddress);
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Amount = Money.Coins(0.3m),
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false
+				});
+				Assert.NotEqual(changeAddress, psbt2.ChangeAddress);
+				changeAddress = psbt2.ChangeAddress;
+
+				Logs.Tester.LogInformation("Let's change that if ReserveChangeAddress is true, but the transaction fails to build, no address get reserverd");
+				var ex = Assert.Throws<NBXplorerException>(() => psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Amount = Money.Coins(0.3m),
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(99999m),
+					},
+					ReserveChangeAddress = true
+				}));
+				Assert.Equal("not-enough-funds", ex.Error.Code);
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Amount = Money.Coins(0.3m),
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false
+				});
+				Assert.Equal(changeAddress, psbt2.ChangeAddress);
+			}
+		}
+
+		[Fact]
 		public void ShowRBFedTransaction()
 		{
 			using (var tester = ServerTester.Create())
