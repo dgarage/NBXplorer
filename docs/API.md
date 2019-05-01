@@ -766,7 +766,7 @@ The smallest `eventId` is 1.
 ]
 ```
 
-## Create Partially Signed Bitcoin Transactoin
+## Create Partially Signed Bitcoin Transaction
 
 Create a [Partially Signed Bitcoin Transaction](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki) (PSBT).
 
