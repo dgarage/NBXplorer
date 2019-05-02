@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using NBXplorer.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -51,6 +52,12 @@ namespace NBXplorer
 		{
 			var serializer = JsonSerializer.Create(Settings);
 			return jobj.ToObject<T>(serializer);
+		}
+
+		public JObject ToJObject<T>(T obj)
+		{
+			var serializer = JsonSerializer.Create(Settings);
+			return JObject.FromObject(obj, serializer);
 		}
 	}
 }
