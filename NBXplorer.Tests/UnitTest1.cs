@@ -432,13 +432,15 @@ namespace NBXplorer.Tests
 					ReserveChangeAddress = true
 				});
 				Assert.Equal(changeAddress, psbt2.ChangeAddress);
+				var dest = new Key().PubKey.GetAddress(tester.Network);
 				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
+					Seed = 0,
 					Destinations =
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = dest,
 								Amount = Money.Coins(0.3m),
 							}
 						},
@@ -450,6 +452,26 @@ namespace NBXplorer.Tests
 				});
 				Assert.NotEqual(changeAddress, psbt2.ChangeAddress);
 				changeAddress = psbt2.ChangeAddress;
+
+				Logs.Tester.LogInformation("Let's check that we can use the reserved change as explicit change and end up with the same psbt");
+				var psbt3 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Seed = 0,
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = dest,
+								Amount = Money.Coins(0.3m),
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ExplicitChangeAddress = psbt2.ChangeAddress
+				});
+				Assert.Equal(psbt2.PSBT, psbt3.PSBT);
 
 				Logs.Tester.LogInformation("Let's change that if ReserveChangeAddress is true, but the transaction fails to build, no address get reserverd");
 				var ex = Assert.Throws<NBXplorerException>(() => psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()

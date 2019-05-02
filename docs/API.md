@@ -789,6 +789,7 @@ Fields:
   "rbf": false,
   "version": 1,
   "timeLock": 512000,
+  "explicitChangeAddress": "mu5kevv6FiLygJfVvxQnB4hArXCUArMC7C",
   "destinations": [
     {
       "destination": "mu5kevv6FiLygJfVvxQnB4hArXCUArMC7C",
@@ -816,6 +817,7 @@ Fields:
 * `timeLock`: Optional, The timelock of the transaction, activate RBF if not null (default: null, nLockTime to 0)
 * `rbf`: Optional, default to false, determine if the transaction should have Replace By Fee (RBF) activated
 * `reserveChangeAddress`: default to false, whether the creation of this PSBT will reserve a new change address.
+* `explicitChangeAddress`: default to null, use a specific change address (Optional, mutually exclusive with reserveChangeAddress)
 * `minConfirmations`: default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
 * `includeOnlyOutpoints`: Only select the following outpoints for creating the PSBT (default to null)
 * `excludeOutpoints`: Do not select the following outpoints for creating the PSBT (default to empty)

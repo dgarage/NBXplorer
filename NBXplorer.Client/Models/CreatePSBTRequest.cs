@@ -50,6 +50,11 @@ namespace NBXplorer.Models
 		/// Only select the following outpoints for creating the PSBT (default to null)
 		/// </summary>
 		public List<OutPoint> IncludeOnlyOutpoints { get; set; }
+
+		/// <summary>
+		/// Use a specific change address (Optional, default: null, mutually exclusive with ReserveChangeAddress)
+		/// </summary>
+		public BitcoinAddress ExplicitChangeAddress { get; set; }
 	}
 	public class CreatePSBTDestination
 	{

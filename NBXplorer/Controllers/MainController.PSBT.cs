@@ -69,8 +69,25 @@ namespace NBXplorer.Controllers
 						txBuilder.SubtractFees();
 				}
 			}
-			// We don't reserve here so we don't reserve an address in case our balance is not big enough
-			var change = await RepositoryProvider.GetRepository(network).GetUnused(strategy, DerivationFeature.Change, 0, false);
+			(Script ScriptPubKey, KeyPath KeyPath) change = (null, null);
+			bool hasChange = false;
+			if (request.ExplicitChangeAddress == null)
+			{
+				if (request.ReserveChangeAddress) // We will reserve the key only when we are sure we have enough funds
+				{
+					var derivation = strategy.Derive(0); // We can't take random key, as the length of the scriptPubKey influences fees
+					change = (derivation.ScriptPubKey, null);
+				}
+				else
+				{
+					var unused = await RepositoryProvider.GetRepository(network).GetUnused(strategy, DerivationFeature.Change, 0, false);
+					change = (unused.ScriptPubKey, unused.KeyPath);
+				}
+			}
+			else
+			{
+				change = (request.ExplicitChangeAddress.ScriptPubKey, null);
+			}
 			txBuilder.SetChange(change.ScriptPubKey);
 			PSBT psbt = null;
 			try
@@ -108,19 +125,19 @@ namespace NBXplorer.Controllers
 					}
 				}
 				psbt = txBuilder.BuildPSBT(false);
+				hasChange = psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
 			}
 			catch (NotEnoughFundsException)
 			{
 				throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "Not enough funds for doing this transaction"));
 			}
-			var hasChange = psbt.Outputs.Count == request.Destinations.Count + 1;
 			if (hasChange && request.ReserveChangeAddress) // We need to reserve an address, so we need to build again the psbt
 			{
-				change = await repo.GetUnused(strategy, DerivationFeature.Change, 0, true);
+				var derivation = await repo.GetUnused(strategy, DerivationFeature.Change, 0, true);
+				change = (derivation.ScriptPubKey, derivation.KeyPath);
 				txBuilder.SetChange(change.ScriptPubKey);
 				psbt = txBuilder.BuildPSBT(false);
 			}
-
 			
 			var tx = psbt.GetOriginalTransaction();
 			if (request.Version is uint v)
@@ -128,11 +145,25 @@ namespace NBXplorer.Controllers
 			psbt = txBuilder.CreatePSBTFrom(tx, false, SigHash.All);
 
 			var utxosByOutpoint = utxos.GetUnspentUTXOs().ToDictionary(u => u.Outpoint);
-			var keyPaths = psbt.Inputs.Select(i => utxosByOutpoint[i.PrevOut].KeyPath).Distinct().ToList();
-			if (hasChange)
+			var keyPaths = psbt.Inputs.Select(i => utxosByOutpoint[i.PrevOut].KeyPath).ToHashSet();
+
+			// Maybe it is a change that we know about, let's search in the DB
+			if (hasChange && change.KeyPath == null)
+			{
+				var keyInfos = await repo.GetKeyInformations(new[] { request.ExplicitChangeAddress.ScriptPubKey });
+				if (keyInfos.TryGetValue(request.ExplicitChangeAddress.ScriptPubKey, out var kis))
+				{
+					var ki = kis.FirstOrDefault(k => k.DerivationStrategy == strategy);
+					if (ki != null)
+						change = (change.ScriptPubKey, kis.First().KeyPath);
+				}
+			}
+
+			if (hasChange && change.KeyPath != null)
 			{
 				keyPaths.Add(change.KeyPath);
 			}
+
 			foreach (var hd in strategy.GetExtPubKeys())
 			{
 				psbt.AddKeyPath(hd, keyPaths.ToArray());
@@ -152,7 +183,7 @@ namespace NBXplorer.Controllers
 			var resp = new CreatePSBTResponse()
 			{
 				PSBT = psbt,
-				ChangeAddress = hasChange ? BitcoinAddress.Create(change.Address, network.NBitcoinNetwork) : null
+				ChangeAddress = hasChange ? change.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : null
 			};
 			return Json(resp, network.JsonSerializerSettings);
 		}
