@@ -85,8 +85,8 @@ pipeline {
 
       steps {
           sh '''
-              docker login -u ${M3T4C0_REGISTRY_USR} -p ${M3T4C0_REGISTRY_PSW} ${DOCKER_CONTENT_TRUST_REGISTRY}
-              docker build -t ${DOCKER_BUILDER_IMG}:${TAG_NAME} -f Dockerfile.linuxamd64 .
+              docker login -u ${M3T4C0_REGISTRY_USR} -p ${M3T4C0_REGISTRY_PSW} ${DOCKER_REGISTRY_PROD}
+              docker build -t ${DOCKER_CONTENT_TRUST_REPOSITORY}:${TAG_NAME} -f Dockerfile.linuxamd64 .
               docker run --rm \
               -v /var/run/docker.sock:/var/run/docker.sock \
               -e DOCKER_CONTENT_TRUST=1 \
