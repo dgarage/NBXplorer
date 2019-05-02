@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
+using NBXplorer.Logging;
 using NBXplorer.ModelBinders;
 using NBXplorer.Models;
 using Newtonsoft.Json;
@@ -26,6 +28,7 @@ namespace NBXplorer.Controllers
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
+			Logs.Explorer.LogInformation(body.ToString(Formatting.Indented));
 			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(body, network);
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
@@ -34,7 +37,20 @@ namespace NBXplorer.Controllers
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
 			txBuilder.OptInRBF = request.RBF;
-			txBuilder.AddCoins(utxos.GetUnspentCoins(request.MinConfirmations));
+
+			var availableCoinsByOutpoint = utxos.GetUnspentCoins(request.MinConfirmations).ToDictionary(o => o.Outpoint);
+			if (request.IncludeOnlyOutpoints != null)
+			{
+				var includeOnlyOutpoints = request.IncludeOnlyOutpoints.ToHashSet();
+				availableCoinsByOutpoint = availableCoinsByOutpoint.Where(c => includeOnlyOutpoints.Contains(c.Key)).ToDictionary(o => o.Key, o => o.Value);
+			}
+
+			if (request.ExcludeOutpoints?.Any() is true)
+			{
+				var excludedOutpoints = request.ExcludeOutpoints.ToHashSet();
+				availableCoinsByOutpoint = availableCoinsByOutpoint.Where(c => !excludedOutpoints.Contains(c.Key)).ToDictionary(o => o.Key, o => o.Value);
+			}
+			txBuilder.AddCoins(availableCoinsByOutpoint.Values);
 
 			foreach (var dest in request.Destinations)
 			{

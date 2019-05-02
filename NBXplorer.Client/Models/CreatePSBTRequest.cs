@@ -32,6 +32,15 @@ namespace NBXplorer.Models
 		/// Default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
 		/// </summary>
 		public int MinConfirmations { get; set; }
+
+		/// <summary>
+		/// Do not select the following outpoints for creating the PSBT (default to empty)
+		/// </summary>
+		public List<OutPoint> ExcludeOutpoints { get; set; }
+		/// <summary>
+		/// Only select the following outpoints for creating the PSBT (default to null)
+		/// </summary>
+		public List<OutPoint> IncludeOnlyOutpoints { get; set; }
 	}
 	public class CreatePSBTDestination
 	{

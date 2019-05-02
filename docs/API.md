@@ -802,7 +802,10 @@ Fields:
     "fallbackFeeRate": 100
   },
   "reserveChangeAddress": false,
-  "minConfirmations": 0
+  "minConfirmations": 0,
+  "excludeOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1", 
+						"7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-2"],
+  "includeOnlyOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1" ]
 }
 ```
 
@@ -810,6 +813,8 @@ Fields:
 * `rbf`: Optional, default to false, determine if the transaction should have Replace By Fee (RBF) activated
 * `reserveChangeAddress`: default to false, whether the creation of this PSBT will reserve a new change address.
 * `minConfirmations`: default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
+* `includeOnlyOutpoints`: Only select the following outpoints for creating the PSBT (default to null)
+* `excludeOutpoints`: Do not select the following outpoints for creating the PSBT (default to empty)
 * `destinations`: Required, the destinations where to send the money
 * `destinations[].destination`: Required, the destination address
 * `destinations[].amount` Send this amount to the destination (Mutually exclusive with: sweepAll)

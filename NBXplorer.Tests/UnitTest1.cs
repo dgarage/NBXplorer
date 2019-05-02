@@ -530,6 +530,72 @@ namespace NBXplorer.Tests
 					ReserveChangeAddress = false,
 					MinConfirmations = 1
 				});
+
+				Logs.Tester.LogInformation("Let's check includeOutpoint and excludeOutpoints");
+				txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								SweepAll = true
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false
+				});
+				var outpoints = psbt2.PSBT.GetOriginalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
+				Assert.Equal(2, outpoints.Length);
+
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					IncludeOnlyOutpoints = new List<OutPoint>() { outpoints[0] },
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								SweepAll = true
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false
+				});
+
+				var actualOutpoints = psbt2.PSBT.GetOriginalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
+				Assert.Single(actualOutpoints);
+				Assert.Equal(outpoints[0], actualOutpoints[0]);
+
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					ExcludeOutpoints = new List<OutPoint>() { outpoints[0] },
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								SweepAll = true
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false
+				});
+
+				actualOutpoints = psbt2.PSBT.GetOriginalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
+				Assert.Single(actualOutpoints);
+				Assert.Equal(outpoints[1], actualOutpoints[0]);
 			}
 		}
 
