@@ -801,13 +801,15 @@ Fields:
     "blockTarget": 1,
     "fallbackFeeRate": 100
   },
-  "reserveChangeAddress": false
+  "reserveChangeAddress": false,
+  "minConfirmations": 0
 }
 ```
 
 * `seed`: Optional, default to null, a seed to specific to get a deterministic PSBT (useful for tests)
 * `rbf`: Optional, default to false, determine if the transaction should have Replace By Fee (RBF) activated
-* `reserveChangeAddress`: default to false, Whether the creation of this PSBT will reserve a new change address.
+* `reserveChangeAddress`: default to false, whether the creation of this PSBT will reserve a new change address.
+* `minConfirmations`: default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
 * `destinations`: Required, the destinations where to send the money
 * `destinations[].destination`: Required, the destination address
 * `destinations[].amount` Send this amount to the destination (Mutually exclusive with: sweepAll)

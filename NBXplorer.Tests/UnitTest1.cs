@@ -468,9 +468,11 @@ namespace NBXplorer.Tests
 					},
 					ReserveChangeAddress = true
 				}));
+				Assert.False(psbt2.PSBT.GetOriginalTransaction().RBF);
 				Assert.Equal("not-enough-funds", ex.Error.Code);
 				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
+					RBF = true,
 					Destinations =
 						{
 							new CreatePSBTDestination()
@@ -485,7 +487,49 @@ namespace NBXplorer.Tests
 					},
 					ReserveChangeAddress = false
 				});
+				Assert.True(psbt2.PSBT.GetOriginalTransaction().RBF);
 				Assert.Equal(changeAddress, psbt2.ChangeAddress);
+
+				Logs.Tester.LogInformation("Let's check that we can filter UTXO by confirmations");
+				Logs.Tester.LogInformation("We have no confirmation, so we should not have enough money if asking for min 1 conf");
+				ex = Assert.Throws<NBXplorerException>(() => psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Amount = Money.Coins(0.3m),
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false,
+					MinConfirmations = 1
+				}));
+				Assert.Equal("not-enough-funds", ex.Error.Code);
+				Logs.Tester.LogInformation("But if we mine, this should become ok");
+				tester.Explorer.Generate(1);
+				tester.WaitSynchronized();
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Amount = Money.Coins(0.3m),
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false,
+					MinConfirmations = 1
+				});
 			}
 		}
 

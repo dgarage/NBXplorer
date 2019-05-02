@@ -27,6 +27,11 @@ namespace NBXplorer.Models
 		/// Whether the creation of this PSBT will reserve a new change address
 		/// </summary>
 		public bool ReserveChangeAddress { get; set; }
+
+		/// <summary>
+		/// Default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
+		/// </summary>
+		public int MinConfirmations { get; set; }
 	}
 	public class CreatePSBTDestination
 	{

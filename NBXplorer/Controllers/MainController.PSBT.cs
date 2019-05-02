@@ -22,19 +22,19 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase strategy,
 			[FromBody]
-			JObject requestObj)
+			JObject body)
 		{
-			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(requestObj, network);
+			if (body == null)
+				throw new ArgumentNullException(nameof(body));
+			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(body, network);
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
-			if (request == null)
-				throw new ArgumentNullException(nameof(request));
 			var repo = RepositoryProvider.GetRepository(network);
 			var utxos = await GetUTXOs(network.CryptoCode, strategy, null);
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
 			txBuilder.OptInRBF = request.RBF;
-			txBuilder.AddCoins(utxos.GetUnspentCoins());
+			txBuilder.AddCoins(utxos.GetUnspentCoins(request.MinConfirmations));
 
 			foreach (var dest in request.Destinations)
 			{
