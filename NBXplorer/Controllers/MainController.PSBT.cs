@@ -94,9 +94,9 @@ namespace NBXplorer.Controllers
 			PSBT psbt = null;
 			try
 			{
-				if (request.FeePreference?.ExplicitFeeRate is FeeRate feeRate)
+				if (request.FeePreference?.ExplicitFeeRate is FeeRate explicitFeeRate)
 				{
-					txBuilder.SendEstimatedFees(feeRate);
+					txBuilder.SendEstimatedFees(explicitFeeRate);
 				}
 				else if (request.FeePreference?.BlockTarget is int blockTarget)
 				{
