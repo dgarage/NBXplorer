@@ -71,22 +71,18 @@ namespace NBXplorer.Controllers
 			}
 			(Script ScriptPubKey, KeyPath KeyPath) change = (null, null);
 			bool hasChange = false;
+			// We first build the transaction with a change which keep the length of the expected change scriptPubKey
+			// This allow us to detect if there is a change later in the constructed transaction.
+			// This defend against bug which can happen if one of the destination is the same as the expected change
+			// This assume that a script with only 0 can't be created from a strategy, nor by passing any data to explicitChangeAddress
 			if (request.ExplicitChangeAddress == null)
 			{
-				if (request.ReserveChangeAddress) // We will reserve the key only when we are sure we have enough funds
-				{
-					var derivation = strategy.Derive(0); // We can't take random key, as the length of the scriptPubKey influences fees
-					change = (derivation.ScriptPubKey, null);
-				}
-				else
-				{
-					var unused = await RepositoryProvider.GetRepository(network).GetUnused(strategy, DerivationFeature.Change, 0, false);
-					change = (unused.ScriptPubKey, unused.KeyPath);
-				}
+				var derivation = strategy.Derive(0); // We can't take random key, as the length of the scriptPubKey influences fees
+				change = (Script.FromBytesUnsafe(new byte[derivation.ScriptPubKey.Length]), null);
 			}
 			else
 			{
-				change = (request.ExplicitChangeAddress.ScriptPubKey, null);
+				change = (Script.FromBytesUnsafe(new byte[request.ExplicitChangeAddress.ScriptPubKey.Length]), null);
 			}
 			txBuilder.SetChange(change.ScriptPubKey);
 			PSBT psbt = null;
@@ -131,14 +127,21 @@ namespace NBXplorer.Controllers
 			{
 				throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "Not enough funds for doing this transaction"));
 			}
-			if (hasChange && request.ReserveChangeAddress) // We need to reserve an address, so we need to build again the psbt
+			if (hasChange) // We need to reserve an address, so we need to build again the psbt
 			{
-				var derivation = await repo.GetUnused(strategy, DerivationFeature.Change, 0, true);
-				change = (derivation.ScriptPubKey, derivation.KeyPath);
+				if (request.ExplicitChangeAddress == null)
+				{
+					var derivation = await repo.GetUnused(strategy, DerivationFeature.Change, 0, request.ReserveChangeAddress);
+					change = (derivation.ScriptPubKey, derivation.KeyPath);
+				}
+				else
+				{
+					change = (request.ExplicitChangeAddress.ScriptPubKey, null);
+				}
 				txBuilder.SetChange(change.ScriptPubKey);
 				psbt = txBuilder.BuildPSBT(false);
 			}
-			
+
 			var tx = psbt.GetOriginalTransaction();
 			if (request.Version is uint v)
 				tx.Version = v;
