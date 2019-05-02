@@ -1272,7 +1272,9 @@ namespace NBXplorer.Tests
 						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/0")}\": \"0.5\" }}"));
 				var utxo = tester.Client.GetUTXOs(pubkey);
 				tester.RPC.EnsureGenerate(1);
+				tester.WaitSynchronized();
 				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
+				tester.WaitSynchronized();
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
