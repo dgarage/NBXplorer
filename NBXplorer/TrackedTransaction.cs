@@ -10,6 +10,27 @@ using static NBXplorer.Repository;
 namespace NBXplorer{
 	public class TrackedTransaction
 	{
+		class CoinOutpointEqualityComparer : IEqualityComparer<Coin>
+		{
+
+			private static readonly CoinOutpointEqualityComparer _Instance = new CoinOutpointEqualityComparer();
+			public static CoinOutpointEqualityComparer Instance
+			{
+				get
+				{
+					return _Instance;
+				}
+			}
+			public bool Equals(Coin x, Coin y)
+			{
+				return x.Outpoint == y.Outpoint;
+			}
+
+			public int GetHashCode(Coin obj)
+			{
+				return obj.Outpoint.GetHashCode();
+			}
+		}
 		public TrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource) : this(key, trackedSource, null as Coin[], null as Dictionary<Script,KeyPath>)
 		{
 
@@ -87,8 +108,8 @@ namespace NBXplorer{
 		}
 
 		public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; } = new Dictionary<Script, KeyPath>();
-		public List<Coin> ReceivedCoins { get; } = new List<Coin>();
-		public List<OutPoint> SpentOutpoints { get; } = new List<OutPoint>();
+		public HashSet<Coin> ReceivedCoins { get; } = new HashSet<Coin>(CoinOutpointEqualityComparer.Instance);
+		public HashSet<OutPoint> SpentOutpoints { get; } = new HashSet<OutPoint>();
 
 		public Transaction Transaction
 		{
