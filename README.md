@@ -246,3 +246,33 @@ Special thanks to Digital Garage for allowing me to open source the project, whi
 Thanks to the DG Lab Blockchain Team who had to fight with lots of bugs. (in particular kallewoof :p)
 
 Thanks to Metaco SA, whose constant challenging projects refine my taste on what a perfect Bitcoin API should be.
+
+## CI Pipeline
+
+This section explain how is configured the **jenkins pipeline** for the nbxplorer.
+
+### Master/development
+
+Every time that a commit is done into **master/development** a new **docker image** will be created with the tag equal to the branch name and push to <https://registry.internal.m3t4c0.com/silo/nbxplorer>.
+
+### TAG BUILD + SHIPPING
+
+#### CHANNELS
+
+- **INTERNAL**
+
+  - every time a **tag** is created a new **docker image** will be created with the tag equal to the **tag name** and push to <https://registry.internal.m3t4c0.com/silo/nbxplorer>.
+
+- **BETA**
+
+  - **docker**
+    - every time a **tag** + the parameter **DOCKER_PROD_BETA**
+    - is created a new **docker image** will be created with the tag equal to the **tag name** and push to <https://registry.metaco.network/silo-beta/nbxplorer>.
+
+
+- **PROD**
+
+  - **docker**
+    - every time a **tag** + the parameter **DOCKER_PROD**
+    - is created a new **docker image** will be created and **signed** with the tag equal to the **tag name** and push to <https://registry.metaco.network/silo/nbxplorer>.
+
