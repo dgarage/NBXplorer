@@ -36,6 +36,11 @@ namespace NBXplorer
 {
 	public static class Extensions
 	{
+		internal static void AddRange<T>(this HashSet<T> hashset, IEnumerable<T> elements)
+		{
+			foreach (var el in elements)
+				hashset.Add(el);
+		}
 		internal static uint160 GetHash(this DerivationStrategyBase derivation)
 		{
 			var data = Encoding.UTF8.GetBytes(derivation.ToString());
