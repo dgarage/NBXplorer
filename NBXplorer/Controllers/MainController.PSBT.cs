@@ -28,7 +28,6 @@ namespace NBXplorer.Controllers
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
-			Logs.Explorer.LogInformation(body.ToString(Formatting.Indented));
 			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(body, network);
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
@@ -37,6 +36,11 @@ namespace NBXplorer.Controllers
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
 			txBuilder.OptInRBF = request.RBF;
+			if (request.LockTime is LockTime lockTime)
+			{
+				txBuilder.SetLockTime(lockTime);
+				txBuilder.OptInRBF = true;
+			}
 
 			var availableCoinsByOutpoint = utxos.GetUnspentCoins(request.MinConfirmations).ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)
@@ -116,6 +120,12 @@ namespace NBXplorer.Controllers
 				txBuilder.SetChange(change.ScriptPubKey);
 				psbt = txBuilder.BuildPSBT(false);
 			}
+
+			
+			var tx = psbt.GetOriginalTransaction();
+			if (request.Version is uint v)
+				tx.Version = v;
+			psbt = txBuilder.CreatePSBTFrom(tx, false, SigHash.All);
 
 			var utxosByOutpoint = utxos.GetUnspentUTXOs().ToDictionary(u => u.Outpoint);
 			var keyPaths = psbt.Inputs.Select(i => utxosByOutpoint[i.PrevOut].KeyPath).Distinct().ToList();

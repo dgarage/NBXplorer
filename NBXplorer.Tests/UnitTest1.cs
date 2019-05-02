@@ -596,6 +596,32 @@ namespace NBXplorer.Tests
 				actualOutpoints = psbt2.PSBT.GetOriginalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
 				Assert.Single(actualOutpoints);
 				Assert.Equal(outpoints[1], actualOutpoints[0]);
+
+				Logs.Tester.LogInformation("Let's check nLocktime and version");
+
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Version = 2,
+					LockTime = new LockTime(1_000_000),
+					ExcludeOutpoints = new List<OutPoint>() { outpoints[0] },
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = new Key().PubKey.GetAddress(tester.Network),
+								SweepAll = true
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false
+				});
+				var txx = psbt2.PSBT.GetOriginalTransaction();
+				Assert.Equal(new LockTime(1_000_000), txx.LockTime);
+				Assert.Equal(2U, txx.Version);
+				Assert.True(txx.RBF);
 			}
 		}
 

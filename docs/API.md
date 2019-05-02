@@ -787,6 +787,8 @@ Fields:
 {
   "seed": 1,
   "rbf": false,
+  "version": 1,
+  "timeLock": 512000,
   "destinations": [
     {
       "destination": "mu5kevv6FiLygJfVvxQnB4hArXCUArMC7C",
@@ -810,6 +812,8 @@ Fields:
 ```
 
 * `seed`: Optional, default to null, a seed to specific to get a deterministic PSBT (useful for tests)
+* `version`: Optional, default to 1, the version of the transaction
+* `timeLock`: Optional, The timelock of the transaction, activate RBF if not null (default: null, nLockTime to 0)
 * `rbf`: Optional, default to false, determine if the transaction should have Replace By Fee (RBF) activated
 * `reserveChangeAddress`: default to false, whether the creation of this PSBT will reserve a new change address.
 * `minConfirmations`: default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)

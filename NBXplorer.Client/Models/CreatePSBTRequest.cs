@@ -11,6 +11,15 @@ namespace NBXplorer.Models
 		/// A seed to specific to get a deterministic PSBT (useful for tests)
 		/// </summary>
 		public int? Seed { get; set; }
+
+		/// <summary>
+		///	The version of the transaction (Optional, default to 1)
+		/// </summary>
+		public uint? Version { get; set; }
+		/// <summary>
+		/// The timelock of the transaction, activate RBF if not null (Optional: null, nLockTime to 0)
+		/// </summary>
+		public LockTime? LockTime { get; set; }
 		/// <summary>
 		/// Whether this transaction should use RBF or not.
 		/// </summary>
