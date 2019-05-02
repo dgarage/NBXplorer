@@ -491,7 +491,7 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions")]
-		public async Task<LockUTXOsResponse> LockUTXOs(string cryptoCode,
+		public async Task<IActionResult> LockUTXOs(string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[FromBody] LockUTXOsRequest request,
@@ -515,61 +515,46 @@ namespace NBXplorer.Controllers
 			if (request.Amount == null || request.Amount <= Money.Zero)
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-amount", "amount should be equal or less than 0 satoshi"));
 
-			var firstDerivation = derivationScheme.Derive(new KeyPath("0"));
-			var firstAddress = firstDerivation.ScriptPubKey;
-			bool hasRedeemScript = firstDerivation.Redeem != null;
-			var needParentTransactions = !firstAddress.IsPayToScriptHash && !firstAddress.IsWitness;
-			needParentTransactions &= network.CryptoCode != "BCH"; // P2PKH for BCH is safe as utxos are included in sig
-			if (needParentTransactions)
-				throw new NBXplorerException(new NBXplorerError(400, "invalid-derivationScheme", "Only P2SH or segwit derivation schemes are supported"));
-
-			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
-
-			var feeRate = request.FeeRate ?? (await this.GetFeeRate(6, cryptoCode)).FeeRate;
-			var change = await repo.GetUnused(derivationScheme, DerivationFeature.Change, 0, true);
 
 			Repository.DBLock walletLock = null;
 			try
 			{
 				walletLock = await repo.TakeWalletLock(derivationScheme, cancellation);
-				var changes = new UTXOChanges();
-				var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource, false);
 
-				var states = UTXOStateResult.CreateStates(true,
-															transactions.UnconfirmedTransactions.Select(c => c.Record),
-															transactions.ConfirmedTransactions.Select(c => c.Record));
-
-				changes.Confirmed = SetUTXOChange(states.Confirmed);
-				changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
-
-				// TODO: We might want to cache this as the Derive operation is computionally expensive
-				var unspentCoins = changes.GetUnspentCoins()
-					   .Select(c => hasRedeemScript ? Task.Run(() => (Coin)c.ToScriptCoin(derivationScheme.Derive(transactions.GetKeyPath(c.ScriptPubKey)).Redeem)) : Task.FromResult(c))
-						 .Select(t => t.Result)
-						 .ToArray();
-
-				var txBuilder = network.NBitcoinNetwork.CreateTransactionBuilder();
-				txBuilder.AddCoins(unspentCoins);
-				txBuilder.Send(destinationAddress, request.Amount);
-				if (request.SubstractFees)
-					txBuilder.SubtractFees();
-				txBuilder.SetChange(change.ScriptPubKey);
-				txBuilder.SendEstimatedFees(feeRate);
-				var tx = txBuilder.BuildTransaction(false);
-				LockUTXOsResponse result = new LockUTXOsResponse();
-				result.Fee = tx.GetFee(txBuilder.FindSpentCoins(tx));
-				var spentCoins = txBuilder.FindSpentCoins(tx).ToArray();
-				result.SpentCoins = spentCoins.Select(r => new LockUTXOsResponse.SpentCoin()
+				var psbtRequest = new CreatePSBTRequest();
+				psbtRequest.Destinations.Add(new CreatePSBTDestination()
 				{
-					KeyPath = transactions.GetKeyPath(r.TxOut.ScriptPubKey),
-					Outpoint = r.Outpoint,
-					Value = r.TxOut.Value
+					Amount = request.Amount,
+					Destination = BitcoinAddress.Create(request.Destination, network.NBitcoinNetwork),
+					SubstractFees = request.SubstractFees
+				});
+				psbtRequest.FeePreference = new FeePreference() { ExplicitFeeRate = request.FeeRate, BlockTarget = 6 };
+				psbtRequest.ReserveChangeAddress = true;
+
+				var psbtActionResult = await this.CreatePSBT(network, derivationScheme, null, psbtRequest);
+				var psbt = ((psbtActionResult as JsonResult)?.Value as CreatePSBTResponse)?.PSBT;
+				var changeAddress = ((psbtActionResult as JsonResult)?.Value as CreatePSBTResponse)?.ChangeAddress;
+				if (psbt == null)
+					return psbtActionResult;
+				
+				LockUTXOsResponse result = new LockUTXOsResponse();
+				psbt.TryGetFee(out var fee);
+				result.Fee = fee;
+
+				result.SpentCoins = psbt.Inputs.Select(i => new LockUTXOsResponse.SpentCoin()
+				{
+					KeyPath = i.HDKeyPaths.First().Value.Item2,
+					Outpoint = i.PrevOut,
+					Value = i.GetTxOut().Value
 				})
-					.ToArray();
+				.ToArray();
+
+				var tx = psbt.GetGlobalTransaction();
 				foreach (var input in tx.Inputs)
 				{
-					var coin = spentCoins.Single(s => s.Outpoint == input.PrevOut);
+					var psbtInput = psbt.Inputs.FindIndexedInput(input.PrevOut);
+					var coin = psbtInput.GetSignableCoin() ?? psbtInput.GetCoin();
 					if (coin is ScriptCoin scriptCoin)
 					{
 						if (scriptCoin.RedeemType == RedeemType.P2SH)
@@ -586,20 +571,29 @@ namespace NBXplorer.Controllers
 				}
 				result.Transaction = tx.Clone();
 
-				var changeOutput = tx.Outputs.Where(c => c.ScriptPubKey == change.ScriptPubKey).FirstOrDefault();
-				if (result.Transaction.Outputs.Count > 1 && changeOutput != null)
+				if (changeAddress != null)
 				{
-					result.ChangeInformation = new LockUTXOsResponse.ChangeInfo()
+					var changeOutput = psbt.Outputs.Where(c => c.ScriptPubKey == changeAddress.ScriptPubKey).FirstOrDefault();
+					if (changeOutput != null)
 					{
-						KeyPath = change.KeyPath,
-						Value = changeOutput.Value
-					};
+						result.ChangeInformation = new LockUTXOsResponse.ChangeInfo()
+						{
+							KeyPath = changeOutput.HDKeyPaths.First().Value.Item2,
+							Value = changeOutput.Value
+						};
+					}
 				}
 				tx.MarkLockUTXO();
-				var matches = (await repo.GetMatches(tx, null, DateTimeOffset.UtcNow, false)).Where(m => m.TrackedSource.Equals(trackedSource)).ToArray();
-				var cancellableMatch = await repo.SaveMatches(matches, true);
+
+				TrackedTransactionKey trackedTransactionKey = new TrackedTransactionKey(tx.GetHash(), null, false);
+				TrackedTransaction trackedTransaction = new TrackedTransaction(trackedTransactionKey, trackedSource, tx, new Dictionary<Script, KeyPath>());
+				foreach(var c in psbt.Inputs.OfType<PSBTCoin>().Concat(psbt.Outputs).Where(c => c.HDKeyPaths.Any()))
+				{
+					trackedTransaction.KnownKeyPathMapping.TryAdd(c.GetCoin().ScriptPubKey, c.HDKeyPaths.First().Value.Item2);
+				}
+				var cancellableMatch = await repo.SaveMatches(new[] { trackedTransaction }, true);
 				result.UnlockId = cancellableMatch.Key;
-				return result;
+				return Json(result);
 			}
 			catch (NotEnoughFundsException)
 			{

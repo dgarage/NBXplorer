@@ -24,11 +24,11 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase strategy,
 			[FromBody]
-			JObject body)
+			JObject body, CreatePSBTRequest bodyTyped = null)
 		{
-			if (body == null)
+			if (body == null && bodyTyped == null)
 				throw new ArgumentNullException(nameof(body));
-			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(body, network);
+			CreatePSBTRequest request = bodyTyped ?? ParseJObject<CreatePSBTRequest>(body, network);
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
 			var repo = RepositoryProvider.GetRepository(network);
