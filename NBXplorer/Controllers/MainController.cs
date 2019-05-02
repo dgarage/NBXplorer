@@ -591,6 +591,7 @@ namespace NBXplorer.Controllers
 				{
 					trackedTransaction.KnownKeyPathMapping.TryAdd(c.GetCoin().ScriptPubKey, c.HDKeyPaths.First().Value.Item2);
 				}
+				trackedTransaction.KnownKeyPathMappingUpdated();
 				var cancellableMatch = await repo.SaveMatches(new[] { trackedTransaction }, true);
 				result.UnlockId = cancellableMatch.Key;
 				return Json(result);
