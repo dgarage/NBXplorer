@@ -94,5 +94,10 @@ namespace NBXplorer.DerivationStrategy
 				LexicographicOrder = LexicographicOrder
 			};
 		}
+
+		public override IEnumerable<ExtPubKey> GetExtPubKeys()
+		{
+			return this.Multisig.GetExtPubKeys();
+		}
 	}
 }

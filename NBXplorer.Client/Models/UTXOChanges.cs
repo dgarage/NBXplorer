@@ -62,13 +62,17 @@ namespace NBXplorer.Models
 
 		public Coin[] GetUnspentCoins(bool excludeUnconfirmedUTXOs = false)
 		{
-			return GetUnspentUTXOs(excludeUnconfirmedUTXOs).Select(c => c.AsCoin(DerivationStrategy)).ToArray();
+			return GetUnspentCoins(excludeUnconfirmedUTXOs ? 1 : 0);
 		}
-
-		public UTXO[] GetUnspentUTXOs(bool excludeUnconfirmedUTXOs = false)
+		public Coin[] GetUnspentCoins(int minConfirmations)
 		{
+			return GetUnspentUTXOs(minConfirmations).Select(c => c.AsCoin(DerivationStrategy)).ToArray();
+		}
+		public UTXO[] GetUnspentUTXOs(int minConf)
+		{
+			var excludeUnconfirmedUTXOs = minConf > 0;
 			Dictionary<OutPoint, UTXO> received = new Dictionary<OutPoint, UTXO>();
-			foreach (var utxo in Confirmed.UTXOs.Concat(excludeUnconfirmedUTXOs ? (IEnumerable<UTXO>)Array.Empty<UTXO>() : Unconfirmed.UTXOs))
+			foreach (var utxo in Confirmed.UTXOs.Where(u => u.Confirmations >= minConf).Concat(excludeUnconfirmedUTXOs ? (IEnumerable<UTXO>)Array.Empty<UTXO>() : Unconfirmed.UTXOs))
 			{
 				received.TryAdd(utxo.Outpoint, utxo);
 			}
@@ -77,6 +81,10 @@ namespace NBXplorer.Models
 				received.Remove(utxo);
 			}
 			return received.Values.ToArray();
+		}
+		public UTXO[] GetUnspentUTXOs(bool excludeUnconfirmedUTXOs = false)
+		{
+			return GetUnspentUTXOs(excludeUnconfirmedUTXOs ? 1 : 0);
 		}
 
 		public Key[] GetKeys(ExtKey extKey, bool excludeUnconfirmedUTXOs = false)

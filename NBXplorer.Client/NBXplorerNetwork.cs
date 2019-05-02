@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -47,6 +48,35 @@ namespace NBXplorer
 			get;
 			internal set;
 		} = true;
+
+
+		private Serializer _Serializer;
+		public Serializer Serializer
+		{
+			get
+			{
+				_Serializer = _Serializer ?? new Serializer(NBitcoinNetwork);
+				return _Serializer;
+			}
+		}
+
+
+		private JsonSerializerSettings _JsonSerializerSettings;
+		public JsonSerializerSettings JsonSerializerSettings
+		{
+			get
+			{
+				if (_JsonSerializerSettings == null)
+				{
+					var json = new JsonSerializerSettings();
+					Serializer.ConfigureSerializer(json);
+					_JsonSerializerSettings = json;
+				}
+				return _JsonSerializerSettings;
+			}
+		}
+
+		
 
 		public TimeSpan ChainLoadingTimeout
 		{

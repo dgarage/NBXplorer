@@ -75,11 +75,9 @@ namespace NBXplorer
 		{
 			AttachedNode.StateChanged += AttachedNode_StateChanged;
 			AttachedNode.MessageReceived += AttachedNode_MessageReceived;
-			Run(Init);
-			_Timer = new Timer(Tick, null, 0, (int)TimeSpan.FromSeconds(30).TotalMilliseconds);
 		}
 
-		private async Task Init()
+		public async Task Init()
 		{
 			var currentLocation = await Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
 			var fork = Chain.FindFork(currentLocation);
@@ -90,6 +88,7 @@ namespace NBXplorer
 			}
 			CurrentLocation = currentLocation;
 			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting scan at block " + fork.Height);
+			_Timer = new Timer(Tick, null, 0, (int)TimeSpan.FromSeconds(30).TotalMilliseconds);
 		}
 
 		private BlockLocator GetDefaultCurrentLocation()
@@ -341,7 +340,7 @@ namespace NBXplorer
 		private async Task<Models.NewTransactionEvent[]> SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
 		{
 			await Repository.SaveMatches(matches);
-			AddressPoolService.RefillAddressPoolIfNeeded(Network, matches);
+			_ = AddressPoolService.GenerateAddresses(Network, matches);
 			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
 

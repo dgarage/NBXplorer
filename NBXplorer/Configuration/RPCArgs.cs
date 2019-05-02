@@ -131,7 +131,7 @@ namespace NBXplorer.Configuration
 				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: Error connecting to RPC server " + ex.Message);
 				throw new ConfigException();
 			}
-			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: RPC connection successfull");
+			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: RPC connection successful");
 			var capabilities = await rpcClient.ScanRPCCapabilitiesAsync();
 			if(capabilities.Version < networkInfo.MinRPCVersion)
 			{

@@ -23,63 +23,138 @@ namespace NBXplorer
 	}
 	public class AddressPoolService : IHostedService
 	{
-		RepositoryProvider _RepositoryProvider;
-		public AddressPoolService(RepositoryProvider repositoryProvider, AddressPoolServiceAccessor accessor)
+		class RefillPoolRequest
+		{
+			public DerivationStrategyBase DerivationStrategy { get; set; }
+			public DerivationFeature Feature { get; set; }
+			public TaskCompletionSource<bool> Done { get; set; }
+			public int? MinAddresses { get; set; }
+		}
+		class AddressPool
+		{
+			Repository _Repository;
+			Task _Task;
+			internal Channel<RefillPoolRequest> _Channel = Channel.CreateUnbounded<RefillPoolRequest>();
+
+			public AddressPool(Repository repository)
+			{
+				_Repository = repository;
+			}
+			public Task StartAsync(CancellationToken cancellationToken)
+			{
+				_Task = Listen();
+				return Task.CompletedTask;
+			}
+			public Task StopAsync(CancellationToken cancellationToken)
+			{
+				_Channel.Writer.Complete();
+				return _Channel.Reader.Completion;
+			}
+
+			private async Task Listen()
+			{
+				while (await _Channel.Reader.WaitToReadAsync())
+				{
+					List<RefillPoolRequest> pendingRequests = new List<RefillPoolRequest>();
+					try
+					{
+						_Channel.Reader.TryRead(out var modelItem);
+						if (modelItem == null)
+							continue;
+						retry:
+						RefillPoolRequest nextItem = null;
+						pendingRequests.Add(modelItem);
+
+						// Try to batch several requests together
+						while (_Channel.Reader.TryRead(out var item))
+						{
+							if (modelItem.DerivationStrategy == item.DerivationStrategy &&
+								modelItem.Feature == item.Feature)
+							{
+								pendingRequests.Add(item);
+							}
+							else
+							{
+								nextItem = item;
+								break;
+							}
+						}
+
+						var query = new GenerateAddressQuery();
+						foreach (var i in pendingRequests.Where(o => o.MinAddresses is int).Select(o => o.MinAddresses.Value))
+						{
+							if (query.MinAddresses is int min)
+							{
+								query.MinAddresses = min + i;
+							}
+							else
+							{
+								query.MinAddresses = new int?(i);
+							}
+						}
+
+						if (query.MinAddresses is int)
+						{
+							query.MinAddresses = Math.Min(1000, query.MinAddresses.Value);
+						}
+
+						var c = await _Repository.GenerateAddresses(modelItem.DerivationStrategy, modelItem.Feature, query);
+						pendingRequests.ForEach(i => i.Done?.TrySetResult(true));
+						if (nextItem != null)
+						{
+							modelItem = nextItem;
+							pendingRequests.Clear();
+							goto retry;
+						}
+					}
+					catch (Exception ex)
+					{
+						pendingRequests.ForEach(i => i.Done?.TrySetException(ex));
+						Logs.Explorer.LogError(ex, $"{_Repository.Network.CryptoCode}: Error in the Listen of the AddressPoolService");
+						await Task.Delay(1000);
+					}
+				}
+			}
+		}
+
+		public AddressPoolService(NBXplorerNetworkProvider networks, RepositoryProvider repositoryProvider, AddressPoolServiceAccessor accessor)
 		{
 			accessor.Instance = this;
-			_RepositoryProvider = repositoryProvider;
+			_AddressPoolByNetwork = networks.GetAll().ToDictionary(o => o, o => new AddressPool(repositoryProvider.GetRepository(o)));
 		}
-		Task _Task;
+		Dictionary<NBXplorerNetwork, AddressPool> _AddressPoolByNetwork;
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
-			_Task = Listen();
-			return Task.CompletedTask;
+			return Task.WhenAll(_AddressPoolByNetwork.Select(kv => kv.Value.StartAsync(cancellationToken)));
 		}
 
-		Channel<(NBXplorerNetwork Network, DerivationStrategyBase DerivationStrategy, DerivationFeature Feature)> _Channel = Channel.CreateUnbounded<(NBXplorerNetwork Network, DerivationStrategyBase DerivationStrategy, DerivationFeature Feature)>();
-
-		public void RefillAddressPoolIfNeeded(NBXplorerNetwork network, DerivationStrategyBase derivationStrategy, DerivationFeature feature)
+		public Task GenerateAddresses(NBXplorerNetwork network, DerivationStrategyBase derivationStrategy, DerivationFeature feature, int? minAddresses = null)
 		{
-			_Channel.Writer.TryWrite((network, derivationStrategy, feature));
-		}
-
-		const int RefillBatchSize = 3;
-		private async Task Listen()
-		{
-			while(await _Channel.Reader.WaitToReadAsync() && _Channel.Reader.TryRead(out var item))
-			{
-				var repo = _RepositoryProvider.GetRepository(item.Network);
-				int generated = 0;
-				while(true)
-				{
-					var count = await repo.RefillAddressPoolIfNeeded(item.DerivationStrategy, item.Feature, RefillBatchSize);
-					if(count == 0)
-						break;
-					generated += count;
-				}
-				//if(generated != 0)
-				//	Logs.Explorer.LogInformation($"{item.Network.CryptoCode}: Generated {generated} addresses for {item.DerivationStrategy.ToPrettyStrategyString()} ({item.Feature})");
-			}
+			var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+			if (!_AddressPoolByNetwork[network]._Channel.Writer.TryWrite(new RefillPoolRequest() { DerivationStrategy = derivationStrategy, Feature = feature, Done = completion, MinAddresses = minAddresses }))
+				completion.TrySetCanceled();
+			return completion.Task;
 		}
 
 		public Task StopAsync(CancellationToken cancellationToken)
 		{
-			_Channel.Writer.Complete();
-			return _Channel.Reader.Completion;
+			return Task.WhenAll(_AddressPoolByNetwork.Select(kv => kv.Value.StopAsync(cancellationToken)));
 		}
 
-		internal void RefillAddressPoolIfNeeded(NBXplorerNetwork network, TrackedTransaction[] matches)
+		internal Task GenerateAddresses(NBXplorerNetwork network, TrackedTransaction[] matches)
 		{
-			foreach(var m in matches)
+			List<Task> refill = new List<Task>();
+			foreach (var m in matches)
 			{
 				var derivationStrategy = (m.TrackedSource as Models.DerivationSchemeTrackedSource)?.DerivationStrategy;
 				if (derivationStrategy == null)
-						continue;
+					continue;
 				foreach (var feature in m.KnownKeyPathMapping.Select(kv => DerivationStrategyBase.GetFeature(kv.Value)))
 				{
-					RefillAddressPoolIfNeeded(network, derivationStrategy, feature);
+					refill.Add(GenerateAddresses(network, derivationStrategy, feature));
 				}
 			}
+			return Task.WhenAll(refill.ToArray());
 		}
 	}
 }

@@ -44,6 +44,11 @@ namespace NBXplorer.DerivationStrategy
 			};
 		}
 
+		public override IEnumerable<ExtPubKey> GetExtPubKeys()
+		{
+			return Inner.GetExtPubKeys();
+		}
+
 		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
 		{
 			return new P2SHDerivationStrategy(Inner.GetLineFor(keyPath), addSuffix);

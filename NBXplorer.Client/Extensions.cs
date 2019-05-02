@@ -85,30 +85,6 @@ namespace NBXplorer
 			finally { socket.Dispose(); }
 		}
 
-		public static async Task<T> WithCancellation<T>(this Task<T> task, CancellationToken cancellationToken)
-		{
-			using (var delayCTS = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-			{
-				var waiting = Task.Delay(-1, delayCTS.Token);
-				var doing = task;
-				await Task.WhenAny(waiting, doing);
-				delayCTS.Cancel();
-				cancellationToken.ThrowIfCancellationRequested();
-				return await doing;
-			}
-		}
-		public static async Task WithCancellation(this Task task, CancellationToken cancellationToken)
-		{
-			using (var delayCTS = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-			{
-				var waiting = Task.Delay(-1, delayCTS.Token);
-				var doing = task;
-				await Task.WhenAny(waiting, doing);
-				delayCTS.Cancel();
-				cancellationToken.ThrowIfCancellationRequested();
-			}
-		}
-
 		public static async Task<uint256[]> EnsureGenerateAsync(this RPCClient client, int blockCount)
 		{
 			uint256[] blockIds = new uint256[blockCount];

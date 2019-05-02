@@ -30,7 +30,7 @@ namespace NBXplorer.Controllers
 {
 	[Route("v1")]
 	[Authorize]
-	public class MainController : Controller
+	public partial class MainController : Controller
 	{
 		JsonSerializerSettings _SerializerSettings;
 		public MainController(
@@ -142,20 +142,20 @@ namespace NBXplorer.Controllers
 				throw new ArgumentNullException(nameof(strategy));
 			var network = GetNetwork(cryptoCode, false);
 			var repository = RepositoryProvider.GetRepository(network);
+			if (skip >= repository.MinPoolSize)
+				throw new NBXplorerError(404, "strategy-not-found", $"This strategy is not tracked, or you tried to skip too much unused addresses").AsException();
 			try
 			{
 				var result = await repository.GetUnused(strategy, feature, skip, reserve);
 				if (reserve)
 				{
-					while (result == null && skip < repository.MinPoolSize)
+					while (result == null)
 					{
-						await repository.RefillAddressPoolIfNeeded(strategy, feature);
+						await AddressPoolService.GenerateAddresses(network, strategy, feature, 1);
 						result = await repository.GetUnused(strategy, feature, skip, reserve);
 					}
-					AddressPoolService.RefillAddressPoolIfNeeded(network, strategy, feature);
+					_ = AddressPoolService.GenerateAddresses(network, strategy, feature);
 				}
-				if (result == null)
-					throw new NBXplorerError(404, "strategy-not-found", $"This strategy is not tracked, or you tried to skip too much unused addresses").AsException();
 				return result;
 			}
 			catch (NotSupportedException)
@@ -217,12 +217,26 @@ namespace NBXplorer.Controllers
 			var repo = RepositoryProvider.GetRepository(network);
 			
 			var location = waiter.GetLocation();
+			GetBlockchainInfoResponse blockchainInfo = null;
+			GetNetworkInfoResponse networkInfo = null;
+			if (waiter.RPCAvailable && waiter.NetworkInfo != null)
+			{
+				try
+				{
+					var batch = waiter.RPC.PrepareBatch();
+					batch.RequestTimeout = TimeSpan.FromMinutes(1.0);
+					var blockchainInfoAsync = batch.GetBlockchainInfoAsyncEx();
+					var networkInfoAsync = batch.GetNetworkInfoAsync();
+					await batch.SendBatchAsync();
+					blockchainInfo = await blockchainInfoAsync;
+					networkInfo = waiter.NetworkInfo;
+				}
+				catch(OperationCanceledException) // Timeout, can happen if core is really busy
+				{
 
-			var blockchainInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetBlockchainInfoAsyncEx() : null;
-			var networkInfoAsync = waiter.RPCAvailable ? waiter.RPC.GetNetworkInfoAsync() : null;
+				}
+			}
 
-			GetBlockchainInfoResponse blockchainInfo = blockchainInfoAsync == null ? null : await blockchainInfoAsync;
-			GetNetworkInfoResponse networkInfo = networkInfoAsync == null ? null : await networkInfoAsync;
 			var status = new StatusResult()
 			{
 				NetworkType = network.NBitcoinNetwork.NetworkType,
@@ -240,8 +254,8 @@ namespace NBXplorer.Controllers
 					Blocks = (int)blockchainInfo.Blocks,
 					Headers = (int)blockchainInfo.Headers,
 					VerificationProgress = blockchainInfo.VerificationProgress,
-					MinRelayTxFee = new FeeRate(Money.Coins((decimal)networkInfo.relayfee), 1000),
-					IncrementalRelayFee = new FeeRate(Money.Coins((decimal)networkInfo.incrementalfee), 1000),
+					MinRelayTxFee = networkInfo.GetRelayFee(),
+					IncrementalRelayFee = networkInfo.GetIncrementalFee(),
 					Capabilities = new NodeCapabilities()
 					{
 						CanScanTxoutSet = waiter.RPC.Capabilities.SupportScanUTXOSet,
@@ -616,11 +630,11 @@ namespace NBXplorer.Controllers
 			{
 				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
 				{
-					await RepositoryProvider.GetRepository(network).RefillAddressPoolIfNeeded(dts.DerivationStrategy, feature, 3);
+					await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, new GenerateAddressQuery(minAddresses: 3, null));
 				}
 				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
 				{
-					AddressPoolService.RefillAddressPoolIfNeeded(network, dts.DerivationStrategy, feature);
+					_ = AddressPoolService.GenerateAddresses(network, dts.DerivationStrategy, feature);
 				}
 			}
 			else if (trackedSource is IDestination ats)
@@ -760,7 +774,7 @@ namespace NBXplorer.Controllers
 				{
 					var matches = await repo.GetMatches(tx.Transaction, txs.Key, tx.BlockTime, false);
 					await repo.SaveMatches(matches);
-					AddressPoolService.RefillAddressPoolIfNeeded(network, matches);
+					_ = AddressPoolService.GenerateAddresses(network, matches);
 				}
 			}
 			return Ok();

@@ -62,5 +62,10 @@ namespace NBXplorer.DerivationStrategy
 		{
 			return new DirectDerivationStrategy(_Root.ExtPubKey.Derive(keyPath).GetWif(_Root.Network)) { Segwit = Segwit };
 		}
+
+		public override IEnumerable<ExtPubKey> GetExtPubKeys()
+		{
+			yield return _Root.ExtPubKey;
+		}
 	}
 }

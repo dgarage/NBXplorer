@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using NBitcoin.Crypto;
@@ -25,6 +26,20 @@ using Newtonsoft.Json.Linq;
 
 namespace NBXplorer
 {
+	public class GenerateAddressQuery
+	{
+		public GenerateAddressQuery()
+		{
+
+		}
+		public GenerateAddressQuery(int? minAddresses, int? maxAddresses)
+		{
+			MinAddresses = minAddresses;
+			MaxAddresses = maxAddresses;
+		}
+		public int? MinAddresses { get; set; }
+		public int? MaxAddresses { get; set; }
+	}
 	public class RepositoryProvider
 	{
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
@@ -53,15 +68,21 @@ namespace NBXplorer
 			}
 		}
 
+		public async Task StartAsync()
+		{
+			await Task.WhenAll(_Repositories.Select(kv => kv.Value.StartAsync()).ToArray());
+		}
+
 		public Repository GetRepository(NBXplorerNetwork network)
 		{
 			_Repositories.TryGetValue(network.CryptoCode, out Repository repository);
 			return repository;
 		}
-		public Repository GetRepository(string cryptoCode)
+
+		public async Task DisposeAsync()
 		{
-			_Repositories.TryGetValue(cryptoCode, out Repository repository);
-			return repository;
+			await Task.WhenAll(_Repositories.Select(kv => kv.Value.DisposeAsync()).ToArray());
+			await _ContextFactory.DisposeAsync();
 		}
 	}
 
@@ -275,17 +296,26 @@ namespace NBXplorer
 			}
 		}
 
-		public async Task SetIndexProgress(BlockLocator locator)
+		public Task StartAsync()
 		{
-			using (var tx = await _ContextFactory.GetContext())
-			{
-				if (locator == null)
-					tx.RemoveKey($"{_Suffix}IndexProgress", "");
-				else
-					tx.Insert($"{_Suffix}IndexProgress", "", locator.ToBytes());
-				await tx.CommitAsync();
-			}
+			return Task.CompletedTask;
 		}
+		public Task DisposeAsync()
+		{
+			return Task.CompletedTask;
+		}
+
+		public async Task SetIndexProgress(BlockLocator locator)
+				{
+					using (var tx = await _ContextFactory.GetContext())
+					{
+						if (locator == null)
+							tx.RemoveKey($"{_Suffix}IndexProgress", "");
+						else
+							tx.Insert($"{_Suffix}IndexProgress", "", locator.ToBytes());
+						await tx.CommitAsync();
+					}
+				}
 
 		public class DBLock
 		{
@@ -364,7 +394,6 @@ namespace NBXplorer
 			}
 		}
 
-
 		async Task<int> GetAddressToGenerateCount(NBXplorerDBContext tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
 			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
@@ -422,27 +451,35 @@ namespace NBXplorer
 		}
 
 		public async Task Track(IDestination address)
-		{
-			using (var tx = await _ContextFactory.GetContext())
-			{
-				var info = new KeyPathInformation()
 				{
-					ScriptPubKey = address.ScriptPubKey,
-					TrackedSource = (TrackedSource)address,
-					Address = address.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork).ToString()
-				};
-				var bytes = ToBytes(info);
-				GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
-				await tx.CommitAsync();
-			}
-		}
+					using (var tx = await _ContextFactory.GetContext())
+					{
+						var info = new KeyPathInformation()
+						{
+							ScriptPubKey = address.ScriptPubKey,
+							TrackedSource = (TrackedSource)address,
+							Address = address.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork).ToString()
+						};
+						var bytes = ToBytes(info);
+						GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
+						await tx.CommitAsync();
+					}
+				}
 
-		public async Task<int> RefillAddressPoolIfNeeded(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int maxAddreses = int.MaxValue)
+		public Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int maxAddresses)
 		{
+			return GenerateAddresses(strategy, derivationFeature, new GenerateAddressQuery(null, maxAddresses));
+		}
+		public async Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, GenerateAddressQuery query = null)
+		{
+			query = query ?? new GenerateAddressQuery();
 			using (var tx = await _ContextFactory.GetContext())
 			{
 				var toGenerate = await GetAddressToGenerateCount(tx, strategy, derivationFeature);
-				toGenerate = Math.Min(maxAddreses, toGenerate);
+				if (query.MaxAddresses is int max)
+					toGenerate = Math.Min(max, toGenerate);
+				if (query.MinAddresses is int min)
+					toGenerate = Math.Max(min, toGenerate);
 				await RefillAvailable(tx, strategy, derivationFeature, toGenerate);
 				return toGenerate;
 			}
@@ -1176,7 +1213,6 @@ namespace NBXplorer
 			CancellableMatches cancellable = new CancellableMatches();
 			cancellable.Key = Encoders.Hex.EncodeData(RandomUtils.GetBytes(20));
 			using (var tx = await _ContextFactory.GetContext())
-
 			{
 				foreach (var group in groups)
 				{

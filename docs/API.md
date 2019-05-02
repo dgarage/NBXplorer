@@ -883,3 +883,81 @@ The smallest `eventId` is 1.
   }
 ]
 ```
+
+## Create Partially Signed Bitcoin Transaction
+
+Create a [Partially Signed Bitcoin Transaction](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki) (PSBT).
+
+A PSBT is a standard format to represent a transaction with pending signatures associated to it.
+A PSBT can be signed independently by many signers, and combined together before broadcast.
+
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/psbt/create
+
+Error codes:
+
+* HTTP 400: `not-enough-funds`
+* HTTP 400: `fee-estimation-unavailable`
+* HTTP 404: `cryptoCode-not-supported`
+
+Fields:
+
+```json
+{
+  "seed": 1,
+  "rbf": false,
+  "version": 1,
+  "timeLock": 512000,
+  "explicitChangeAddress": "mu5kevv6FiLygJfVvxQnB4hArXCUArMC7C",
+  "destinations": [
+    {
+      "destination": "mu5kevv6FiLygJfVvxQnB4hArXCUArMC7C",
+      "amount": 50000000,
+      "substractFees": false,
+      "sweepAll": false
+    }
+  ],
+  "feePreference": {
+    "explicitFeeRate": 10,
+    "explicitFee": 23000,
+    "blockTarget": 1,
+    "fallbackFeeRate": 100
+  },
+  "reserveChangeAddress": false,
+  "minConfirmations": 0,
+  "excludeOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1", 
+						"7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-2"],
+  "includeOnlyOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1" ]
+}
+```
+
+* `seed`: Optional, default to null, a seed to specific to get a deterministic PSBT (useful for tests)
+* `version`: Optional, default to 1, the version of the transaction
+* `timeLock`: Optional, The timelock of the transaction, activate RBF if not null (default: null, nLockTime to 0)
+* `rbf`: Optional, default to false, determine if the transaction should have Replace By Fee (RBF) activated
+* `reserveChangeAddress`: default to false, whether the creation of this PSBT will reserve a new change address.
+* `explicitChangeAddress`: default to null, use a specific change address (Optional, mutually exclusive with reserveChangeAddress)
+* `minConfirmations`: default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
+* `includeOnlyOutpoints`: Only select the following outpoints for creating the PSBT (default to null)
+* `excludeOutpoints`: Do not select the following outpoints for creating the PSBT (default to empty)
+* `destinations`: Required, the destinations where to send the money
+* `destinations[].destination`: Required, the destination address
+* `destinations[].amount` Send this amount to the destination (Mutually exclusive with: sweepAll)
+* `destinations[].substractFees` Default to false, will substract the fees of this transaction to this destination (Mutually exclusive with: sweepAll)
+* `destinations[].sweepAll` Deault to false, will sweep all the balance of your wallet to this destination (Mutually exclusive with: amount, substractFees)
+* `feePreference`: Optional, determines how fees for the transaction are calculated, default to the full node estimation for 1 block target.
+* `feePreference.explicitFeeRate`: An explicit fee rate for the transaction in Satoshi per vBytes (Mutually exclusive with: blockTarget, explicitFee, fallbackFeeRate)
+* `feePreference.explicitFee`: An explicit fee for the transaction in Satoshi (Mutually exclusive with: blockTarget, explicitFeeRate, fallbackFeeRate)
+* `feePreference.blockTarget`: A number of blocks after which the user expect one confirmation (Mutually exclusive with: explicitFeeRate, explicitFee)
+* `feePreference.fallbackFeeRate`: If the NBXplorer's node does not have proper fee estimation, this specific rate will be use in Satoshi per vBytes, this make sure that `fee-estimation-unavailable` is never sent. (Mutually exclusive with: explicitFeeRate, explicitFee)
+
+Response:
+
+```json
+{
+  "psbt": "cHNidP8BAHcBAAAAASjvZHM29AbxO4IGGHbk3IE82yciSQFr2Ihge7P9P1HeAQAAAAD/////AmzQMAEAAAAAGXapFG1/TpHnIajdweam5Z3V9s6oGWBRiKyAw8kBAAAAABl2qRSVNmCfrnVeIwVkuTrCR6EvRFCP7IisAAAAAAABAP10AQEAAAACe9C2c9VL+gfYpic4c+Wk/Nn7bvhewA82owtcUDo/tPoAAAAAakcwRAIgUlLS0SDj7IXeY44x21eUg16Vh4qbJe+NDQ/ywUrB84kCIGLU5Vec2bjL1DZhUmDueLrf0uh/PycOK7FWg/Ptvwi0ASED7OpQGf+HzIRwWKZ1Hmd8h6vxkFOt5RlJ3u/flzNTesv/////818+qp4hLnw9DWOD+a601fLjFciZ/4iCNT1M9g+kMvkAAAAAakcwRAIgfk+bUUYfRs6AU1mt5unV4fZxCit34g8pE5fsawUM7H0CIBGpSil8+JCHdAHxKU2I7CvEBzAyz3ggd9RlH+QQSnlkASEC/wwlQ07b3xdSQaEf+wRJEnzEJT2GPNTY4Wb3Gg1hxFz/////AoDw+gIAAAAAGXapFHoZHSjaWNcmJk7sSHvRG29RaqIiiKxQlPoCAAAAABl2qRTSKm2x4ITWeuYLwCv3PUDtt+CL+YisAAAAACIGA1KRWHyJqdpbUzuezCSzj4+bj1+gNWGEibLG0BMj9/RmDDAn+hsBAAAAAgAAAAAiAgIuwas0MohgjmGIXoOgS95USEDawK//ZqrVEi5UIfP/FAwwJ/obAQAAAAMAAAAAAA==",
+  "changeAddress": "mqVvTQKsdJ36Z8m5uFWQSA5nhrJ5NHQ2Hs"
+}
+```
+
+* `psbt`: The partially signed bitcoin transaction in Base64.
+* `changeAddress`: The change address of the transaction, useful for tests (can be null) 

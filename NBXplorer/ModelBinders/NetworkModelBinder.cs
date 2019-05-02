@@ -8,9 +8,9 @@ using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.ModelBinders
 {
-	public class DerivationStrategyModelBinder : IModelBinder
+	public class NetworkModelBinder : IModelBinder
 	{
-		public DerivationStrategyModelBinder()
+		public NetworkModelBinder()
 		{
 
 		}
@@ -19,7 +19,8 @@ namespace NBXplorer.ModelBinders
 
 		public Task BindModelAsync(ModelBindingContext bindingContext)
 		{
-			if(!typeof(DerivationStrategyBase).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType))
+			if(!typeof(Network).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType) &&
+			   !typeof(NBXplorerNetwork).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType))
 			{
 				return Task.CompletedTask;
 			}
@@ -39,18 +40,13 @@ namespace NBXplorer.ModelBinders
 
 			var networkProvider = (NBXplorer.NBXplorerNetworkProvider)bindingContext.HttpContext.RequestServices.GetService(typeof(NBXplorer.NBXplorerNetworkProvider));
 			var cryptoCode = bindingContext.ValueProvider.GetValue("cryptoCode").FirstValue;
-			cryptoCode = cryptoCode ?? bindingContext.ValueProvider.GetValue("network").FirstValue;
 			var network = networkProvider.GetFromCryptoCode((cryptoCode ?? "BTC"));
-			try
-			{
-				var data = new DerivationStrategy.DerivationStrategyFactory(network.NBitcoinNetwork).Parse(key);
-				if(!bindingContext.ModelType.IsInstanceOfType(data))
-				{
-					throw new FormatException("Invalid destination type");
-				}
-				bindingContext.Result = ModelBindingResult.Success(data);
-			}
-			catch { throw new FormatException("Invalid derivation scheme"); }
+			if (network == null)
+				throw new FormatException($"The cryptoCode '{cryptoCode}' is not supported");
+			if (typeof(Network).GetTypeInfo().IsAssignableFrom(bindingContext.ModelType))
+				bindingContext.Result = ModelBindingResult.Success(network.NBitcoinNetwork);
+			else
+				bindingContext.Result = ModelBindingResult.Success(network);
 			return Task.CompletedTask;
 		}
 

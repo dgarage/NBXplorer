@@ -70,6 +70,8 @@ namespace NBXplorer.DerivationStrategy
 			return !(a == b);
 		}
 
+		public abstract IEnumerable<ExtPubKey> GetExtPubKeys();
+
 		public override int GetHashCode()
 		{
 			return StringValue.GetHashCode();
