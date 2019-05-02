@@ -181,7 +181,7 @@ namespace NBXplorer.Controllers
 			var location = waiter.GetLocation();
 			GetBlockchainInfoResponse blockchainInfo = null;
 			GetNetworkInfoResponse networkInfo = null;
-			if (waiter.RPCAvailable)
+			if (waiter.RPCAvailable && waiter.NetworkInfo != null)
 			{
 				try
 				{
@@ -191,7 +191,7 @@ namespace NBXplorer.Controllers
 					var networkInfoAsync = batch.GetNetworkInfoAsync();
 					await batch.SendBatchAsync();
 					blockchainInfo = await blockchainInfoAsync;
-					networkInfo = await networkInfoAsync;
+					networkInfo = waiter.NetworkInfo;
 				}
 				catch(OperationCanceledException) // Timeout, can happen if core is really busy
 				{
@@ -216,8 +216,8 @@ namespace NBXplorer.Controllers
 					Blocks = (int)blockchainInfo.Blocks,
 					Headers = (int)blockchainInfo.Headers,
 					VerificationProgress = blockchainInfo.VerificationProgress,
-					MinRelayTxFee = new FeeRate(Money.Coins((decimal)networkInfo.relayfee), 1000),
-					IncrementalRelayFee = new FeeRate(Money.Coins((decimal)networkInfo.incrementalfee), 1000),
+					MinRelayTxFee = networkInfo.GetRelayFee(),
+					IncrementalRelayFee = networkInfo.GetIncrementalFee(),
 					Capabilities = new NodeCapabilities()
 					{
 						CanScanTxoutSet = waiter.RPC.Capabilities.SupportScanUTXOSet,

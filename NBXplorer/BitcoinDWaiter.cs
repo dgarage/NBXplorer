@@ -368,6 +368,7 @@ namespace NBXplorer
 				if (State == BitcoinDWaiterState.Ready)
 				{
 					await File.WriteAllTextAsync(RPCReadyFile, NBitcoin.Utils.DateTimeToUnixTime(DateTimeOffset.UtcNow).ToString());
+					NetworkInfo = await _RPCWithTimeout.GetNetworkInfoAsync();
 				}
 			}
 			if (State != BitcoinDWaiterState.Ready)
@@ -747,5 +748,6 @@ namespace NBXplorer
 			}
 		}
 
+		public GetNetworkInfoResponse NetworkInfo { get; internal set; }
 	}
 }

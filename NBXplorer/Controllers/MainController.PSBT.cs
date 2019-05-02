@@ -35,6 +35,12 @@ namespace NBXplorer.Controllers
 			var utxos = await GetUTXOs(network.CryptoCode, strategy, null);
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
+
+			if (Waiters.GetWaiter(network).NetworkInfo?.GetRelayFee() is FeeRate feeRate)
+			{
+				txBuilder.StandardTransactionPolicy.MinRelayTxFee = feeRate;
+			}
+
 			txBuilder.OptInRBF = request.RBF;
 			if (request.LockTime is LockTime lockTime)
 			{
