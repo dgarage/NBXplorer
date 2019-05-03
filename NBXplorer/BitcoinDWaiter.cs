@@ -550,7 +550,6 @@ namespace NBXplorer
 
 		private void Node_StateChanged(Node node, NodeState oldState)
 		{
-			Logs.Explorer.LogInformation("TICK");
 			_Tick.Set();
 		}
 
