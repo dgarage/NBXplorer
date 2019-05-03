@@ -75,7 +75,7 @@ namespace NBXplorer.Tests
 			//RPCSupportSegwit = false;
 
 			CryptoCode = "BTC";
-			nodeDownloadData = NodeDownloadData.Bitcoin.v0_17_0;
+			nodeDownloadData = NodeDownloadData.Bitcoin.v0_18_0;
 			Network = NBitcoin.Network.RegTest;
 		}
 	}
