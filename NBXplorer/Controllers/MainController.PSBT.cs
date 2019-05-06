@@ -154,7 +154,7 @@ namespace NBXplorer.Controllers
 			if (request.Version is uint v)
 				tx.Version = v;
 			psbt = txBuilder.CreatePSBTFrom(tx, false, SigHash.All);
-
+			var outputsKeyInformations = repo.GetKeyInformations(psbt.Outputs.Where(o => !o.HDKeyPaths.Any()).Select(o => o.ScriptPubKey).ToArray());
 			var utxosByOutpoint = utxos.GetUnspentUTXOs().ToDictionary(u => u.Outpoint);
 
 			// Maybe it is a change that we know about, let's search in the DB
@@ -193,20 +193,7 @@ namespace NBXplorer.Controllers
 					NBitcoin.Extensions.TryAdd(input.HDKeyPaths, childPubKey.GetPublicKey(), Tuple.Create(fps[pubkey.GetPublicKey()], utxo.KeyPath));
 				}
 			}
-			if (hasChange && change.KeyPath != null)
-			{
-				foreach (var output in psbt.Outputs)
-				{
-					if (output.ScriptPubKey == change.ScriptPubKey)
-					{
-						foreach (var pubkey in pubkeys)
-						{
-							var childPubKey = pubkey.Derive(change.KeyPath);
-							NBitcoin.Extensions.TryAdd(output.HDKeyPaths, childPubKey.GetPublicKey(), Tuple.Create(fps[pubkey.GetPublicKey()], change.KeyPath));
-						}
-					}
-				}
-			}
+			
 			await Task.WhenAll(psbt.Inputs
 				.Select(async (input) =>
 				{
@@ -217,6 +204,19 @@ namespace NBXplorer.Controllers
 							input.NonWitnessUtxo = prev[0].Transaction;
 					}
 				}).ToArray());
+
+			var outputsKeyInformationsResult = await outputsKeyInformations;
+			foreach (var output in psbt.Outputs)
+			{
+				foreach (var keyInfo in outputsKeyInformationsResult[output.ScriptPubKey].Where(o => o.DerivationStrategy == strategy))
+				{
+					foreach (var pubkey in pubkeys)
+					{
+						var childPubKey = pubkey.Derive(keyInfo.KeyPath);
+						NBitcoin.Extensions.TryAdd(output.HDKeyPaths, childPubKey.GetPublicKey(), Tuple.Create(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
+					}
+				}
+			}
 
 			var resp = new CreatePSBTResponse()
 			{
