@@ -278,6 +278,16 @@ namespace NBXplorer
 			_Network = network;
 			_ContextFactory = contextFactory;
 			_Suffix = network.CryptoCode;
+
+			if (network.CryptoCode == "BCH")
+			{
+				// BCH has potential 32 MB block
+				noMatchCache = new FixedSizeCache<uint256, uint256>(5000 * 32, k => k);
+			}
+			else
+			{
+				noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
+			}
 		}
 
 		string _Suffix;
@@ -1370,7 +1380,7 @@ namespace NBXplorer
 			return needRefill;
 		}
 
-		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
+		FixedSizeCache<uint256, uint256> noMatchCache;
 		public Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
 			return GetMatches(new[] { tx }, blockId, now, useCache);
