@@ -1251,67 +1251,84 @@ namespace NBXplorer
 		}
 
 		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
-		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
+		public Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
-			var h = tx.GetHash();
-			if (blockId != null && useCache && noMatchCache.Contains(h))
-			{
-				return Array.Empty<TrackedTransaction>();
-			}
+			return GetMatches(new[] { tx }, blockId, now, useCache);
+		}
+		public async Task<TrackedTransaction[]> GetMatches(IList<Transaction> txs, uint256 blockId, DateTimeOffset now, bool useCache)
+		{
+			foreach (var tx in txs)
+				tx.PrecomputeHash(false, true);
+			var transactionsPerScript = new MultiValueDictionary<Script, Transaction>();
 			var matches = new Dictionary<string, TrackedTransaction>();
-			HashSet<Script> inputScripts = new HashSet<Script>();
-			HashSet<Script> outputScripts = new HashSet<Script>();
-			HashSet<Script> scripts = new HashSet<Script>();
-			foreach (var input in tx.Inputs)
+			HashSet<Script> scripts = new HashSet<Script>(txs.Count);
+			var noMatchTransactions = new HashSet<uint256>(txs.Count);
+			foreach (var tx in txs)
 			{
-				var signer = input.GetSigner();
-				if (signer != null)
+				if (blockId != null && useCache && noMatchCache.Contains(tx.GetHash()))
 				{
-					inputScripts.Add(signer.ScriptPubKey);
-					scripts.Add(signer.ScriptPubKey);
+					continue;
+				}
+				noMatchTransactions.Add(tx.GetHash());
+				foreach (var input in tx.Inputs)
+				{
+					var signer = input.GetSigner();
+					if (signer != null)
+					{
+						scripts.Add(signer.ScriptPubKey);
+						transactionsPerScript.Add(signer.ScriptPubKey, tx);
+					}
+				}
+				foreach (var output in tx.Outputs)
+				{
+					scripts.Add(output.ScriptPubKey);
+					transactionsPerScript.Add(output.ScriptPubKey, tx);
 				}
 			}
-
-			foreach (var output in tx.Outputs)
-			{
-				outputScripts.Add(output.ScriptPubKey);
-				scripts.Add(output.ScriptPubKey);
-			}
-
+			if (scripts.Count == 0)
+				return Array.Empty<TrackedTransaction>();
 			var keyInformations = await GetKeyInformations(scripts.ToArray());
 			foreach (var keyInfoByScripts in keyInformations)
 			{
-				foreach (var keyInfo in keyInfoByScripts.Value)
+				foreach (var tx in transactionsPerScript[keyInfoByScripts.Key])
 				{
-					var matchesGroupingKey = keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex();
-					if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
+					if (keyInfoByScripts.Value.Count != 0)
+						noMatchTransactions.Remove(tx.GetHash());
+					foreach (var keyInfo in keyInfoByScripts.Value)
 					{
-						match = new TrackedTransaction(
-							new TrackedTransactionKey(h, blockId, false),
-							keyInfo.TrackedSource,
-							tx,
-							new Dictionary<Script, KeyPath>())
+						var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
+						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 						{
-							FirstSeen = now,
-							Inserted = now
-						};
-						matches.Add(matchesGroupingKey, match);
+							match = new TrackedTransaction(
+								new TrackedTransactionKey(tx.GetHash(), blockId, false),
+								keyInfo.TrackedSource,
+								tx,
+								new Dictionary<Script, KeyPath>())
+							{
+								FirstSeen = now,
+								Inserted = now
+							};
+							matches.Add(matchesGroupingKey, match);
+						}
+						if (keyInfo.KeyPath != null)
+							match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
 					}
-					if (keyInfo.KeyPath != null)
-						match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
 				}
 			}
 			foreach (var m in matches.Values)
 			{
 				m.KnownKeyPathMappingUpdated();
 			}
-			if (blockId == null &&
-				matches.Count == 0)
+
+			foreach (var tx in txs)
 			{
-				noMatchCache.Add(h);
-				return Array.Empty<TrackedTransaction>();
+				if (blockId == null &&
+					noMatchTransactions.Contains(tx.GetHash()))
+				{
+					noMatchCache.Add(tx.GetHash());
+				}
 			}
-			return matches.Values.ToArray();
+			return matches.Values.Count == 0 ? Array.Empty<TrackedTransaction>() : matches.Values.ToArray();
 		}
 	}
 }
