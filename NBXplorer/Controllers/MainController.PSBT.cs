@@ -83,8 +83,10 @@ namespace NBXplorer.Controllers
 			// This assume that a script with only 0 can't be created from a strategy, nor by passing any data to explicitChangeAddress
 			if (request.ExplicitChangeAddress == null)
 			{
-				var derivation = strategy.Derive(0); // We can't take random key, as the length of the scriptPubKey influences fees
-				change = (Script.FromBytesUnsafe(new byte[derivation.ScriptPubKey.Length]), null);
+				// The dummyScriptPubKey is necessary to know the size of the change
+				var dummyScriptPubKey = utxos.Unconfirmed.UTXOs.FirstOrDefault()?.ScriptPubKey ??
+								 utxos.Confirmed.UTXOs.FirstOrDefault()?.ScriptPubKey ?? strategy.Derive(0).ScriptPubKey;
+				change = (Script.FromBytesUnsafe(new byte[dummyScriptPubKey.Length]), null);
 			}
 			else
 			{
@@ -167,12 +169,21 @@ namespace NBXplorer.Controllers
 				}
 			}
 
+
 			var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
+			var keyPaths = psbt.Inputs.Select(i => utxosByOutpoint[i.PrevOut].KeyPath).ToList();
+			if (hasChange && change.KeyPath != null)
+			{
+				keyPaths.Add(change.KeyPath);
+			}
 			var fps = new Dictionary<PubKey, HDFingerprint>();
 			foreach (var pubkey in pubkeys)
 			{
+				// We derive everything the fastest way possible on multiple cores
+				pubkey.Derive(keyPaths.ToArray());
 				fps.TryAdd(pubkey.GetPublicKey(), pubkey.GetPublicKey().GetHDFingerPrint());
 			}
+
 			foreach (var input in psbt.Inputs)
 			{
 				var utxo = utxosByOutpoint[input.PrevOut];

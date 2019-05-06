@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using NBitcoin.Crypto;
+using System.Threading.Tasks;
 
 namespace NBXplorer.DerivationStrategy
 {
@@ -67,9 +68,13 @@ namespace NBXplorer.DerivationStrategy
 
 		public override Derivation Derive(KeyPath keyPath)
 		{
+			var pubKeys = new PubKey[this.Multisig.Keys.Length];
+			Parallel.For(0, pubKeys.Length, i =>
+			{
+				pubKeys[i] = this.Multisig.Keys[i].ExtPubKey.Derive(keyPath).PubKey;
+			});
 
-			var pubKeys = this.Multisig.Keys.Select(s => s.ExtPubKey.Derive(keyPath).PubKey).ToArray();
-			if(LexicographicOrder)
+			if (LexicographicOrder)
 			{
 				Array.Sort(pubKeys, MultisigDerivationStrategy.LexicographicComparer);
 			}
