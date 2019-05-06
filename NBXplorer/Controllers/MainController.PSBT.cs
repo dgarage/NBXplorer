@@ -154,7 +154,6 @@ namespace NBXplorer.Controllers
 			psbt = txBuilder.CreatePSBTFrom(tx, false, SigHash.All);
 
 			var utxosByOutpoint = utxos.GetUnspentUTXOs().ToDictionary(u => u.Outpoint);
-			var keyPaths = psbt.Inputs.Select(i => utxosByOutpoint[i.PrevOut].KeyPath).ToHashSet();
 
 			// Maybe it is a change that we know about, let's search in the DB
 			if (hasChange && change.KeyPath == null)
@@ -168,16 +167,35 @@ namespace NBXplorer.Controllers
 				}
 			}
 
+			var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
+			var fps = new Dictionary<PubKey, HDFingerprint>();
+			foreach (var pubkey in pubkeys)
+			{
+				fps.TryAdd(pubkey.GetPublicKey(), pubkey.GetPublicKey().GetHDFingerPrint());
+			}
+			foreach (var input in psbt.Inputs)
+			{
+				var utxo = utxosByOutpoint[input.PrevOut];
+				foreach (var pubkey in pubkeys)
+				{
+					var childPubKey = pubkey.Derive(utxo.KeyPath);
+					NBitcoin.Extensions.TryAdd(input.HDKeyPaths, childPubKey.GetPublicKey(), Tuple.Create(fps[pubkey.GetPublicKey()], utxo.KeyPath));
+				}
+			}
 			if (hasChange && change.KeyPath != null)
 			{
-				keyPaths.Add(change.KeyPath);
+				foreach (var output in psbt.Outputs)
+				{
+					if (output.ScriptPubKey == change.ScriptPubKey)
+					{
+						foreach (var pubkey in pubkeys)
+						{
+							var childPubKey = pubkey.Derive(change.KeyPath);
+							NBitcoin.Extensions.TryAdd(output.HDKeyPaths, childPubKey.GetPublicKey(), Tuple.Create(fps[pubkey.GetPublicKey()], change.KeyPath));
+						}
+					}
+				}
 			}
-
-			foreach (var hd in strategy.GetExtPubKeys())
-			{
-				psbt.AddKeyPath(hd, keyPaths.ToArray());
-			}
-
 			await Task.WhenAll(psbt.Inputs
 				.Select(async (input) =>
 				{
