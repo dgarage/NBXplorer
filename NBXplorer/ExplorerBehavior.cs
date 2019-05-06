@@ -277,11 +277,9 @@ namespace NBXplorer
 			{
 				DateTimeOffset now = DateTimeOffset.UtcNow;
 				var matches =
-					block.Transactions
-					.Select(tx => Repository.GetMatches(tx, blockHash, now, true))
+					(await Repository.GetMatches(block.Transactions, blockHash, now, true))
 					.ToArray();
-				await Task.WhenAll(matches);
-				var evts = await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
+				var evts = await SaveMatches(matches, blockHash, now);
 				var slimBlockHeader = Chain.GetBlock(blockHash);
 				if (slimBlockHeader != null)
 				{
