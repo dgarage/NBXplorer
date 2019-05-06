@@ -305,6 +305,14 @@ namespace NBXplorer.Tests
 					Legacy = true
 				});
 				tester.Client.Track(userDerivationScheme);
+				var userExtKey2 = new ExtKey();
+				var userDerivationScheme2 = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey2.Neuter(), new DerivationStrategyOptions()
+				{
+					// Use non-segwit
+					Legacy = true
+				});
+				tester.Client.Track(userDerivationScheme2);
+				var newAddress2 = tester.Client.GetUnused(userDerivationScheme2, DerivationFeature.Deposit, skip:2);
 
 				// Send 1 BTC
 				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
@@ -644,6 +652,33 @@ namespace NBXplorer.Tests
 				Assert.Equal(new LockTime(1_000_000), txx.LockTime);
 				Assert.Equal(2U, txx.Version);
 				Assert.True(txx.RBF);
+
+				Logs.Tester.LogInformation("Spend to self should give us 2 outputs with hdkeys pre populated");
+
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = BitcoinAddress.Create(newAddress.Address, tester.Network),
+								Amount = Money.Coins(0.0001m)
+							},
+							new CreatePSBTDestination()
+							{
+								Destination = BitcoinAddress.Create(newAddress2.Address, tester.Network),
+								Amount = Money.Coins(0.0001m)
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false
+				});
+				Assert.Equal(3, psbt2.PSBT.Outputs.Count);
+				Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
+				Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Value.Item2 == newAddress.KeyPath)));
 			}
 		}
 
