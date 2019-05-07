@@ -518,7 +518,7 @@ Request:
 * `destinations[].destination`: Required, the destination address
 * `destinations[].amount` Send this amount to the destination (Mutually exclusive with: sweepAll)
 * `destinations[].substractFees` Default to false, will substract the fees of this transaction to this destination (Mutually exclusive with: sweepAll)
-* `destinations[].sweepAll` Deault to false, will sweep all the balance of your wallet to this destination (Mutually exclusive with: amount, substractFees)
+* `destinations[].sweepAll` Default to false, will sweep all the balance of your wallet to this destination (Mutually exclusive with: amount, substractFees)
 
 Note, `destination` and `substractFees` at the root request is still supported for backward compatibility but is deprecated.
 
@@ -959,7 +959,7 @@ Fields:
 * `destinations[].destination`: Required, the destination address
 * `destinations[].amount` Send this amount to the destination (Mutually exclusive with: sweepAll)
 * `destinations[].substractFees` Default to false, will substract the fees of this transaction to this destination (Mutually exclusive with: sweepAll)
-* `destinations[].sweepAll` Deault to false, will sweep all the balance of your wallet to this destination (Mutually exclusive with: amount, substractFees)
+* `destinations[].sweepAll` Default to false, will sweep all the balance of your wallet to this destination (Mutually exclusive with: amount, substractFees)
 * `feePreference`: Optional, determines how fees for the transaction are calculated, default to the full node estimation for 1 block target.
 * `feePreference.explicitFeeRate`: An explicit fee rate for the transaction in Satoshi per vBytes (Mutually exclusive with: blockTarget, explicitFee, fallbackFeeRate)
 * `feePreference.explicitFee`: An explicit fee for the transaction in Satoshi (Mutually exclusive with: blockTarget, explicitFeeRate, fallbackFeeRate)
