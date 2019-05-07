@@ -65,8 +65,13 @@ namespace NBXplorer.Models
 			{
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "Invalid destination address"));
 			}
-			if (Amount == null || Amount <= Money.Zero)
-				throw new NBXplorerException(new NBXplorerError(400, "invalid-amount", "amount should be equal or less than 0 satoshi"));
+			if (SweepAll && Amount != null)
+				throw new NBXplorerException(new NBXplorerError(400, "invalid-amount", "`amount` should be null if sweepAll is activated"));
+			if (!SweepAll)
+			{
+				if (Amount == null || Amount <= Money.Zero)
+					throw new NBXplorerException(new NBXplorerError(400, "invalid-amount", "`amount` should be equal or less than 0 satoshi"));
+			}
 			return new CreatePSBTDestination() { Destination = destinationAddress, Amount = Amount, SubstractFees = SubstractFees, SweepAll = SweepAll };
 		}
 	}
