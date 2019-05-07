@@ -1865,6 +1865,19 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanRoundTripSerialize()
+		{
+			var providers = new NBXplorerNetworkProvider(NetworkType.Regtest);
+			var key = new Key();
+			var bchAddress = key.PubKey.GetAddress(providers.GetBCH().NBitcoinNetwork);
+			var litecoinAddress = key.PubKey.GetAddress(providers.GetLTC().NBitcoinNetwork);
+			var btcAddress = key.PubKey.GetAddress(providers.GetBTC().NBitcoinNetwork);
+			Assert.Equal(bchAddress, providers.GetBCH().Serializer.ToObject<BitcoinAddress>($"\"{bchAddress}\""));
+			Assert.Equal(litecoinAddress, providers.GetLTC().Serializer.ToObject<BitcoinAddress>($"\"{litecoinAddress}\""));
+			Assert.Equal(btcAddress, providers.GetLTC().Serializer.ToObject<BitcoinAddress>($"\"{btcAddress}\""));
+		}
+
+		[Fact]
 		public void CanTrackAddress()
 		{
 			using (var tester = ServerTester.Create())
