@@ -498,6 +498,14 @@ Request:
 ```
 {
   "amount":40000000,
+  "destinations": [
+    {
+      "destination": "mu5kevv6FiLygJfVvxQnB4hArXCUArMC7C",
+      "amount": 50000000,
+      "substractFees": false,
+      "sweepAll": false
+    }
+  ],
   "destination":"mjkuTBMFAD6RjuCF1Gd7zacfvuDtw5rHEP",
   # feeRate is optional, specifying it will override default fee estimation
   "feeRate":1,
@@ -505,6 +513,14 @@ Request:
   "substractFees": false
 }
 ```
+
+* `destinations`: Required, the destinations where to send the money
+* `destinations[].destination`: Required, the destination address
+* `destinations[].amount` Send this amount to the destination (Mutually exclusive with: sweepAll)
+* `destinations[].substractFees` Default to false, will substract the fees of this transaction to this destination (Mutually exclusive with: sweepAll)
+* `destinations[].sweepAll` Deault to false, will sweep all the balance of your wallet to this destination (Mutually exclusive with: amount, substractFees)
+
+Note, `destination` and `substractFees` at the root request is still supported for backward compatibility but is deprecated.
 
 Response:
 

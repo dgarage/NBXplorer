@@ -499,21 +499,8 @@ namespace NBXplorer.Controllers
 		{
 			if (derivationScheme == null)
 				throw new ArgumentNullException(nameof(derivationScheme));
-			if (request?.Destination == null)
-				throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "Invalid destination address"));
 			var network = GetNetwork(cryptoCode, false);
 			var trackedSource = GetTrackedSource(derivationScheme, null, network.NBitcoinNetwork);
-			BitcoinAddress destinationAddress = null;
-			try
-			{
-				destinationAddress = BitcoinAddress.Create(request.Destination, network.NBitcoinNetwork);
-			}
-			catch
-			{
-				throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "Invalid destination address"));
-			}
-			if (request.Amount == null || request.Amount <= Money.Zero)
-				throw new NBXplorerException(new NBXplorerError(400, "invalid-amount", "amount should be equal or less than 0 satoshi"));
 
 			var repo = RepositoryProvider.GetRepository(network);
 
@@ -523,12 +510,13 @@ namespace NBXplorer.Controllers
 				walletLock = await repo.TakeWalletLock(derivationScheme, cancellation);
 
 				var psbtRequest = new CreatePSBTRequest();
-				psbtRequest.Destinations.Add(new CreatePSBTDestination()
+
+				foreach (var destination in request.GetDestinations())
 				{
-					Amount = request.Amount,
-					Destination = BitcoinAddress.Create(request.Destination, network.NBitcoinNetwork),
-					SubstractFees = request.SubstractFees
-				});
+					psbtRequest.Destinations.Add(destination.ToPSBTDestination(network));
+				}
+				if (psbtRequest.Destinations.Count == 0)
+					throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "'destination' or 'destinations' not specified"));
 				psbtRequest.FeePreference = new FeePreference() { ExplicitFeeRate = request.FeeRate, BlockTarget = 6 };
 				psbtRequest.ReserveChangeAddress = true;
 
