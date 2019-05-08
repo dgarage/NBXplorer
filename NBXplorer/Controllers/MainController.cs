@@ -180,18 +180,13 @@ namespace NBXplorer.Controllers
 			
 			var location = waiter.GetLocation();
 			GetBlockchainInfoResponse blockchainInfo = null;
-			GetNetworkInfoResponse networkInfo = null;
-			if (waiter.RPCAvailable && waiter.NetworkInfo != null)
+			if (waiter.RPCAvailable)
 			{
 				try
 				{
-					var batch = waiter.RPC.PrepareBatch();
-					batch.RequestTimeout = TimeSpan.FromMinutes(1.0);
-					var blockchainInfoAsync = batch.GetBlockchainInfoAsyncEx();
-					var networkInfoAsync = batch.GetNetworkInfoAsync();
-					await batch.SendBatchAsync();
-					blockchainInfo = await blockchainInfoAsync;
-					networkInfo = waiter.NetworkInfo;
+					var rpc = waiter.RPC.Clone();
+					rpc.RequestTimeout = TimeSpan.FromMinutes(1.0);
+					blockchainInfo = await rpc.GetBlockchainInfoAsyncEx();
 				}
 				catch(OperationCanceledException) // Timeout, can happen if core is really busy
 				{
@@ -210,6 +205,7 @@ namespace NBXplorer.Controllers
 
 			if (blockchainInfo != null)
 			{
+				GetNetworkInfoResponse networkInfo = waiter.NetworkInfo;
 				status.BitcoinStatus = new BitcoinStatus()
 				{
 					IsSynched = !waiter.IsSynchingCore(blockchainInfo),
