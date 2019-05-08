@@ -104,7 +104,8 @@ namespace NBXplorer{
 				if (KnownKeyPathMapping.ContainsKey(output.ScriptPubKey) || scriptPubKey == output.ScriptPubKey)
 					ReceivedCoins.Add(new Coin(new OutPoint(Key.TxId, i), output));
 			}
-			SpentOutpoints.AddRange(Transaction.Inputs.Select(input => input.PrevOut));
+			if (!Transaction.IsCoinBase)
+				SpentOutpoints.AddRange(Transaction.Inputs.Select(input => input.PrevOut));
 		}
 
 		public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; } = new Dictionary<Script, KeyPath>();
