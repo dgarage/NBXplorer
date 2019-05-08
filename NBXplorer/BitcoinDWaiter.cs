@@ -364,11 +364,12 @@ namespace NBXplorer
 
 			if (changed)
 			{
+				if (oldState == BitcoinDWaiterState.NotStarted)
+					NetworkInfo = await _RPCWithTimeout.GetNetworkInfoAsync();
 				_EventAggregator.Publish(new BitcoinDStateChangedEvent(_Network, oldState, State));
 				if (State == BitcoinDWaiterState.Ready)
 				{
 					await File.WriteAllTextAsync(RPCReadyFile, NBitcoin.Utils.DateTimeToUnixTime(DateTimeOffset.UtcNow).ToString());
-					NetworkInfo = await _RPCWithTimeout.GetNetworkInfoAsync();
 				}
 			}
 			if (State != BitcoinDWaiterState.Ready)
