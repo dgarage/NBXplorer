@@ -808,7 +808,14 @@ Fields:
   "minConfirmations": 0,
   "excludeOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1", 
 						"7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-2"],
-  "includeOnlyOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1" ]
+  "includeOnlyOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1" ],
+  "rebaseKeyPaths": [
+  	  {
+		"masterFingerprint": "ab5ed9ab",
+		"accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
+		"accountKeyPath": "49'/0'/0'"
+	  }
+  ]
 }
 ```
 
@@ -831,6 +838,10 @@ Fields:
 * `feePreference.explicitFee`: An explicit fee for the transaction in Satoshi (Mutually exclusive with: blockTarget, explicitFeeRate, fallbackFeeRate)
 * `feePreference.blockTarget`: A number of blocks after which the user expect one confirmation (Mutually exclusive with: explicitFeeRate, explicitFee)
 * `feePreference.fallbackFeeRate`: If the NBXplorer's node does not have proper fee estimation, this specific rate will be use in Satoshi per vBytes, this make sure that `fee-estimation-unavailable` is never sent. (Mutually exclusive with: explicitFeeRate, explicitFee)
+* `rebaseKeyPaths`: rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about), a rebase can transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint)
+* `rebaseKeyPaths[].masterFingerprint`: The fingerprint of the master key
+* `rebaseKeyPaths[].accountKey`: The account key to rebase
+* `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key
 
 Response:
 

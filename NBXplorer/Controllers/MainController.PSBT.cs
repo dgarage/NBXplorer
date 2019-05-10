@@ -218,6 +218,18 @@ namespace NBXplorer.Controllers
 				}
 			}
 
+			if (request.RebaseKeyPaths != null)
+			{
+				foreach (var rebase in request.RebaseKeyPaths)
+				{
+					if (rebase.AccountKeyPath == null)
+						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].accountKeyPath is missing"));
+					if (rebase.AccountKey == null)
+						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].accountKey is missing"));
+					psbt.RebaseKeyPaths(rebase.AccountKey, rebase.AccountKeyPath, rebase.MasterFingerprint);
+				}
+			}
+
 			var resp = new CreatePSBTResponse()
 			{
 				PSBT = psbt,

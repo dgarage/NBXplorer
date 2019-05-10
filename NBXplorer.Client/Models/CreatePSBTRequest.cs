@@ -55,6 +55,27 @@ namespace NBXplorer.Models
 		/// Use a specific change address (Optional, default: null, mutually exclusive with ReserveChangeAddress)
 		/// </summary>
 		public BitcoinAddress ExplicitChangeAddress { get; set; }
+
+		/// <summary>
+		/// Rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about)
+		/// This transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint) 
+		/// </summary>
+		public List<PSBTRebaseKeyRules> RebaseKeyPaths { get; set; }
+	}
+	public class PSBTRebaseKeyRules
+	{
+		/// <summary>
+		/// The fingerprint of the master key
+		/// </summary>
+		public HDFingerprint MasterFingerprint { get; set; }
+		/// <summary>
+		/// The account key to rebase
+		/// </summary>
+		public BitcoinExtPubKey AccountKey { get; set; }
+		/// <summary>
+		/// The path from the root to the account key
+		/// </summary>
+		public KeyPath AccountKeyPath { get; set; }
 	}
 	public class CreatePSBTDestination
 	{

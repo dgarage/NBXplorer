@@ -679,6 +679,49 @@ namespace NBXplorer.Tests
 				Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 				Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
 				Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Value.Item2 == newAddress.KeyPath)));
+
+				Logs.Tester.LogInformation("We should be able to rebase hdkeys");
+
+				var rootHD = new HDFingerprint(new byte[] { 0x04, 0x01, 0x02, 0x04 });
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = BitcoinAddress.Create(newAddress.Address, tester.Network),
+								Amount = Money.Coins(0.0001m)
+							},
+							new CreatePSBTDestination()
+							{
+								Destination = BitcoinAddress.Create(newAddress2.Address, tester.Network),
+								Amount = Money.Coins(0.0001m)
+							}
+						},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.000001m),
+					},
+					ReserveChangeAddress = false,
+					RebaseKeyPaths = new List<PSBTRebaseKeyRules>()
+					{
+						new PSBTRebaseKeyRules()
+						{
+							AccountKey = userDerivationScheme.GetExtPubKeys().First().GetWif(tester.Network),
+							MasterFingerprint = rootHD,
+							AccountKeyPath = new KeyPath("49'/0'")
+						}
+					}
+				});
+				Assert.Equal(3, psbt2.PSBT.Outputs.Count);
+				Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
+				var selfchange = Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Key.Hash.ScriptPubKey == newAddress.ScriptPubKey)));
+				Assert.All(psbt2.PSBT.Inputs.Concat<PSBTCoin>(new[] { selfchange }).SelectMany(i => i.HDKeyPaths), i =>
+				{
+					Assert.Equal(rootHD, i.Value.Item1);
+					Assert.StartsWith("49'/0'", i.Value.Item2.ToString());
+					Assert.Equal(4, i.Value.Item2.Indexes.Length);
+				});
 			}
 		}
 
