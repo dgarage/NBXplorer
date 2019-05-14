@@ -190,7 +190,7 @@ namespace NBXplorer.Controllers
 				foreach (var pubkey in pubkeys)
 				{
 					var childPubKey = pubkey.Derive(utxo.KeyPath);
-					NBitcoin.Extensions.TryAdd(input.HDKeyPaths, childPubKey.GetPublicKey(), Tuple.Create(fps[pubkey.GetPublicKey()], utxo.KeyPath));
+					NBitcoin.Extensions.TryAdd(input.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], utxo.KeyPath));
 				}
 			}
 			
@@ -213,7 +213,7 @@ namespace NBXplorer.Controllers
 					foreach (var pubkey in pubkeys)
 					{
 						var childPubKey = pubkey.Derive(keyInfo.KeyPath);
-						NBitcoin.Extensions.TryAdd(output.HDKeyPaths, childPubKey.GetPublicKey(), Tuple.Create(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
+						NBitcoin.Extensions.TryAdd(output.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
 					}
 				}
 			}
@@ -222,11 +222,10 @@ namespace NBXplorer.Controllers
 			{
 				foreach (var rebase in request.RebaseKeyPaths)
 				{
-					if (rebase.AccountKeyPath == null)
-						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].accountKeyPath is missing"));
-					if (rebase.AccountKey == null)
-						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].accountKey is missing"));
-					psbt.RebaseKeyPaths(rebase.AccountKey, rebase.AccountKeyPath, rebase.MasterFingerprint);
+					var rootedKeyPath = rebase.GetRootedKeyPath();
+					if (rootedKeyPath == null)
+						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].rootedKeyPath is missing"));
+					psbt.RebaseKeyPaths(rebase.AccountKey, rootedKeyPath);
 				}
 			}
 

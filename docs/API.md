@@ -842,6 +842,7 @@ Fields:
 * `rebaseKeyPaths[].masterFingerprint`: The fingerprint of the master key
 * `rebaseKeyPaths[].accountKey`: The account key to rebase
 * `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key
+* `rebaseKeyPaths[].rootedKeyPath`: Alternative way to pass the masterFingerprint and accountKeyPath in the form "7b09d780/0'/0'/2'". Mutually exclusive with masterFingerprint and accountKeyPath.
 
 Response:
 

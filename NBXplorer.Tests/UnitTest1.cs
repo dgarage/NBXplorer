@@ -678,7 +678,7 @@ namespace NBXplorer.Tests
 				});
 				Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 				Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
-				Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Value.Item2 == newAddress.KeyPath)));
+				Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Value.KeyPath == newAddress.KeyPath)));
 
 				Logs.Tester.LogInformation("We should be able to rebase hdkeys");
 
@@ -718,9 +718,9 @@ namespace NBXplorer.Tests
 				var selfchange = Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Key.Hash.ScriptPubKey == newAddress.ScriptPubKey)));
 				Assert.All(psbt2.PSBT.Inputs.Concat<PSBTCoin>(new[] { selfchange }).SelectMany(i => i.HDKeyPaths), i =>
 				{
-					Assert.Equal(rootHD, i.Value.Item1);
-					Assert.StartsWith("49'/0'", i.Value.Item2.ToString());
-					Assert.Equal(4, i.Value.Item2.Indexes.Length);
+					Assert.Equal(rootHD, i.Value.MasterFingerprint);
+					Assert.StartsWith("49'/0'", i.Value.KeyPath.ToString());
+					Assert.Equal(4, i.Value.KeyPath.Indexes.Length);
 				});
 			}
 		}
