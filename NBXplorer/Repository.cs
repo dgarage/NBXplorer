@@ -1381,6 +1381,7 @@ namespace NBXplorer
 		}
 
 		FixedSizeCache<uint256, uint256> noMatchCache;
+
 		public Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
 			return GetMatches(new[] { tx }, blockId, now, useCache);

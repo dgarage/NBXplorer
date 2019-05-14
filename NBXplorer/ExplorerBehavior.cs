@@ -279,6 +279,7 @@ namespace NBXplorer
 				var matches =
 					(await Repository.GetMatches(block.Transactions, blockHash, now, true))
 					.ToArray();
+
 				var evts = await SaveMatches(matches, blockHash, now);
 				var slimBlockHeader = Chain.GetBlock(blockHash);
 				if (slimBlockHeader != null)

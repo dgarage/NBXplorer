@@ -528,7 +528,7 @@ namespace NBXplorer.Controllers
 
 				result.SpentCoins = psbt.Inputs.Select(i => new LockUTXOsResponse.SpentCoin()
 				{
-					KeyPath = i.HDKeyPaths.First().Value.Item2,
+					KeyPath = i.HDKeyPaths.First().Value.KeyPath,
 					Outpoint = i.PrevOut,
 					Value = i.GetTxOut().Value
 				})
@@ -562,7 +562,7 @@ namespace NBXplorer.Controllers
 					{
 						result.ChangeInformation = new LockUTXOsResponse.ChangeInfo()
 						{
-							KeyPath = changeOutput.HDKeyPaths.First().Value.Item2,
+							KeyPath = changeOutput.HDKeyPaths.First().Value.KeyPath,
 							Value = changeOutput.Value
 						};
 					}
@@ -573,7 +573,7 @@ namespace NBXplorer.Controllers
 				TrackedTransaction trackedTransaction = new TrackedTransaction(trackedTransactionKey, trackedSource, tx, new Dictionary<Script, KeyPath>());
 				foreach(var c in psbt.Inputs.OfType<PSBTCoin>().Concat(psbt.Outputs).Where(c => c.HDKeyPaths.Any()))
 				{
-					trackedTransaction.KnownKeyPathMapping.TryAdd(c.GetCoin().ScriptPubKey, c.HDKeyPaths.First().Value.Item2);
+					trackedTransaction.KnownKeyPathMapping.TryAdd(c.GetCoin().ScriptPubKey, c.HDKeyPaths.First().Value.KeyPath);
 				}
 				trackedTransaction.KnownKeyPathMappingUpdated();
 				var cancellableMatch = await repo.SaveMatches(new[] { trackedTransaction }, true);
