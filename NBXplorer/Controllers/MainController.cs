@@ -106,32 +106,6 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses")]
-		public KeyPathInformation GetKeyInformationFromKeyPath(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase strategy,
-			[ModelBinder(BinderType = typeof(KeyPathModelBinder))]
-			KeyPath keyPath)
-		{
-			if(strategy == null)
-				throw new ArgumentNullException(nameof(strategy));
-			if(keyPath == null)
-				throw new ArgumentNullException(nameof(keyPath));
-			var network = GetNetwork(cryptoCode, false);
-			var information = strategy.Derive(keyPath);
-			return new KeyPathInformation()
-			{
-				Address = information.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork).ToString(),
-				DerivationStrategy = strategy,
-				KeyPath = keyPath,
-				ScriptPubKey = information.ScriptPubKey,
-				Redeem = information.Redeem,
-				Feature = DerivationStrategyBase.GetFeature(keyPath)
-			};
-		}
-
-		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/unused")]
 		public async Task<KeyPathInformation> GetUnusedAddress(
 			string cryptoCode,
@@ -473,125 +447,6 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/locks/{unlockId}/cancel")]
-		public async Task<IActionResult> UnlockUTXOs(string cryptoCode, string unlockId)
-		{
-			var network = GetNetwork(cryptoCode, false);
-			var repo = RepositoryProvider.GetRepository(network);
-			if (await repo.CancelMatches(unlockId))
-				return Ok();
-			else
-				return NotFound("unlockid-not-found");
-		}
-
-
-		[HttpPost]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions")]
-		public async Task<IActionResult> LockUTXOs(string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme,
-			[FromBody] LockUTXOsRequest request,
-			CancellationToken cancellation = default)
-		{
-			if (derivationScheme == null)
-				throw new ArgumentNullException(nameof(derivationScheme));
-			var network = GetNetwork(cryptoCode, false);
-			var trackedSource = GetTrackedSource(derivationScheme, null, network.NBitcoinNetwork);
-
-			var repo = RepositoryProvider.GetRepository(network);
-
-			Repository.DBLock walletLock = null;
-			try
-			{
-				walletLock = await repo.TakeWalletLock(derivationScheme, cancellation);
-
-				var psbtRequest = new CreatePSBTRequest();
-
-				foreach (var destination in request.GetDestinations())
-				{
-					psbtRequest.Destinations.Add(destination.ToPSBTDestination(network));
-				}
-				if (psbtRequest.Destinations.Count == 0)
-					throw new NBXplorerException(new NBXplorerError(400, "invalid-destination", "'destination' or 'destinations' not specified"));
-				psbtRequest.FeePreference = new FeePreference() { ExplicitFeeRate = request.FeeRate, BlockTarget = 6 };
-				psbtRequest.ReserveChangeAddress = true;
-
-				var psbtActionResult = await this.CreatePSBT(network, derivationScheme, network.Serializer.ToJObject(psbtRequest));
-				var psbt = ((psbtActionResult as JsonResult)?.Value as CreatePSBTResponse)?.PSBT;
-				var changeAddress = ((psbtActionResult as JsonResult)?.Value as CreatePSBTResponse)?.ChangeAddress;
-				if (psbt == null)
-					return psbtActionResult;
-				
-				LockUTXOsResponse result = new LockUTXOsResponse();
-				psbt.TryGetFee(out var fee);
-				result.Fee = fee;
-
-				result.SpentCoins = psbt.Inputs.Select(i => new LockUTXOsResponse.SpentCoin()
-				{
-					KeyPath = i.HDKeyPaths.First().Value.KeyPath,
-					Outpoint = i.PrevOut,
-					Value = i.GetTxOut().Value
-				})
-				.ToArray();
-
-				var tx = psbt.GetGlobalTransaction();
-				foreach (var input in tx.Inputs)
-				{
-					var psbtInput = psbt.Inputs.FindIndexedInput(input.PrevOut);
-					var coin = psbtInput.GetSignableCoin() ?? psbtInput.GetCoin();
-					if (coin is ScriptCoin scriptCoin)
-					{
-						if (scriptCoin.RedeemType == RedeemType.P2SH)
-						{
-							input.ScriptSig = new Script(Op.GetPushOp(scriptCoin.Redeem.ToBytes()));
-						}
-						else if (scriptCoin.RedeemType == RedeemType.WitnessV0)
-						{
-							input.WitScript = new Script(Op.GetPushOp(scriptCoin.Redeem.ToBytes()));
-							if (scriptCoin.IsP2SH)
-								input.ScriptSig = new Script(Op.GetPushOp(scriptCoin.Redeem.WitHash.ScriptPubKey.ToBytes()));
-						}
-					}
-				}
-				result.Transaction = tx.Clone();
-
-				if (changeAddress != null)
-				{
-					var changeOutput = psbt.Outputs.Where(c => c.ScriptPubKey == changeAddress.ScriptPubKey).FirstOrDefault();
-					if (changeOutput != null)
-					{
-						result.ChangeInformation = new LockUTXOsResponse.ChangeInfo()
-						{
-							KeyPath = changeOutput.HDKeyPaths.First().Value.KeyPath,
-							Value = changeOutput.Value
-						};
-					}
-				}
-				tx.MarkLockUTXO();
-
-				TrackedTransactionKey trackedTransactionKey = new TrackedTransactionKey(tx.GetHash(), null, false);
-				TrackedTransaction trackedTransaction = new TrackedTransaction(trackedTransactionKey, trackedSource, tx, new Dictionary<Script, KeyPath>());
-				foreach(var c in psbt.Inputs.OfType<PSBTCoin>().Concat(psbt.Outputs).Where(c => c.HDKeyPaths.Any()))
-				{
-					trackedTransaction.KnownKeyPathMapping.TryAdd(c.GetCoin().ScriptPubKey, c.HDKeyPaths.First().Value.KeyPath);
-				}
-				trackedTransaction.KnownKeyPathMappingUpdated();
-				var cancellableMatch = await repo.SaveMatches(new[] { trackedTransaction }, true);
-				result.UnlockId = cancellableMatch.Key;
-				return Json(result);
-			}
-			catch (NotEnoughFundsException)
-			{
-				throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "Not enough funds for doing this transaction"));
-			}
-			finally
-			{
-				if (walletLock != null)
-					await walletLock.ReleaseLock();
-			}
-		}
-
-		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}")]
 		public async Task<IActionResult> TrackWallet(
@@ -821,47 +676,6 @@ namespace NBXplorer.Controllers
 			if (!ScanUTXOSetService.EnqueueScan(network, derivationScheme, options))
 				throw new NBXplorerError(409, "scanutxoset-in-progress", "ScanUTXOSet has already been called for this derivationScheme").AsException();
 			return Ok();
-		}
-
-		//[HttpPost]
-		//[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/")]
-		//public async Task<>
-
-
-		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balances")]
-		public async Task<GetBalanceResponse> GetBalance(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(ModelBinders.DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme)
-		{
-			var network = GetNetwork(cryptoCode, false);
-			var chain = ChainProvider.GetChain(network);
-			var repo = RepositoryProvider.GetRepository(network);
-			var trackedSource = GetTrackedSource(derivationScheme, null, network.NBitcoinNetwork);
-
-			GetBalanceResponse response = new GetBalanceResponse();
-
-			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource, false);
-
-			response.Spendable = CalculateBalance(transactions, true);
-			response.Total = CalculateBalance(transactions, false);
-
-			return response;
-		}
-
-		private Money CalculateBalance(AnnotatedTransactionCollection transactions, bool excludeLocksUTXOS)
-		{
-			var changes = new UTXOChanges();
-
-			var states = UTXOStateResult.CreateStates(excludeLocksUTXOS,
-														transactions.UnconfirmedTransactions.Select(c => c.Record),
-														transactions.ConfirmedTransactions.Select(c => c.Record));
-
-			changes.Confirmed = SetUTXOChange(states.Confirmed);
-			changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
-
-			return changes.GetUnspentCoins().Select(c => c.Amount).Sum();
 		}
 
 		[HttpGet]
