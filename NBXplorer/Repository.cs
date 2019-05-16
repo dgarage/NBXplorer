@@ -269,6 +269,7 @@ namespace NBXplorer
 		}
 
 		NBXplorerContextFactory _ContextFactory;
+
 		internal Repository(NBXplorerContextFactory contextFactory, NBXplorerNetwork network)
 		{
 			if (network == null)
@@ -445,6 +446,23 @@ namespace NBXplorer
 			highestTable.Insert(0, highestGenerated + toGenerate);
 			await tx.CommitAsync();
 		}
+
+		public async Task<Dictionary<DerivationFeature, int>> GetHighestGenerated(DerivationStrategyBase strategy)
+		{
+			var result = new Dictionary<DerivationFeature, int>();
+			using (var tx = await _ContextFactory.GetContext())
+			{
+				foreach(var feature in new[] { DerivationFeature.Deposit, DerivationFeature.Change })
+				{
+					var highestTable = GetHighestPathIndex(tx, strategy, feature);
+					var row = await highestTable.SelectInt(0);
+					int index = row is int v ? v : -1;
+					result.Add(feature, index);
+				}
+			}
+			return result;
+		}
+
 
 		public async Task SaveKeyInformations(KeyPathInformation[] keyPathInformations)
 		{

@@ -1108,6 +1108,10 @@ namespace NBXplorer.Tests
 				var a12 = tester.Client.GetKeyInformationFromKeyPath(bob, a1.KeyPath);
 				Assert.Equal(a12.Address, a1.Address);
 
+				var addresses = tester.Client.GetKeyInformationFromKeyPath(bob);
+				Assert.Contains(addresses, a => a.Address == a1.Address);
+				Assert.Equal(8 * 2, addresses.Length); // The maxGap it tests is 8, we returns only deposit and change
+
 				Assert.Equal(a1.ScriptPubKey, tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0).ScriptPubKey);
 				Assert.Equal(a1.ScriptPubKey, bob.Derive(new KeyPath("0/0")).ScriptPubKey);
 

@@ -171,7 +171,7 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses")]
-		public KeyPathInformation GetKeyInformationFromKeyPath(
+		public async Task<IActionResult> GetKeyInformationFromKeyPath(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase strategy,
@@ -180,19 +180,47 @@ namespace NBXplorer.Controllers
 		{
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
-			if (keyPath == null)
-				throw new ArgumentNullException(nameof(keyPath));
 			var network = GetNetwork(cryptoCode, false);
-			var information = strategy.Derive(keyPath);
-			return new KeyPathInformation()
+
+			// Should we refactor this to send an array with only one entry?
+			// This is breaking change to clients
+			if (keyPath != null)
 			{
-				Address = information.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork).ToString(),
-				DerivationStrategy = strategy,
-				KeyPath = keyPath,
-				ScriptPubKey = information.ScriptPubKey,
-				Redeem = information.Redeem,
-				Feature = DerivationStrategyBase.GetFeature(keyPath)
-			};
+				var information = strategy.Derive(keyPath);
+				return Json(new KeyPathInformation()
+				{
+					Address = information.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork).ToString(),
+					DerivationStrategy = strategy,
+					KeyPath = keyPath,
+					ScriptPubKey = information.ScriptPubKey,
+					Redeem = information.Redeem,
+					Feature = DerivationStrategyBase.GetFeature(keyPath)
+				});
+			}
+			else
+			{
+				var repository = RepositoryProvider.GetRepository(network);
+				var highest = await repository.GetHighestGenerated(strategy);
+				List<KeyPathInformation> keyPathInformations = new List<KeyPathInformation>();
+				foreach (var kv in highest)
+				{
+					var accountLevel = strategy.GetLineFor(kv.Key);
+					for (int i = 0; i < kv.Value + 1; i++)
+					{
+						var derivation = accountLevel.Derive((uint)i);
+						keyPathInformations.Add(new KeyPathInformation()
+						{
+							Address = derivation.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork).ToString(),
+							DerivationStrategy = strategy,
+							KeyPath = keyPath,
+							ScriptPubKey = derivation.ScriptPubKey,
+							Redeem = derivation.Redeem,
+							Feature = kv.Key
+						});
+					}
+				}
+				return Json(keyPathInformations);
+			}
 		}
 	}
 }
