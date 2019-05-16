@@ -45,7 +45,7 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}fallbackfeerate", $"Fallback fee rate if fees are not yet available by bitcoin core", CommandOptionType.SingleValue);
 			}
-
+			app.Option("--nocreatedb", "Do not attempt to create the database when starting NBXplorer (default: true)", CommandOptionType.SingleValue);
 			app.Option("--asbcnstr", "[For Azure Service Bus] Azure Service Bus Connection string. New Block and New Transaction messages will be pushed to queues when this values is set", CommandOptionType.SingleValue);
 			app.Option("--asbblockq", "[For Azure Service Bus] Name of Queue to push new block message to. Leave blank to turn off", CommandOptionType.SingleValue);
 			app.Option("--asbtranq", "[For Azure Service Bus] Name of Queue to push new transaction message to. Leave blank to turn off", CommandOptionType.SingleValue);

@@ -56,6 +56,7 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public bool NoCreateDB { get; set; }
 		public string BaseDataDir
 		{
 			get;
@@ -114,6 +115,7 @@ namespace NBXplorer.Configuration
 			var supportedChains = config.GetOrDefault<string>("chains", "btc")
 									  .Split(',', StringSplitOptions.RemoveEmptyEntries)
 									  .Select(t => t.ToUpperInvariant());
+			NoCreateDB = config.GetOrDefault("nocreatedb", true);
 			var validChains = new List<string>();
 			foreach (var network in NetworkProvider.GetAll())
 			{

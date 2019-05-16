@@ -148,7 +148,8 @@ namespace NBXplorer.DB
 				}
 				catch (PostgresException ex) when (ex.SqlState == "42501")
 				{
-					Logs.Explorer.LogWarning("Impossible to create the schema, the user does not have permission");
+					Logs.Explorer.LogCritical("Impossible to create the schema, the user does not have permission");
+					throw;
 				}
 
 			}

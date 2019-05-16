@@ -50,9 +50,10 @@ namespace NBXplorer
 		}
 
 		public void Configure(NBXplorerContextFactory dbFactory, IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider,
-			CookieRepository cookieRepository)
+			CookieRepository cookieRepository, NBXplorer.Configuration.ExplorerConfiguration conf)
 		{
-			dbFactory.Migrate();
+			if (!conf.NoCreateDB)
+				dbFactory.Migrate();
 			cookieRepository.Initialize();
 			if(env.IsDevelopment())
 			{
