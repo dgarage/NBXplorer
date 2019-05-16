@@ -350,11 +350,11 @@ namespace NBXplorer.Tests
 						}
 					});
 
-					psbt.PSBT.SignAll(userExtKey);
+					psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
 					Assert.True(psbt.PSBT.TryGetFee(out var fee));
 					if (explicitFee)
 						Assert.Equal(Money.Coins(0.00001m), fee);
-					Assert.Equal(-(Money.Coins(0.5m) + (substractFee ? Money.Zero : fee)), psbt.PSBT.GetBalance(userExtKey));
+					Assert.Equal(-(Money.Coins(0.5m) + (substractFee ? Money.Zero : fee)), psbt.PSBT.GetBalance(userDerivationScheme, userExtKey));
 					psbt.PSBT.Finalize();
 					var tx = psbt.PSBT.ExtractTransaction();
 					Assert.True(tester.Client.Broadcast(tx).Success);
@@ -383,7 +383,7 @@ namespace NBXplorer.Tests
 						ExplicitFee = Money.Coins(0.00001m),
 					}
 				});
-				Assert.Equal(-balance, psbt2.PSBT.GetBalance(userExtKey));
+				Assert.Equal(-balance, psbt2.PSBT.GetBalance(userDerivationScheme, userExtKey));
 				Assert.Null(psbt2.ChangeAddress);
 
 				Logs.Tester.LogInformation("Let's check that if ReserveChangeAddress is false, all call to CreatePSBT send the same change address");
