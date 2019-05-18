@@ -17,17 +17,17 @@ namespace NBXplorer
 	}
 	public class AnnotatedTransaction
 	{
-		public AnnotatedTransaction(int? height, TrackedTransaction record, bool immature)
+		public AnnotatedTransaction(int? height, TrackedTransaction record, bool isMature)
 		{
 			this.Record = record;
 			this.Height = height;
-			this.Immature = immature;
+			this.IsMature = isMature;
 		}
 		public int? Height
 		{
 			get;
 		}
-		public bool Immature { get; }
+		public bool IsMature { get; }
 		public TrackedTransaction Record
 		{
 			get;
@@ -52,33 +52,19 @@ namespace NBXplorer
 				}
 			}
 
-			int unconfCount = 0;
+			// Let's remove the dups and let's get the current height of the transactions
 			foreach (var trackedTx in transactions)
 			{
-				AnnotatedTransaction annotatedTransaction = null;
-				uint256 blockHash = null;
-				if (trackedTx.BlockHash != null)
+				int? txHeight = null;
+				bool isMature = true;
+
+				if (trackedTx.BlockHash != null && headerChain.TryGetHeight(trackedTx.BlockHash, out var height))
 				{
-					if (headerChain.TryGetHeight(trackedTx.BlockHash, out var height))
-					{
-						// Confirmed
-						blockHash = trackedTx.BlockHash;
-						var isMature = trackedTx.IsCoinBase ? headerChain.Height - height >= network.Consensus.CoinbaseMaturity : true;
-						annotatedTransaction = new AnnotatedTransaction(height, trackedTx, !isMature);
-					}
-					else // Orphaned
-					{
-						blockHash = null;
-						annotatedTransaction = new AnnotatedTransaction(null, trackedTx, false);
-					}
-				}
-				else
-				{
-					// Unconfirmed
-					blockHash = null;
-					annotatedTransaction = new AnnotatedTransaction(null, trackedTx, false);
+					txHeight = height;
+					isMature = trackedTx.IsCoinBase ? headerChain.Height - height >= network.Consensus.CoinbaseMaturity : true;
 				}
 
+				AnnotatedTransaction annotatedTransaction = new AnnotatedTransaction(txHeight, trackedTx, isMature);
 				if (_TxById.TryGetValue(trackedTx.TransactionHash, out var conflicted))
 				{
 					if (ShouldReplace(annotatedTransaction, conflicted))
@@ -94,26 +80,42 @@ namespace NBXplorer
 				}
 				else
 				{
-					if (annotatedTransaction.Height is null)
-						unconfCount++;
 					_TxById.Add(trackedTx.TransactionHash, annotatedTransaction);
 				}
 			}
 
+			// Let's resolve the double spents
 			Dictionary<OutPoint, uint256> spentBy = new Dictionary<OutPoint, uint256>(transactions.SelectMany(t => t.SpentOutpoints).Count());
-			List<uint256> toRemove = new List<uint256>();
-			foreach (var annotatedTransaction in _TxById.Values)
+			foreach (var annotatedTransaction in _TxById.Values.Where(r => r.Height is int))
+			{
+				foreach (var spent in annotatedTransaction.Record.SpentOutpoints)
+				{
+					// No way to have double spent in confirmed transactions
+					spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
+				}
+			}
+
+		removeConflicts:
+			HashSet<uint256> toRemove = new HashSet<uint256>();
+			foreach (var annotatedTransaction in _TxById.Values.Where(r => r.Height is null))
 			{
 				foreach (var spent in annotatedTransaction.Record.SpentOutpoints)
 				{
 					if (spentBy.TryGetValue(spent, out var conflictHash) &&
 						_TxById.TryGetValue(conflictHash, out var conflicted))
 					{
-						if (ShouldReplace(annotatedTransaction, conflicted))
+						if (conflicted == annotatedTransaction)
+							goto nextTransaction;
+						if (toRemove.Contains(conflictHash))
+						{
+							spentBy.Remove(spent);
+							spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
+						}
+						else if (ShouldReplace(annotatedTransaction, conflicted))
 						{
 							toRemove.Add(conflictHash);
 							spentBy.Remove(spent);
-							spentBy.Add(spent, annotatedTransaction.Record.BlockHash);
+							spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
 
 							if (conflicted.Height is null && annotatedTransaction.Height is null)
 							{
@@ -142,19 +144,22 @@ namespace NBXplorer
 						spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
 					}
 				}
+			nextTransaction:;
 			}
 
 			foreach (var e in toRemove)
 				_TxById.Remove(e);
+			if (toRemove.Count != 0)
+				goto removeConflicts;
 
 			var sortedTransactions = _TxById.Values.TopologicalSort();
 			UTXOState state = new UTXOState();
-			foreach (var tx in sortedTransactions.Where(s => !s.Immature && s.Height is int))
+			foreach (var tx in sortedTransactions.Where(s => s.IsMature && s.Height is int))
 			{
 				if (state.Apply(tx.Record) == ApplyTransactionResult.Conflict)
 				{
 					throw new InvalidOperationException("The impossible happened");
-				}				
+				}
 			}
 			ConfirmedState = state.Snapshot();
 			foreach (var tx in sortedTransactions.Where(s => s.Height is null))
