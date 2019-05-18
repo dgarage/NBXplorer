@@ -130,7 +130,7 @@ namespace NBXplorer{
 		{
 			get; set;
 		}
-
+		public bool IsCoinBase => Transaction?.IsCoinBase is true;
 
 		public TrackedTransaction Prune()
 		{

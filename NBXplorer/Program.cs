@@ -17,7 +17,9 @@ using NBitcoin;
 using System.Text;
 using System.Net;
 using CommandLine;
+using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("NBXplorer.Tests")]
 namespace NBXplorer
 {
 	public class Program

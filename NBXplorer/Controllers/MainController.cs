@@ -528,7 +528,7 @@ namespace NBXplorer.Controllers
 						TransactionId = tx.Record.TransactionHash,
 						Transaction = includeTransaction ? tx.Record.Transaction : null,
 						Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
-						Timestamp = txs.GetByTxId(tx.Record.TransactionHash).Select(t => t.Record.FirstSeen).First(),
+						Timestamp = tx.Record.FirstSeen,
 						Inputs = tx.Record.SpentOutpoints.Select(o => txs.GetUTXO(o)).Where(o => o != null).ToList(),
 						Outputs = tx.Record.GetReceivedOutputs().ToList()
 					};
@@ -742,7 +742,7 @@ namespace NBXplorer.Controllers
 								.UTXOByOutpoint
 								.Prunable
 								.Where(p => OldEnough(transactions, p.PrunedBy, quarter.Value))
-								.Select(p => transactions.GetByTxId(p.TransactionId).First())
+								.Select(p => transactions.GetByTxId(p.TransactionId))
 								.Select(p => p.Record.TransactionHash)
 								.ToHashSet();
 
@@ -756,7 +756,7 @@ namespace NBXplorer.Controllers
 						if (!prunableIds.Contains(tx.Record.TransactionHash))
 							continue;
 						foreach (var parent in tx.Record.SpentOutpoints
-														.Select(spent => transactions.GetByTxId(spent.Hash)?.FirstOrDefault())
+														.Select(spent => transactions.GetByTxId(spent.Hash))
 														.Where(parent => parent != null)
 														.Where(parent => !prunableIds.Contains(parent.Record.TransactionHash)))
 						{
@@ -770,7 +770,7 @@ namespace NBXplorer.Controllers
 				else
 				{
 					await repo.Prune(trackedSource, prunableIds
-													.SelectMany(id => transactions.GetByTxId(id).Select(c => c.Record))
+													.Select(id => transactions.GetByTxId(id).Record)
 													.ToList());
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunableIds.Count} transactions");
 				}
@@ -781,12 +781,9 @@ namespace NBXplorer.Controllers
 		{
 			// Let's make sure that the transaction that made this transaction pruned has enough confirmations
 			var tx = transactions.GetByTxId(prunedBy);
-			if (tx == null)
+			if (tx == null || tx.Height is null)
 				return false;
-			var firstSeen = tx.Where(t => t.Height != null)
-								  .Select(t => t.Record.FirstSeen)
-								  .FirstOrDefault();
-			return firstSeen <= pruneBefore;
+			return tx.Record.FirstSeen <= pruneBefore;
 		}
 
 		private static bool IsMatching(TrackedSource trackedSource, Script s, AnnotatedTransactionCollection transactions)
@@ -799,7 +796,7 @@ namespace NBXplorer.Controllers
 				throw new NotSupportedException();
 		}
 
-		static int[] MaxValue = new[] { int.MaxValue };
+		int MaxHeight = int.MaxValue;
 		private void FillUTXOsInformation(List<UTXO> utxos, AnnotatedTransactionCollection transactions, int currentHeight)
 		{
 			for (int i = 0; i < utxos.Count; i++)
@@ -808,19 +805,10 @@ namespace NBXplorer.Controllers
 				utxo.KeyPath = transactions.GetKeyPath(utxo.ScriptPubKey);
 				if (utxo.KeyPath != null)
 					utxo.Feature = DerivationStrategyBase.GetFeature(utxo.KeyPath);
-				var txHeight = transactions.GetByTxId(utxo.Outpoint.Hash)
-									.Select(t => t.Height)
-									.Where(h => h.HasValue)
-									.Select(t => t.Value)
-									.Concat(MaxValue)
-									.Min();
-				var firstSeen = transactions
-					.GetByTxId(utxo.Outpoint.Hash)
-					.Select(o => o.Record.FirstSeen)
-					.FirstOrDefault();
-				var isUnconf = txHeight == MaxValue[0];
+				var txHeight = transactions.GetByTxId(utxo.Outpoint.Hash).Height is int h ? h : MaxHeight;
+				var isUnconf = txHeight == MaxHeight;
 				utxo.Confirmations = isUnconf ? 0 : currentHeight - txHeight + 1;
-				utxo.Timestamp = firstSeen;
+				utxo.Timestamp = transactions.GetByTxId(utxo.Outpoint.Hash).Record.FirstSeen;
 			}
 		}
 
@@ -863,12 +851,10 @@ namespace NBXplorer.Controllers
 				transactions = gettingParents.SelectMany(p => p.GetAwaiter().GetResult()).Concat(transactions).ToArray();
 			}
 
-			var annotatedTransactions = new AnnotatedTransactionCollection(
-				transactions.Select(t => new AnnotatedTransaction(t, chain))
-				.ToList(), trackedSource);
+			var annotatedTransactions = new AnnotatedTransactionCollection(transactions, trackedSource, chain, repo.Network.NBitcoinNetwork);
 
 
-			var cleaned = annotatedTransactions.DuplicatedTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
+			var cleaned = annotatedTransactions.CleanupTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
 			if (cleaned.Length != 0)
 			{
 				foreach (var tx in cleaned)

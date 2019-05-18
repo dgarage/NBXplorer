@@ -312,7 +312,7 @@ namespace NBXplorer.Tests
 					Legacy = true
 				});
 				tester.Client.Track(userDerivationScheme2);
-				var newAddress2 = tester.Client.GetUnused(userDerivationScheme2, DerivationFeature.Deposit, skip:2);
+				var newAddress2 = tester.Client.GetUnused(userDerivationScheme2, DerivationFeature.Deposit, skip: 2);
 
 				// Send 1 BTC
 				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
@@ -1150,7 +1150,7 @@ namespace NBXplorer.Tests
 				var coinDestinationAddress = coinDestination.ScriptPubKey;
 				var spending1 = tester.RPC.SendToAddress(coinDestinationAddress, Money.Coins(0.1m));
 				Logs.Tester.LogInformation($"Spent the coin to 0/1 in spending1({spending1})");
-				tester.Notifications.WaitForTransaction(pubkey ,spending1);
+				tester.Notifications.WaitForTransaction(pubkey, spending1);
 				LockTestCoins(tester.RPC, new HashSet<Script>());
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, coinDestination.KeyPath.ToString()));
 				var spending2 = tester.RPC.SendToAddress(new Key().ScriptPubKey, Money.Coins(0.01m));
@@ -2131,7 +2131,7 @@ namespace NBXplorer.Tests
 				var session = tester.Client.CreateLongPollingNotificationSession();
 				var evts = session.GetEvents();
 				long lastId = 0;
-				if(evts.Length != 0)
+				if (evts.Length != 0)
 					lastId = evts.Last().EventId;
 				DateTimeOffset now = DateTimeOffset.UtcNow;
 				using (var cts = new CancellationTokenSource(1000))
@@ -2212,6 +2212,129 @@ namespace NBXplorer.Tests
 			var expected = new[] { tx1, tx2, tx3 };
 			var actual = arr.TopologicalSort(o => o.Inputs.Select(i => i.PrevOut.Hash), o => o.GetHash()).ToArray();
 			Assert.True(expected.SequenceEqual(actual));
+		}
+
+		[Fact]
+		public void CanCalculateCorrectUTXOSet()
+		{
+			uint256 ToUint256(byte o)
+			{
+				var bytes = new byte[32];
+				bytes[0] = o;
+				return new uint256(bytes);
+			}
+			var chain = new SlimChain(uint256.Zero);
+			var blocks = Enumerable.Range(1, 3).Select(ii => ToUint256((byte)ii)).ToArray();
+			for (int idx = 0; idx < blocks.Length; idx++)
+			{
+				chain.TrySetTip(blocks[idx], idx == 0 ? uint256.Zero : blocks[idx - 1]);
+			}
+			TrackedTransactionBuilder builder = new TrackedTransactionBuilder();
+			builder.CreateTransaction(out var _73bdee)
+				.AddOutput(out var a)
+				.AddOutput(out var b)
+				.MinedBy(blocks[0]);
+
+			builder.CreateTransaction(out var ab3def)
+				.AddOutput(out var c)
+				.AddOutput(out var d)
+				.MinedBy(blocks[0]);
+
+			builder.CreateTransaction(out var _452bdd)
+				.AddOutput(out var e)
+				.AddOutput(out var f)
+				.AddOutput(out var g)
+				.Spend(c)
+				.Spend(a)
+				.MinedBy(blocks[1]);
+
+			builder.CreateTransaction(out var ef7dfa)
+				.AddOutput(out var h)
+				.Spend(e)
+				.MinedBy(blocks[2]);
+
+			builder.CreateTransaction(out var dd483a)
+				.Spend(h)
+				.Spend(g)
+				.MinedBy(blocks[2]);
+
+			builder.CreateTransaction(out var _2bdac2)
+				.AddOutput(out var i)
+				.AddOutput(out var j)
+				.Spend(b);
+
+			builder.CreateTransaction(out var _17b3b3)
+				.Spend(i)
+				.Timestamp(1);
+
+			builder.CreateTransaction(out var ab3922)
+				.AddOutput(out var k)
+				.Spend(i)
+				.Timestamp(2);
+
+			builder.Dup(_17b3b3, out var _17b3b3dup)
+				   .Timestamp(0);
+
+			builder.Dup(ab3922, out var ab3922dup)
+				   .Timestamp(0);
+
+			var trackedTransactions = builder.Build();
+			for (int iii = 0; iii < 100; iii++)
+			{
+				NBitcoin.Utils.Shuffle(trackedTransactions);
+				var collection = new AnnotatedTransactionCollection(trackedTransactions, builder._TrackedSource, chain, Network.RegTest);
+				Assert.Equal(7, collection.Count);
+
+				Assert.Equal(1, collection.ReplacedTransactions.Count);
+				Assert.Contains(collection.ReplacedTransactions, r => r.Record.TransactionHash == _17b3b3._TransactionId);
+
+				Assert.Equal(2, collection.CleanupTransactions.Count);
+				Assert.Contains(collection.CleanupTransactions, r => r.Record.TransactionHash == _17b3b3dup._TransactionId);
+				Assert.Contains(collection.CleanupTransactions, r => r.Record.TransactionHash == ab3922dup._TransactionId);
+
+				Assert.Equal(2, collection.UnconfirmedTransactions.Count);
+				Assert.Contains(collection.UnconfirmedTransactions, r => r.Record.TransactionHash == ab3922._TransactionId);
+				Assert.Contains(collection.UnconfirmedTransactions, r => r.Record.TransactionHash == _2bdac2._TransactionId);
+
+				Assert.Equal(7, collection.UTXOState.SpentUTXOs.Count);
+				foreach (var spent in new[] { a, b, c, e, g, h, i })
+				{
+					Assert.Contains(spent.Coin.Outpoint, collection.UTXOState.SpentUTXOs);
+					Assert.False(collection.UTXOState.UTXOByOutpoint.ContainsKey(spent.Coin.Outpoint));
+				}
+				Assert.Equal(4, collection.UTXOState.UTXOByOutpoint.Count());
+				foreach (var unspent in new[] { d, f, j, k })
+				{
+					Assert.DoesNotContain(unspent.Coin.Outpoint, collection.UTXOState.SpentUTXOs);
+					Assert.True(collection.UTXOState.UTXOByOutpoint.ContainsKey(unspent.Coin.Outpoint));
+				}
+
+				foreach (var t in new[] { _73bdee, ab3922, _452bdd, ef7dfa, dd483a, _2bdac2, ab3922 })
+				{
+					Assert.NotNull(collection.GetByTxId(t._TransactionId));
+				}
+
+				Assert.Null(collection.GetByTxId(_17b3b3._TransactionId));
+
+				var tx = collection.GetByTxId(ab3922dup._TransactionId);
+				Assert.Equal(ab3922._TimeStamp, tx.Record.Inserted);
+				Assert.NotEqual(ab3922dup._TimeStamp, tx.Record.Inserted);
+			}
+
+			var lastBlock = ToUint256(10);
+			chain.TrySetTip(lastBlock, blocks.Last());
+
+			ab3922dup.MinedBy(lastBlock);
+			_2bdac2.MinedBy(lastBlock);
+			trackedTransactions = builder.Build();
+			for (int iii = 0; iii < 100; iii++)
+			{
+				NBitcoin.Utils.Shuffle(trackedTransactions);
+				var collection = new AnnotatedTransactionCollection(trackedTransactions, builder._TrackedSource, chain, Network.RegTest);
+				Assert.Empty(collection.ReplacedTransactions);
+				Assert.Empty(collection.UnconfirmedTransactions);
+				Assert.Contains(collection.CleanupTransactions, t => t.Record.TransactionHash == _17b3b3._TransactionId);
+			}
 		}
 
 		[Fact]
@@ -2341,7 +2464,7 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				tester.Client.Track(pubkey);
-				
+
 				// In this test, we index a transaction, but miss an address (0/0 is found, but not 0/50 because it is outside the gap limit)
 				tester.RPC.SendCommand(RPCOperations.sendmany, "",
 						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/0")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/50")}\": \"0.5\" }}"));

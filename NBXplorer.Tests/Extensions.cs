@@ -57,10 +57,6 @@ namespace NBXplorer.Tests
 		}
 
 		static BitcoinAddress Dummy = new Key().PubKey.GetAddress(Network.Main);
-		static AnnotatedTransaction AsAnnotatedTransaction(this Transaction tx)
-		{
-			return new AnnotatedTransaction(new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), null, false), new AddressTrackedSource(Dummy), tx, new Dictionary<Script, KeyPath>()), null);
-		}
 		public static KeyPathInformation GetKeyInformation(this Repository repo, Script script)
 		{
 			return repo.GetKeyInformations(new Script[] { script }).GetAwaiter().GetResult()[script].SingleOrDefault();
