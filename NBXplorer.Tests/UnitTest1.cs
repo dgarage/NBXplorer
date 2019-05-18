@@ -2214,6 +2214,10 @@ namespace NBXplorer.Tests
 			Assert.True(expected.SequenceEqual(actual));
 		}
 
+		/// <summary>
+		/// To understand this test, read https://github.com/NicolasDorier/NBitcoin.Docs#nbxplorer-design
+		/// This create a specific graph of transaction and make sure that it computes the UTXO set as expected.
+		/// </summary>
 		[Fact]
 		public void CanCalculateCorrectUTXOSet()
 		{
