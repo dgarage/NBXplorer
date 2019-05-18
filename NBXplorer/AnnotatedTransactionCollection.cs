@@ -149,12 +149,20 @@ namespace NBXplorer
 
 			var sortedTransactions = _TxById.Values.TopologicalSort();
 			UTXOState state = new UTXOState();
-			foreach (var tx in sortedTransactions.Where(s => !s.Immature))
+			foreach (var tx in sortedTransactions.Where(s => !s.Immature && s.Height is int))
 			{
 				if (state.Apply(tx.Record) == ApplyTransactionResult.Conflict)
 				{
 					throw new InvalidOperationException("The impossible happened");
 				}				
+			}
+			ConfirmedState = state.Snapshot();
+			foreach (var tx in sortedTransactions.Where(s => s.Height is null))
+			{
+				if (state.Apply(tx.Record) == ApplyTransactionResult.Conflict)
+				{
+					throw new InvalidOperationException("The impossible happened");
+				}
 			}
 			foreach (var tx in sortedTransactions)
 			{
@@ -164,11 +172,12 @@ namespace NBXplorer
 					UnconfirmedTransactions.Add(tx);
 			}
 			AddRange(sortedTransactions);
-			UTXOState = state;
+			UnconfirmedState = state;
 			TrackedSource = trackedSource;
 		}
 
-		public UTXOState UTXOState { get; set; }
+		public UTXOState ConfirmedState { get; set; }
+		public UTXOState UnconfirmedState { get; set; }
 
 		private static bool ShouldReplace(AnnotatedTransaction annotatedTransaction, AnnotatedTransaction conflicted)
 		{

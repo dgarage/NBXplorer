@@ -1391,8 +1391,8 @@ namespace NBXplorer.Tests
 				Assert.Empty(utxoAlice.Confirmed.UTXOs);
 				Assert.Empty(utxoBob.Confirmed.SpentOutpoints);
 				Assert.Equal(2, utxoBob.Confirmed.UTXOs.Count);
-				Assert.Equal("0/2", utxoBob.Confirmed.UTXOs[0].KeyPath.ToString());
-				Assert.Equal("0/3", utxoBob.Confirmed.UTXOs[1].KeyPath.ToString());
+				Assert.Contains(utxoBob.Confirmed.UTXOs.Select(u => u.KeyPath.ToString()), o=> o == "0/2");
+				Assert.Contains(utxoBob.Confirmed.UTXOs.Select(u => u.KeyPath.ToString()), o => o == "0/3");
 			}
 		}
 
@@ -2296,17 +2296,17 @@ namespace NBXplorer.Tests
 				Assert.Contains(collection.UnconfirmedTransactions, r => r.Record.TransactionHash == ab3922._TransactionId);
 				Assert.Contains(collection.UnconfirmedTransactions, r => r.Record.TransactionHash == _2bdac2._TransactionId);
 
-				Assert.Equal(7, collection.UTXOState.SpentUTXOs.Count);
+				Assert.Equal(7, collection.UnconfirmedState.SpentUTXOs.Count);
 				foreach (var spent in new[] { a, b, c, e, g, h, i })
 				{
-					Assert.Contains(spent.Coin.Outpoint, collection.UTXOState.SpentUTXOs);
-					Assert.False(collection.UTXOState.UTXOByOutpoint.ContainsKey(spent.Coin.Outpoint));
+					Assert.Contains(spent.Coin.Outpoint, collection.UnconfirmedState.SpentUTXOs);
+					Assert.False(collection.UnconfirmedState.UTXOByOutpoint.ContainsKey(spent.Coin.Outpoint));
 				}
-				Assert.Equal(4, collection.UTXOState.UTXOByOutpoint.Count());
+				Assert.Equal(4, collection.UnconfirmedState.UTXOByOutpoint.Count());
 				foreach (var unspent in new[] { d, f, j, k })
 				{
-					Assert.DoesNotContain(unspent.Coin.Outpoint, collection.UTXOState.SpentUTXOs);
-					Assert.True(collection.UTXOState.UTXOByOutpoint.ContainsKey(unspent.Coin.Outpoint));
+					Assert.DoesNotContain(unspent.Coin.Outpoint, collection.UnconfirmedState.SpentUTXOs);
+					Assert.True(collection.UnconfirmedState.UTXOByOutpoint.ContainsKey(unspent.Coin.Outpoint));
 				}
 
 				foreach (var t in new[] { _73bdee, ab3922, _452bdd, ef7dfa, dd483a, _2bdac2, ab3922 })

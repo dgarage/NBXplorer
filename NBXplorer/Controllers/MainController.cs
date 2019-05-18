@@ -704,11 +704,8 @@ namespace NBXplorer.Controllers
 			stopwatch.Start();
 			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
 
-			var states = UTXOStateResult.CreateStates(transactions.UnconfirmedTransactions.Select(c => c.Record),
-													transactions.ConfirmedTransactions.Select(c => c.Record));
-
-			changes.Confirmed = SetUTXOChange(states.Confirmed);
-			changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
+			changes.Confirmed = ToUTXOChange(transactions.ConfirmedState);
+			changes.Unconfirmed = ToUTXOChange(transactions.UnconfirmedState - transactions.ConfirmedState);
 
 
 
@@ -719,7 +716,7 @@ namespace NBXplorer.Controllers
 			if (ExplorerConfiguration.AutoPruningTime != null &&
 			   stopwatch.Elapsed > ExplorerConfiguration.AutoPruningTime.Value)
 			{
-				await AttemptPrune(repo, transactions, states);
+				await AttemptPrune(repo, transactions, transactions.ConfirmedState);
 			}
 
 			changes.TrackedSource = trackedSource;
@@ -728,18 +725,25 @@ namespace NBXplorer.Controllers
 			return changes;
 		}
 
-		private async Task AttemptPrune(Repository repo, AnnotatedTransactionCollection transactions, UTXOStateResult states)
+		private UTXOChange ToUTXOChange(UTXOState state)
+		{
+			UTXOChange change = new UTXOChange();
+			change.SpentOutpoints.AddRange(state.SpentUTXOs);
+			change.UTXOs.AddRange(state.UTXOByOutpoint.Select(u => new UTXO(u.Value)));
+			return change;
+		}
+
+		private async Task AttemptPrune(Repository repo, AnnotatedTransactionCollection transactions, UTXOState state)
 		{
 			var network = repo.Network;
 			var trackedSource = transactions.TrackedSource;
-			var quarter = states.Confirmed.Actual.GetQuarterTransactionTime();
+			var quarter = state.GetQuarterTransactionTime();
 			if (quarter != null)
 			{
 				Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruning needed for {trackedSource.ToPrettyString()}...");
 
 				// Step 1. Mark all transactions whose UTXOs have been all spent for long enough (quarter of first seen time of all transaction)
-				var prunableIds = states.Confirmed.Actual
-								.UTXOByOutpoint
+				var prunableIds = state.UTXOByOutpoint
 								.Prunable
 								.Where(p => OldEnough(transactions, p.PrunedBy, quarter.Value))
 								.Select(p => transactions.GetByTxId(p.TransactionId))
@@ -810,32 +814,6 @@ namespace NBXplorer.Controllers
 				utxo.Confirmations = isUnconf ? 0 : currentHeight - txHeight + 1;
 				utxo.Timestamp = transactions.GetByTxId(utxo.Outpoint.Hash).Record.FirstSeen;
 			}
-		}
-
-		private UTXOChange SetUTXOChange(UTXOStates states, UTXOState substract = null)
-		{
-			substract = substract ?? new UTXOState();
-			var substractedSpent = new HashSet<OutPoint>(substract.SpentUTXOs);
-			var substractedReceived = new HashSet<OutPoint>(substract.UTXOByOutpoint.Select(u => u.Key));
-
-			UTXOChange change = new UTXOChange();
-			states.Known = states.Known ?? new UTXOState();
-
-			foreach (var coin in states.Actual.UTXOByOutpoint)
-			{
-				if (!states.Known.UTXOByOutpoint.ContainsKey(coin.Key) &&
-					!substractedReceived.Contains(coin.Key))
-					change.UTXOs.Add(new UTXO(coin.Value));
-			}
-
-			foreach (var outpoint in states.Actual.SpentUTXOs)
-			{
-				if (!states.Known.SpentUTXOs.Contains(outpoint) &&
-					(states.Known.UTXOByOutpoint.ContainsKey(outpoint) || substractedReceived.Contains(outpoint)) &&
-					!substractedSpent.Contains(outpoint))
-					change.SpentOutpoints.Add(outpoint);
-			}
-			return change;
 		}
 
 		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, SlimChain chain, TrackedSource trackedSource, uint256 txId = null)

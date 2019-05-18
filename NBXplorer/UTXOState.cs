@@ -42,7 +42,6 @@ namespace NBXplorer
 				if(UTXOByOutpoint.ContainsKey(coin.Outpoint))
 				{
 					result = ApplyTransactionResult.Conflict;
-					Conflicts.Add(coin.Outpoint, hash);
 				}
 			}
 
@@ -52,7 +51,6 @@ namespace NBXplorer
 					(!UTXOByOutpoint.ContainsKey(spentOutpoint) && SpentUTXOs.Contains(spentOutpoint)))
 				{
 					result = ApplyTransactionResult.Conflict;
-					Conflicts.Add(spentOutpoint, hash);
 				}
 			}
 			if(result == ApplyTransactionResult.Conflict)
@@ -90,21 +88,31 @@ namespace NBXplorer
 			return times[quarter];
 		}
 
-		public MultiValueDictionary<OutPoint, uint256> Conflicts
-		{
-			get; set;
-		} = new MultiValueDictionary<OutPoint, uint256>();
-
 		public UTXOState Snapshot()
 		{
 			return new UTXOState()
 			{
 				UTXOByOutpoint = new UTXOByOutpoint(UTXOByOutpoint),
-				Conflicts = new MultiValueDictionary<OutPoint, uint256>(Conflicts),
 				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
 				_KnownInputs = new HashSet<OutPoint>(_KnownInputs),
 				_TransactionTimes = new List<DateTimeOffset>(_TransactionTimes)
 			};
+		}
+
+		public static UTXOState operator-(UTXOState a, UTXOState b)
+		{
+			UTXOState result = new UTXOState();
+			foreach (var utxo in a.UTXOByOutpoint)
+			{
+				if (!b.UTXOByOutpoint.ContainsKey(utxo.Key))
+					result.UTXOByOutpoint.TryAdd(utxo.Key, utxo.Value);
+			}
+			foreach (var utxo in b.UTXOByOutpoint)
+			{
+				if (!a.UTXOByOutpoint.ContainsKey(utxo.Key))
+					result.SpentUTXOs.Add(utxo.Key);
+			}
+			return result;
 		}
 	}
 }
