@@ -56,14 +56,6 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		public static IEnumerable<Transaction> TopologicalSort(this IEnumerable<Transaction> transactions)
-		{
-			return transactions
-				.Select(t => t.AsAnnotatedTransaction()).ToList()
-				.TopologicalSort()
-				.Select(t => t.Record.Transaction);
-		}
-
 		static BitcoinAddress Dummy = new Key().PubKey.GetAddress(Network.Main);
 		static AnnotatedTransaction AsAnnotatedTransaction(this Transaction tx)
 		{

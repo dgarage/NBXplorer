@@ -67,8 +67,9 @@ namespace NBXplorer
 
             UTXOState state = new UTXOState();
             foreach (var confirmed in transactions
-                                        .Where(tx => tx.Type == AnnotatedTransactionType.Confirmed).ToList()
-                                        .TopologicalSort())
+                                        .Where(tx => tx.Type == AnnotatedTransactionType.Confirmed)
+										.ToList()
+										.TopologicalSort())
             {
                 if (state.Apply(confirmed.Record) == ApplyTransactionResult.Conflict)
                 {
@@ -82,7 +83,7 @@ namespace NBXplorer
             foreach (var unconfirmed in transactions
                                         .Where(tx => tx.Type == AnnotatedTransactionType.Unconfirmed || tx.Type == AnnotatedTransactionType.Orphan)
                                         .OrderByDescending(t => t.Record.Inserted) // OrderByDescending so that the last received is least likely to be conflicted
-                                        .ToList()
+										.ToList()
                                         .TopologicalSort())
             {
                 if (_TxById.ContainsKey(unconfirmed.Record.TransactionHash))

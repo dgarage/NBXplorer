@@ -2206,11 +2206,11 @@ namespace NBXplorer.Tests
 #pragma warning disable CS0618 // Type or member is obsolete
 			var tx1 = new Transaction() { Outputs = { new TxOut(Money.Zero, new Key()) } };
 			var tx2 = new Transaction() { Inputs = { new TxIn(new OutPoint(tx1, 0)) } };
-			var tx3 = new Transaction() { Inputs = { new TxIn(new OutPoint(tx2, 0)) } };
+			var tx3 = new Transaction() { Inputs = { new TxIn(new OutPoint(tx2, 0)) }, Outputs = { new TxOut(Money.Zero, new Key()) } };
 #pragma warning restore CS0618 // Type or member is obsolete
 			var arr = new[] { tx2, tx1, tx3 };
 			var expected = new[] { tx1, tx2, tx3 };
-			var actual = arr.TopologicalSort().ToArray();
+			var actual = arr.TopologicalSort(o => o.Inputs.Select(i => i.PrevOut.Hash), o => o.GetHash()).ToArray();
 			Assert.True(expected.SequenceEqual(actual));
 		}
 
