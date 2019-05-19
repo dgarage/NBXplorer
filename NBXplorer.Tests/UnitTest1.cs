@@ -1391,8 +1391,8 @@ namespace NBXplorer.Tests
 				Assert.Empty(utxoAlice.Confirmed.UTXOs);
 				Assert.Empty(utxoBob.Confirmed.SpentOutpoints);
 				Assert.Equal(2, utxoBob.Confirmed.UTXOs.Count);
-				Assert.Contains(utxoBob.Confirmed.UTXOs.Select(u => u.KeyPath.ToString()), o=> o == "0/2");
-				Assert.Contains(utxoBob.Confirmed.UTXOs.Select(u => u.KeyPath.ToString()), o => o == "0/3");
+				Assert.Equal("0/2", utxoBob.Confirmed.UTXOs[0].KeyPath.ToString());
+				Assert.Equal("0/3", utxoBob.Confirmed.UTXOs[1].KeyPath.ToString());
 			}
 		}
 
@@ -1868,7 +1868,7 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(pubkey, txId3);
 				result = tester.Client.GetTransactions(pubkey);
 				Assert.Equal(2, result.UnconfirmedTransactions.Transactions.Count);
-				Assert.Equal(Money.Coins(-0.8m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
+				Assert.Contains(result.UnconfirmedTransactions.Transactions, t => t.BalanceChange == Money.Coins(-0.8m));
 				var tx3 = tester.Client.GetTransaction(pubkey, txId3);
 				Assert.Equal(Money.Coins(-0.8m), tx3.BalanceChange);
 			}

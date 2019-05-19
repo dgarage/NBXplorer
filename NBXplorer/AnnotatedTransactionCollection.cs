@@ -175,8 +175,11 @@ namespace NBXplorer
 					ConfirmedTransactions.Add(tx);
 				else
 					UnconfirmedTransactions.Add(tx);
+				this.Add(tx);
 			}
-			AddRange(sortedTransactions);
+			this.Reverse(); // Reverse so [0] is the youngest transaction
+			UnconfirmedTransactions.Reverse();
+			ConfirmedTransactions.Reverse();
 			UnconfirmedState = state;
 			TrackedSource = trackedSource;
 		}
@@ -231,17 +234,17 @@ namespace NBXplorer
 			return value;
 		}
 
-		public ICollection<AnnotatedTransaction> ReplacedTransactions
+		public List<AnnotatedTransaction> ReplacedTransactions
 		{
 			get; set;
 		} = new List<AnnotatedTransaction>();
 
-		public ICollection<AnnotatedTransaction> ConfirmedTransactions
+		public List<AnnotatedTransaction> ConfirmedTransactions
 		{
 			get; set;
 		} = new List<AnnotatedTransaction>();
 
-		public ICollection<AnnotatedTransaction> UnconfirmedTransactions
+		public List<AnnotatedTransaction> UnconfirmedTransactions
 		{
 			get; set;
 		} = new List<AnnotatedTransaction>();

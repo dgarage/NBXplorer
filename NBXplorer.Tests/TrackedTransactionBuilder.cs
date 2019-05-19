@@ -9,7 +9,7 @@ namespace NBXplorer.Tests
 {
 	public class TrackedTransactionBuilder
 	{
-		internal TrackedSource _TrackedSource = new AddressTrackedSource(new Key().PubKey.GetAddress(Network.RegTest));
+		internal TrackedSource _TrackedSource = new AddressTrackedSource(new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.RegTest));
 		internal List<TransactionContext> _Transactions = new List<TransactionContext>();
 		public class TransactionContext
 		{
