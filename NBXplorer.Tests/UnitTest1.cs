@@ -1868,7 +1868,7 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(pubkey, txId3);
 				result = tester.Client.GetTransactions(pubkey);
 				Assert.Equal(2, result.UnconfirmedTransactions.Transactions.Count);
-				Assert.Contains(result.UnconfirmedTransactions.Transactions, t => t.BalanceChange == Money.Coins(-0.8m));
+				Assert.Equal(Money.Coins(-0.8m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
 				var tx3 = tester.Client.GetTransaction(pubkey, txId3);
 				Assert.Equal(Money.Coins(-0.8m), tx3.BalanceChange);
 			}

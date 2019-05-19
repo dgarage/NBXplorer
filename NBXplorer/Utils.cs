@@ -11,7 +11,38 @@ namespace NBXplorer
 	{
 		public static ICollection<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
 		{
-			return transactions.TopologicalSort(t => t.Record.SpentOutpoints.Select(o => o.Hash), t => t.Record.TransactionHash);
+			return transactions.TopologicalSort(
+				dependsOn: t => t.Record.SpentOutpoints.Select(o => o.Hash),
+				getKey: t => t.Record.TransactionHash,
+				getValue: t => t,
+				solveTies: (a, b) =>
+				{
+					if (a.Height is int ah)
+					{
+						// Both confirmed, tie on height then firstSeen
+						if (b.Height is int bh)
+						{
+							return ah == bh ?
+								   // same height? tire on firstSeen
+								   (a.Record.FirstSeen < b.Record.FirstSeen ? a : b) :
+								   // else tie on the height
+								   ah < bh ? a : b;
+						}
+						else
+						{
+							return a;
+						}
+					}
+					else if (b.Height is int bh)
+					{
+						return b;
+					}
+					// Both unconfirmed, tie on firstSeen
+					else
+					{
+						return (a.Record.FirstSeen < b.Record.FirstSeen ? a : b);
+					}
+				});
 		}
 		public static ICollection<T> TopologicalSort<T>(this ICollection<T> nodes, Func<T, IEnumerable<T>> dependsOn)
 		{
@@ -26,7 +57,8 @@ namespace NBXplorer
 		public static ICollection<TValue> TopologicalSort<T, TDepend, TValue>(this ICollection<T> nodes,
 												Func<T, IEnumerable<TDepend>> dependsOn,
 												Func<T, TDepend> getKey,
-												Func<T, TValue> getValue)
+												Func<T, TValue> getValue,
+												Func<T,T,T> solveTies = null)
 		{
 			if (nodes.Count == 0)
 				return Array.Empty<TValue>();
@@ -34,6 +66,7 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(getKey));
 			if (getValue == null)
 				throw new ArgumentNullException(nameof(getValue));
+			solveTies = solveTies ?? new Func<T, T, T>((aa, bb) => aa);
 			List<TValue> result = new List<TValue>(nodes.Count);
 			HashSet<TDepend> allKeys = new HashSet<TDepend>(nodes.Count);
 			foreach (var node in nodes)
@@ -54,7 +87,17 @@ namespace NBXplorer
 				{
 					selem.Value.Remove(getKey(elem.Key));
 					if (selem.Value.Count == 0)
-						nextElement = selem;
+					{
+						if (nextElement is null)
+						{
+							nextElement = selem;
+						}
+						else
+						{
+							var preferred = solveTies(selem.Key, nextElement.Value.Key);
+							nextElement = ReferenceEquals(preferred, selem.Key) ? selem : nextElement;
+						}
+					}
 				}
 				if (nextElement is KeyValuePair<T, HashSet<TDepend>> n)
 					elem = n;
