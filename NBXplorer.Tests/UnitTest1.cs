@@ -338,7 +338,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								Amount = Money.Coins(0.5m),
 								SubstractFees = substractFee
 							}
@@ -374,7 +374,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								SweepAll = true
 							}
 						},
@@ -393,7 +393,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								Amount = Money.Coins(0.3m),
 							}
 						},
@@ -411,7 +411,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								Amount = Money.Coins(0.3m),
 							}
 						},
@@ -429,7 +429,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								Amount = Money.Coins(0.3m),
 							}
 						},
@@ -440,7 +440,7 @@ namespace NBXplorer.Tests
 					ReserveChangeAddress = true
 				});
 				Assert.Equal(changeAddress, psbt2.ChangeAddress);
-				var dest = new Key().PubKey.GetAddress(tester.Network);
+				var dest = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network);
 				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
 					Seed = 0,
@@ -488,7 +488,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								Amount = Money.Coins(0.3m),
 							}
 						},
@@ -507,7 +507,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								Amount = Money.Coins(0.3m),
 							}
 						},
@@ -528,7 +528,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								Amount = Money.Coins(0.3m),
 							}
 						},
@@ -549,7 +549,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								Amount = Money.Coins(0.3m),
 							}
 						},
@@ -570,7 +570,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								SweepAll = true
 							}
 						},
@@ -590,7 +590,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								SweepAll = true
 							}
 						},
@@ -612,7 +612,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								SweepAll = true
 							}
 						},
@@ -638,7 +638,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = new Key().PubKey.GetAddress(tester.Network),
+								Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
 								SweepAll = true
 							}
 						},
@@ -1492,7 +1492,7 @@ namespace NBXplorer.Tests
 			{
 				tester.Client.WaitServerStarted();
 				var key = new Key();
-				var pubkey = TrackedSource.Create(key.PubKey.GetAddress(tester.Network));
+				var pubkey = TrackedSource.Create(key.PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network));
 				tester.Client.Track(pubkey);
 				using (var connected = tester.Client.CreateWebsocketNotificationSession())
 				{
@@ -1550,10 +1550,10 @@ namespace NBXplorer.Tests
 			{
 				tester.Client.WaitServerStarted();
 				var key = new Key();
-				var pubkey = TrackedSource.Create(key.PubKey.GetAddress(tester.Network));
+				var pubkey = TrackedSource.Create(key.PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network));
 
 				var key2 = new Key();
-				var pubkey2 = TrackedSource.Create(key2.PubKey.GetAddress(tester.Network));
+				var pubkey2 = TrackedSource.Create(key2.PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network));
 
 				tester.Client.Track(pubkey);
 				tester.Client.Track(pubkey2);
@@ -1587,7 +1587,7 @@ namespace NBXplorer.Tests
 				var pubkey = new DerivationStrategyFactory(extkey.Network).Parse($"{extkey.Neuter()}-[legacy]");
 				Logs.Tester.LogInformation("Let's make a tracked address from hd pubkey 0/0");
 				var key = extkey.ExtKey.Derive(new KeyPath("0/0")).PrivateKey;
-				var address = key.PubKey.GetAddress(tester.Network);
+				var address = key.PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network);
 				var addressSource = TrackedSource.Create(address);
 				tester.Client.Track(addressSource);
 
