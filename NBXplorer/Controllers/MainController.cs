@@ -747,8 +747,7 @@ namespace NBXplorer.Controllers
 				var prunableIds = state.UTXOByOutpoint
 								.Prunable
 								.Where(p => OldEnough(transactions, p.PrunedBy, quarter.Value))
-								.Select(p => transactions.GetByTxId(p.TransactionId))
-								.Select(p => p.Record.TransactionHash)
+								.Select(p => p.TransactionId)
 								.ToHashSet();
 
 				// Step2. Make sure that all their parent are also prunable (Ancestors first)
@@ -786,7 +785,7 @@ namespace NBXplorer.Controllers
 		{
 			// Let's make sure that the transaction that made this transaction pruned has enough confirmations
 			var tx = transactions.GetByTxId(prunedBy);
-			if (tx == null || tx.Height is null)
+			if (tx?.Height is null)
 				return false;
 			return tx.Record.FirstSeen <= pruneBefore;
 		}
