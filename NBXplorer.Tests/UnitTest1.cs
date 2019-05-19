@@ -2283,6 +2283,12 @@ namespace NBXplorer.Tests
 				   .Timestamp(0);
 
 			var trackedTransactions = builder.Build();
+
+			bool IsEqual(AnnotatedTransaction tx, TrackedTransactionBuilder.TransactionContext ctx)
+			{
+				return tx.Record.TransactionHash == ctx._TransactionId && tx.Record.Inserted == ctx._TimeStamp;
+			}
+
 			for (int iii = 0; iii < 100; iii++)
 			{
 				NBitcoin.Utils.Shuffle(trackedTransactions);
@@ -2290,15 +2296,19 @@ namespace NBXplorer.Tests
 				Assert.Equal(7, collection.Count);
 
 				Assert.Equal(1, collection.ReplacedTransactions.Count);
-				Assert.Contains(collection.ReplacedTransactions, r => r.Record.TransactionHash == _17b3b3._TransactionId);
+				Assert.Contains(collection.ReplacedTransactions, r => IsEqual(r, _17b3b3));
 
 				Assert.Equal(2, collection.CleanupTransactions.Count);
-				Assert.Contains(collection.CleanupTransactions, r => r.Record.TransactionHash == _17b3b3dup._TransactionId);
-				Assert.Contains(collection.CleanupTransactions, r => r.Record.TransactionHash == ab3922dup._TransactionId);
+				foreach (var cleaned in new[] { _17b3b3dup, ab3922dup })
+				{
+					Assert.Contains(collection.CleanupTransactions, r => IsEqual(r, cleaned));
+				}
 
 				Assert.Equal(2, collection.UnconfirmedTransactions.Count);
-				Assert.Contains(collection.UnconfirmedTransactions, r => r.Record.TransactionHash == ab3922._TransactionId);
-				Assert.Contains(collection.UnconfirmedTransactions, r => r.Record.TransactionHash == _2bdac2._TransactionId);
+				foreach (var unconf in new[] { ab3922, _2bdac2 })
+				{
+					Assert.Contains(collection.UnconfirmedTransactions, r => IsEqual(r, unconf));
+				}
 
 				Assert.Equal(7, collection.UnconfirmedState.SpentUTXOs.Count);
 				foreach (var spent in new[] { a, b, c, e, g, h, i })
@@ -2328,7 +2338,7 @@ namespace NBXplorer.Tests
 			var lastBlock = ToUint256(10);
 			chain.TrySetTip(lastBlock, blocks.Last());
 
-			ab3922dup.MinedBy(lastBlock);
+			ab3922.MinedBy(lastBlock);
 			_2bdac2.MinedBy(lastBlock);
 			trackedTransactions = builder.Build();
 			for (int iii = 0; iii < 100; iii++)
@@ -2337,7 +2347,11 @@ namespace NBXplorer.Tests
 				var collection = new AnnotatedTransactionCollection(trackedTransactions, builder._TrackedSource, chain, Network.RegTest);
 				Assert.Empty(collection.ReplacedTransactions);
 				Assert.Empty(collection.UnconfirmedTransactions);
-				Assert.Contains(collection.CleanupTransactions, t => t.Record.TransactionHash == _17b3b3._TransactionId);
+				Assert.Equal(3, collection.CleanupTransactions.Count);
+				foreach (var dup in new[] { _17b3b3, _17b3b3dup, ab3922dup })
+				{
+					Assert.Contains(collection.CleanupTransactions, t => IsEqual(t, dup));
+				}
 			}
 		}
 
