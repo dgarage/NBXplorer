@@ -1391,8 +1391,8 @@ namespace NBXplorer.Tests
 				Assert.Empty(utxoAlice.Confirmed.UTXOs);
 				Assert.Empty(utxoBob.Confirmed.SpentOutpoints);
 				Assert.Equal(2, utxoBob.Confirmed.UTXOs.Count);
-				Assert.Equal("0/2", utxoBob.Confirmed.UTXOs[0].KeyPath.ToString());
-				Assert.Equal("0/3", utxoBob.Confirmed.UTXOs[1].KeyPath.ToString());
+				Assert.Contains(utxoBob.Confirmed.UTXOs.Select(u => u.KeyPath.ToString()), o => o == "0/2");
+				Assert.Contains(utxoBob.Confirmed.UTXOs.Select(u => u.KeyPath.ToString()), o => o == "0/3");
 			}
 		}
 

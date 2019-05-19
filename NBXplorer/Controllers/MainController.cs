@@ -540,6 +540,7 @@ namespace NBXplorer.Controllers
 
 					txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).Sum() - txInfo.Inputs.Select(o => o.Value).Sum();
 				}
+				item.TxSet.Transactions.Reverse(); // So the youngest transaction is generally first
 			}
 
 

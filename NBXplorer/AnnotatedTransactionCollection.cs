@@ -177,9 +177,6 @@ namespace NBXplorer
 					UnconfirmedTransactions.Add(tx);
 				this.Add(tx);
 			}
-			this.Reverse(); // Reverse so [0] is the youngest transaction
-			UnconfirmedTransactions.Reverse();
-			ConfirmedTransactions.Reverse();
 			UnconfirmedState = state;
 			TrackedSource = trackedSource;
 		}
