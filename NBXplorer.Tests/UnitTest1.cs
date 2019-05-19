@@ -2295,7 +2295,7 @@ namespace NBXplorer.Tests
 				var collection = new AnnotatedTransactionCollection(trackedTransactions, builder._TrackedSource, chain, Network.RegTest);
 				Assert.Equal(7, collection.Count);
 
-				Assert.Equal(1, collection.ReplacedTransactions.Count);
+				Assert.Single(collection.ReplacedTransactions);
 				Assert.Contains(collection.ReplacedTransactions, r => IsEqual(r, _17b3b3));
 
 				Assert.Equal(2, collection.CleanupTransactions.Count);
