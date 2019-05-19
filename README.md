@@ -43,7 +43,7 @@ It currently the following altcoins:
 * Ufo
 * Viacoin
 
-Read our [API Specification](docs/API.md), or our the [internal design of NBXplorer](docs/design.md).
+Read our [API Specification](docs/API.md), or our the [internal design of NBXplorer](docs/Design.md).
 
 ## Prerequisite
 
