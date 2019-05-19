@@ -28,6 +28,23 @@ It currently supports:
 * Ufo
 * Viacoin
 
+It has a bunch of feature:
+
+* Can pass arguments via environment variable, command line or configuration file
+* Automatically reconnect to your node if the connection goes temporarily down
+* An easy to use REST API
+* Persistence (via in-file no-SQL datbase called DBreeze)
+* Connect via RPC to broadcast transaction instead of using the P2P protocol like this example
+* Connect via RPC to your trusted node to get the proper fee rate.
+* Altcoin support
+* Huge test suite
+* Pruning of transaction data (in practice, we don't need to save the whole transaction, only the spent outpoint and received coin for the wallet)
+* Multi-wallet
+* Flexible address generation schemes (multisig, segwit, legacy etc...)
+* Pruning for big wallets (Removal of tracked transaction which do not impact the resulting UTXO set)
+
+Read our [API Specification](docs/API.md), or our the [internal design of NBXplorer](docs/design.md).
+
 ## Prerequisite
 
 * Install [.NET Core SDK v2.1.4 (with patch version >= 402)](https://www.microsoft.com/net/download)
