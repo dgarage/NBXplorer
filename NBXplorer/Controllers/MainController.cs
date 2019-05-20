@@ -663,8 +663,8 @@ namespace NBXplorer.Controllers
 			[FromBody]
 			JToken value = null)
 		{
-			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
 			var network = this.GetNetwork(cryptoCode, true);
+			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme, network.NBitcoinNetwork);
 			var repo = this.RepositoryProvider.GetRepository(network);
 			await repo.SaveMetadata(trackedSource, key, value);
 			return Ok();
@@ -675,10 +675,10 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme, string key)
 		{
-			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
 			var network = this.GetNetwork(cryptoCode, true);
+			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme, network.NBitcoinNetwork);
 			var repo = this.RepositoryProvider.GetRepository(network);
-			var result = await repo.GetMetadata(trackedSource, key);
+			var result = await repo.GetMetadata<JToken>(trackedSource, key);
 			return result == null ? (IActionResult)NotFound() : Json(result);
 		}
 		Encoding UTF8 = new UTF8Encoding(false);

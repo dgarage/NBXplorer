@@ -13,15 +13,15 @@ namespace NBXplorer.Tests
 {
 	public static class Extensions
 	{
-		public static void WaitForTransaction(this LongPollingNotificationSession session, DerivationStrategyBase derivationStrategy, uint256 txId)
+		public static NewTransactionEvent WaitForTransaction(this LongPollingNotificationSession session, DerivationStrategyBase derivationStrategy, uint256 txId)
 		{
-			session.WaitForTransaction(TrackedSource.Create(derivationStrategy, session.Client.Network.NBitcoinNetwork), txId);
+			return session.WaitForTransaction(TrackedSource.Create(derivationStrategy, session.Client.Network.NBitcoinNetwork), txId);
 		}
-		public static void WaitForTransaction(this LongPollingNotificationSession session, BitcoinAddress address, uint256 txId)
+		public static NewTransactionEvent WaitForTransaction(this LongPollingNotificationSession session, BitcoinAddress address, uint256 txId)
 		{
-			session.WaitForTransaction(TrackedSource.Create(address), txId);
+			return session.WaitForTransaction(TrackedSource.Create(address), txId);
 		}
-		public static void WaitForTransaction(this LongPollingNotificationSession session, TrackedSource trackedSource, uint256 txId)
+		public static NewTransactionEvent WaitForTransaction(this LongPollingNotificationSession session, TrackedSource trackedSource, uint256 txId)
 		{
 			using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
 			{
@@ -31,7 +31,7 @@ namespace NBXplorer.Tests
 					{
 						if (evts.TrackedSource == trackedSource && evts.TransactionData.TransactionHash == txId)
 						{
-							break;
+							return evts;
 						}
 					}
 				}

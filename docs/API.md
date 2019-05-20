@@ -905,6 +905,7 @@ The smallest `eventId` is 1.
     "type": "newtransaction",
     "data": {
       "blockId": null,
+	  "unlockId": "67a8a18412ef4a73e072b793bf37b19c2c7207d5"
       "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
       "derivationStrategy": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
       "transactionData": {
@@ -1060,3 +1061,23 @@ Body:
 	"example": "value"
 }
 ```
+
+## Wallet auto-locking
+
+You can set the auto locking behavior via the well-known metadata key `silo.locking`.
+
+HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/silo.locking
+
+Body:
+
+```json
+{
+	"autoLocking": true
+}
+```
+
+By activating `autoLocking`, all incoming transactions will have all the UTXOs locked.
+
+Transaction events will get a new `unlockId` field that you can use to unlock the transaction.
+
+Note that transactions originating from the `derivationScheme` (ie. outgoing transactions) will not be locked.

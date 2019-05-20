@@ -10,6 +10,10 @@ using static NBXplorer.Repository;
 namespace NBXplorer{
 	public class TrackedTransaction
 	{
+		/// <summary>
+		/// Careful, this field is not persisted
+		/// </summary>
+		public string UnlockId { get; set; }
 		class CoinOutpointEqualityComparer : IEqualityComparer<Coin>
 		{
 

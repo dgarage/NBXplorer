@@ -118,8 +118,8 @@ namespace NBXplorer.Controllers
 					trackedTransaction.KnownKeyPathMapping.TryAdd(c.GetCoin().ScriptPubKey, c.HDKeyPaths.First().Value.KeyPath);
 				}
 				trackedTransaction.KnownKeyPathMappingUpdated();
-				var cancellableMatch = await repo.SaveMatches(new[] { trackedTransaction }, true);
-				result.UnlockId = cancellableMatch.Key;
+				await repo.SaveMatches(new[] { trackedTransaction });
+				result.UnlockId = trackedTransaction.UnlockId;
 				return Json(result);
 			}
 			catch (NotEnoughFundsException)

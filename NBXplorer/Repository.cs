@@ -1240,21 +1240,16 @@ namespace NBXplorer
 
 		}
 
-		public async Task<CancellableMatches> SaveMatches(TrackedTransaction[] transactions, bool cancellableMatches = false)
+		public async Task SaveMatches(TrackedTransaction[] transactions)
 		{
 			if (transactions.Length == 0)
-				return null;
+				return;
 			var groups = transactions.GroupBy(i => i.TrackedSource);
-			CancellableMatches cancellable = new CancellableMatches();
-			cancellable.Key = Encoders.Hex.EncodeData(RandomUtils.GetBytes(20));
 			using (var tx = await _ContextFactory.GetContext())
 			{
 				foreach (var group in groups)
 				{
-					var table = GetTransactionsIndex(tx, group.Key);
-					var g = new CancellableMatches.CancellableMatchGroup();
-					cancellable.Groups.Add(g);
-					g.Key = group.Key;
+					var table = GetTransactionsIndex(tx, group.Key);					
 					foreach (var value in group)
 					{
 						if (group.Key is DerivationSchemeTrackedSource s)
@@ -1283,19 +1278,23 @@ namespace NBXplorer
 						TransactionMatchData data = new TransactionMatchData(value);
 						bs.ReadWrite(data);
 						var rowKey = data.GetRowKey();
-						g.RowKeys.Add(rowKey);
+
+						if (value.IsLockUTXO())
+						{
+							CancellableMatches cancellable = new CancellableMatches();
+							cancellable.Key = Encoders.Hex.EncodeData(RandomUtils.GetBytes(20));
+							value.UnlockId = cancellable.Key;
+							var g = new CancellableMatches.CancellableMatchGroup();
+							g.Key = group.Key;
+							cancellable.Groups.Add(g);
+							g.RowKeys.Add(rowKey);
+							GetCancellableMachesIndex(tx, cancellable.Key).Insert(string.Empty, ToBytes(cancellable));
+						}
 						table.Insert(rowKey, ms.ToArrayEfficient());
 					}
 				}
-
-				if (cancellableMatches)
-				{
-					var table = GetCancellableMachesIndex(tx, cancellable.Key);
-					table.Insert(string.Empty, ToBytes(cancellable));
-				}
 				await tx.CommitAsync();
 			}
-			return cancellable;
 		}
 
 		public async Task<bool> CancelMatches(string key)
@@ -1320,26 +1319,26 @@ namespace NBXplorer
 			return true;
 		}
 
-		public async Task SaveMetadata(TrackedSource source, string key, JToken value)
+		public async Task SaveMetadata<T>(TrackedSource source, string key, T value) where T : class
 		{
 			using (var tx = await _ContextFactory.GetContext())
 			{
 				var table = GetMetadataIndex(tx, source);
 				if (value != null)
-					table.Insert(key, Zip(value.ToString()));
+					table.Insert(key, Zip(Serializer.ToString(value)));
 				else
 					table.RemoveKey(key);
 				await tx.CommitAsync();
 			}
 		}
-		public async Task<JToken> GetMetadata(TrackedSource source, string key)
+		public async Task<T> GetMetadata<T>(TrackedSource source, string key) where T : class
 		{
 			using (var tx = await _ContextFactory.GetContext())
 			{
 				var table = GetMetadataIndex(tx, source);
 				foreach (var row in await table.SelectForwardSkip(0, key))
 				{
-					return JToken.Parse(Unzip(row.Value));
+					return  Serializer.ToObject<T>(Unzip(row.Value));
 				}
 				return null;
 			}

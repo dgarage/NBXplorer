@@ -363,7 +363,7 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = ServerTester.Create())
 			{
-				var bob = new Key().GetWif(tester.Network).GetAddress();
+				var bob = new Key().GetWif(tester.Network).GetAddress(ScriptPubKeyType.Legacy);
 				var aliceExtKey = new ExtKey();
 				var alice = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(aliceExtKey.Neuter(), new DerivationStrategyOptions() { P2SH = true });
 				tester.Client.Track(alice);
@@ -372,7 +372,8 @@ namespace NBXplorer.Tests
 				// Send two coins of 1 BTC
 				var newAddress = tester.Client.GetUnused(alice, DerivationFeature.Direct, reserve: true);
 				var txId = tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
-				tester.Notifications.WaitForTransaction(alice, txId);
+				var newTx = tester.Notifications.WaitForTransaction(alice, txId);
+				Assert.Null(newTx.UnlockId);
 				utxo = tester.Client.GetUTXOs(alice);
 
 				newAddress = tester.Client.GetUnused(alice, DerivationFeature.Direct, reserve: true);
@@ -456,6 +457,36 @@ namespace NBXplorer.Tests
 
 				Assert.Equal(2, locked.Transaction.Inputs.Count);
 				Assert.Equal(moneyLeft, locked.Fee + locked.Transaction.Outputs.Select(o => o.Value).Sum());
+			}
+		}
+
+		[Fact]
+		public void CanAutoLockUTXOs()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var bob = new Key().GetWif(tester.Network).GetAddress(ScriptPubKeyType.Legacy);
+				var aliceExtKey = new ExtKey();
+				var alice = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(aliceExtKey.Neuter(), new DerivationStrategyOptions() { P2SH = true });
+				tester.Client.Track(alice);
+				tester.Client.SetMetadata(alice, "silo.locking", new SILOLockingMetadata()
+				{
+					AutoLocking = true
+				});
+
+				var utxo = tester.Client.GetUTXOs(alice);
+				// Send one coin of 1 BTC, should be locked
+				var newAddress = tester.Client.GetUnused(alice, DerivationFeature.Direct, reserve: true);
+				var txId = tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
+				var newTx = tester.Notifications.WaitForTransaction(alice, txId);
+				Assert.NotNull(newTx.UnlockId);
+				var balance = tester.Client.GetBalance(alice);
+				Assert.Equal(Money.Zero, balance.Spendable);
+				Assert.Equal(Money.Coins(1.0m), balance.Total);
+				tester.Client.UnlockUTXOs(newTx.UnlockId);
+				balance = tester.Client.GetBalance(alice);
+				Assert.Equal(Money.Coins(1.0m), balance.Spendable);
+				Assert.Equal(Money.Coins(1.0m), balance.Total);
 			}
 		}
 
