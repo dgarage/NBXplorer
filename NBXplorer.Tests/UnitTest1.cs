@@ -1009,6 +1009,35 @@ namespace NBXplorer.Tests
 			}
 		}
 
+
+		class TestMetadata
+		{
+			public string Message { get; set; }
+		}
+		[Fact]
+		public void CanGetAndSetMetadata()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+				tester.Client.Track(pubkey);
+
+				Assert.Null(tester.Client.GetMetadata<TestMetadata>(pubkey, "test"));
+
+				var expected = new TestMetadata() { Message = "hello" };
+				tester.Client.SetMetadata(pubkey, "test", expected);
+
+				var actual = tester.Client.GetMetadata<TestMetadata>(pubkey, "test");
+				Assert.NotNull(actual);
+				Assert.Equal(expected.Message, actual.Message);
+
+				tester.Client.SetMetadata<TestMetadata>(pubkey, "test", null);
+				Assert.Null(tester.Client.GetMetadata<TestMetadata>(pubkey, "test"));
+			}
+		}
+
 		[Fact]
 		public void CanPrune()
 		{

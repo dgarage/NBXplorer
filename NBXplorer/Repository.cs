@@ -280,6 +280,11 @@ namespace NBXplorer
 			return new Index(tx, $"{_Suffix}Transactions", $"{trackedSource.GetHash()}");
 		}
 
+		Index GetMetadataIndex(DBriize.Transactions.Transaction tx, TrackedSource trackedSource)
+		{
+			return new Index(tx, $"{_Suffix}Metadata", $"{trackedSource.GetHash()}");
+		}
+
 		Index GetEventsIndex(DBriize.Transactions.Transaction tx)
 		{
 			return new Index(tx, $"{_Suffix}Events", string.Empty);
@@ -1120,6 +1125,31 @@ namespace NBXplorer
 					yield return new Coin(new OutPoint(Key.TxId, (int)coinData.Index), coinData.TxOut);
 				}
 			}
+		}
+
+		public async Task SaveMetadata(TrackedSource source, string key, JToken value)
+		{
+			await _TxContext.DoAsync(tx =>
+			{
+				var table = GetMetadataIndex(tx, source);
+				if (value != null)
+					table.Insert(key, Zip(value.ToString()));
+				else
+					table.RemoveKey(key);
+				tx.Commit();
+			});
+		}
+		public async Task<JToken> GetMetadata(TrackedSource source, string key)
+		{
+			return await _TxContext.DoAsync(tx =>
+			{
+				var table = GetMetadataIndex(tx, source);
+				foreach (var row in table.SelectForwardSkip(0, key))
+				{
+					return JToken.Parse(Unzip(row.Value));
+				}
+				return null;
+			});
 		}
 
 		public async Task SaveMatches(TrackedTransaction[] transactions)

@@ -855,3 +855,45 @@ Response:
 
 * `psbt`: The partially signed bitcoin transaction in Base64.
 * `changeAddress`: The change address of the transaction, useful for tests (can be null) 
+
+## Attach metadata to a derivation scheme
+
+You can attach JSON metadata to a derivation scheme:
+
+HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}
+
+The body can be any JSON token.
+
+Body:
+
+```json
+{
+	"example": "value"
+}
+```
+
+## Detach metadata from a derivation scheme
+
+HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}
+
+Call without body and without content type.
+
+## Retrieve metadata from a derivation scheme
+
+You retrieve the JSON metadata of a derivation scheme:
+
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}
+
+Error codes:
+
+* HTTP 404: The key is not found
+
+The body can be any piece of JSON.
+
+Body:
+
+```json
+{
+	"example": "value"
+}
+```

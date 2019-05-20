@@ -642,6 +642,33 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}")]
+		public async Task<IActionResult> SetMetadata(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme, string key, 
+			[FromBody]
+			JToken value = null)
+		{
+			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
+			var network = this.GetNetwork(cryptoCode, true);
+			var repo = this.RepositoryProvider.GetRepository(network);
+			await repo.SaveMetadata(trackedSource, key, value);
+			return Ok();
+		}
+		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}")]
+		public async Task<IActionResult> GetMetadata(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme, string key)
+		{
+			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
+			var network = this.GetNetwork(cryptoCode, true);
+			var repo = this.RepositoryProvider.GetRepository(network);
+			var result = await repo.GetMetadata(trackedSource, key);
+			return result == null ? (IActionResult)NotFound() : Json(result);
+		}
+		Encoding UTF8 = new UTF8Encoding(false);
+		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan")]
 		public IActionResult ScanUTXOSet(
 			string cryptoCode,
