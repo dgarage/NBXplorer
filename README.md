@@ -9,7 +9,22 @@ The explorer supports P2SH,P2PKH,P2WPKH,P2WSH and Multi-sig derivation.
 
 This explorer is not meant to be exposed on internet, but should be used as an internal tool for tracking the UTXOs of your own service.
 
-It currently supports:
+It has a bunch of feature:
+
+* Can pass arguments via environment variable, command line or configuration file
+* Automatically reconnect to your node if the connection goes temporarily down
+* An easy to use REST API
+* Persistence (via in-file no-SQL datbase called DBreeze)
+* Connect via RPC to broadcast transaction instead of using the P2P protocol like this example
+* Connect via RPC to your trusted node to get the proper fee rate.
+* Altcoin support
+* Huge test suite
+* Pruning of transaction data (in practice, we don't need to save the whole transaction, only the spent outpoint and received coin for the wallet)
+* Multi-wallet
+* Flexible address generation schemes (multisig, segwit, legacy etc...)
+* Pruning for big wallets (Removal of tracked transaction which do not impact the resulting UTXO set)
+
+It currently the following altcoins:
 
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
@@ -27,6 +42,8 @@ It currently supports:
 * Polis
 * Ufo
 * Viacoin
+
+Read our [API Specification](docs/API.md), or our the [internal design of NBXplorer](docs/Design.md).
 
 ## Prerequisite
 

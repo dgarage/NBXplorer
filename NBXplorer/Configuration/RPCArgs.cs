@@ -94,7 +94,7 @@ namespace NBXplorer.Configuration
 			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
 			try
 			{
-				var address = new Key().PubKey.GetAddress(network);
+				var address = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, network);
 				int time = 0;
 				while(true)
 				{

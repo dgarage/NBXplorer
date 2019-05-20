@@ -57,19 +57,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		public static IEnumerable<Transaction> TopologicalSort(this IEnumerable<Transaction> transactions)
-		{
-			return transactions
-				.Select(t => t.AsAnnotatedTransaction()).ToList()
-				.TopologicalSort()
-				.Select(t => t.Record.Transaction);
-		}
-
-		static BitcoinAddress Dummy = new Key().PubKey.GetAddress(Network.Main);
-		static AnnotatedTransaction AsAnnotatedTransaction(this Transaction tx)
-		{
-			return new AnnotatedTransaction(new TrackedTransaction(new TrackedTransactionKey(tx.GetHash(), null, false), new AddressTrackedSource(Dummy), tx, new Dictionary<Script, KeyPath>()), null);
-		}
+		static BitcoinAddress Dummy = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.Main);
 		public static async Task<KeyPathInformation> GetKeyInformation(this Repository repo, Script script)
 		{
 			return (await repo.GetKeyInformations(new Script[] { script }))[script].SingleOrDefault();

@@ -147,26 +147,16 @@ namespace NBXplorer.Controllers
 
 			GetBalanceResponse response = new GetBalanceResponse();
 
-			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource, false);
+			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
 
-			response.Spendable = CalculateBalance(transactions, true);
-			response.Total = CalculateBalance(transactions, false);
+			response.Spendable = transactions
+									.UnconfirmedState
+									.UTXOByOutpoint
+									.Where(utxo => !transactions.UnconfirmedStateWithLocks.SpentUTXOs.Contains(utxo.Value.Outpoint))
+									.Select(u => u.Value.Amount).Sum();
+			response.Total = transactions.UnconfirmedStateWithLocks.UTXOByOutpoint.Select(u => u.Value.Amount).Sum();
 
 			return response;
-		}
-
-		private Money CalculateBalance(AnnotatedTransactionCollection transactions, bool excludeLocksUTXOS)
-		{
-			var changes = new UTXOChanges();
-
-			var states = UTXOStateResult.CreateStates(excludeLocksUTXOS,
-														transactions.UnconfirmedTransactions.Select(c => c.Record),
-														transactions.ConfirmedTransactions.Select(c => c.Record));
-
-			changes.Confirmed = SetUTXOChange(states.Confirmed);
-			changes.Unconfirmed = SetUTXOChange(states.Unconfirmed, states.Confirmed.Actual);
-
-			return changes.GetUnspentCoins().Select(c => c.Amount).Sum();
 		}
 
 		[HttpGet]

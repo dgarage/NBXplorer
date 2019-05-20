@@ -106,6 +106,8 @@ namespace NBXplorer{
 			}
 			if (!Transaction.IsCoinBase)
 				SpentOutpoints.AddRange(Transaction.Inputs.Select(input => input.PrevOut));
+			if (this.IsLockUTXO() && SpentOutpoints.Count > 0) // Remove the lock marker
+				SpentOutpoints.Remove(Transaction.Inputs[0].PrevOut);
 		}
 
 		public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; } = new Dictionary<Script, KeyPath>();
@@ -130,7 +132,7 @@ namespace NBXplorer{
 		{
 			get; set;
 		}
-
+		public bool IsCoinBase => Transaction?.IsCoinBase is true;
 
 		public TrackedTransaction Prune()
 		{
