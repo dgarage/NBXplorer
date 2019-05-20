@@ -43,6 +43,7 @@ namespace NBXplorer
 			services.ConfigureNBxplorer(Configuration);
 			services.AddMvcCore()
 				.AddJsonFormatters()
+				.AddMvcOptions(o => o.InputFormatters.Add(new NoContentTypeInputFormatter()))
 				.AddAuthorization()
 				.AddFormatterMappings();
 			services.AddAuthentication("Basic")

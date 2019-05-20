@@ -253,6 +253,11 @@ namespace NBXplorer
 			return new Index(tx, $"{_Suffix}Transactions", $"{trackedSource.GetHash()}");
 		}
 
+		Index GetMetadataIndex(NBXplorerDBContext tx, TrackedSource trackedSource)
+		{
+			return new Index(tx, $"{_Suffix}Metadata", $"{trackedSource.GetHash()}");
+		}
+
 		Index GetCancellableMachesIndex(NBXplorerDBContext tx, string key)
 		{
 			return new Index(tx, $"{_Suffix}ReservedMatches", key);
@@ -1313,6 +1318,31 @@ namespace NBXplorer
 				await tx.CommitAsync();
 			}
 			return true;
+		}
+
+		public async Task SaveMetadata(TrackedSource source, string key, JToken value)
+		{
+			using (var tx = await _ContextFactory.GetContext())
+			{
+				var table = GetMetadataIndex(tx, source);
+				if (value != null)
+					table.Insert(key, Zip(value.ToString()));
+				else
+					table.RemoveKey(key);
+				await tx.CommitAsync();
+			}
+		}
+		public async Task<JToken> GetMetadata(TrackedSource source, string key)
+		{
+			using (var tx = await _ContextFactory.GetContext())
+			{
+				var table = GetMetadataIndex(tx, source);
+				foreach (var row in await table.SelectForwardSkip(0, key))
+				{
+					return JToken.Parse(Unzip(row.Value));
+				}
+				return null;
+			}
 		}
 
 		internal async Task Prune(TrackedSource trackedSource, List<TrackedTransaction> prunable)
