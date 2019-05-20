@@ -1127,26 +1127,26 @@ namespace NBXplorer
 			}
 		}
 
-		public async Task SaveMetadata(TrackedSource source, string key, JToken value)
+		public async Task SaveMetadata<TMetadata>(TrackedSource source, string key, TMetadata value) where TMetadata : class
 		{
 			await _TxContext.DoAsync(tx =>
 			{
 				var table = GetMetadataIndex(tx, source);
 				if (value != null)
-					table.Insert(key, Zip(value.ToString()));
+					table.Insert(key, Zip(Serializer.ToString(value)));
 				else
 					table.RemoveKey(key);
 				tx.Commit();
 			});
 		}
-		public async Task<JToken> GetMetadata(TrackedSource source, string key)
+		public async Task<TMetadata> GetMetadata<TMetadata>(TrackedSource source, string key) where TMetadata: class
 		{
 			return await _TxContext.DoAsync(tx =>
 			{
 				var table = GetMetadataIndex(tx, source);
 				foreach (var row in table.SelectForwardSkip(0, key))
 				{
-					return JToken.Parse(Unzip(row.Value));
+					return Serializer.ToObject<TMetadata>(Unzip(row.Value));
 				}
 				return null;
 			});
