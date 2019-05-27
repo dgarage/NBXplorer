@@ -348,7 +348,7 @@ namespace NBXplorer
 						if (tx.ReceivedCoins.Count == 0)
 							continue;
 						// Do not lock transactions originating from the wallet.
-						if (tx.SpentOutpoints.Count != 0)
+						if (tx.KnownKeyPathMapping.Any(k => DerivationStrategyBase.GetFeature(k.Value) is DerivationFeature.Change))
 							continue;
 						var lockTx = Network.NBitcoinNetwork.CreateTransaction();
 						foreach (var received in tx.ReceivedCoins)
