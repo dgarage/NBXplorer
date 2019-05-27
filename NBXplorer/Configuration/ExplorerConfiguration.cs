@@ -83,6 +83,8 @@ namespace NBXplorer.Configuration
 			get; set;
 		} = 20;
 
+		public NetworkCredential UserPassword { get; set; }
+
 		public int MaxGapSize
 		{
 			get; set;
@@ -181,6 +183,12 @@ namespace NBXplorer.Configuration
 				Directory.CreateDirectory(SignalFilesDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
+			var user = config.GetOrDefault<string>("user", "nbxplorer");
+			var pwd = config.GetOrDefault<string>("password", null);
+			if (string.IsNullOrEmpty(user) && string.IsNullOrEmpty(pwd))
+			{
+				UserPassword = new NetworkCredential(user, pwd);
+			}
 
 			AzureServiceBusConnectionString = config.GetOrDefault<string>("asbcnstr", "");
 			AzureServiceBusBlockQueue = config.GetOrDefault<string>("asbblockq", "");

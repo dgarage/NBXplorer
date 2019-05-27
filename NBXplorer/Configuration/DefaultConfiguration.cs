@@ -55,6 +55,8 @@ namespace NBXplorer.Configuration
 			app.Option("--mingapsize", $"The minimum gap address count on which the explorer will track derivation schemes (default: 20)", CommandOptionType.SingleValue);
 			app.Option("--signalfilesdir", $"The directory where files signaling if a chain is ready is created (default: the network specific datadir)", CommandOptionType.SingleValue);
 			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);
+			app.Option("--user", $"If fixed username/password Basic authentication is enabled set the username (default: nbxplorer)", CommandOptionType.BoolValue);
+			app.Option("--password", $"Enable fixed username/password Basic authentication, this set the password (default: null)", CommandOptionType.BoolValue);
 			app.Option("--autopruning", $"EXPERIMENTAL: If getting UTXOs takes more than x seconds, NBXplorer will prune old transactions, disabled if set to -1 (default: -1)", CommandOptionType.SingleValue);
 			app.Option("--cachechain", $"Whether the chain of header is locally cached for faster startup (default: true)", CommandOptionType.SingleValue);
 			app.Option("--rpcnotest", $"Faster start because RPC connection testing skipped (default: false)", CommandOptionType.SingleValue);
