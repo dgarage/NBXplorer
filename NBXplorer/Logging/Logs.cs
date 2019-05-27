@@ -17,6 +17,7 @@ namespace NBXplorer.Logging
 		{
 			Configuration = factory.CreateLogger("Configuration");
 			Explorer = factory.CreateLogger("Explorer");
+			Requests = factory.CreateLogger("Requests");
 			Events = factory.CreateLogger("Events");
 		}
 		public static ILogger Configuration
@@ -28,6 +29,10 @@ namespace NBXplorer.Logging
 			get; set;
 		}
 		public static ILogger Explorer
+		{
+			get; set;
+		}
+		public static ILogger Requests
 		{
 			get; set;
 		}

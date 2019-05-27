@@ -98,6 +98,8 @@ namespace NBXplorer
 			}
 
 			Logs.Configure(loggerFactory);
+
+			app.UseMiddleware<SILOLogAllRequestsMiddleware>();
 			app.UseAuthentication();
 			app.UseWebSockets();
 			//app.UseMiddleware<LogAllRequestsMiddleware>();
