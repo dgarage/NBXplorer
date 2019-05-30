@@ -199,64 +199,11 @@ namespace NBXplorer.Controllers
 		{
 			var repo = RepositoryProvider.GetRepository(network);
 
-			await Task.WhenAll(update.PSBT.Inputs
-				.Select(async (input) =>
-				{
-					if (input.NonWitnessUtxo == null)
-					{
-						var prev = await repo.GetSavedTransactions(input.PrevOut.Hash);
-						if (prev?.Any() is true)
-						{
-							input.NonWitnessUtxo = prev[0].Transaction;
-						}
-					}
-				}).ToArray());
+			await UpdateInputsUTXO(update, repo);
 
+			if (update.DerivationScheme is DerivationStrategyBase)
 			{
-				if (update.DerivationScheme is DerivationStrategyBase strategy)
-				{
-					var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
-					var keyInfosByScriptPubKey = new Dictionary<Script, KeyPathInformation>();
-					var scriptPubKeys = update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs)
-													.Where(o => !o.HDKeyPaths.Any())
-													.Select(o => o.GetCoin()?.ScriptPubKey)
-													.Where(s => s != null).ToArray();
-					foreach (var keyInfos in (await repo.GetKeyInformations(scriptPubKeys)))
-					{
-						var keyInfo = keyInfos.Value.FirstOrDefault(k => k.DerivationStrategy == strategy);
-						if (keyInfo != null)
-						{
-							keyInfosByScriptPubKey.TryAdd(keyInfo.ScriptPubKey, keyInfo);
-						}
-					}
-
-					var fps = new Dictionary<PubKey, HDFingerprint>();
-					foreach (var pubkey in pubkeys)
-					{
-						// We derive everything the fastest way possible on multiple cores
-						pubkey.Derive(keyInfosByScriptPubKey.Select(s => s.Value.KeyPath).ToArray());
-						fps.TryAdd(pubkey.GetPublicKey(), pubkey.GetPublicKey().GetHDFingerPrint());
-					}
-
-					List<Script> redeems = new List<Script>();
-					foreach (var c in update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs))
-					{
-						var script = c.GetCoin()?.ScriptPubKey;
-						if (script != null &&
-							keyInfosByScriptPubKey.TryGetValue(script, out var keyInfo))
-						{
-							foreach (var pubkey in pubkeys)
-							{
-								var childPubKey = pubkey.Derive(keyInfo.KeyPath);
-								NBitcoin.Extensions.AddOrReplace(c.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
-								if (keyInfo.Redeem != null)
-									redeems.Add(keyInfo.Redeem);
-							}
-						}
-					}
-					if (redeems.Count != 0)
-						update.PSBT.AddScripts(redeems.ToArray());
-				}
+				await UpdateHDKeyPathsWitnessAndRedeem(update, repo);
 			}
 
 			foreach (var input in update.PSBT.Inputs)
@@ -272,6 +219,90 @@ namespace NBXplorer.Controllers
 					update.PSBT.RebaseKeyPaths(rebase.AccountKey, rootedKeyPath);
 				}
 			}
+		}
+
+		private static async Task UpdateHDKeyPathsWitnessAndRedeem(UpdatePSBTRequest update, Repository repo)
+		{
+			var strategy = update.DerivationScheme;
+			var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
+			var keyInfosByScriptPubKey = new Dictionary<Script, KeyPathInformation>();
+			var scriptPubKeys = update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs)
+											.Where(o => !o.HDKeyPaths.Any())
+											.Select(o => o.GetCoin()?.ScriptPubKey)
+											.Where(s => s != null).ToArray();
+			foreach (var keyInfos in (await repo.GetKeyInformations(scriptPubKeys)))
+			{
+				var keyInfo = keyInfos.Value.FirstOrDefault(k => k.DerivationStrategy == strategy);
+				if (keyInfo != null)
+				{
+					keyInfosByScriptPubKey.TryAdd(keyInfo.ScriptPubKey, keyInfo);
+				}
+			}
+
+			var fps = new Dictionary<PubKey, HDFingerprint>();
+			foreach (var pubkey in pubkeys)
+			{
+				// We derive everything the fastest way possible on multiple cores
+				pubkey.Derive(keyInfosByScriptPubKey.Select(s => s.Value.KeyPath).ToArray());
+				fps.TryAdd(pubkey.GetPublicKey(), pubkey.GetPublicKey().GetHDFingerPrint());
+			}
+
+			List<Script> redeems = new List<Script>();
+			foreach (var c in update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs))
+			{
+				var script = c.GetCoin()?.ScriptPubKey;
+				if (script != null &&
+					keyInfosByScriptPubKey.TryGetValue(script, out var keyInfo))
+				{
+					foreach (var pubkey in pubkeys)
+					{
+						var childPubKey = pubkey.Derive(keyInfo.KeyPath);
+						NBitcoin.Extensions.AddOrReplace(c.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
+						if (keyInfo.Redeem != null)
+							redeems.Add(keyInfo.Redeem);
+					}
+				}
+			}
+			if (redeems.Count != 0)
+				update.PSBT.AddScripts(redeems.ToArray());
+		}
+
+		private static async Task UpdateInputsUTXO(UpdatePSBTRequest update, Repository repo)
+		{
+			await Task.WhenAll(update.PSBT.Inputs
+							.Select(async (input) =>
+							{
+
+								var isWitness = (input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness;
+								// We are sure we are using segwit, so no need to fetch anything else
+								if (isWitness)
+									return;
+								// If this is not segwit, or we are unsure of it, let's try to grab from our saved transactions
+								if (input.NonWitnessUtxo == null)
+								{
+									var prev = await repo.GetSavedTransactions(input.PrevOut.Hash);
+									if (prev.FirstOrDefault() is Repository.SavedTransaction saved)
+									{
+										input.NonWitnessUtxo = saved.Transaction;
+									}
+								}
+
+								// Maybe we don't have the saved transaction, but we have the WitnessUTXO from the derivation scheme UTXOs
+								if (input.NonWitnessUtxo == null && input.WitnessUtxo == null && update.DerivationScheme != null)
+								{
+									var tx = (await repo.GetTransactions(new DerivationSchemeTrackedSource(update.DerivationScheme), input.PrevOut.Hash)).FirstOrDefault();
+									if (tx != null)
+									{
+										var output = tx.GetReceivedOutputs().FirstOrDefault(o => o.Index == input.PrevOut.N);
+										if (output != null)
+										{
+											input.WitnessUtxo = repo.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
+											input.WitnessUtxo.ScriptPubKey = output.ScriptPubKey;
+											input.WitnessUtxo.Value = output.Value;
+										}
+									}
+								}
+							}).ToArray());
 		}
 
 		private T ParseJObject<T>(JObject requestObj, NBXplorerNetwork network)
