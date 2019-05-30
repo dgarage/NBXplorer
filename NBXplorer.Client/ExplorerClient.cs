@@ -429,6 +429,17 @@ namespace NBXplorer
 			return this.SendAsync<CreatePSBTResponse>(HttpMethod.Post, request, "v1/cryptos/{0}/derivations/{1}/psbt/create", new object[] { CryptoCode, derivationStrategy }, cancellation);
 		}
 
+		public UpdatePSBTResponse UpdatePSBT(UpdatePSBTRequest request, CancellationToken cancellation = default)
+		{
+			return UpdatePSBTAsync(request, cancellation).GetAwaiter().GetResult();
+		}
+		public Task<UpdatePSBTResponse> UpdatePSBTAsync(UpdatePSBTRequest request, CancellationToken cancellation = default)
+		{
+			if (request == null)
+				throw new ArgumentNullException(nameof(request));
+			return this.SendAsync<UpdatePSBTResponse>(HttpMethod.Post, request, "v1/cryptos/{0}/psbt/update", new object[] { CryptoCode }, cancellation);
+		}
+
 		public BroadcastResult Broadcast(Transaction tx, CancellationToken cancellation = default)
 		{
 			return BroadcastAsync(tx, cancellation).GetAwaiter().GetResult();

@@ -32,7 +32,6 @@ namespace NBXplorer.Controllers
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
 			var repo = RepositoryProvider.GetRepository(network);
-			var utxos = await GetUTXOs(network.CryptoCode, strategy, null);
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
 
@@ -47,8 +46,8 @@ namespace NBXplorer.Controllers
 				txBuilder.SetLockTime(lockTime);
 				txBuilder.OptInRBF = true;
 			}
-
-			var availableCoinsByOutpoint = utxos.GetUnspentCoins(request.MinConfirmations).ToDictionary(o => o.Outpoint);
+			var utxos = (await GetUTXOs(network.CryptoCode, strategy, null)).GetUnspentCoins(request.MinConfirmations);
+			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)
 			{
 				var includeOnlyOutpoints = request.IncludeOnlyOutpoints.ToHashSet();
@@ -84,8 +83,7 @@ namespace NBXplorer.Controllers
 			if (request.ExplicitChangeAddress == null)
 			{
 				// The dummyScriptPubKey is necessary to know the size of the change
-				var dummyScriptPubKey = utxos.Unconfirmed.UTXOs.FirstOrDefault()?.ScriptPubKey ??
-								 utxos.Confirmed.UTXOs.FirstOrDefault()?.ScriptPubKey ?? strategy.Derive(0).ScriptPubKey;
+				var dummyScriptPubKey = utxos.FirstOrDefault()?.ScriptPubKey ?? strategy.Derive(0).ScriptPubKey;
 				change = (Script.FromBytesUnsafe(new byte[dummyScriptPubKey.Length]), null);
 			}
 			else
@@ -154,8 +152,6 @@ namespace NBXplorer.Controllers
 			if (request.Version is uint v)
 				tx.Version = v;
 			psbt = txBuilder.CreatePSBTFrom(tx, false, SigHash.All);
-			var outputsKeyInformations = repo.GetKeyInformations(psbt.Outputs.Where(o => !o.HDKeyPaths.Any()).Select(o => o.ScriptPubKey).ToArray());
-			var utxosByOutpoint = utxos.GetUnspentUTXOs().ToDictionary(u => u.Outpoint);
 
 			// Maybe it is a change that we know about, let's search in the DB
 			if (hasChange && change.KeyPath == null)
@@ -169,65 +165,12 @@ namespace NBXplorer.Controllers
 				}
 			}
 
-
-			var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
-			var keyPaths = psbt.Inputs.Select(i => utxosByOutpoint[i.PrevOut].KeyPath).ToList();
-			if (hasChange && change.KeyPath != null)
+			await UpdatePSBTCore(new UpdatePSBTRequest()
 			{
-				keyPaths.Add(change.KeyPath);
-			}
-			var fps = new Dictionary<PubKey, HDFingerprint>();
-			foreach (var pubkey in pubkeys)
-			{
-				// We derive everything the fastest way possible on multiple cores
-				pubkey.Derive(keyPaths.ToArray());
-				fps.TryAdd(pubkey.GetPublicKey(), pubkey.GetPublicKey().GetHDFingerPrint());
-			}
-
-			foreach (var input in psbt.Inputs)
-			{
-				var utxo = utxosByOutpoint[input.PrevOut];
-				foreach (var pubkey in pubkeys)
-				{
-					var childPubKey = pubkey.Derive(utxo.KeyPath);
-					NBitcoin.Extensions.TryAdd(input.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], utxo.KeyPath));
-				}
-			}
-			
-			await Task.WhenAll(psbt.Inputs
-				.Select(async (input) =>
-				{
-					if (input.WitnessUtxo == null) // We need previous tx
-					{
-						var prev = await repo.GetSavedTransactions(input.PrevOut.Hash);
-						if (prev?.Any() is true)
-							input.NonWitnessUtxo = prev[0].Transaction;
-					}
-				}).ToArray());
-
-			var outputsKeyInformationsResult = await outputsKeyInformations;
-			foreach (var output in psbt.Outputs)
-			{
-				foreach (var keyInfo in outputsKeyInformationsResult[output.ScriptPubKey].Where(o => o.DerivationStrategy == strategy))
-				{
-					foreach (var pubkey in pubkeys)
-					{
-						var childPubKey = pubkey.Derive(keyInfo.KeyPath);
-						NBitcoin.Extensions.TryAdd(output.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
-					}
-				}
-			}
-
-			if (request.RebaseKeyPaths != null)
-			{
-				foreach (var rebase in request.RebaseKeyPaths)
-				{
-					var rootedKeyPath = rebase.GetRootedKeyPath();
-					if (rootedKeyPath == null)
-						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].rootedKeyPath is missing"));
-					psbt.RebaseKeyPaths(rebase.AccountKey, rootedKeyPath);
-				}
-			}
+				DerivationScheme = strategy,
+				PSBT = psbt,
+				RebaseKeyPaths = request.RebaseKeyPaths
+			}, network);
 
 			var resp = new CreatePSBTResponse()
 			{
@@ -235,6 +178,96 @@ namespace NBXplorer.Controllers
 				ChangeAddress = hasChange ? change.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : null
 			};
 			return Json(resp, network.JsonSerializerSettings);
+		}
+
+		[HttpPost]
+		[Route("cryptos/{network}/psbt/update")]
+		public async Task<IActionResult> UpdatePSBT(
+			[ModelBinder(BinderType = typeof(NetworkModelBinder))]
+			NBXplorerNetwork network,
+			[FromBody]
+			JObject body)
+		{
+			var update = ParseJObject<UpdatePSBTRequest>(body, network);
+			if (update.PSBT == null)
+				throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "'psbt' is missing"));
+			await UpdatePSBTCore(update, network);
+			return Json(new UpdatePSBTResponse() { PSBT = update.PSBT }, network.JsonSerializerSettings);
+		}
+
+		private async Task UpdatePSBTCore(UpdatePSBTRequest update, NBXplorerNetwork network)
+		{
+			var repo = RepositoryProvider.GetRepository(network);
+
+			await Task.WhenAll(update.PSBT.Inputs
+				.Select(async (input) =>
+				{
+					if (input.NonWitnessUtxo == null)
+					{
+						var prev = await repo.GetSavedTransactions(input.PrevOut.Hash);
+						if (prev?.Any() is true)
+						{
+							input.NonWitnessUtxo = prev[0].Transaction;
+						}
+					}
+				}).ToArray());
+
+			{
+				if (update.DerivationScheme is DerivationStrategyBase strategy)
+				{
+					var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
+					var keyInfosByScriptPubKey = new Dictionary<Script, KeyPathInformation>();
+					foreach (var keyInfos in (await repo.GetKeyInformations(update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs).Where(o => !o.HDKeyPaths.Any()).Select(o => o.GetCoin()?.ScriptPubKey).ToArray())))
+					{
+						var keyInfo = keyInfos.Value.FirstOrDefault(k => k.DerivationStrategy == strategy);
+						if (keyInfo != null)
+						{
+							keyInfosByScriptPubKey.TryAdd(keyInfo.ScriptPubKey, keyInfo);
+						}
+					}
+
+					var fps = new Dictionary<PubKey, HDFingerprint>();
+					foreach (var pubkey in pubkeys)
+					{
+						// We derive everything the fastest way possible on multiple cores
+						pubkey.Derive(keyInfosByScriptPubKey.Select(s => s.Value.KeyPath).ToArray());
+						fps.TryAdd(pubkey.GetPublicKey(), pubkey.GetPublicKey().GetHDFingerPrint());
+					}
+
+					List<Script> redeems = new List<Script>();
+					foreach (var c in update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs))
+					{
+						var script = c.GetCoin()?.ScriptPubKey;
+						if (script != null &&
+							keyInfosByScriptPubKey.TryGetValue(script, out var keyInfo))
+						{
+							foreach (var pubkey in pubkeys)
+							{
+								var childPubKey = pubkey.Derive(keyInfo.KeyPath);
+								NBitcoin.Extensions.AddOrReplace(c.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
+								if (keyInfo.Redeem != null)
+									redeems.Add(keyInfo.Redeem);
+							}
+						}
+					}
+					if (redeems.Count != 0)
+						update.PSBT.AddScripts(redeems.ToArray());
+				}
+			}
+
+			foreach (var input in update.PSBT.Inputs)
+				input.TrySlimUTXO();
+
+			if (update.RebaseKeyPaths != null)
+			{
+				foreach (var rebase in update.RebaseKeyPaths)
+				{
+					var rootedKeyPath = rebase.GetRootedKeyPath();
+					if (rootedKeyPath == null)
+						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].rootedKeyPath is missing"));
+					update.PSBT.RebaseKeyPaths(rebase.AccountKey, rootedKeyPath);
+				}
+			}
 		}
 
 		private T ParseJObject<T>(JObject requestObj, NBXplorerNetwork network)
