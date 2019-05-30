@@ -217,7 +217,11 @@ namespace NBXplorer.Controllers
 				{
 					var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
 					var keyInfosByScriptPubKey = new Dictionary<Script, KeyPathInformation>();
-					foreach (var keyInfos in (await repo.GetKeyInformations(update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs).Where(o => !o.HDKeyPaths.Any()).Select(o => o.GetCoin()?.ScriptPubKey).ToArray())))
+					var scriptPubKeys = update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs)
+													.Where(o => !o.HDKeyPaths.Any())
+													.Select(o => o.GetCoin()?.ScriptPubKey)
+													.Where(s => s != null).ToArray();
+					foreach (var keyInfos in (await repo.GetKeyInformations(scriptPubKeys)))
 					{
 						var keyInfo = keyInfos.Value.FirstOrDefault(k => k.DerivationStrategy == strategy);
 						if (keyInfo != null)
