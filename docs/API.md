@@ -773,7 +773,7 @@ Create a [Partially Signed Bitcoin Transaction](https://github.com/bitcoin/bips/
 A PSBT is a standard format to represent a transaction with pending signatures associated to it.
 A PSBT can be signed independently by many signers, and combined together before broadcast.
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/psbt/create
+HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/psbt/create
 
 Error codes:
 
@@ -858,6 +858,8 @@ Response:
 
 ## Update Partially Signed Bitcoin Transaction
 
+HTTP POST v1/cryptos/{cryptoCode}/psbt/update
+
 NBXplorer will take to complete as much information as it can about this PSBT.
 
 ```json
@@ -865,11 +867,11 @@ NBXplorer will take to complete as much information as it can about this PSBT.
   "psbt": "cHNidP8BAHcBAAAAASjvZHM29AbxO4IGGHbk3IE82yciSQFr2Ihge7P9P1HeAQAAAAD/////AmzQMAEAAAAAGXapFG1/TpHnIajdweam5Z3V9s6oGWBRiKyAw8kBAAAAABl2qRSVNmCfrnVeIwVkuTrCR6EvRFCP7IisAAAAAAABAP10AQEAAAACe9C2c9VL+gfYpic4c+Wk/Nn7bvhewA82owtcUDo/tPoAAAAAakcwRAIgUlLS0SDj7IXeY44x21eUg16Vh4qbJe+NDQ/ywUrB84kCIGLU5Vec2bjL1DZhUmDueLrf0uh/PycOK7FWg/Ptvwi0ASED7OpQGf+HzIRwWKZ1Hmd8h6vxkFOt5RlJ3u/flzNTesv/////818+qp4hLnw9DWOD+a601fLjFciZ/4iCNT1M9g+kMvkAAAAAakcwRAIgfk+bUUYfRs6AU1mt5unV4fZxCit34g8pE5fsawUM7H0CIBGpSil8+JCHdAHxKU2I7CvEBzAyz3ggd9RlH+QQSnlkASEC/wwlQ07b3xdSQaEf+wRJEnzEJT2GPNTY4Wb3Gg1hxFz/////AoDw+gIAAAAAGXapFHoZHSjaWNcmJk7sSHvRG29RaqIiiKxQlPoCAAAAABl2qRTSKm2x4ITWeuYLwCv3PUDtt+CL+YisAAAAACIGA1KRWHyJqdpbUzuezCSzj4+bj1+gNWGEibLG0BMj9/RmDDAn+hsBAAAAAgAAAAAiAgIuwas0MohgjmGIXoOgS95USEDawK//ZqrVEi5UIfP/FAwwJ/obAQAAAAMAAAAAAA==",
   "derivationScheme": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
   "rebaseKeyPaths": [
-  	  {
-		"masterFingerprint": "ab5ed9ab",
-		"accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
-		"accountKeyPath": "49'/0'/0'"
-	  }
+  {
+    "masterFingerprint": "ab5ed9ab",
+    "accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
+    "accountKeyPath": "49'/0'/0'"
+  }
   ]
 }
 ```
