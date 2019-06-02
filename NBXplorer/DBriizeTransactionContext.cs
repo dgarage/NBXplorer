@@ -13,7 +13,7 @@ namespace NBXplorer
 		DBriizeEngine _Engine;
 		DBriize.Transactions.Transaction _Tx;
 		Thread _Loop;
-		readonly BlockingCollection<(Action, TaskCompletionSource<object>)> _Actions = new BlockingCollection<(Action, TaskCompletionSource<object>)>(new ConcurrentQueue<(Action, TaskCompletionSource<object>)>());
+		readonly BlockingCollection<(Action<DBriize.Transactions.Transaction>, TaskCompletionSource<object>)> _Actions = new BlockingCollection<(Action<DBriize.Transactions.Transaction>, TaskCompletionSource<object>)>(new ConcurrentQueue<(Action<DBriize.Transactions.Transaction>, TaskCompletionSource<object>)>());
 		TaskCompletionSource<bool> _Done;
 		CancellationTokenSource _Cancel;
 		bool _IsDisposed;
@@ -46,11 +46,22 @@ namespace NBXplorer
 		{
 			try
 			{
+				bool initialized = false;
 				foreach (var act in _Actions.GetConsumingEnumerable(_Cancel.Token))
 				{
 					try
 					{
-						act.Item1();
+						if (!initialized)
+						{
+							act.Item1(null);
+							initialized = true;
+							AssertTxIsSet();
+						}
+						else
+						{
+							AssertTxIsSet();
+							act.Item1(_Tx);
+						}
 						// The action is setting the result, so no need of TrySetResult here
 					}
 					catch (OperationCanceledException ex) when (_Cancel.IsCancellationRequested)
@@ -73,6 +84,12 @@ namespace NBXplorer
 			_Done.TrySetResult(true);
 		}
 
+		private void AssertTxIsSet()
+		{
+			if (_Tx == null)
+				throw new InvalidOperationException("Bug in NBXplorer. _Tx should be set by now, report on github.");
+		}
+
 		public Task DoAsync(Action<DBriize.Transactions.Transaction> action)
 		{
 			if (_IsDisposed)
@@ -89,13 +106,13 @@ namespace NBXplorer
 		private Task DoAsyncCore(Action<DBriize.Transactions.Transaction> action)
 		{
 			var completion = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-			_Actions.Add((() => { action(_Tx); completion.TrySetResult(true); }, completion));
+			_Actions.Add(((tx) => { action(tx); completion.TrySetResult(true); }, completion));
 			return completion.Task;
 		}
 		private async Task<T> DoAsyncCore<T>(Func<DBriize.Transactions.Transaction, T> action)
 		{
 			var completion = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-			_Actions.Add((() => { completion.TrySetResult(action(_Tx)); }, completion));
+			_Actions.Add(((tx) => { completion.TrySetResult(action(tx)); }, completion));
 			return (T)(await completion.Task);
 		}
 
