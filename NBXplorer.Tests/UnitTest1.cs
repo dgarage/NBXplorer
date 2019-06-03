@@ -292,7 +292,7 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = ServerTester.Create())
 			{
-				var satoshi = new Key().GetWif(tester.Network).GetAddress();
+				var satoshi = new Key().GetWif(tester.Network).GetAddress(ScriptPubKeyType.Legacy);
 				var aliceExtKey = new ExtKey();
 				var bobExtKey = new ExtKey();
 
@@ -1976,9 +1976,9 @@ namespace NBXplorer.Tests
 		{
 			var providers = new NBXplorerNetworkProvider(NetworkType.Regtest);
 			var key = new Key();
-			var bchAddress = key.PubKey.GetAddress(providers.GetBCH().NBitcoinNetwork);
-			var litecoinAddress = key.PubKey.GetAddress(providers.GetLTC().NBitcoinNetwork);
-			var btcAddress = key.PubKey.GetAddress(providers.GetBTC().NBitcoinNetwork);
+			var bchAddress = key.PubKey.GetAddress(ScriptPubKeyType.Legacy, providers.GetBCH().NBitcoinNetwork);
+			var litecoinAddress = key.PubKey.GetAddress(ScriptPubKeyType.Legacy, providers.GetLTC().NBitcoinNetwork);
+			var btcAddress = key.PubKey.GetAddress(ScriptPubKeyType.Legacy, providers.GetBTC().NBitcoinNetwork);
 			Assert.Equal(bchAddress, providers.GetBCH().Serializer.ToObject<BitcoinAddress>($"\"{bchAddress}\""));
 			Assert.Equal(litecoinAddress, providers.GetLTC().Serializer.ToObject<BitcoinAddress>($"\"{litecoinAddress}\""));
 			Assert.Equal(btcAddress, providers.GetLTC().Serializer.ToObject<BitcoinAddress>($"\"{btcAddress}\""));
