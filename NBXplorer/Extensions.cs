@@ -29,7 +29,6 @@ using NBXplorer.Authentication;
 using NBXplorer.DB;
 using NBitcoin.DataEncoders;
 using System.Text.RegularExpressions;
-using NBXplorer.MessageBrokers;
 using NBitcoin.Protocol;
 
 namespace NBXplorer
@@ -182,7 +181,6 @@ namespace NBXplorer
 			services.AddSingleton<IHostedService, ScanUTXOSetService>();
 			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
-			services.AddSingleton<IHostedService, BrokerHostedService>();
 
 			services.TryAddSingleton<NBXplorerContextFactory>(o =>
 			{
