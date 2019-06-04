@@ -595,23 +595,6 @@ namespace NBXplorer
 			}
 		}
 
-		private static async Task WaitConnected(NodesGroup group)
-		{
-			TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-			EventHandler<NodeEventArgs> waitingConnected = null;
-			waitingConnected = (a, b) =>
-			{
-				tcs.TrySetResult(true);
-				group.ConnectedNodes.Added -= waitingConnected;
-			};
-			group.ConnectedNodes.Added += waitingConnected;
-			CancellationTokenSource cts = new CancellationTokenSource(5000);
-			using (cts.Token.Register(() => tcs.TrySetCanceled()))
-			{
-				await tcs.Task;
-			}
-		}
-
 		private void SaveChainInCache()
 		{
 			var suffix = _Network.CryptoCode == "BTC" ? "" : _Network.CryptoCode;

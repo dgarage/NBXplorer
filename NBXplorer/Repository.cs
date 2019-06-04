@@ -42,34 +42,44 @@ namespace NBXplorer
 	public class RepositoryProvider
 	{
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
+		ExplorerConfiguration _Configuration;
 		NBXplorerContextFactory _ContextFactory;
 		public RepositoryProvider(NBXplorerContextFactory contextFactory, NBXplorerNetworkProvider networks, ExplorerConfiguration configuration)
 		{
+			_Configuration = configuration;
 			var directory = Path.Combine(configuration.DataDir, "db");
 			if (!Directory.Exists(directory))
 				Directory.CreateDirectory(directory);
 			_ContextFactory = contextFactory;
 			foreach (var net in networks.GetAll())
 			{
-				var settings = configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
+				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
 					var repo = new Repository(_ContextFactory, net);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
-					if (settings.Rescan)
-					{
-						Logs.Configuration.LogInformation($"{net.CryptoCode}: Rescanning the chain...");
-						repo.SetIndexProgress(null).GetAwaiter().GetResult();
-					}
 				}
 			}
+		}
+
+		private ChainConfiguration GetChainSetting(NBXplorerNetwork net)
+		{
+			return _Configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
 		}
 
 		public async Task StartAsync()
 		{
 			await Task.WhenAll(_Repositories.Select(kv => kv.Value.StartAsync()).ToArray());
+			foreach	(var repo in _Repositories.Select(kv => kv.Value))
+			{
+				if(GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
+				{
+					Logs.Configuration.LogInformation($"{repo.Network.CryptoCode}: Rescanning the chain...");
+					await repo.SetIndexProgress(null);
+				}
+			}
 		}
 
 		public Repository GetRepository(NBXplorerNetwork network)

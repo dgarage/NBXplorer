@@ -937,7 +937,7 @@ Create a [Partially Signed Bitcoin Transaction](https://github.com/bitcoin/bips/
 A PSBT is a standard format to represent a transaction with pending signatures associated to it.
 A PSBT can be signed independently by many signers, and combined together before broadcast.
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/psbt/create
+HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/psbt/create
 
 Error codes:
 
@@ -1002,7 +1002,7 @@ Fields:
 * `feePreference.explicitFee`: An explicit fee for the transaction in Satoshi (Mutually exclusive with: blockTarget, explicitFeeRate, fallbackFeeRate)
 * `feePreference.blockTarget`: A number of blocks after which the user expect one confirmation (Mutually exclusive with: explicitFeeRate, explicitFee)
 * `feePreference.fallbackFeeRate`: If the NBXplorer's node does not have proper fee estimation, this specific rate will be use in Satoshi per vBytes, this make sure that `fee-estimation-unavailable` is never sent. (Mutually exclusive with: explicitFeeRate, explicitFee)
-* `rebaseKeyPaths`: rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about), a rebase can transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint)
+* `rebaseKeyPaths`: Optional. rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about), a rebase can transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint)
 * `rebaseKeyPaths[].masterFingerprint`: The fingerprint of the master key
 * `rebaseKeyPaths[].accountKey`: The account key to rebase
 * `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key
@@ -1019,6 +1019,40 @@ Response:
 
 * `psbt`: The partially signed bitcoin transaction in Base64.
 * `changeAddress`: The change address of the transaction, useful for tests (can be null) 
+
+## Update Partially Signed Bitcoin Transaction
+
+HTTP POST v1/cryptos/{cryptoCode}/psbt/update
+
+NBXplorer will take to complete as much information as it can about this PSBT.
+
+```json
+{
+  "psbt": "cHNidP8BAHcBAAAAASjvZHM29AbxO4IGGHbk3IE82yciSQFr2Ihge7P9P1HeAQAAAAD/////AmzQMAEAAAAAGXapFG1/TpHnIajdweam5Z3V9s6oGWBRiKyAw8kBAAAAABl2qRSVNmCfrnVeIwVkuTrCR6EvRFCP7IisAAAAAAABAP10AQEAAAACe9C2c9VL+gfYpic4c+Wk/Nn7bvhewA82owtcUDo/tPoAAAAAakcwRAIgUlLS0SDj7IXeY44x21eUg16Vh4qbJe+NDQ/ywUrB84kCIGLU5Vec2bjL1DZhUmDueLrf0uh/PycOK7FWg/Ptvwi0ASED7OpQGf+HzIRwWKZ1Hmd8h6vxkFOt5RlJ3u/flzNTesv/////818+qp4hLnw9DWOD+a601fLjFciZ/4iCNT1M9g+kMvkAAAAAakcwRAIgfk+bUUYfRs6AU1mt5unV4fZxCit34g8pE5fsawUM7H0CIBGpSil8+JCHdAHxKU2I7CvEBzAyz3ggd9RlH+QQSnlkASEC/wwlQ07b3xdSQaEf+wRJEnzEJT2GPNTY4Wb3Gg1hxFz/////AoDw+gIAAAAAGXapFHoZHSjaWNcmJk7sSHvRG29RaqIiiKxQlPoCAAAAABl2qRTSKm2x4ITWeuYLwCv3PUDtt+CL+YisAAAAACIGA1KRWHyJqdpbUzuezCSzj4+bj1+gNWGEibLG0BMj9/RmDDAn+hsBAAAAAgAAAAAiAgIuwas0MohgjmGIXoOgS95USEDawK//ZqrVEi5UIfP/FAwwJ/obAQAAAAMAAAAAAA==",
+  "derivationScheme": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
+  "rebaseKeyPaths": [
+  {
+    "masterFingerprint": "ab5ed9ab",
+    "accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
+    "accountKeyPath": "49'/0'/0'"
+  }
+  ]
+}
+```
+* `psbt`: Required. A potentially incomplete PSBT that you want to update (Input WitnessUTXO, NonWitnessUTXO)
+* `derivationScheme`: Optional. If specified, will complete HDKeyPaths, witness script and redeem script information in the PSBT belonging to this derivationScheme.
+* `rebaseKeyPaths`: Optional. Rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about), a rebase can transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint)
+* `rebaseKeyPaths[].masterFingerprint`: The fingerprint of the master key
+* `rebaseKeyPaths[].accountKey`: The account key to rebase
+* `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key
+* `rebaseKeyPaths[].rootedKeyPath`: Alternative way to pass the masterFingerprint and accountKeyPath in the form "7b09d780/0'/0'/2'". Mutually exclusive with masterFingerprint and accountKeyPath.
+
+Response:
+```json
+{
+  "psbt": "cHNidP8BAHcBAAAAASjvZHM29AbxO4IGGHbk3IE82yciSQFr2Ihge7P9P1HeAQAAAAD/////AmzQMAEAAAAAGXapFG1/TpHnIajdweam5Z3V9s6oGWBRiKyAw8kBAAAAABl2qRSVNmCfrnVeIwVkuTrCR6EvRFCP7IisAAAAAAABAP10AQEAAAACe9C2c9VL+gfYpic4c+Wk/Nn7bvhewA82owtcUDo/tPoAAAAAakcwRAIgUlLS0SDj7IXeY44x21eUg16Vh4qbJe+NDQ/ywUrB84kCIGLU5Vec2bjL1DZhUmDueLrf0uh/PycOK7FWg/Ptvwi0ASED7OpQGf+HzIRwWKZ1Hmd8h6vxkFOt5RlJ3u/flzNTesv/////818+qp4hLnw9DWOD+a601fLjFciZ/4iCNT1M9g+kMvkAAAAAakcwRAIgfk+bUUYfRs6AU1mt5unV4fZxCit34g8pE5fsawUM7H0CIBGpSil8+JCHdAHxKU2I7CvEBzAyz3ggd9RlH+QQSnlkASEC/wwlQ07b3xdSQaEf+wRJEnzEJT2GPNTY4Wb3Gg1hxFz/////AoDw+gIAAAAAGXapFHoZHSjaWNcmJk7sSHvRG29RaqIiiKxQlPoCAAAAABl2qRTSKm2x4ITWeuYLwCv3PUDtt+CL+YisAAAAACIGA1KRWHyJqdpbUzuezCSzj4+bj1+gNWGEibLG0BMj9/RmDDAn+hsBAAAAAgAAAAAiAgIuwas0MohgjmGIXoOgS95USEDawK//ZqrVEi5UIfP/FAwwJ/obAQAAAAMAAAAAAA=="
+}
+```
 
 ## Attach metadata to a derivation scheme
 

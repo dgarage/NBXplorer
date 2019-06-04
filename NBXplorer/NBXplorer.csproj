@@ -2,7 +2,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-    <Version>2.0.0.45</Version>
+    <Version>2.0.0.49</Version>
 	  <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\NBXplorer.xml</DocumentationFile>
 	  <NoWarn>1701;1702;1705;1591;CS1591</NoWarn>
 	  <LangVersion>7.3</LangVersion>
