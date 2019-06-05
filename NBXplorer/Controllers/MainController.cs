@@ -203,9 +203,9 @@ namespace NBXplorer.Controllers
 				IsFullySynched = true
 			};
 
-			if (blockchainInfo != null)
+			GetNetworkInfoResponse networkInfo = waiter.NetworkInfo;
+			if (blockchainInfo != null && networkInfo != null)
 			{
-				GetNetworkInfoResponse networkInfo = waiter.NetworkInfo;
 				status.BitcoinStatus = new BitcoinStatus()
 				{
 					IsSynched = !waiter.IsSynchingCore(blockchainInfo),
