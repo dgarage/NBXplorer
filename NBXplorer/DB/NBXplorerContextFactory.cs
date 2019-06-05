@@ -99,9 +99,11 @@ namespace NBXplorer.DB
 				try
 				{
 					connection.Open();
+					Logs.Explorer.LogInformation($"Connection to DB succeed");
 				}
 				catch (PostgresException ex) when (ex.SqlState == "3D000")
 				{
+					Logs.Explorer.LogInformation($"Connection to DB failed, trying to create the database");
 					var oldDB = connString.Database;
 					connString.Database = null;
 					using (var createDBConnect = new NpgsqlConnection(connString.ConnectionString))
@@ -119,7 +121,9 @@ namespace NBXplorer.DB
 								$"LC_CTYPE = 'C' " +
 								$"ENCODING = 'UTF8'";
 							createDB.ExecuteNonQuery();
+							Logs.Explorer.LogInformation($"Database created");
 							connection.Open();
+							Logs.Explorer.LogInformation($"Connection to DB succeed");
 						}
 						catch (PostgresException ex2) when (ex2.SqlState == "3D000" || ex2.SqlState == "42501")
 						{
@@ -144,6 +148,7 @@ namespace NBXplorer.DB
 				});
 				try
 				{
+					Logs.Explorer.LogInformation($"Ensure the schema is created...");
 					command.ExecuteNonQuery();
 				}
 				catch (PostgresException ex) when (ex.SqlState == "42501")
