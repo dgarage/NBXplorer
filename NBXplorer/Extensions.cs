@@ -29,7 +29,6 @@ using NBXplorer.Authentication;
 using NBXplorer.DB;
 using NBitcoin.DataEncoders;
 using System.Text.RegularExpressions;
-using NBXplorer.MessageBrokers;
 using NBitcoin.Protocol;
 
 namespace NBXplorer
@@ -125,9 +124,37 @@ namespace NBXplorer
 			}
 		}
 
+		public class ConfigureUserPasswordBasedConfiguration : IConfigureNamedOptions<BasicAuthenticationOptions>
+		{
+			private readonly ExplorerConfiguration config;
+
+			public ConfigureUserPasswordBasedConfiguration(ExplorerConfiguration config)
+			{
+				this.config = config;
+			}
+
+			public void Configure(string name, BasicAuthenticationOptions options)
+			{
+				if (name == "Basic")
+				{
+					if (config.UserPassword != null && !config.NoAuthentication)
+					{
+						options.Username = config.UserPassword.UserName;
+						options.Password = config.UserPassword.Password;
+					}
+				}
+			}
+
+			public void Configure(BasicAuthenticationOptions options)
+			{
+				Configure(null, options);
+			}
+		}
+
 		public static AuthenticationBuilder AddNBXplorerAuthentication(this AuthenticationBuilder builder)
 		{
 			builder.Services.AddSingleton<IConfigureOptions<BasicAuthenticationOptions>, ConfigureCookieFileBasedConfiguration>();
+			builder.Services.AddSingleton<IConfigureOptions<BasicAuthenticationOptions>, ConfigureUserPasswordBasedConfiguration>();
 			return builder.AddScheme<Authentication.BasicAuthenticationOptions, Authentication.BasicAuthenticationHandler>("Basic", o =>
 			{
 
@@ -154,7 +181,6 @@ namespace NBXplorer
 			services.AddSingleton<IHostedService, ScanUTXOSetService>();
 			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
 			services.AddSingleton<IHostedService, BitcoinDWaiters>();
-			services.AddSingleton<IHostedService, BrokerHostedService>();
 
 			services.TryAddSingleton<NBXplorerContextFactory>(o =>
 			{

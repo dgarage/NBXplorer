@@ -14,7 +14,8 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
-
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+		public string UnlockId { get; set; }
 		public TrackedSource TrackedSource { get; set; }
 
 		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]

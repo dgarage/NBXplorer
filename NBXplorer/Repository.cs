@@ -1,4 +1,3 @@
-
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
@@ -43,34 +42,44 @@ namespace NBXplorer
 	public class RepositoryProvider
 	{
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
+		ExplorerConfiguration _Configuration;
 		NBXplorerContextFactory _ContextFactory;
 		public RepositoryProvider(NBXplorerContextFactory contextFactory, NBXplorerNetworkProvider networks, ExplorerConfiguration configuration)
 		{
+			_Configuration = configuration;
 			var directory = Path.Combine(configuration.DataDir, "db");
 			if (!Directory.Exists(directory))
 				Directory.CreateDirectory(directory);
 			_ContextFactory = contextFactory;
 			foreach (var net in networks.GetAll())
 			{
-				var settings = configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
+				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
 					var repo = new Repository(_ContextFactory, net);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
-					if (settings.Rescan)
-					{
-						Logs.Configuration.LogInformation($"{net.CryptoCode}: Rescanning the chain...");
-						repo.SetIndexProgress(null).GetAwaiter().GetResult();
-					}
 				}
 			}
+		}
+
+		private ChainConfiguration GetChainSetting(NBXplorerNetwork net)
+		{
+			return _Configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
 		}
 
 		public async Task StartAsync()
 		{
 			await Task.WhenAll(_Repositories.Select(kv => kv.Value.StartAsync()).ToArray());
+			foreach	(var repo in _Repositories.Select(kv => kv.Value))
+			{
+				if(GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
+				{
+					Logs.Configuration.LogInformation($"{repo.Network.CryptoCode}: Rescanning the chain...");
+					await repo.SetIndexProgress(null);
+				}
+			}
 		}
 
 		public Repository GetRepository(NBXplorerNetwork network)
@@ -254,6 +263,11 @@ namespace NBXplorer
 			return new Index(tx, $"{_Suffix}Transactions", $"{trackedSource.GetHash()}");
 		}
 
+		Index GetMetadataIndex(NBXplorerDBContext tx, TrackedSource trackedSource)
+		{
+			return new Index(tx, $"{_Suffix}Metadata", $"{trackedSource.GetHash()}");
+		}
+
 		Index GetCancellableMachesIndex(NBXplorerDBContext tx, string key)
 		{
 			return new Index(tx, $"{_Suffix}ReservedMatches", key);
@@ -270,6 +284,7 @@ namespace NBXplorer
 		}
 
 		NBXplorerContextFactory _ContextFactory;
+
 		internal Repository(NBXplorerContextFactory contextFactory, NBXplorerNetwork network)
 		{
 			if (network == null)
@@ -279,6 +294,16 @@ namespace NBXplorer
 			_Network = network;
 			_ContextFactory = contextFactory;
 			_Suffix = network.CryptoCode;
+
+			if (network.CryptoCode == "BCH")
+			{
+				// BCH has potential 32 MB block
+				noMatchCache = new FixedSizeCache<uint256, uint256>(5000 * 32, k => k);
+			}
+			else
+			{
+				noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
+			}
 		}
 
 		string _Suffix;
@@ -436,6 +461,23 @@ namespace NBXplorer
 			highestTable.Insert(0, highestGenerated + toGenerate);
 			await tx.CommitAsync();
 		}
+
+		public async Task<Dictionary<DerivationFeature, int>> GetHighestGenerated(DerivationStrategyBase strategy)
+		{
+			var result = new Dictionary<DerivationFeature, int>();
+			using (var tx = await _ContextFactory.GetContext())
+			{
+				foreach(var feature in new[] { DerivationFeature.Deposit, DerivationFeature.Change })
+				{
+					var highestTable = GetHighestPathIndex(tx, strategy, feature);
+					var row = await highestTable.SelectInt(0);
+					int index = row is int v ? v : -1;
+					result.Add(feature, index);
+				}
+			}
+			return result;
+		}
+
 
 		public async Task SaveKeyInformations(KeyPathInformation[] keyPathInformations)
 		{
@@ -648,34 +690,37 @@ namespace NBXplorer
 			t.Transaction.PrecomputeHash(true, false);
 			return t;
 		}
+		const int MaxQueryBatchSize = 10_000;
 		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
 			if (scripts.Length == 0)
 				return result;
-
 			using (var tx = await _ContextFactory.GetContext())
 			{
 				tx.ValuesLazyLoadingIsOn = false;
-				foreach (var script in scripts)
+				tx.ActivateBatching(MaxQueryBatchSize);
+				foreach (var batch in scripts.Batch(MaxQueryBatchSize))
 				{
-					var table = GetScriptsIndex(tx, script);
-					var keyInfos = (await table.SelectForwardSkip(0))
-										.Select(r => ToObject<KeyPathInformation>(r.Value))
-										.Select(r =>
-										{
-											r.Address = r.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork).ToString();
-											return r;
-										})
-										// Because xpub are mutable (several xpub map to same script)
-										// an attacker could generate lot's of xpub mapping to the same script
-										// and this would blow up here. This we take only 5 results max.
-										.Take(5)
-										.ToArray();
-					result.AddRange(script, keyInfos);
+					var gettingScripts = batch.Select(s => GetScriptsIndex(tx, s).SelectForwardSkip(0)).ToArray();
+					await tx.SendBatch();
+					for (int i = 0; i < batch.Count; i++)
+					{
+						var script = batch[i];
+						var rows = await gettingScripts[i];
+						result.AddRange(script, rows.Select(r => ToObject<KeyPathInformation>(r.Value))
+							.Select(r =>
+							{
+								r.Address = r.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork).ToString();
+								return r;
+							})
+							// Because xpub are mutable (several xpub map to same script)
+							// an attacker could generate lot's of xpub mapping to the same script
+							// and this would blow up here. This we take only 5 results max.
+							.Take(5));
+					}
 				}
 			}
-
 			return result;
 		}
 
@@ -1205,21 +1250,16 @@ namespace NBXplorer
 
 		}
 
-		public async Task<CancellableMatches> SaveMatches(TrackedTransaction[] transactions, bool cancellableMatches = false)
+		public async Task SaveMatches(TrackedTransaction[] transactions)
 		{
 			if (transactions.Length == 0)
-				return null;
+				return;
 			var groups = transactions.GroupBy(i => i.TrackedSource);
-			CancellableMatches cancellable = new CancellableMatches();
-			cancellable.Key = Encoders.Hex.EncodeData(RandomUtils.GetBytes(20));
 			using (var tx = await _ContextFactory.GetContext())
 			{
 				foreach (var group in groups)
 				{
-					var table = GetTransactionsIndex(tx, group.Key);
-					var g = new CancellableMatches.CancellableMatchGroup();
-					cancellable.Groups.Add(g);
-					g.Key = group.Key;
+					var table = GetTransactionsIndex(tx, group.Key);					
 					foreach (var value in group)
 					{
 						if (group.Key is DerivationSchemeTrackedSource s)
@@ -1248,19 +1288,23 @@ namespace NBXplorer
 						TransactionMatchData data = new TransactionMatchData(value);
 						bs.ReadWrite(data);
 						var rowKey = data.GetRowKey();
-						g.RowKeys.Add(rowKey);
+
+						if (value.IsLockUTXO())
+						{
+							CancellableMatches cancellable = new CancellableMatches();
+							cancellable.Key = Encoders.Hex.EncodeData(RandomUtils.GetBytes(20));
+							value.UnlockId = cancellable.Key;
+							var g = new CancellableMatches.CancellableMatchGroup();
+							g.Key = group.Key;
+							cancellable.Groups.Add(g);
+							g.RowKeys.Add(rowKey);
+							GetCancellableMachesIndex(tx, cancellable.Key).Insert(string.Empty, ToBytes(cancellable));
+						}
 						table.Insert(rowKey, ms.ToArrayEfficient());
 					}
 				}
-
-				if (cancellableMatches)
-				{
-					var table = GetCancellableMachesIndex(tx, cancellable.Key);
-					table.Insert(string.Empty, ToBytes(cancellable));
-				}
 				await tx.CommitAsync();
 			}
-			return cancellable;
 		}
 
 		public async Task<bool> CancelMatches(string key)
@@ -1283,6 +1327,31 @@ namespace NBXplorer
 				await tx.CommitAsync();
 			}
 			return true;
+		}
+
+		public async Task SaveMetadata<T>(TrackedSource source, string key, T value) where T : class
+		{
+			using (var tx = await _ContextFactory.GetContext())
+			{
+				var table = GetMetadataIndex(tx, source);
+				if (value != null)
+					table.Insert(key, Zip(Serializer.ToString(value)));
+				else
+					table.RemoveKey(key);
+				await tx.CommitAsync();
+			}
+		}
+		public async Task<T> GetMetadata<T>(TrackedSource source, string key) where T : class
+		{
+			using (var tx = await _ContextFactory.GetContext())
+			{
+				var table = GetMetadataIndex(tx, source);
+				foreach (var row in await table.SelectForwardSkip(0, key))
+				{
+					return  Serializer.ToObject<T>(Unzip(row.Value));
+				}
+				return null;
+			}
 		}
 
 		internal async Task Prune(TrackedSource trackedSource, List<TrackedTransaction> prunable)
@@ -1368,68 +1437,86 @@ namespace NBXplorer
 			return needRefill;
 		}
 
-		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
-		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
+		FixedSizeCache<uint256, uint256> noMatchCache;
+
+		public Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
-			var h = tx.GetHash();
-			if (blockId != null && useCache && noMatchCache.Contains(h))
-			{
-				return Array.Empty<TrackedTransaction>();
-			}
+			return GetMatches(new[] { tx }, blockId, now, useCache);
+		}
+		public async Task<TrackedTransaction[]> GetMatches(IList<Transaction> txs, uint256 blockId, DateTimeOffset now, bool useCache)
+		{
+			foreach (var tx in txs)
+				tx.PrecomputeHash(false, true);
+			var transactionsPerScript = new MultiValueDictionary<Script, Transaction>();
 			var matches = new Dictionary<string, TrackedTransaction>();
-			HashSet<Script> inputScripts = new HashSet<Script>();
-			HashSet<Script> outputScripts = new HashSet<Script>();
-			HashSet<Script> scripts = new HashSet<Script>();
-			foreach (var input in tx.Inputs)
+			HashSet<Script> scripts = new HashSet<Script>(txs.Count);
+			var noMatchTransactions = new HashSet<uint256>(txs.Count);
+			foreach (var tx in txs)
 			{
-				var signer = input.GetSigner();
-				if (signer != null)
+				if (blockId != null && useCache && noMatchCache.Contains(tx.GetHash()))
 				{
-					inputScripts.Add(signer.ScriptPubKey);
-					scripts.Add(signer.ScriptPubKey);
+					continue;
+				}
+				noMatchTransactions.Add(tx.GetHash());
+				foreach (var input in tx.Inputs)
+				{
+					var signer = input.GetSigner();
+					if (signer != null)
+					{
+						scripts.Add(signer.ScriptPubKey);
+						transactionsPerScript.Add(signer.ScriptPubKey, tx);
+					}
+				}
+				foreach (var output in tx.Outputs)
+				{
+					scripts.Add(output.ScriptPubKey);
+					transactionsPerScript.Add(output.ScriptPubKey, tx);
 				}
 			}
-
-			foreach (var output in tx.Outputs)
-			{
-				outputScripts.Add(output.ScriptPubKey);
-				scripts.Add(output.ScriptPubKey);
-			}
-
+			if (scripts.Count == 0)
+				return Array.Empty<TrackedTransaction>();
 			var keyInformations = await GetKeyInformations(scripts.ToArray());
 			foreach (var keyInfoByScripts in keyInformations)
 			{
-				foreach (var keyInfo in keyInfoByScripts.Value)
+				foreach (var tx in transactionsPerScript[keyInfoByScripts.Key])
 				{
-					var matchesGroupingKey = keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex();
-					if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
+					if (keyInfoByScripts.Value.Count != 0)
+						noMatchTransactions.Remove(tx.GetHash());
+					foreach (var keyInfo in keyInfoByScripts.Value)
 					{
-						match = new TrackedTransaction(
-							new TrackedTransactionKey(h, blockId, false),
-							keyInfo.TrackedSource,
-							tx,
-							new Dictionary<Script, KeyPath>())
+						var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
+						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 						{
-							FirstSeen = now,
-							Inserted = now
-						};
-						matches.Add(matchesGroupingKey, match);
+							match = new TrackedTransaction(
+								new TrackedTransactionKey(tx.GetHash(), blockId, false),
+								keyInfo.TrackedSource,
+								tx,
+								new Dictionary<Script, KeyPath>())
+							{
+								FirstSeen = now,
+								Inserted = now
+							};
+							matches.Add(matchesGroupingKey, match);
+						}
+						if (keyInfo.KeyPath != null)
+							match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
 					}
-					if (keyInfo.KeyPath != null)
-						match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
 				}
 			}
 			foreach (var m in matches.Values)
 			{
 				m.KnownKeyPathMappingUpdated();
 			}
-			if (blockId == null &&
-				matches.Count == 0)
+
+			foreach (var tx in txs)
 			{
-				noMatchCache.Add(h);
-				return Array.Empty<TrackedTransaction>();
+				if (blockId == null &&
+					noMatchTransactions.Contains(tx.GetHash()))
+				{
+					noMatchCache.Add(tx.GetHash());
+				}
 			}
-			return matches.Values.ToArray();
+			return matches.Values.Count == 0 ? Array.Empty<TrackedTransaction>() : matches.Values.ToArray();
 		}
 	}
 }

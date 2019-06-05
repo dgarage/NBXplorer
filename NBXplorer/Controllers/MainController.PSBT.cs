@@ -32,7 +32,6 @@ namespace NBXplorer.Controllers
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
 			var repo = RepositoryProvider.GetRepository(network);
-			var utxos = await GetUTXOs(network.CryptoCode, strategy, null);
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
 
@@ -47,8 +46,8 @@ namespace NBXplorer.Controllers
 				txBuilder.SetLockTime(lockTime);
 				txBuilder.OptInRBF = true;
 			}
-
-			var availableCoinsByOutpoint = utxos.GetUnspentCoins(request.MinConfirmations).ToDictionary(o => o.Outpoint);
+			var utxos = (await GetUTXOs(network.CryptoCode, strategy, null)).GetUnspentCoins(request.MinConfirmations);
+			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)
 			{
 				var includeOnlyOutpoints = request.IncludeOnlyOutpoints.ToHashSet();
@@ -83,8 +82,9 @@ namespace NBXplorer.Controllers
 			// This assume that a script with only 0 can't be created from a strategy, nor by passing any data to explicitChangeAddress
 			if (request.ExplicitChangeAddress == null)
 			{
-				var derivation = strategy.Derive(0); // We can't take random key, as the length of the scriptPubKey influences fees
-				change = (Script.FromBytesUnsafe(new byte[derivation.ScriptPubKey.Length]), null);
+				// The dummyScriptPubKey is necessary to know the size of the change
+				var dummyScriptPubKey = utxos.FirstOrDefault()?.ScriptPubKey ?? strategy.Derive(0).ScriptPubKey;
+				change = (Script.FromBytesUnsafe(new byte[dummyScriptPubKey.Length]), null);
 			}
 			else
 			{
@@ -153,9 +153,6 @@ namespace NBXplorer.Controllers
 				tx.Version = v;
 			psbt = txBuilder.CreatePSBTFrom(tx, false, SigHash.All);
 
-			var utxosByOutpoint = utxos.GetUnspentUTXOs().ToDictionary(u => u.Outpoint);
-			var keyPaths = psbt.Inputs.Select(i => utxosByOutpoint[i.PrevOut].KeyPath).ToHashSet();
-
 			// Maybe it is a change that we know about, let's search in the DB
 			if (hasChange && change.KeyPath == null)
 			{
@@ -168,26 +165,12 @@ namespace NBXplorer.Controllers
 				}
 			}
 
-			if (hasChange && change.KeyPath != null)
+			await UpdatePSBTCore(new UpdatePSBTRequest()
 			{
-				keyPaths.Add(change.KeyPath);
-			}
-
-			foreach (var hd in strategy.GetExtPubKeys())
-			{
-				psbt.AddKeyPath(hd, keyPaths.ToArray());
-			}
-
-			await Task.WhenAll(psbt.Inputs
-				.Select(async (input) =>
-				{
-					if (input.WitnessUtxo == null) // We need previous tx
-					{
-						var prev = await repo.GetSavedTransactions(input.PrevOut.Hash);
-						if (prev?.Any() is true)
-							input.NonWitnessUtxo = prev[0].Transaction;
-					}
-				}).ToArray());
+				DerivationScheme = strategy,
+				PSBT = psbt,
+				RebaseKeyPaths = request.RebaseKeyPaths
+			}, network);
 
 			var resp = new CreatePSBTResponse()
 			{
@@ -195,6 +178,129 @@ namespace NBXplorer.Controllers
 				ChangeAddress = hasChange ? change.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : null
 			};
 			return Json(resp, network.JsonSerializerSettings);
+		}
+
+		[HttpPost]
+		[Route("cryptos/{network}/psbt/update")]
+		public async Task<IActionResult> UpdatePSBT(
+			[ModelBinder(BinderType = typeof(NetworkModelBinder))]
+			NBXplorerNetwork network,
+			[FromBody]
+			JObject body)
+		{
+			var update = ParseJObject<UpdatePSBTRequest>(body, network);
+			if (update.PSBT == null)
+				throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "'psbt' is missing"));
+			await UpdatePSBTCore(update, network);
+			return Json(new UpdatePSBTResponse() { PSBT = update.PSBT }, network.JsonSerializerSettings);
+		}
+
+		private async Task UpdatePSBTCore(UpdatePSBTRequest update, NBXplorerNetwork network)
+		{
+			var repo = RepositoryProvider.GetRepository(network);
+
+			await UpdateInputsUTXO(update, repo);
+
+			if (update.DerivationScheme is DerivationStrategyBase)
+			{
+				await UpdateHDKeyPathsWitnessAndRedeem(update, repo);
+			}
+
+			foreach (var input in update.PSBT.Inputs)
+				input.TrySlimUTXO();
+
+			if (update.RebaseKeyPaths != null)
+			{
+				foreach (var rebase in update.RebaseKeyPaths)
+				{
+					var rootedKeyPath = rebase.GetRootedKeyPath();
+					if (rootedKeyPath == null)
+						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].rootedKeyPath is missing"));
+					update.PSBT.RebaseKeyPaths(rebase.AccountKey, rootedKeyPath);
+				}
+			}
+		}
+
+		private static async Task UpdateHDKeyPathsWitnessAndRedeem(UpdatePSBTRequest update, Repository repo)
+		{
+			var strategy = update.DerivationScheme;
+			var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
+			var keyInfosByScriptPubKey = new Dictionary<Script, KeyPathInformation>();
+			var scriptPubKeys = update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs)
+											.Where(o => !o.HDKeyPaths.Any())
+											.Select(o => o.GetCoin()?.ScriptPubKey)
+											.Where(s => s != null).ToArray();
+			foreach (var keyInfos in (await repo.GetKeyInformations(scriptPubKeys)))
+			{
+				var keyInfo = keyInfos.Value.FirstOrDefault(k => k.DerivationStrategy == strategy);
+				if (keyInfo != null)
+				{
+					keyInfosByScriptPubKey.TryAdd(keyInfo.ScriptPubKey, keyInfo);
+				}
+			}
+
+			var fps = new Dictionary<PubKey, HDFingerprint>();
+			foreach (var pubkey in pubkeys)
+			{
+				// We derive everything the fastest way possible on multiple cores
+				pubkey.Derive(keyInfosByScriptPubKey.Select(s => s.Value.KeyPath).ToArray());
+				fps.TryAdd(pubkey.GetPublicKey(), pubkey.GetPublicKey().GetHDFingerPrint());
+			}
+
+			List<Script> redeems = new List<Script>();
+			foreach (var c in update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs))
+			{
+				var script = c.GetCoin()?.ScriptPubKey;
+				if (script != null &&
+					keyInfosByScriptPubKey.TryGetValue(script, out var keyInfo))
+				{
+					foreach (var pubkey in pubkeys)
+					{
+						var childPubKey = pubkey.Derive(keyInfo.KeyPath);
+						NBitcoin.Extensions.AddOrReplace(c.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
+						if (keyInfo.Redeem != null)
+							redeems.Add(keyInfo.Redeem);
+					}
+				}
+			}
+			if (redeems.Count != 0)
+				update.PSBT.AddScripts(redeems.ToArray());
+		}
+		private static async Task UpdateInputsUTXO(UpdatePSBTRequest update, Repository repo)
+		{
+			await Task.WhenAll(update.PSBT.Inputs
+							.Select(async (input) =>
+							{
+								var isWitness = (input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness;
+								// We are sure we are using segwit, so no need to fetch anything else
+								if (isWitness)
+									return;
+								// If this is not segwit, or we are unsure of it, let's try to grab from our saved transactions
+								if (input.NonWitnessUtxo == null)
+								{
+									var prev = await repo.GetSavedTransactions(input.PrevOut.Hash);
+									if (prev.FirstOrDefault() is Repository.SavedTransaction saved)
+									{
+										input.NonWitnessUtxo = saved.Transaction;
+									}
+								}
+
+								// Maybe we don't have the saved transaction, but we have the WitnessUTXO from the derivation scheme UTXOs
+								if (input.NonWitnessUtxo == null && input.WitnessUtxo == null && update.DerivationScheme != null)
+								{
+									var tx = (await repo.GetTransactions(new DerivationSchemeTrackedSource(update.DerivationScheme, repo.Network.NBitcoinNetwork), input.PrevOut.Hash)).FirstOrDefault();
+									if (tx != null)
+									{
+										var output = tx.GetReceivedOutputs().FirstOrDefault(o => o.Index == input.PrevOut.N);
+										if (output != null)
+										{
+											input.WitnessUtxo = repo.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
+											input.WitnessUtxo.ScriptPubKey = output.ScriptPubKey;
+											input.WitnessUtxo.Value = output.Value;
+										}
+									}
+								}
+							}).ToArray());
 		}
 
 		private T ParseJObject<T>(JObject requestObj, NBXplorerNetwork network)

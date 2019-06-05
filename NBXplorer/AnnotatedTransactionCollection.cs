@@ -9,152 +9,278 @@ using NBXplorer.Models;
 
 namespace NBXplorer
 {
-    public enum AnnotatedTransactionType
-    {
-        Confirmed,
-        Unconfirmed,
-        Lock,
-        Orphan
-    }
-    public class AnnotatedTransaction
-    {
-        public AnnotatedTransaction(TrackedTransaction tracked, SlimChain chain)
-        {
-            if (tracked == null)
-                throw new ArgumentNullException(nameof(tracked));
-            Record = tracked;
-            if (tracked.BlockHash == null)
-            {
-                Type = AnnotatedTransactionType.Unconfirmed;
-            }
-            else
-            {
-                var block = chain?.GetBlock(tracked.BlockHash);
-                Type = block == null ? AnnotatedTransactionType.Orphan : AnnotatedTransactionType.Confirmed;
-                Height = block?.Height;
-            }
-        }
-        public AnnotatedTransactionType Type
-        {
-            get; set;
-        }
-        public int? Height
-        {
-            get;
-            internal set;
-        }
-        public TrackedTransaction Record
-        {
-            get;
-        }
+	public enum AnnotatedTransactionType
+	{
+		Confirmed,
+		Unconfirmed,
+		Orphan
+	}
+	public class AnnotatedTransaction
+	{
+		public AnnotatedTransaction(int? height, TrackedTransaction record, bool isMature)
+		{
+			this.Record = record;
+			this.Height = height;
+			this.IsMature = isMature;
+		}
+		public int? Height
+		{
+			get;
+		}
+		public bool IsMature { get; }
+		public TrackedTransaction Record
+		{
+			get;
+		}
 
-        public override string ToString()
-        {
-            return Record.TransactionHash.ToString();
-        }
-    }
+		public override string ToString()
+		{
+			return Record.TransactionHash.ToString();
+		}
+	}
 
-    public class AnnotatedTransactionCollection : List<AnnotatedTransaction>
-    {
-        public AnnotatedTransactionCollection(IEnumerable<AnnotatedTransaction> transactions, Models.TrackedSource trackedSource) : base(transactions)
-        {
-            foreach (var tx in transactions)
-            {
-                foreach (var keyPathInfo in tx.Record.KnownKeyPathMapping)
-                {
-                    _KeyPaths.TryAdd(keyPathInfo.Key, keyPathInfo.Value);
-                }
-            }
+	public class AnnotatedTransactionCollection : List<AnnotatedTransaction>
+	{
+		public AnnotatedTransactionCollection(ICollection<TrackedTransaction> transactions, Models.TrackedSource trackedSource, SlimChain headerChain, Network network) : base(transactions.Count)
+		{
+			_TxById = new Dictionary<uint256, AnnotatedTransaction>(transactions.Count);
+			foreach (var tx in transactions)
+			{
+				foreach (var keyPathInfo in tx.KnownKeyPathMapping)
+				{
+					_KeyPaths.TryAdd(keyPathInfo.Key, keyPathInfo.Value);
+				}
+			}
 
-            UTXOState state = new UTXOState();
-            foreach (var confirmed in transactions
-                                        .Where(tx => tx.Type == AnnotatedTransactionType.Confirmed).ToList()
-                                        .TopologicalSort())
-            {
-                if (state.Apply(confirmed.Record) == ApplyTransactionResult.Conflict)
-                {
-                    Logs.Explorer.LogError("A conflict among confirmed transaction happened, this should be impossible");
-                    throw new InvalidOperationException("The impossible happened");
-                }
-                ConfirmedTransactions.Add(confirmed);
-                _TxById.Add(confirmed.Record.TransactionHash, confirmed);
-            }
+			// Let's remove the dups and let's get the current height of the transactions
+			foreach (var trackedTx in transactions)
+			{
+				int? txHeight = null;
+				bool isMature = true;
 
-            foreach (var unconfirmed in transactions
-                                        .Where(tx => tx.Type == AnnotatedTransactionType.Unconfirmed || tx.Type == AnnotatedTransactionType.Orphan)
-                                        .OrderByDescending(t => t.Record.Inserted) // OrderByDescending so that the last received is least likely to be conflicted
-                                        .ToList()
-                                        .TopologicalSort())
-            {
-                if (_TxById.ContainsKey(unconfirmed.Record.TransactionHash))
-                {
-                    _TxById.Add(unconfirmed.Record.TransactionHash, unconfirmed);
-                    DuplicatedTransactions.Add(unconfirmed);
-                }
-                else
-                {
-                    _TxById.Add(unconfirmed.Record.TransactionHash, unconfirmed);
-                    if (state.Apply(unconfirmed.Record) == ApplyTransactionResult.Conflict)
-                    {
-                        ReplacedTransactions.Add(unconfirmed);
-                    }
-                    else
-                    {
-                        UnconfirmedTransactions.Add(unconfirmed);
-                    }
-                }
-            }
+				if (trackedTx.BlockHash != null && headerChain.TryGetHeight(trackedTx.BlockHash, out var height))
+				{
+					txHeight = height;
+					isMature = trackedTx.IsCoinBase ? headerChain.Height - height >= network.Consensus.CoinbaseMaturity : true;
+				}
 
-            TrackedSource = trackedSource;
-        }
+				AnnotatedTransaction annotatedTransaction = new AnnotatedTransaction(txHeight, trackedTx, isMature);
+				if (_TxById.TryGetValue(trackedTx.TransactionHash, out var conflicted))
+				{
+					if (ShouldReplace(annotatedTransaction, conflicted))
+					{
+						CleanupTransactions.Add(conflicted);
+						_TxById.Remove(trackedTx.TransactionHash);
+						_TxById.Add(trackedTx.TransactionHash, annotatedTransaction);
+					}
+					else
+					{
+						CleanupTransactions.Add(annotatedTransaction);
+					}
+				}
+				else
+				{
+					_TxById.Add(trackedTx.TransactionHash, annotatedTransaction);
+				}
+			}
 
-        public MatchedOutput GetUTXO(OutPoint outpoint)
-        {
-            if (_TxById.TryGetValue(outpoint.Hash, out var txs))
-            {
-                return txs.SelectMany(t => t.Record.GetReceivedOutputs().Where(c => c.Index == outpoint.N))
-                          .FirstOrDefault();
-            }
-            return null;
-        }
+			// Let's resolve the double spents
+			Dictionary<OutPoint, uint256> spentBy = new Dictionary<OutPoint, uint256>(transactions.SelectMany(t => t.SpentOutpoints).Count());
+			foreach (var annotatedTransaction in _TxById.Values.Where(r => r.Height is int))
+			{
+				foreach (var spent in annotatedTransaction.Record.SpentOutpoints)
+				{
+					// No way to have double spent in confirmed transactions
+					spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
+				}
+			}
 
-        Dictionary<Script, KeyPath> _KeyPaths = new Dictionary<Script, KeyPath>();
-        public KeyPath GetKeyPath(Script scriptPubkey)
-        {
-            return _KeyPaths.TryGet(scriptPubkey);
-        }
+		removeConflicts:
+			HashSet<uint256> toRemove = new HashSet<uint256>();
+			foreach (var annotatedTransaction in _TxById.Values.Where(r => r.Height is null))
+			{
+				foreach (var spent in annotatedTransaction.Record.SpentOutpoints)
+				{
+					if (spentBy.TryGetValue(spent, out var conflictHash) &&
+						_TxById.TryGetValue(conflictHash, out var conflicted))
+					{
+						if (conflicted == annotatedTransaction)
+							goto nextTransaction;
+						if (toRemove.Contains(conflictHash))
+						{
+							spentBy.Remove(spent);
+							spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
+						}
+						else if (ShouldReplace(annotatedTransaction, conflicted))
+						{
+							toRemove.Add(conflictHash);
+							spentBy.Remove(spent);
+							spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
 
-        MultiValueDictionary<uint256, AnnotatedTransaction> _TxById = new MultiValueDictionary<uint256, AnnotatedTransaction>();
-        public IReadOnlyCollection<AnnotatedTransaction> GetByTxId(uint256 txId)
-        {
-            if (txId == null)
-                throw new ArgumentNullException(nameof(txId));
-            IReadOnlyCollection<AnnotatedTransaction> value;
-            if (_TxById.TryGetValue(txId, out value))
-                return value;
-            return new List<AnnotatedTransaction>();
-        }
+							if (conflicted.Height is null && annotatedTransaction.Height is null)
+							{
+								ReplacedTransactions.Add(conflicted);
+							}
+							else
+							{
+								CleanupTransactions.Add(conflicted);
+							}
+						}
+						else
+						{
+							toRemove.Add(annotatedTransaction.Record.TransactionHash);
+							if (conflicted.Height is null && annotatedTransaction.Height is null)
+							{
+								ReplacedTransactions.Add(annotatedTransaction);
+							}
+							else
+							{
+								CleanupTransactions.Add(annotatedTransaction);
+							}
+						}
+					}
+					else
+					{
+						spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
+					}
+				}
+			nextTransaction:;
+			}
 
-        public List<AnnotatedTransaction> ReplacedTransactions
-        {
-            get; set;
-        } = new List<AnnotatedTransaction>();
+			foreach (var e in toRemove)
+				_TxById.Remove(e);
+			if (toRemove.Count != 0)
+				goto removeConflicts;
 
-        public List<AnnotatedTransaction> ConfirmedTransactions
-        {
-            get; set;
-        } = new List<AnnotatedTransaction>();
+			var sortedTransactions = _TxById.Values.TopologicalSort();
+			UTXOState state = new UTXOState();
+			foreach (var tx in sortedTransactions.Where(s => s.IsMature && s.Height is int))
+			{
+				if (state.Apply(tx.Record) == ApplyTransactionResult.Conflict)
+				{
+					throw new InvalidOperationException("The impossible happened");
+				}
+			}
+			ConfirmedState = state.Snapshot();
+			UnconfirmedState = state;
+			UnconfirmedStateWithLocks = state.Snapshot();
+			foreach (var tx in sortedTransactions.Where(s => s.Height is null))
+			{
+				if (UnconfirmedStateWithLocks.Apply(tx.Record) == ApplyTransactionResult.Conflict)
+				{
+					throw new InvalidOperationException("The impossible happened");
+				}
+				if (!tx.Record.IsLockUTXO())
+				{
+					if (UnconfirmedState.Apply(tx.Record) == ApplyTransactionResult.Conflict)
+					{
+						throw new InvalidOperationException("The impossible happened");
+					}
+				}
+			}
 
-        public List<AnnotatedTransaction> UnconfirmedTransactions
-        {
-            get; set;
-        } = new List<AnnotatedTransaction>();
+			foreach (var tx in sortedTransactions)
+			{
+				if (tx.Height is int)
+					ConfirmedTransactions.Add(tx);
+				else
+				{
+					if (tx.Record.IsLockUTXO())
+						LockTransactions.Add(tx);
+					else
+						UnconfirmedTransactions.Add(tx);
+				}
+				this.Add(tx);
+			}
 
-        public List<AnnotatedTransaction> DuplicatedTransactions
-        {
-            get; set;
-        } = new List<AnnotatedTransaction>();
-        public Models.TrackedSource TrackedSource { get; }
-    }
+			foreach (var lockTransaction in LockTransactions)
+			{
+				_TxById.Remove(lockTransaction.Record.TransactionHash);
+			}
+
+			TrackedSource = trackedSource;
+		}
+
+		public UTXOState ConfirmedState { get; set; }
+		public UTXOState UnconfirmedState { get; set; }
+		public UTXOState UnconfirmedStateWithLocks { get; set; }
+		public UTXOState GetUnconfirmedState(bool withLocks)
+		{
+			return withLocks ? UnconfirmedStateWithLocks : UnconfirmedState;
+		}
+
+		private static bool ShouldReplace(AnnotatedTransaction annotatedTransaction, AnnotatedTransaction conflicted)
+		{
+			if (annotatedTransaction.Height is int &&
+				conflicted.Height is null)
+			{
+				return true;
+			}
+			else if (annotatedTransaction.Height is null &&
+					 conflicted.Height is null &&
+					 annotatedTransaction.Record.Inserted > conflicted.Record.Inserted)
+			{
+				return true;
+			}
+			else if (annotatedTransaction.Height is int &&
+					 conflicted.Height is int &&
+					 conflicted.Record.Key.IsPruned)
+			{
+				return true;
+			}
+
+			return false;
+		}
+
+		public MatchedOutput GetUTXO(OutPoint outpoint)
+		{
+			if (_TxById.TryGetValue(outpoint.Hash, out var tx))
+			{
+				return tx.Record.GetReceivedOutputs().Where(c => c.Index == outpoint.N).FirstOrDefault();
+			}
+			return null;
+		}
+
+		Dictionary<Script, KeyPath> _KeyPaths = new Dictionary<Script, KeyPath>();
+		public KeyPath GetKeyPath(Script scriptPubkey)
+		{
+			return _KeyPaths.TryGet(scriptPubkey);
+		}
+
+		Dictionary<uint256, AnnotatedTransaction> _TxById = new Dictionary<uint256, AnnotatedTransaction>();
+		public AnnotatedTransaction GetByTxId(uint256 txId)
+		{
+			if (txId == null)
+				throw new ArgumentNullException(nameof(txId));
+			_TxById.TryGetValue(txId, out var value);
+			return value;
+		}
+
+		public List<AnnotatedTransaction> ReplacedTransactions
+		{
+			get; set;
+		} = new List<AnnotatedTransaction>();
+
+		public List<AnnotatedTransaction> ConfirmedTransactions
+		{
+			get; set;
+		} = new List<AnnotatedTransaction>();
+
+		public List<AnnotatedTransaction> UnconfirmedTransactions
+		{
+			get; set;
+		} = new List<AnnotatedTransaction>();
+
+		public List<AnnotatedTransaction> LockTransactions
+		{
+			get; set;
+		} = new List<AnnotatedTransaction>();
+
+		public List<AnnotatedTransaction> CleanupTransactions
+		{
+			get; set;
+		} = new List<AnnotatedTransaction>();
+		public Models.TrackedSource TrackedSource { get; }
+	}
 
 }

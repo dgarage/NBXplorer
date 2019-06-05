@@ -41,6 +41,7 @@ namespace NBXplorer
 				var count = _AvailableOutputs[prevOut.Hash];
 				if(count == 1)
 				{
+					if (removedBy != null)
 					Prunable.Add(new NBXplorer.Prunable() { PrunedBy = removedBy, TransactionId = prevOut.Hash });
 					_AvailableOutputs.Remove(prevOut.Hash);
 				}

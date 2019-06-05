@@ -8,47 +8,103 @@ using System.Text;
 namespace NBXplorer
 {
 	public static class Utils
-	{	
-		/// <summary>
-		/// Make sure that if transaction A spend UTXO of transaction B then the output will order A first, and B second
-		/// </summary>
-		/// <param name="transactions">Unordered collection</param>
-		/// <returns>Topologically ordered collection</returns>
-		public static IEnumerable<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
+	{
+		public static ICollection<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
 		{
-			return transactions.TopologicalSort<AnnotatedTransaction>(DependsOn(transactions));
+			return transactions.TopologicalSort(
+				dependsOn: t => t.Record.SpentOutpoints.Select(o => o.Hash),
+				getKey: t => t.Record.TransactionHash,
+				getValue: t => t,
+				solveTies: (a, b) =>
+				{
+					if (a.Height is int ah)
+					{
+						// Both confirmed, tie on height then firstSeen
+						if (b.Height is int bh)
+						{
+							return ah == bh ?
+								   // same height? tire on firstSeen
+								   (a.Record.FirstSeen < b.Record.FirstSeen ? a : b) :
+								   // else tie on the height
+								   ah < bh ? a : b;
+						}
+						else
+						{
+							return a;
+						}
+					}
+					else if (b.Height is int bh)
+					{
+						return b;
+					}
+					// Both unconfirmed, tie on firstSeen
+					else
+					{
+						return (a.Record.FirstSeen < b.Record.FirstSeen ? a : b);
+					}
+				});
+		}
+		public static ICollection<T> TopologicalSort<T>(this ICollection<T> nodes, Func<T, IEnumerable<T>> dependsOn)
+		{
+			return nodes.TopologicalSort(dependsOn, k => k, k => k);
 		}
 
-		static Func<AnnotatedTransaction, IEnumerable<AnnotatedTransaction>> DependsOn(IEnumerable<AnnotatedTransaction> transactions)
+		public static ICollection<T> TopologicalSort<T, TDepend>(this ICollection<T> nodes, Func<T, IEnumerable<TDepend>> dependsOn, Func<T, TDepend> getKey)
 		{
-			return t =>
-			{
-				HashSet<uint256> spent = new HashSet<uint256>(t.Record.SpentOutpoints.Select(txin => txin.Hash));
-				return transactions.Where(u => spent.Contains(u.Record.TransactionHash) ||  //Depends on parent transaction
-												(u.Height.HasValue && t.Height.HasValue && u.Height.Value < t.Height.Value) ); //Depends on earlier transaction
-			};
+			return nodes.TopologicalSort(dependsOn, getKey, o => o);
 		}
 
-		public static IEnumerable<T> TopologicalSort<T>(this IEnumerable<T> nodes,
-												Func<T, IEnumerable<T>> dependsOn)
+		public static ICollection<TValue> TopologicalSort<T, TDepend, TValue>(this ICollection<T> nodes,
+												Func<T, IEnumerable<TDepend>> dependsOn,
+												Func<T, TDepend> getKey,
+												Func<T, TValue> getValue,
+												Func<T,T,T> solveTies = null)
 		{
-			List<T> result = new List<T>();
+			if (nodes.Count == 0)
+				return Array.Empty<TValue>();
+			if (getKey == null)
+				throw new ArgumentNullException(nameof(getKey));
+			if (getValue == null)
+				throw new ArgumentNullException(nameof(getValue));
+			solveTies = solveTies ?? new Func<T, T, T>((aa, bb) => aa);
+			List<TValue> result = new List<TValue>(nodes.Count);
+			HashSet<TDepend> allKeys = new HashSet<TDepend>(nodes.Count);
+			foreach (var node in nodes)
+				allKeys.Add(getKey(node));
 			var elems = nodes.ToDictionary(node => node,
-										   node => new HashSet<T>(dependsOn(node)));
-			while(elems.Count > 0)
+										   node => new HashSet<TDepend>(dependsOn(node).Where(n => allKeys.Contains(n))));
+			var elem = elems.FirstOrDefault(x => x.Value.Count == 0);
+			if (elem.Key == null)
 			{
-				var elem = elems.FirstOrDefault(x => x.Value.Count == 0);
-				if(elem.Key == null)
-				{
-					//cycle detected can't order
-					return nodes;
-				}
+				throw new InvalidOperationException("Impossible to topologically sort a cyclic graph");
+			}
+			while (elems.Count > 0)
+			{
 				elems.Remove(elem.Key);
-				foreach(var selem in elems)
+				result.Add(getValue(elem.Key));
+				KeyValuePair<T, HashSet<TDepend>>? nextElement = null;
+				foreach (var selem in elems)
 				{
-					selem.Value.Remove(elem.Key);
+					selem.Value.Remove(getKey(elem.Key));
+					if (selem.Value.Count == 0)
+					{
+						if (nextElement is null)
+						{
+							nextElement = selem;
+						}
+						else
+						{
+							var preferred = solveTies(selem.Key, nextElement.Value.Key);
+							nextElement = ReferenceEquals(preferred, selem.Key) ? selem : nextElement;
+						}
+					}
 				}
-				result.Add(elem.Key);
+				if (nextElement is KeyValuePair<T, HashSet<TDepend>> n)
+					elem = n;
+				else if (elems.Count != 0)
+				{
+					throw new InvalidOperationException("Impossible to topologically sort a cyclic graph");
+				}
 			}
 			return result;
 		}

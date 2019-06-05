@@ -61,18 +61,11 @@ namespace NBXplorer
 		}
 
 
-		private JsonSerializerSettings _JsonSerializerSettings;
 		public JsonSerializerSettings JsonSerializerSettings
 		{
 			get
 			{
-				if (_JsonSerializerSettings == null)
-				{
-					var json = new JsonSerializerSettings();
-					Serializer.ConfigureSerializer(json);
-					_JsonSerializerSettings = json;
-				}
-				return _JsonSerializerSettings;
+				return Serializer.Settings;
 			}
 		}
 

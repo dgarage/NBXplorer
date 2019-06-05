@@ -201,11 +201,11 @@ namespace NBXplorer.DB
 
 				var partitionKeyRowKey = parameters.FirstOrDefault(p => p.ParameterName == "partitionKeyRowKey")?.Value?.ToString();
 				bool likePattern = partitionKeyRowKey.EndsWith('%');
-				using (var result = (NpgsqlDataReader)await command.ExecuteReaderAsync())
+
+				await ExecuteCommand(command, async (result) =>
 				{
 					while (await result.ReadAsync())
 					{
-
 						partitionKeyRowKey = (likePattern ? null : partitionKeyRowKey) ?? (string)result["PartitionKeyRowKey"];
 						var row = new GenericRow<TValue>()
 						{
@@ -217,10 +217,78 @@ namespace NBXplorer.DB
 							row.FetchValue = FetchValue<TValue>(partitionKeyRowKey);
 						rows.Add(row);
 					}
-				}
+				});
 			}
 			return rows;
 		}
+		// This will either execute the command directly, or later if batching queries
+		private async Task ExecuteCommand(NpgsqlCommand command, Func<DbDataReader, Task> action)
+		{
+			if (_Batches == null)
+			{
+				using (var dbReader = await command.ExecuteReaderAsync())
+				{
+					await action(dbReader);
+				}
+				return;
+			}
+			TaskCompletionSource<bool> done = new TaskCompletionSource<bool>();
+			_Batches.Add((command, async (dbReader) =>
+			{
+				try
+				{
+					await action(dbReader);
+					done.TrySetResult(true);
+				}
+				catch (Exception ex)
+				{
+					done.TrySetException(ex);
+				}
+			}));
+			await done.Task;
+		}
+
+		// If a batch is ready, all the commands are batched into a single command with several results
+		internal async Task SendBatch()
+		{
+			if (_Batches == null || _Batches.Count == 0)
+				return;
+			using (var batchCommand = Connection.CreateCommand())
+			{
+				List<string> modifiedQueries = new List<string>();
+				int i = 0;
+				// We make sure there is no name collision by renaming the arguments and modifying the query
+				foreach (var command in _Batches)
+				{
+					var commandQuery = command.Command.CommandText;
+					foreach (var parameter in command.Command.Parameters.OfType<NpgsqlParameter>())
+					{
+						var clone = parameter.Clone();
+						var newName = $"@{clone.ParameterName}{i}";
+						commandQuery = commandQuery.Replace($"@{clone.ParameterName}", newName);
+						clone.ParameterName = newName.Substring(1);
+						batchCommand.Parameters.Add(clone);
+					}
+					modifiedQueries.Add(commandQuery);
+					i++;
+				}
+
+				var query = String.Join($";", modifiedQueries);
+				batchCommand.CommandText = query;
+				using (var dbReader = await batchCommand.ExecuteReaderAsync())
+				{
+					i = 0;
+					foreach (var command in _Batches)
+					{
+						await command.Item2(dbReader);
+						await dbReader.NextResultAsync();
+						i++;
+					}
+				}
+			}
+			_Batches.Clear();
+		}
+		List<(NpgsqlCommand Command, Func<DbDataReader, Task>)> _Batches;
 
 		private Func<Task<TValue>> FetchValue<TValue>(string partitionKeyRowKey)
 		{
@@ -254,6 +322,11 @@ namespace NBXplorer.DB
 			get;
 			internal set;
 		}
+		public void ActivateBatching(int batchCapacity)
+		{
+			_Batches = new List<(NpgsqlCommand Command, Func<DbDataReader, Task>)>(batchCapacity);
+		}
+
 		public async Task<int> CommitAsync()
 		{
 			if (_ToCommit.Count == 0)

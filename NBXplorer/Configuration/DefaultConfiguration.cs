@@ -45,7 +45,7 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}fallbackfeerate", $"Fallback fee rate if fees are not yet available by bitcoin core", CommandOptionType.SingleValue);
 			}
-
+			app.Option("--nocreatedb", "Do not attempt to create the database when starting NBXplorer (default: true)", CommandOptionType.SingleValue);
 			app.Option("--asbcnstr", "[For Azure Service Bus] Azure Service Bus Connection string. New Block and New Transaction messages will be pushed to queues when this values is set", CommandOptionType.SingleValue);
 			app.Option("--asbblockq", "[For Azure Service Bus] Name of Queue to push new block message to. Leave blank to turn off", CommandOptionType.SingleValue);
 			app.Option("--asbtranq", "[For Azure Service Bus] Name of Queue to push new transaction message to. Leave blank to turn off", CommandOptionType.SingleValue);
@@ -55,6 +55,11 @@ namespace NBXplorer.Configuration
 			app.Option("--mingapsize", $"The minimum gap address count on which the explorer will track derivation schemes (default: 20)", CommandOptionType.SingleValue);
 			app.Option("--signalfilesdir", $"The directory where files signaling if a chain is ready is created (default: the network specific datadir)", CommandOptionType.SingleValue);
 			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);
+			app.Option("--user", $"If fixed username/password Basic authentication is enabled set the username (default: nbxplorer)", CommandOptionType.BoolValue);
+			app.Option("--password", $"Enable fixed username/password Basic authentication, this set the password (default: null)", CommandOptionType.BoolValue);
+			app.Option("--certificatepath", $"Configure HTTPS, path to a pfx file (default: no value, http)", CommandOptionType.BoolValue);
+			app.Option("--certificatepassword", $"Configure HTTPS, password of the pfx file (default: empty)", CommandOptionType.BoolValue);
+
 			app.Option("--autopruning", $"EXPERIMENTAL: If getting UTXOs takes more than x seconds, NBXplorer will prune old transactions, disabled if set to -1 (default: -1)", CommandOptionType.SingleValue);
 			app.Option("--cachechain", $"Whether the chain of header is locally cached for faster startup (default: true)", CommandOptionType.SingleValue);
 			app.Option("--rpcnotest", $"Faster start because RPC connection testing skipped (default: false)", CommandOptionType.SingleValue);

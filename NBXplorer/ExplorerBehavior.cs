@@ -277,11 +277,10 @@ namespace NBXplorer
 			{
 				DateTimeOffset now = DateTimeOffset.UtcNow;
 				var matches =
-					block.Transactions
-					.Select(tx => Repository.GetMatches(tx, blockHash, now, true))
+					(await Repository.GetMatches(block.Transactions, blockHash, now, true))
 					.ToArray();
-				await Task.WhenAll(matches);
-				var evts = await SaveMatches(matches.SelectMany((Task<TrackedTransaction[]> m) => m.GetAwaiter().GetResult()).ToArray(), blockHash, now);
+
+				var evts = await SaveMatches(matches, blockHash, now);
 				var slimBlockHeader = Chain.GetBlock(blockHash);
 				if (slimBlockHeader != null)
 				{
@@ -339,7 +338,40 @@ namespace NBXplorer
 
 		private async Task<Models.NewTransactionEvent[]> SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
 		{
-			await Repository.SaveMatches(matches);
+			Dictionary<TrackedTransaction, TrackedTransaction> lockTransactionBySource = new Dictionary<TrackedTransaction, TrackedTransaction>();
+			foreach (var match in matches.GroupBy(m => m.TrackedSource))
+			{
+				if((await Repository.GetMetadata<SILOLockingMetadata>(match.Key, "silo.locking"))?.AutoLocking is true)
+				{
+					foreach (var tx in match)
+					{
+						if (tx.ReceivedCoins.Count == 0)
+							continue;
+						// Do not lock transactions originating from the wallet.
+						if (tx.KnownKeyPathMapping.Any(k => DerivationStrategyBase.GetFeature(k.Value) is DerivationFeature.Change))
+							continue;
+						var lockTx = Network.NBitcoinNetwork.CreateTransaction();
+						foreach (var received in tx.ReceivedCoins)
+						{
+							lockTx.Inputs.Add(received.Outpoint);
+						}
+						lockTx.Outputs.Add(
+							tx.ReceivedCoins.Select(r => r.Amount).Sum(),
+							tx.ReceivedCoins.First().TxOut.ScriptPubKey);
+						lockTx.MarkLockUTXO();
+						TrackedTransactionKey trackedTransactionKey = new TrackedTransactionKey(lockTx.GetHash(), null, false);
+						TrackedTransaction trackedTransaction = new TrackedTransaction(trackedTransactionKey, match.Key, lockTx, new Dictionary<Script, KeyPath>());
+						foreach (var c in tx.KnownKeyPathMapping)
+						{
+							trackedTransaction.KnownKeyPathMapping.TryAdd(c.Key, c.Value);
+						}
+						trackedTransaction.KnownKeyPathMappingUpdated();
+						lockTransactionBySource.Add(tx, trackedTransaction);
+					}
+				}
+			}
+			await Repository.SaveMatches(matches.Concat(lockTransactionBySource.Values).ToArray());
+
 			_ = AddressPoolService.GenerateAddresses(Network, matches);
 			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
@@ -357,6 +389,7 @@ namespace NBXplorer
 				var txEvt = new Models.NewTransactionEvent()
 				{
 					TrackedSource = matches[i].TrackedSource,
+					UnlockId = lockTransactionBySource.TryGetValue(matches[i], out var l) ? l.UnlockId : null,
 					DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
 					CryptoCode = Network.CryptoCode,
 					BlockId = blockHash,

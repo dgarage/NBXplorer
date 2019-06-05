@@ -56,6 +56,7 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public bool NoCreateDB { get; set; }
 		public string BaseDataDir
 		{
 			get;
@@ -81,6 +82,8 @@ namespace NBXplorer.Configuration
 		{
 			get; set;
 		} = 20;
+
+		public NetworkCredential UserPassword { get; set; }
 
 		public int MaxGapSize
 		{
@@ -114,6 +117,7 @@ namespace NBXplorer.Configuration
 			var supportedChains = config.GetOrDefault<string>("chains", "btc")
 									  .Split(',', StringSplitOptions.RemoveEmptyEntries)
 									  .Select(t => t.ToUpperInvariant());
+			NoCreateDB = config.GetOrDefault("nocreatedb", true);
 			var validChains = new List<string>();
 			foreach (var network in NetworkProvider.GetAll())
 			{
@@ -179,12 +183,12 @@ namespace NBXplorer.Configuration
 				Directory.CreateDirectory(SignalFilesDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
-
-			AzureServiceBusConnectionString = config.GetOrDefault<string>("asbcnstr", "");
-			AzureServiceBusBlockQueue = config.GetOrDefault<string>("asbblockq", "");
-			AzureServiceBusTransactionQueue = config.GetOrDefault<string>("asbtranq", "");
-			AzureServiceBusBlockTopic = config.GetOrDefault<string>("asbblockt", "");
-			AzureServiceBusTransactionTopic = config.GetOrDefault<string>("asbtrant", "");
+			var user = config.GetOrDefault<string>("user", "nbxplorer");
+			var pwd = config.GetOrDefault<string>("password", null);
+			if (string.IsNullOrEmpty(user) && string.IsNullOrEmpty(pwd))
+			{
+				UserPassword = new NetworkCredential(user, pwd);
+			}
 
 			return this;
 		}
@@ -209,34 +213,6 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public bool NoAuthentication
-		{
-			get;
-			set;
-		}
-		public string AzureServiceBusConnectionString
-		{
-			get;
-			set;
-		}
-
-		public string AzureServiceBusBlockQueue
-		{
-			get;
-			set;
-		}
-
-		public string AzureServiceBusBlockTopic
-		{
-			get;
-			set;
-		}
-
-		public string AzureServiceBusTransactionQueue
-		{
-			get;
-			set;
-		}
-		public string AzureServiceBusTransactionTopic
 		{
 			get;
 			set;

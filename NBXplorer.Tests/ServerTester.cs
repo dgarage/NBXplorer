@@ -138,6 +138,7 @@ namespace NBXplorer.Tests
 			keyValues.Add(("mingapsize", opts.MinGap.ToString()));
 			keyValues.Add(("maxgapsize", opts.MaxGap.ToString()));
 			keyValues.Add(("postgres", connectionString));
+			keyValues.Add(("nocreatedb", "0"));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 			keyValues.Add(("asbcnstr", AzureServiceBusTestConfig.ConnectionString));

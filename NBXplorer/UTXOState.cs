@@ -23,6 +23,11 @@ namespace NBXplorer
 			get; set;
 		} = new UTXOByOutpoint();
 
+		public Func<Script[], bool[]> MatchScript
+		{
+			get; set;
+		}
+
 		public HashSet<OutPoint> SpentUTXOs
 		{
 			get; set;
@@ -37,7 +42,6 @@ namespace NBXplorer
 				if(UTXOByOutpoint.ContainsKey(coin.Outpoint))
 				{
 					result = ApplyTransactionResult.Conflict;
-					Conflicts.Add(coin.Outpoint, hash);
 				}
 			}
 
@@ -46,25 +50,17 @@ namespace NBXplorer
 				if(_KnownInputs.Contains(spentOutpoint) || 
 					(!UTXOByOutpoint.ContainsKey(spentOutpoint) && SpentUTXOs.Contains(spentOutpoint)))
 				{
-					if (!IsLockMarker(spentOutpoint))
-					{
-						result = ApplyTransactionResult.Conflict;
-						Conflicts.Add(spentOutpoint, hash);
-					}
+					result = ApplyTransactionResult.Conflict;
 				}
 			}
 			if(result == ApplyTransactionResult.Conflict)
 				return result;
 
-			if(!trackedTransaction.IsLockUTXO())
-				_TransactionTimes.Add(trackedTransaction.FirstSeen);
+			_TransactionTimes.Add(trackedTransaction.FirstSeen);
 
-			if (!ExcludeLocksUTXOs || !trackedTransaction.IsLockUTXO())
+			foreach(var coin in trackedTransaction.ReceivedCoins)
 			{
-				foreach (var coin in trackedTransaction.ReceivedCoins)
-				{
-					UTXOByOutpoint.TryAdd(coin.Outpoint, coin);
-				}
+				UTXOByOutpoint.TryAdd(coin.Outpoint, coin);
 			}
 
 			if (trackedTransaction.ReceivedCoins.Count == 0 && trackedTransaction.Transaction != null)
@@ -80,12 +76,6 @@ namespace NBXplorer
 			}
 			return result;
 		}
-
-		private static bool IsLockMarker(OutPoint spentOutpoint)
-		{
-			return new OutPoint(uint256.One, uint.MaxValue) == spentOutpoint;
-		}
-
 		HashSet<OutPoint> _KnownInputs = new HashSet<OutPoint>();
 		List<DateTimeOffset> _TransactionTimes = new List<DateTimeOffset>();
 		public DateTimeOffset? GetQuarterTransactionTime()
@@ -98,22 +88,31 @@ namespace NBXplorer
 			return times[quarter];
 		}
 
-		public MultiValueDictionary<OutPoint, uint256> Conflicts
-		{
-			get; set;
-		} = new MultiValueDictionary<OutPoint, uint256>();
-
-		public bool ExcludeLocksUTXOs { get; internal set; }
 		public UTXOState Snapshot()
 		{
 			return new UTXOState()
 			{
 				UTXOByOutpoint = new UTXOByOutpoint(UTXOByOutpoint),
-				Conflicts = new MultiValueDictionary<OutPoint, uint256>(Conflicts),
 				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
 				_KnownInputs = new HashSet<OutPoint>(_KnownInputs),
 				_TransactionTimes = new List<DateTimeOffset>(_TransactionTimes)
 			};
+		}
+
+		public static UTXOState operator-(UTXOState a, UTXOState b)
+		{
+			UTXOState result = new UTXOState();
+			foreach (var utxo in a.UTXOByOutpoint)
+			{
+				if (!b.UTXOByOutpoint.ContainsKey(utxo.Key))
+					result.UTXOByOutpoint.TryAdd(utxo.Key, utxo.Value);
+			}
+			foreach (var utxo in b.UTXOByOutpoint)
+			{
+				if (!a.UTXOByOutpoint.ContainsKey(utxo.Key))
+					result.SpentUTXOs.Add(utxo.Key);
+			}
+			return result;
 		}
 	}
 }

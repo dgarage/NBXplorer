@@ -364,11 +364,12 @@ namespace NBXplorer
 
 			if (changed)
 			{
+				if (oldState == BitcoinDWaiterState.NotStarted)
+					NetworkInfo = await _RPCWithTimeout.GetNetworkInfoAsync();
 				_EventAggregator.Publish(new BitcoinDStateChangedEvent(_Network, oldState, State));
 				if (State == BitcoinDWaiterState.Ready)
 				{
 					await File.WriteAllTextAsync(RPCReadyFile, NBitcoin.Utils.DateTimeToUnixTime(DateTimeOffset.UtcNow).ToString());
-					NetworkInfo = await _RPCWithTimeout.GetNetworkInfoAsync();
 				}
 			}
 			if (State != BitcoinDWaiterState.Ready)
@@ -591,23 +592,6 @@ namespace NBXplorer
 			catch (RPCException r) when (r.RPCCode == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
 			{
 				return false;
-			}
-		}
-
-		private static async Task WaitConnected(NodesGroup group)
-		{
-			TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
-			EventHandler<NodeEventArgs> waitingConnected = null;
-			waitingConnected = (a, b) =>
-			{
-				tcs.TrySetResult(true);
-				group.ConnectedNodes.Added -= waitingConnected;
-			};
-			group.ConnectedNodes.Added += waitingConnected;
-			CancellationTokenSource cts = new CancellationTokenSource(5000);
-			using (cts.Token.Register(() => tcs.TrySetCanceled()))
-			{
-				await tcs.Task;
 			}
 		}
 

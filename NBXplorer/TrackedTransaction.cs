@@ -10,6 +10,10 @@ using static NBXplorer.Repository;
 namespace NBXplorer{
 	public class TrackedTransaction
 	{
+		/// <summary>
+		/// Careful, this field is not persisted
+		/// </summary>
+		public string UnlockId { get; set; }
 		class CoinOutpointEqualityComparer : IEqualityComparer<Coin>
 		{
 
@@ -104,7 +108,10 @@ namespace NBXplorer{
 				if (KnownKeyPathMapping.ContainsKey(output.ScriptPubKey) || scriptPubKey == output.ScriptPubKey)
 					ReceivedCoins.Add(new Coin(new OutPoint(Key.TxId, i), output));
 			}
-			SpentOutpoints.AddRange(Transaction.Inputs.Select(input => input.PrevOut));
+			if (!Transaction.IsCoinBase)
+				SpentOutpoints.AddRange(Transaction.Inputs.Select(input => input.PrevOut));
+			if (this.IsLockUTXO() && SpentOutpoints.Count > 0) // Remove the lock marker
+				SpentOutpoints.Remove(Transaction.Inputs[0].PrevOut);
 		}
 
 		public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; } = new Dictionary<Script, KeyPath>();
@@ -129,7 +136,7 @@ namespace NBXplorer{
 		{
 			get; set;
 		}
-
+		public bool IsCoinBase => Transaction?.IsCoinBase is true;
 
 		public TrackedTransaction Prune()
 		{

@@ -1,27 +1,57 @@
 {
-    "profiles": {
-        "Docker-Regtest": {
-            "commandName": "Project",
-            "environmentVariables": {
-                "NBXPLORER_NETWORK": "regtest",
-                "NBXPLORER_POSTGRES": "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer",
-                "ASPNETCORE_ENVIRONMENT": "Development",
-                "NBXPLORER_CHAINS": "btc,ltc",
+  "profiles": {
+    "Docker-Regtest": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "NBXPLORER_NETWORK": "regtest",
+        "NBXPLORER_POSTGRES": "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer",
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "NBXPLORER_CHAINS": "btc,ltc",
 
-                "NBXPLORER_BTCNODEENDPOINT": "127.0.0.1:43793",
-                "NBXPLORER_BTCRPCURL": "http://127.0.0.1:43792/",
-                "NBXPLORER_BTCRPCUSER": "ceiwHEbqWI83",
-                "NBXPLORER_BTCRPCPASSWORD": "DwubwWsoo3",
+        "NBXPLORER_BTCNODEENDPOINT": "127.0.0.1:43793",
+        "NBXPLORER_BTCRPCURL": "http://127.0.0.1:43792/",
+        "NBXPLORER_BTCRPCUSER": "ceiwHEbqWI83",
+        "NBXPLORER_BTCRPCPASSWORD": "DwubwWsoo3",
 
-                "NBXPLORER_LTCNODEENDPOINT": "127.0.0.1:43714",
-                "NBXPLORER_LTCRPCURL": "http://127.0.0.1:43713/",
-                "NBXPLORER_LTCRPCUSER": "ceiwHEbqWI83",
-                "NBXPLORER_LTCRPCPASSWORD": "DwubwWsoo3",
+        "NBXPLORER_LTCNODEENDPOINT": "127.0.0.1:43714",
+        "NBXPLORER_LTCRPCURL": "http://127.0.0.1:43713/",
+        "NBXPLORER_LTCRPCUSER": "ceiwHEbqWI83",
+        "NBXPLORER_LTCRPCPASSWORD": "DwubwWsoo3",
 
-                "NBXPLORER_NOAUTH": "0",
-                "ASPNETCORE_URLS": "http://127.0.0.1:14152/"
-            },
-            "applicationUrl": "http://127.0.0.1:14152/"
-        }
+        "NBXPLORER_NOAUTH": "0",
+        "ASPNETCORE_URLS": "http://127.0.0.1:14152/"
+      },
+      "applicationUrl": "http://127.0.0.1:14152/"
+    },
+    "Remote-Testnet": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "NBXPLORER_LTCRPCPASSWORD": "M3t4c0",
+        "NBXPLORER_NETWORK": "testnet",
+        "NBXPLORER_BTCSTARTHEIGHT": "1514037",
+        "NBXPLORER_BCHSTARTHEIGHT": "1301564",
+        "NBXPLORER_LTCSTARTHEIGHT": "1078217",
+        "NBXPLORER_BTCRESCAN": "1",
+        "NBXPLORER_BCHRESCAN": "1",
+        "NBXPLORER_LTCRESCAN": "1",
+        "NBXPLORER_BCHRPCPASSWORD": "M3t4c0",
+        "NBXPLORER_LTCNODEENDPOINT": "92.104.44.12:19335",
+        "NBXPLORER_BTCRPCUSER": "metaco",
+        "NBXPLORER_POSTGRES": "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer",
+        "NBXPLORER_LTCRPCUSER": "admin",
+        "NBXPLORER_BTCRPCURL": "https://silo-testnet-silo-btc.westeurope.cloudapp.azure.com/",
+        "NBXPLORER_BCHNODEENDPOINT": "92.104.44.12:18333",
+        "NBXPLORER_LTCRPCURL": "http://92.104.44.12:19332",
+        "NBXPLORER_NOAUTH": "0",
+        "NBXPLORER_CHAINS": "bch",
+        "ASPNETCORE_URLS": "http://127.0.0.1:14152/",
+        "NBXPLORER_BCHRPCUSER": "admin",
+        "NBXPLORER_BTCRPCPASSWORD": "metaco",
+        "NBXPLORER_BTCNODEENDPOINT": "silo-testnet-silo-btc.westeurope.cloudapp.azure.com:12360",
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "NBXPLORER_BCHRPCURL": "http://92.104.44.12:18332"
+      },
+      "applicationUrl": "http://127.0.0.1:14152/"
     }
+  }
 }

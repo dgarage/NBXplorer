@@ -99,24 +99,37 @@ namespace NBXplorer.DB
 				try
 				{
 					connection.Open();
+					Logs.Explorer.LogInformation($"Connection to DB succeed");
 				}
 				catch (PostgresException ex) when (ex.SqlState == "3D000")
 				{
+					Logs.Explorer.LogInformation($"Connection to DB failed, trying to create the database");
 					var oldDB = connString.Database;
 					connString.Database = null;
 					using (var createDBConnect = new NpgsqlConnection(connString.ConnectionString))
 					{
-						createDBConnect.Open();
-						var createDB = createDBConnect.CreateCommand();
-						// We need LC_CTYPE set to C to get proper indexing on the columns when making
-						// partial pattern queries on the primary key (LIKE operator)
-						createDB.CommandText = $"CREATE DATABASE \"{oldDB}\" " +
-							$"LC_COLLATE = 'C' " +
-							$"TEMPLATE=template0 " +
-							$"LC_CTYPE = 'C' " +
-							$"ENCODING = 'UTF8'";
-						createDB.ExecuteNonQuery();
-						connection.Open();
+						try
+						{
+							createDBConnect.Open();
+						
+							var createDB = createDBConnect.CreateCommand();
+							// We need LC_CTYPE set to C to get proper indexing on the columns when making
+							// partial pattern queries on the primary key (LIKE operator)
+							createDB.CommandText = $"CREATE DATABASE \"{oldDB}\" " +
+								$"LC_COLLATE = 'C' " +
+								$"TEMPLATE=template0 " +
+								$"LC_CTYPE = 'C' " +
+								$"ENCODING = 'UTF8'";
+							createDB.ExecuteNonQuery();
+							Logs.Explorer.LogInformation($"Database created");
+							connection.Open();
+							Logs.Explorer.LogInformation($"Connection to DB succeed");
+						}
+						catch (PostgresException ex2) when (ex2.SqlState == "3D000" || ex2.SqlState == "42501")
+						{
+							Logs.Explorer.LogCritical($"The database {connString.Database} does not exists, and this user does not have enough priviledge to create it.");
+							throw;
+						}
 					}
 				}
 				catch (PostgresException ex) when (ex.SqlState == "57P03")
@@ -126,6 +139,8 @@ namespace NBXplorer.DB
 					goto retry;
 				}
 
+				int retryCount = 0;
+				retry2:
 				var command = connection.CreateCommand();
 				command.CommandText = String.Join(";", new[]
 				{
@@ -133,7 +148,24 @@ namespace NBXplorer.DB
 					"CREATE TABLE IF NOT EXISTS \"Events\" ( \"id\" BIGSERIAL PRIMARY KEY, \"data\" bytea NOT NULL, \"event_id\" VARCHAR(40) UNIQUE)",
 					"CREATE OR REPLACE FUNCTION insert_event(\"data_arg\" bytea, \"event_id_arg\" VARCHAR(40)) RETURNS BIGINT AS $$\r\nDECLARE\r\n\t\"inserted_id\" BIGINT;\r\nBEGIN\r\n\tPERFORM pg_advisory_xact_lock(183620);\r\n\tINSERT INTO \"Events\" (\"data\", \"event_id\") VALUES (\"data_arg\", \"event_id_arg\") \r\n\t\tRETURNING \"id\" INTO \"inserted_id\";\r\n\tRETURN \"inserted_id\";\r\nEXCEPTION  WHEN unique_violation THEN\r\n\tSELECT \"id\" FROM \"Events\" WHERE \"event_id\" = \"event_id_arg\" INTO \"inserted_id\";\r\n\tRETURN \"inserted_id\";\r\nEND;\r\n$$ LANGUAGE PLpgSQL;\r\n"
 				});
-				command.ExecuteNonQuery();
+				try
+				{
+					Logs.Explorer.LogInformation($"Ensure the schema is created...");
+					command.ExecuteNonQuery();
+				}
+				catch (PostgresException ex) when (ex.SqlState == "42501")
+				{
+					Logs.Explorer.LogCritical("Impossible to create the schema, the user does not have permission");
+					throw;
+				}
+				catch (PostgresException) when (retryCount < 5)
+				{
+					retryCount++;
+					Logs.Explorer.LogInformation($"Schema creation failed, retrying again soon...");
+					Thread.Sleep(((int)(NBitcoin.RandomUtils.GetUInt32() % 10)) * 1000);
+					goto retry2;
+				}
+
 			}
 		}
 
