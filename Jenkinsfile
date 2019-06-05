@@ -8,7 +8,7 @@ pipeline {
       DOCKER_REGISTRY = 'registry.internal.m3t4c0.com'
       DOCKER_REGISTRY_BETA = 'registry.metaco.network'
       DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE = credentials('DOCKER_CONTENT_TRUST_ROOT_PASSPHRASE')
-      DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE = ('DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE_NBXPLORER')
+      DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE = credentials('DOCKER_CONTENT_TRUST_REPOSITORY_PASSPHRASE_NBXPLORER')
       DOCKER_CONTENT_TRUST_REPOSITORY = 'registry.metaco.network/silo/nbxplorer'
       DOCKER_SIGNER_IMG = 'registry.internal.m3t4c0.com/devops/docker:signer'
       DOCKER_CONTENT_TRUST_SERVER = 'https://registry.metaco.network:4443'
