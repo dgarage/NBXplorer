@@ -158,7 +158,7 @@ namespace NBXplorer.DB
 					Logs.Explorer.LogCritical("Impossible to create the schema, the user does not have permission");
 					throw;
 				}
-				catch (PostgresException ex) when (retryCount < 5)
+				catch (PostgresException) when (retryCount < 5)
 				{
 					retryCount++;
 					Logs.Explorer.LogInformation($"Schema creation failed, retrying again soon...");
