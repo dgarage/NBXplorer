@@ -139,6 +139,8 @@ namespace NBXplorer.DB
 					goto retry;
 				}
 
+				int retryCount = 0;
+				retry2:
 				var command = connection.CreateCommand();
 				command.CommandText = String.Join(";", new[]
 				{
@@ -155,6 +157,13 @@ namespace NBXplorer.DB
 				{
 					Logs.Explorer.LogCritical("Impossible to create the schema, the user does not have permission");
 					throw;
+				}
+				catch (PostgresException ex) when (retryCount < 5)
+				{
+					retryCount++;
+					Logs.Explorer.LogInformation($"Schema creation failed, retrying again soon...");
+					Thread.Sleep(((int)(NBitcoin.RandomUtils.GetUInt32() % 10)) * 1000);
+					goto retry2;
 				}
 
 			}
