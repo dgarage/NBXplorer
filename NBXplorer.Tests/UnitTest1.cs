@@ -751,11 +751,12 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
-		public void ShowRBFedTransaction()
+		public async Task ShowRBFedTransaction()
 		{
 			using (var tester = ServerTester.Create())
 			{
 				var bob = tester.CreateDerivationStrategy();
+				var bobSource = new DerivationSchemeTrackedSource(bob);
 				tester.Client.Track(bob);
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 
@@ -790,6 +791,44 @@ namespace NBXplorer.Tests
 				Assert.Equal(replacement.GetHash(), txs.UnconfirmedTransactions.Transactions[0].TransactionId);
 				Assert.Single(txs.ReplacedTransactions.Transactions);
 				Assert.Equal(tx1, txs.ReplacedTransactions.Transactions[0].TransactionId);
+
+				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should fail");
+				var rebroadcaster = tester.GetService<RebroadcasterHostedService>();
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { tx1 });
+				var rebroadcast = await rebroadcaster.RebroadcastAll();
+				Assert.Single(rebroadcast.UnknownFailure);
+
+				Logs.Tester.LogInformation("Rebroadcasting the replacement should succeed");
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				Assert.Single(rebroadcast.Rebroadcasted); // Success
+
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+
+				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should clean one tx record (the unconf one) from the list");
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				// The unconf record should be cleaned
+				var cleaned = Assert.Single(rebroadcast.Cleaned);
+				Assert.Null(cleaned.BlockHash);
+				// Only one missing input, as there is only one txid
+				Assert.Single(rebroadcast.MissingInputs);
+
+				// Nothing should be cleaned now
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				Assert.Empty(rebroadcast.Cleaned);
+
+				Logs.Tester.LogInformation("Let's orphan the block, and check that the orphaned tx is cleaned");
+				var orphanedBlock = tester.RPC.GetBestBlockHash();
+				tester.RPC.InvalidateBlock(orphanedBlock);
+
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				cleaned = Assert.Single(rebroadcast.Cleaned);
+				Assert.Equal(orphanedBlock, cleaned.BlockHash);
 			}
 		}
 

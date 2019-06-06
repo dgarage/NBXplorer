@@ -38,9 +38,10 @@ namespace NBXplorer.Controllers
 			RepositoryProvider repositoryProvider,
 			ChainProvider chainProvider,
 			EventAggregator eventAggregator,
-			BitcoinDWaitersAccessor waiters,
+			BitcoinDWaiters waiters,
 			AddressPoolServiceAccessor addressPoolService,
 			ScanUTXOSetServiceAccessor scanUTXOSetService,
+			RebroadcasterHostedService rebroadcaster,
 			IOptions<MvcJsonOptions> jsonOptions)
 		{
 			ExplorerConfiguration = explorerConfiguration;
@@ -49,7 +50,8 @@ namespace NBXplorer.Controllers
 			_SerializerSettings = jsonOptions.Value.SerializerSettings;
 			_EventAggregator = eventAggregator;
 			ScanUTXOSetService = scanUTXOSetService.Instance;
-			Waiters = waiters.Instance;
+			Waiters = waiters;
+			Rebroadcaster = rebroadcaster;
 			AddressPoolService = addressPoolService.Instance;
 		}
 		EventAggregator _EventAggregator;
@@ -58,6 +60,7 @@ namespace NBXplorer.Controllers
 		{
 			get; set;
 		}
+		public RebroadcasterHostedService Rebroadcaster { get; }
 		public AddressPoolService AddressPoolService
 		{
 			get;
@@ -858,19 +861,8 @@ namespace NBXplorer.Controllers
 
 			var annotatedTransactions = new AnnotatedTransactionCollection(transactions, trackedSource, chain, repo.Network.NBitcoinNetwork);
 
-
-			var cleaned = annotatedTransactions.CleanupTransactions.Where(c => (DateTimeOffset.UtcNow - c.Record.Inserted) > TimeSpan.FromDays(1.0)).Select(c => c.Record).ToArray();
-			if (cleaned.Length != 0)
-			{
-				foreach (var tx in cleaned)
-				{
-					_EventAggregator.Publish(new EvictedTransactionEvent(tx.TransactionHash));
-				}
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-				// Can be eventually consistent
-				repo.CleanTransactions(annotatedTransactions.TrackedSource, cleaned.ToList());
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-			}
+			Rebroadcaster.RebroadcastPeriodically(repo.Network, trackedSource, annotatedTransactions.UnconfirmedTransactions
+																				.Concat(annotatedTransactions.CleanupTransactions).Select(c => c.Record.Key).ToArray());
 			return annotatedTransactions;
 		}
 

@@ -172,6 +172,11 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		public T GetService<T>()
+		{
+			return ((T)(Host.Services.GetService(typeof(T))));
+		}
+
 		public ExplorerConfiguration Configuration { get; private set;  }
 
 		ExplorerClient _Client;

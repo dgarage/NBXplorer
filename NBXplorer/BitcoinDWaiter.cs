@@ -27,24 +27,12 @@ namespace NBXplorer
 		Ready
 	}
 
-	/// <summary>
-	/// Hack, ASP.NET core DI does not support having one singleton for multiple interfaces
-	/// </summary>
-	public class BitcoinDWaitersAccessor
-	{
-		public BitcoinDWaiters Instance
-		{
-			get; set;
-		}
-	}
-
 	public class BitcoinDWaiters : IHostedService
 	{
 		Dictionary<string, BitcoinDWaiter> _Waiters;
 		private readonly RepositoryProvider repositoryProvider;
 
 		public BitcoinDWaiters(
-							BitcoinDWaitersAccessor accessor,
 							AddressPoolServiceAccessor addressPool,
 								NBXplorerNetworkProvider networkProvider,
 							  ChainProvider chains,
@@ -53,7 +41,6 @@ namespace NBXplorer
 							  RPCClientProvider rpcProvider,
 							  EventAggregator eventAggregator)
 		{
-			accessor.Instance = this;
 			_Waiters = networkProvider
 				.GetAll()
 				.Select(s => (Repository: repositoryProvider.GetRepository(s),

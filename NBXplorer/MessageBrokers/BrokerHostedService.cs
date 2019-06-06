@@ -25,11 +25,11 @@ namespace NBXplorer.MessageBrokers
 		ExplorerConfiguration _config;
 		JsonSerializerSettings _serializerSettings;
 
-		public BrokerHostedService(BitcoinDWaitersAccessor waiters, ChainProvider chainProvider, EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, IOptions<MvcJsonOptions> jsonOptions)
+		public BrokerHostedService(BitcoinDWaiters waiters, ChainProvider chainProvider, EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, IOptions<MvcJsonOptions> jsonOptions)
 		{
 			_EventAggregator = eventAggregator;
 			ChainProvider = chainProvider;
-			Waiters = waiters.Instance;
+			Waiters = waiters;
 			_config = config.Value;
 			_serializerSettings = jsonOptions.Value.SerializerSettings;
 		}
