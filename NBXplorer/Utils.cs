@@ -90,7 +90,7 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(getValue));
 			solveTies = solveTies ?? Comparer<T>.Default;
 			List<TValue> result = new List<TValue>(nodes.Count);
-			HashSet<TDepend> allKeys = new HashSet<TDepend>();
+			HashSet<TDepend> allKeys = new HashSet<TDepend>(nodes.Count);
 			var noDependencies = new SortedDictionary<T, HashSet<TDepend>>(solveTies);
 
 			foreach (var node in nodes)
