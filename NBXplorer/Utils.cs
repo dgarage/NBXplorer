@@ -9,102 +9,119 @@ namespace NBXplorer
 {
 	public static class Utils
 	{
+		class AnnotatedTransactionComparer : IComparer<AnnotatedTransaction>
+		{
+			AnnotatedTransactionComparer()
+			{
+
+			}
+			private static readonly AnnotatedTransactionComparer _Instance = new AnnotatedTransactionComparer();
+			public static AnnotatedTransactionComparer Instance
+			{
+				get
+				{
+					return _Instance;
+				}
+			}
+			public int Compare(AnnotatedTransaction a, AnnotatedTransaction b)
+			{
+				var txIdCompare = a.Record.TransactionHash < b.Record.TransactionHash ? -1 :
+								  a.Record.TransactionHash > b.Record.TransactionHash ? 1 : 0;
+				var seenCompare = (a.Record.FirstSeen < b.Record.FirstSeen ? -1 :
+								a.Record.FirstSeen > b.Record.FirstSeen ? 1 : txIdCompare);
+				if (a.Height is int ah)
+				{
+					// Both confirmed, tie on height then firstSeen
+					if (b.Height is int bh)
+					{
+						var heightCompare = (ah < bh ? -1 :
+							   ah > bh ? 1 : txIdCompare);
+						return ah == bh ?
+							   // same height? use firstSeen on firstSeen
+							   seenCompare :
+							   // else tie on the height
+							   heightCompare;
+					}
+					else
+					{
+						return -1;
+					}
+				}
+				else if (b.Height is int bh)
+				{
+					return 1;
+				}
+				// Both unconfirmed, tie on firstSeen
+				else
+				{
+					return seenCompare;
+				}
+			}
+		}
 		public static ICollection<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
 		{
 			return transactions.TopologicalSort(
 				dependsOn: t => t.Record.SpentOutpoints.Select(o => o.Hash),
 				getKey: t => t.Record.TransactionHash,
 				getValue: t => t,
-				solveTies: (a, b) =>
-				{
-					if (a.Height is int ah)
-					{
-						// Both confirmed, tie on height then firstSeen
-						if (b.Height is int bh)
-						{
-							return ah == bh ?
-								   // same height? tire on firstSeen
-								   (a.Record.FirstSeen < b.Record.FirstSeen ? a : b) :
-								   // else tie on the height
-								   ah < bh ? a : b;
-						}
-						else
-						{
-							return a;
-						}
-					}
-					else if (b.Height is int bh)
-					{
-						return b;
-					}
-					// Both unconfirmed, tie on firstSeen
-					else
-					{
-						return (a.Record.FirstSeen < b.Record.FirstSeen ? a : b);
-					}
-				});
+				solveTies: AnnotatedTransactionComparer.Instance);
 		}
-		public static ICollection<T> TopologicalSort<T>(this ICollection<T> nodes, Func<T, IEnumerable<T>> dependsOn)
+		public static List<T> TopologicalSort<T>(this ICollection<T> nodes, Func<T, IEnumerable<T>> dependsOn)
 		{
 			return nodes.TopologicalSort(dependsOn, k => k, k => k);
 		}
 
-		public static ICollection<T> TopologicalSort<T, TDepend>(this ICollection<T> nodes, Func<T, IEnumerable<TDepend>> dependsOn, Func<T, TDepend> getKey)
+		public static List<T> TopologicalSort<T, TDepend>(this ICollection<T> nodes, Func<T, IEnumerable<TDepend>> dependsOn, Func<T, TDepend> getKey)
 		{
 			return nodes.TopologicalSort(dependsOn, getKey, o => o);
 		}
 
-		public static ICollection<TValue> TopologicalSort<T, TDepend, TValue>(this ICollection<T> nodes,
+		public static List<TValue> TopologicalSort<T, TDepend, TValue>(this ICollection<T> nodes,
 												Func<T, IEnumerable<TDepend>> dependsOn,
 												Func<T, TDepend> getKey,
 												Func<T, TValue> getValue,
-												Func<T,T,T> solveTies = null)
+												IComparer<T> solveTies = null)
 		{
 			if (nodes.Count == 0)
-				return Array.Empty<TValue>();
+				return new List<TValue>();
 			if (getKey == null)
 				throw new ArgumentNullException(nameof(getKey));
 			if (getValue == null)
 				throw new ArgumentNullException(nameof(getValue));
-			solveTies = solveTies ?? new Func<T, T, T>((aa, bb) => aa);
+			solveTies = solveTies ?? Comparer<T>.Default;
 			List<TValue> result = new List<TValue>(nodes.Count);
-			HashSet<TDepend> allKeys = new HashSet<TDepend>(nodes.Count);
+			HashSet<TDepend> allKeys = new HashSet<TDepend>();
+			var noDependencies = new SortedDictionary<T, HashSet<TDepend>>(solveTies);
+
 			foreach (var node in nodes)
 				allKeys.Add(getKey(node));
-			var elems = nodes.ToDictionary(node => node,
+			var dependenciesByValues = nodes.ToDictionary(node => node,
 										   node => new HashSet<TDepend>(dependsOn(node).Where(n => allKeys.Contains(n))));
-			var elem = elems.FirstOrDefault(x => x.Value.Count == 0);
-			if (elem.Key == null)
+			foreach (var e in dependenciesByValues.Where(x => x.Value.Count == 0))
+			{
+				noDependencies.Add(e.Key, e.Value);
+			}
+			if (noDependencies.Count == 0)
 			{
 				throw new InvalidOperationException("Impossible to topologically sort a cyclic graph");
 			}
-			while (elems.Count > 0)
+			while (noDependencies.Count > 0)
 			{
-				elems.Remove(elem.Key);
-				result.Add(getValue(elem.Key));
-				KeyValuePair<T, HashSet<TDepend>>? nextElement = null;
-				foreach (var selem in elems)
+				var nodep = noDependencies.First();
+				noDependencies.Remove(nodep.Key);
+				dependenciesByValues.Remove(nodep.Key);
+
+				var elemKey = getKey(nodep.Key);
+				result.Add(getValue(nodep.Key));
+				foreach (var selem in dependenciesByValues)
 				{
-					selem.Value.Remove(getKey(elem.Key));
-					if (selem.Value.Count == 0)
-					{
-						if (nextElement is null)
-						{
-							nextElement = selem;
-						}
-						else
-						{
-							var preferred = solveTies(selem.Key, nextElement.Value.Key);
-							nextElement = ReferenceEquals(preferred, selem.Key) ? selem : nextElement;
-						}
-					}
+					if (selem.Value.Remove(elemKey) && selem.Value.Count == 0)
+						noDependencies.Add(selem.Key, selem.Value);
 				}
-				if (nextElement is KeyValuePair<T, HashSet<TDepend>> n)
-					elem = n;
-				else if (elems.Count != 0)
-				{
-					throw new InvalidOperationException("Impossible to topologically sort a cyclic graph");
-				}
+			}
+			if (dependenciesByValues.Count != 0)
+			{
+				throw new InvalidOperationException("Impossible to topologically sort a cyclic graph");
 			}
 			return result;
 		}

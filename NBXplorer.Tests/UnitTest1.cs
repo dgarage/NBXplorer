@@ -2294,6 +2294,58 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanTopologicalSortRecords()
+		{
+			var key = new BitcoinExtKey(new ExtKey(), Network.RegTest);
+			var pubkey = new DerivationStrategyFactory(Network.RegTest).Parse($"{key.Neuter().ToString()}");
+			var trackedSource = new DerivationSchemeTrackedSource(pubkey);
+			var tx1 = CreateRandomAnnotatedTransaction(trackedSource, 1);
+			var tx2 = CreateRandomAnnotatedTransaction(trackedSource, 2);
+			AssertExpectedOrder(new[] { tx1, tx2 }); // tx2 has higher height, so should be after tx1
+
+			tx1 = CreateRandomAnnotatedTransaction(trackedSource, null);
+			tx2 = CreateRandomAnnotatedTransaction(trackedSource, 2);
+			AssertExpectedOrder(new[] { tx2, tx1 }); // tx1 is not confirmed should appear after
+
+			tx1 = CreateRandomAnnotatedTransaction(trackedSource, seen: 1);
+			tx2 = CreateRandomAnnotatedTransaction(trackedSource, seen: 2);
+			AssertExpectedOrder(new[] { tx1, tx2 }); // tx1 has been seen before tx2, thus should be returned first
+
+			tx1 = CreateRandomAnnotatedTransaction(trackedSource, seen: 1);
+			tx2 = CreateRandomAnnotatedTransaction(trackedSource, seen: 2);
+
+			var outpoint = new OutPoint(tx2.Record.Key.TxId, 0);
+			tx1.Record.SpentOutpoints.Add(outpoint);
+			tx2.Record.ReceivedCoins.Add(new Coin(outpoint, new TxOut()));
+			AssertExpectedOrder(new[] { tx2, tx1 }); // tx1 depends on tx2 so even if tx1 has been seen first, topological sort should be used
+		}
+
+		private void AssertExpectedOrder(AnnotatedTransaction[] annotatedTransaction)
+		{
+			var input = annotatedTransaction.ToArray();
+			for (int u = 0; u < 4; u++)
+			{
+				NBitcoin.Utils.Shuffle(input);
+				var result = input.TopologicalSort().ToArray();
+				Assert.Equal(annotatedTransaction.Length, result.Length);
+				for (int i = 0; i < annotatedTransaction.Length; i++)
+				{
+					Assert.Equal(annotatedTransaction[i], result[i]);
+				}
+			}
+		}
+
+		private static AnnotatedTransaction CreateRandomAnnotatedTransaction(DerivationSchemeTrackedSource trackedSource, int? height = null, int? seen = null)
+		{
+			var a = new AnnotatedTransaction(height, new TrackedTransaction(new TrackedTransactionKey(RandomUtils.GetUInt256(), null, true), trackedSource), true);
+			if (seen is int v)
+			{
+				a.Record.FirstSeen = NBitcoin.Utils.UnixTimeToDateTime(v);
+			}
+			return a;
+		}
+
+		[Fact]
 		public void CanTopologicalSortTx()
 		{
 #pragma warning disable CS0618 // Type or member is obsolete
