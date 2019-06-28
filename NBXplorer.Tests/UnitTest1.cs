@@ -2299,9 +2299,12 @@ namespace NBXplorer.Tests
 			var key = new BitcoinExtKey(new ExtKey(), Network.RegTest);
 			var pubkey = new DerivationStrategyFactory(Network.RegTest).Parse($"{key.Neuter().ToString()}");
 			var trackedSource = new DerivationSchemeTrackedSource(pubkey);
+
+			// The topological sorting should always return the most buried transactions first
+			// So if a transaction is deemed younger, it should be returned after
 			var tx1 = CreateRandomAnnotatedTransaction(trackedSource, 1);
 			var tx2 = CreateRandomAnnotatedTransaction(trackedSource, 2);
-			AssertExpectedOrder(new[] { tx1, tx2 }); // tx2 has higher height, so should be after tx1
+			AssertExpectedOrder(new[] { tx1, tx2 }); // tx2 has higher height (younger) so after tx1
 
 			tx1 = CreateRandomAnnotatedTransaction(trackedSource, null);
 			tx2 = CreateRandomAnnotatedTransaction(trackedSource, 2);
@@ -2317,20 +2320,29 @@ namespace NBXplorer.Tests
 			var outpoint = new OutPoint(tx2.Record.Key.TxId, 0);
 			tx1.Record.SpentOutpoints.Add(outpoint);
 			tx2.Record.ReceivedCoins.Add(new Coin(outpoint, new TxOut()));
-			AssertExpectedOrder(new[] { tx2, tx1 }); // tx1 depends on tx2 so even if tx1 has been seen first, topological sort should be used
+			AssertExpectedOrder(new[] { tx2, tx1 }, true); // tx1 depends on tx2 so even if tx1 has been seen first, topological sort should be used
 		}
 
-		private void AssertExpectedOrder(AnnotatedTransaction[] annotatedTransaction)
+		private void AssertExpectedOrder(AnnotatedTransaction[] annotatedTransaction, bool skipDictionaryTest = false)
 		{
 			var input = annotatedTransaction.ToArray();
 			for (int u = 0; u < 4; u++)
 			{
 				NBitcoin.Utils.Shuffle(input);
 				var result = input.TopologicalSort().ToArray();
+				var dico = new SortedDictionary<AnnotatedTransaction, AnnotatedTransaction>(AnnotatedTransactionComparer.OldToYoung);
+				foreach (var tx in annotatedTransaction)
+				{
+					dico.Add(tx, tx);
+				}
+				var result2 = dico.Select(o => o.Value).ToArray();
 				Assert.Equal(annotatedTransaction.Length, result.Length);
+				Assert.Equal(annotatedTransaction.Length, result2.Length);
 				for (int i = 0; i < annotatedTransaction.Length; i++)
 				{
 					Assert.Equal(annotatedTransaction[i], result[i]);
+					if (!skipDictionaryTest)
+						Assert.Equal(annotatedTransaction[i], result2[i]);
 				}
 			}
 		}

@@ -9,62 +9,13 @@ namespace NBXplorer
 {
 	public static class Utils
 	{
-		class AnnotatedTransactionComparer : IComparer<AnnotatedTransaction>
-		{
-			AnnotatedTransactionComparer()
-			{
-
-			}
-			private static readonly AnnotatedTransactionComparer _Instance = new AnnotatedTransactionComparer();
-			public static AnnotatedTransactionComparer Instance
-			{
-				get
-				{
-					return _Instance;
-				}
-			}
-			public int Compare(AnnotatedTransaction a, AnnotatedTransaction b)
-			{
-				var txIdCompare = a.Record.TransactionHash < b.Record.TransactionHash ? -1 :
-								  a.Record.TransactionHash > b.Record.TransactionHash ? 1 : 0;
-				var seenCompare = (a.Record.FirstSeen < b.Record.FirstSeen ? -1 :
-								a.Record.FirstSeen > b.Record.FirstSeen ? 1 : txIdCompare);
-				if (a.Height is int ah)
-				{
-					// Both confirmed, tie on height then firstSeen
-					if (b.Height is int bh)
-					{
-						var heightCompare = (ah < bh ? -1 :
-							   ah > bh ? 1 : txIdCompare);
-						return ah == bh ?
-							   // same height? use firstSeen on firstSeen
-							   seenCompare :
-							   // else tie on the height
-							   heightCompare;
-					}
-					else
-					{
-						return -1;
-					}
-				}
-				else if (b.Height is int bh)
-				{
-					return 1;
-				}
-				// Both unconfirmed, tie on firstSeen
-				else
-				{
-					return seenCompare;
-				}
-			}
-		}
 		public static ICollection<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
 		{
 			return transactions.TopologicalSort(
 				dependsOn: t => t.Record.SpentOutpoints.Select(o => o.Hash),
 				getKey: t => t.Record.TransactionHash,
 				getValue: t => t,
-				solveTies: AnnotatedTransactionComparer.Instance);
+				solveTies: AnnotatedTransactionComparer.OldToYoung);
 		}
 		public static List<T> TopologicalSort<T>(this ICollection<T> nodes, Func<T, IEnumerable<T>> dependsOn)
 		{
