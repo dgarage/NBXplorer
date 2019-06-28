@@ -42,7 +42,7 @@ namespace NBXplorer.Tests
 			if (txIds == null || txIds.Length == 0)
 				return;
 			HashSet<uint256> txidsSet = new HashSet<uint256>(txIds);
-			using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+			using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20)))
 			{
 				while (true)
 				{

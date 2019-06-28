@@ -1287,6 +1287,7 @@ namespace NBXplorer.Tests
 						tester.RPC.EnsureGenerate(1); // Can't have too big chain on unconf
 					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.001m));
 				}
+				Logs.Tester.LogInformation($"Waiting for next block to be mined...");
 				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 				tester.WaitSynchronized();
 
