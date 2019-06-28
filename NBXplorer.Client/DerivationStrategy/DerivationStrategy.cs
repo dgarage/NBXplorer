@@ -54,7 +54,7 @@ namespace NBXplorer.DerivationStrategy
 			_Network = network;
 		}
 
-		readonly Regex MultiSigRegex = new Regex("^(1[0-5]|[1-9])-of(-[1-9A-HJ-NP-Za-km-z]+)+$");
+		readonly Regex MultiSigRegex = new Regex("^(1[0-5]|[1-9])-of(-xpub[1-9A-HJ-NP-Za-km-z]{107})+$");
 		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
 		public DerivationStrategyBase Parse(string str)
 		{
