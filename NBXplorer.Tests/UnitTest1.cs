@@ -1113,7 +1113,7 @@ namespace NBXplorer.Tests
 			using (var tester = ServerTester.Create())
 			{
 				var bob = tester.CreateDerivationStrategy();
-				var bobSource = new DerivationSchemeTrackedSource(bob);
+				var bobSource = new DerivationSchemeTrackedSource(bob, tester.Network);
 				tester.Client.Track(bob);
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 
@@ -2753,7 +2753,7 @@ namespace NBXplorer.Tests
 		{
 			var key = new BitcoinExtKey(new ExtKey(), Network.RegTest);
 			var pubkey = new DerivationStrategyFactory(Network.RegTest).Parse($"{key.Neuter().ToString()}");
-			var trackedSource = new DerivationSchemeTrackedSource(pubkey);
+			var trackedSource = new DerivationSchemeTrackedSource(pubkey, key.Network);
 
 			// The topological sorting should always return the most buried transactions first
 			// So if a transaction is deemed younger, it should be returned after
