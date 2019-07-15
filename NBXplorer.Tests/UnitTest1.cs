@@ -739,6 +739,9 @@ namespace NBXplorer.Tests
 						}
 					}
 			});
+			var globalXPub = psbt2.PSBT.GlobalXPubs[userDerivationScheme.GetExtPubKeys().First().GetWif(tester.Network)];
+			Assert.Equal(new KeyPath("49'/0'"), globalXPub.KeyPath);
+
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 			Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
 			var selfchange = Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Key.GetAddress(segwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy, tester.Network).ScriptPubKey == newAddress.ScriptPubKey)));

@@ -203,6 +203,10 @@ namespace NBXplorer.Controllers
 
 			if (update.DerivationScheme is DerivationStrategyBase)
 			{
+				foreach (var extpub in update.DerivationScheme.GetExtPubKeys().Select(e => e.GetWif(network.NBitcoinNetwork)))
+				{
+					update.PSBT.GlobalXPubs.AddOrReplace(extpub, new RootedKeyPath(extpub, new KeyPath()));
+				}
 				await UpdateHDKeyPathsWitnessAndRedeem(update, repo);
 			}
 
