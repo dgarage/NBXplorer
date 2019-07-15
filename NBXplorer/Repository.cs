@@ -82,6 +82,11 @@ namespace NBXplorer
 			}
 		}
 
+		public IEnumerable<Repository> GetAll()
+		{
+			return _Repositories.Values;
+		}
+
 		public Repository GetRepository(NBXplorerNetwork network)
 		{
 			_Repositories.TryGetValue(network.CryptoCode, out Repository repository);

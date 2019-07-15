@@ -1093,6 +1093,9 @@ namespace NBXplorer.Tests
 						}
 					}
 			});
+			var globalXPub = psbt2.PSBT.GlobalXPubs[userDerivationScheme.GetExtPubKeys().First().GetWif(tester.Network)];
+			Assert.Equal(new KeyPath("49'/0'"), globalXPub.KeyPath);
+
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 			Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
 			var selfchange = Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Key.GetAddress(segwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy, tester.Network).ScriptPubKey == newAddress.ScriptPubKey)));
@@ -1105,11 +1108,12 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
-		public void ShowRBFedTransaction()
+		public async Task ShowRBFedTransaction()
 		{
 			using (var tester = ServerTester.Create())
 			{
 				var bob = tester.CreateDerivationStrategy();
+				var bobSource = new DerivationSchemeTrackedSource(bob);
 				tester.Client.Track(bob);
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 
@@ -1144,6 +1148,44 @@ namespace NBXplorer.Tests
 				Assert.Equal(replacement.GetHash(), txs.UnconfirmedTransactions.Transactions[0].TransactionId);
 				Assert.Single(txs.ReplacedTransactions.Transactions);
 				Assert.Equal(tx1, txs.ReplacedTransactions.Transactions[0].TransactionId);
+
+				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should fail");
+				var rebroadcaster = tester.GetService<RebroadcasterHostedService>();
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { tx1 });
+				var rebroadcast = await rebroadcaster.RebroadcastAll();
+				Assert.Single(rebroadcast.UnknownFailure);
+
+				Logs.Tester.LogInformation("Rebroadcasting the replacement should succeed");
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				Assert.Single(rebroadcast.Rebroadcasted); // Success
+
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+
+				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should clean one tx record (the unconf one) from the list");
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				// The unconf record should be cleaned
+				var cleaned = Assert.Single(rebroadcast.Cleaned);
+				Assert.Null(cleaned.BlockHash);
+				// Only one missing input, as there is only one txid
+				Assert.Single(rebroadcast.MissingInputs);
+
+				// Nothing should be cleaned now
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				Assert.Empty(rebroadcast.Cleaned);
+
+				Logs.Tester.LogInformation("Let's orphan the block, and check that the orphaned tx is cleaned");
+				var orphanedBlock = tester.RPC.GetBestBlockHash();
+				tester.RPC.InvalidateBlock(orphanedBlock);
+
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				cleaned = Assert.Single(rebroadcast.Cleaned);
+				Assert.Equal(orphanedBlock, cleaned.BlockHash);
 			}
 		}
 
@@ -1611,6 +1653,7 @@ namespace NBXplorer.Tests
 						tester.RPC.EnsureGenerate(1); // Can't have too big chain on unconf
 					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.001m));
 				}
+				Logs.Tester.LogInformation($"Waiting for next block to be mined...");
 				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 				tester.WaitSynchronized();
 
@@ -2703,6 +2746,70 @@ namespace NBXplorer.Tests
 			NBitcoin.Utils.Shuffle(arr);
 			var actual = arr.TopologicalSort(o => arr.Where(a => a < o)).ToArray();
 			Assert.True(expected.SequenceEqual(actual));
+		}
+
+		[Fact]
+		public void CanTopologicalSortRecords()
+		{
+			var key = new BitcoinExtKey(new ExtKey(), Network.RegTest);
+			var pubkey = new DerivationStrategyFactory(Network.RegTest).Parse($"{key.Neuter().ToString()}");
+			var trackedSource = new DerivationSchemeTrackedSource(pubkey);
+
+			// The topological sorting should always return the most buried transactions first
+			// So if a transaction is deemed younger, it should be returned after
+			var tx1 = CreateRandomAnnotatedTransaction(trackedSource, 1);
+			var tx2 = CreateRandomAnnotatedTransaction(trackedSource, 2);
+			AssertExpectedOrder(new[] { tx1, tx2 }); // tx2 has higher height (younger) so after tx1
+
+			tx1 = CreateRandomAnnotatedTransaction(trackedSource, null);
+			tx2 = CreateRandomAnnotatedTransaction(trackedSource, 2);
+			AssertExpectedOrder(new[] { tx2, tx1 }); // tx1 is not confirmed should appear after
+
+			tx1 = CreateRandomAnnotatedTransaction(trackedSource, seen: 1);
+			tx2 = CreateRandomAnnotatedTransaction(trackedSource, seen: 2);
+			AssertExpectedOrder(new[] { tx1, tx2 }); // tx1 has been seen before tx2, thus should be returned first
+
+			tx1 = CreateRandomAnnotatedTransaction(trackedSource, seen: 1);
+			tx2 = CreateRandomAnnotatedTransaction(trackedSource, seen: 2);
+
+			var outpoint = new OutPoint(tx2.Record.Key.TxId, 0);
+			tx1.Record.SpentOutpoints.Add(outpoint);
+			tx2.Record.ReceivedCoins.Add(new Coin(outpoint, new TxOut()));
+			AssertExpectedOrder(new[] { tx2, tx1 }, true); // tx1 depends on tx2 so even if tx1 has been seen first, topological sort should be used
+		}
+
+		private void AssertExpectedOrder(AnnotatedTransaction[] annotatedTransaction, bool skipDictionaryTest = false)
+		{
+			var input = annotatedTransaction.ToArray();
+			for (int u = 0; u < 4; u++)
+			{
+				NBitcoin.Utils.Shuffle(input);
+				var result = input.TopologicalSort().ToArray();
+				var dico = new SortedDictionary<AnnotatedTransaction, AnnotatedTransaction>(AnnotatedTransactionComparer.OldToYoung);
+				foreach (var tx in annotatedTransaction)
+				{
+					dico.Add(tx, tx);
+				}
+				var result2 = dico.Select(o => o.Value).ToArray();
+				Assert.Equal(annotatedTransaction.Length, result.Length);
+				Assert.Equal(annotatedTransaction.Length, result2.Length);
+				for (int i = 0; i < annotatedTransaction.Length; i++)
+				{
+					Assert.Equal(annotatedTransaction[i], result[i]);
+					if (!skipDictionaryTest)
+						Assert.Equal(annotatedTransaction[i], result2[i]);
+				}
+			}
+		}
+
+		private static AnnotatedTransaction CreateRandomAnnotatedTransaction(DerivationSchemeTrackedSource trackedSource, int? height = null, int? seen = null)
+		{
+			var a = new AnnotatedTransaction(height, new TrackedTransaction(new TrackedTransactionKey(RandomUtils.GetUInt256(), null, true), trackedSource), true);
+			if (seen is int v)
+			{
+				a.Record.FirstSeen = NBitcoin.Utils.UnixTimeToDateTime(v);
+			}
+			return a;
 		}
 
 		[Fact]

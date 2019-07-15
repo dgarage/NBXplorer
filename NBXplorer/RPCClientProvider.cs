@@ -18,7 +18,7 @@ namespace NBXplorer
 				var rpc = config?.RPC;
 				if (rpc != null)
 				{
-					rpc.HttpClient = httpClientFactory.CreateClient();
+					rpc.HttpClient = httpClientFactory.CreateClient(nameof(RPCClientProvider));
 					_ChainConfigurations.Add(config.CryptoCode, rpc);
 				}
 			}

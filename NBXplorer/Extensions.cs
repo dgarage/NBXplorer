@@ -177,10 +177,13 @@ namespace NBXplorer
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<AddressPoolServiceAccessor>();
 			services.AddSingleton<IHostedService, AddressPoolService>();
-			services.TryAddSingleton<BitcoinDWaitersAccessor>();
+			services.TryAddSingleton<BitcoinDWaiters>();
+			services.TryAddSingleton<RebroadcasterHostedService>();
 			services.AddSingleton<IHostedService, ScanUTXOSetService>();
 			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
-			services.AddSingleton<IHostedService, BitcoinDWaiters>();
+
+			services.AddSingleton<IHostedService, BitcoinDWaiters>(o => o.GetRequiredService<BitcoinDWaiters>());
+			services.AddSingleton<IHostedService, RebroadcasterHostedService>(o => o.GetRequiredService<RebroadcasterHostedService>());
 
 			services.TryAddSingleton<NBXplorerContextFactory>(o =>
 			{

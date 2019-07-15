@@ -211,25 +211,33 @@ namespace NBXplorer
 
 		private static bool ShouldReplace(AnnotatedTransaction annotatedTransaction, AnnotatedTransaction conflicted)
 		{
-			if (annotatedTransaction.Height is int &&
-				conflicted.Height is null)
+			if (annotatedTransaction.Height is null)
 			{
-				return true;
+				if (conflicted.Height is null)
+				{
+					return annotatedTransaction.Record.FirstSeen > conflicted.Record.FirstSeen; // The is a replaced tx, we want the youngest
+				}
+				else
+				{
+					return false;
+				}
 			}
-			else if (annotatedTransaction.Height is null &&
-					 conflicted.Height is null &&
-					 annotatedTransaction.Record.Inserted > conflicted.Record.Inserted)
+			else
 			{
-				return true;
+				if (conflicted.Height is null)
+				{
+					return true;
+				}
+				else
+				{
+					if (annotatedTransaction.Record.Key.TxId == conflicted.Record.Key.TxId && 
+						annotatedTransaction.Height == conflicted.Height)
+					{
+						return !annotatedTransaction.Record.Key.IsPruned;
+					}
+					return annotatedTransaction.Height < conflicted.Height; // The most buried block win (should never happen though)
+				}
 			}
-			else if (annotatedTransaction.Height is int &&
-					 conflicted.Height is int &&
-					 conflicted.Record.Key.IsPruned)
-			{
-				return true;
-			}
-
-			return false;
 		}
 
 		public MatchedOutput GetUTXO(OutPoint outpoint)
