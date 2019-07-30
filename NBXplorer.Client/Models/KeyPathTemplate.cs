@@ -42,6 +42,7 @@ namespace NBXplorer
 					if (isPreIndex)
 					{
 						isPreIndex = false;
+						count++;
 						preIndices = indices.ToArray();
 						indices.Clear();
 					}
@@ -56,10 +57,10 @@ namespace NBXplorer
 					if(isValid)
 						indices.Add(i);
 					count++;
-					if (count > 255)
-						isValid = false;
 				}
 			}
+			if (count > 255)
+				isValid = false;
 			isValid &= preIndices != null;
 			if (!isValid)
 			{
