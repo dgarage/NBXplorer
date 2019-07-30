@@ -931,3 +931,20 @@ Body:
 	"example": "value"
 }
 ```
+
+## Manual pruning
+
+NBXplorer has an auto pruning feature configurable with `--autopruning x` where `x` is in second. If a call to NBXplorer's `Get utxo` or `Get PSBT`  takes more time than `x seconds`, then the auto pruning will delete transactions whose all UTXOs have been already spent and which are old enough.
+
+You can however force pruning by calling:
+
+HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/prune
+
+Response:
+```json
+{
+	"totalPruned": 10
+}
+```
+
+* `totalPruned` is the number of transactions pruned from the derivation scheme

@@ -1105,8 +1105,10 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanPrune()
+		[Theory]
+		[InlineData(false)]
+		[InlineData(true)]
+		public void CanPrune(bool autoPruning)
 		{
 			// In this test we have fundingTxId with 2 output and spending1
 			// We make sure that only once the 2 outputs of fundingTxId have been consumed
@@ -1142,8 +1144,14 @@ namespace NBXplorer.Tests
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
 
-				tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
-
+				if (autoPruning)
+				{
+					tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
+				}
+				else
+				{
+					tester.Client.Prune(pubkey);
+				}
 
 				Logs.Tester.LogInformation("After activating pruning, it still should not pruned, because there is still one coin");
 				utxo = tester.Client.GetUTXOs(pubkey);
@@ -1168,6 +1176,10 @@ namespace NBXplorer.Tests
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
 
+				if (!autoPruning)
+				{
+					tester.Client.Prune(pubkey);
+				}
 				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey);
 				AssertPruned(tester, pubkey, fundingTxId);

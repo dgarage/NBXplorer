@@ -767,7 +767,7 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private async Task AttemptPrune(Repository repo, AnnotatedTransactionCollection transactions, UTXOState state)
+		private async Task<int> AttemptPrune(Repository repo, AnnotatedTransactionCollection transactions, UTXOState state)
 		{
 			var network = repo.Network;
 			var trackedSource = transactions.TrackedSource;
@@ -810,8 +810,10 @@ namespace NBXplorer.Controllers
 													.Select(id => transactions.GetByTxId(id).Record)
 													.ToList());
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunableIds.Count} transactions");
+					return prunableIds.Count;
 				}
 			}
+			return 0;
 		}
 
 		private bool OldEnough(AnnotatedTransactionCollection transactions, uint256 prunedBy, DateTimeOffset pruneBefore)
@@ -933,6 +935,22 @@ namespace NBXplorer.Controllers
 					RPCMessage = rpcEx.Message
 				};
 			}
+		}
+
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/prune")]
+		public async Task<PruneResponse> Prune(
+			string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme)
+		{
+			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
+			var network = GetNetwork(cryptoCode, false);
+			var chain = ChainProvider.GetChain(network);
+			var repo = RepositoryProvider.GetRepository(network);
+			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
+			int pruned = await AttemptPrune(repo, transactions, transactions.ConfirmedState);
+			return new PruneResponse() { TotalPruned = pruned };
 		}
 	}
 }
