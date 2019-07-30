@@ -31,7 +31,6 @@ namespace NBXplorer
 	{
 		public int GapLimit { get; set; } = 10_000;
 		public int BatchSize { get; set; } = 1000;
-		public DerivationFeature[] DerivationFeatures { get; set; } = new[] { DerivationFeature.Change, DerivationFeature.Deposit, DerivationFeature.Direct };
 		public int From { get; set; }
 	}
 	public class ScanUTXOSetService : IHostedService
@@ -150,7 +149,7 @@ namespace NBXplorer
 							From = workItem.Options.From,
 							StartedAt = DateTimeOffset.UtcNow
 						};
-						foreach (var feature in workItem.Options.DerivationFeatures)
+						foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
 						{
 							workItem.State.Progress.HighestKeyIndexFound.Add(feature, null);
 						}
@@ -294,7 +293,7 @@ namespace NBXplorer
 		{
 			var items = new ScannedItems();
 			var derivationStrategy = workItem.DerivationStrategy;
-			foreach (var feature in workItem.Options.DerivationFeatures)
+			foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
 			{
 				var keyPathTemplate = keyPathTemplates.GetKeyPathTemplate(feature);
 				var lineDerivation = workItem.DerivationStrategy.DerivationStrategy.GetLineFor(keyPathTemplate);
