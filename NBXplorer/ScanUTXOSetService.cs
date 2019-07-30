@@ -63,10 +63,12 @@ namespace NBXplorer
 
 		public ScanUTXOSetService(ScanUTXOSetServiceAccessor accessor,
 								  RPCClientProvider rpcClients,
+								  KeyPathTemplates keyPathTemplates,
 								  RepositoryProvider repositories)
 		{
 			accessor.Instance = this;
 			RpcClients = rpcClients;
+			this.keyPathTemplates = keyPathTemplates;
 			Repositories = repositories;
 		}
 		Channel<string> _Channel = Channel.CreateBounded<string>(500);
@@ -113,6 +115,8 @@ namespace NBXplorer
 
 		Task _Task;
 		CancellationTokenSource _Cts = new CancellationTokenSource();
+		private readonly KeyPathTemplates keyPathTemplates;
+
 		public RPCClientProvider RpcClients { get; }
 		public RepositoryProvider Repositories { get; }
 
@@ -292,8 +296,8 @@ namespace NBXplorer
 			var derivationStrategy = workItem.DerivationStrategy;
 			foreach (var feature in workItem.Options.DerivationFeatures)
 			{
-				var path = DerivationStrategyBase.GetKeyPath(feature);
-				var lineDerivation = workItem.DerivationStrategy.DerivationStrategy.GetLineFor(feature);
+				var keyPathTemplate = keyPathTemplates.GetKeyPathTemplate(feature);
+				var lineDerivation = workItem.DerivationStrategy.DerivationStrategy.GetLineFor(keyPathTemplate);
 				Enumerable.Range(progress.From, progress.Count)
 						  .Select(index =>
 						  {
@@ -305,7 +309,7 @@ namespace NBXplorer
 								  TrackedSource = derivationStrategy,
 								  DerivationStrategy = derivationStrategy.DerivationStrategy,
 								  Feature = feature,
-								  KeyPath = path.Derive(index, false)
+								  KeyPath = keyPathTemplate.GetKeyPath(index, false)
 							  };
 							  items.Descriptors.Add(new ScanTxoutSetObject(ScanTxoutDescriptor.Raw(info.ScriptPubKey)));
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);

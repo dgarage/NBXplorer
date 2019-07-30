@@ -42,6 +42,7 @@ namespace NBXplorer.Controllers
 			AddressPoolServiceAccessor addressPoolService,
 			ScanUTXOSetServiceAccessor scanUTXOSetService,
 			RebroadcasterHostedService rebroadcaster,
+			KeyPathTemplates keyPathTemplates,
 			IOptions<MvcJsonOptions> jsonOptions)
 		{
 			ExplorerConfiguration = explorerConfiguration;
@@ -52,9 +53,11 @@ namespace NBXplorer.Controllers
 			ScanUTXOSetService = scanUTXOSetService.Instance;
 			Waiters = waiters;
 			Rebroadcaster = rebroadcaster;
+			this.keyPathTemplates = keyPathTemplates;
 			AddressPoolService = addressPoolService.Instance;
 		}
 		EventAggregator _EventAggregator;
+		private readonly KeyPathTemplates keyPathTemplates;
 
 		public BitcoinDWaiters Waiters
 		{
@@ -451,11 +454,11 @@ namespace NBXplorer.Controllers
 			var network = GetNetwork(cryptoCode, false);
 			if (trackedSource is DerivationSchemeTrackedSource dts)
 			{
-				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
+				foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
 				{
 					await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, new GenerateAddressQuery(minAddresses: 3, null));
 				}
-				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
+				foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
 				{
 					_ = AddressPoolService.GenerateAddresses(network, dts.DerivationStrategy, feature);
 				}
@@ -838,7 +841,7 @@ namespace NBXplorer.Controllers
 				var utxo = utxos[i];
 				utxo.KeyPath = transactions.GetKeyPath(utxo.ScriptPubKey);
 				if (utxo.KeyPath != null)
-					utxo.Feature = DerivationStrategyBase.GetFeature(utxo.KeyPath);
+					utxo.Feature = keyPathTemplates.GetDerivationFeature(utxo.KeyPath);
 				var txHeight = transactions.GetByTxId(utxo.Outpoint.Hash).Height is int h ? h : MaxHeight;
 				var isUnconf = txHeight == MaxHeight;
 				utxo.Confirmations = isUnconf ? 0 : currentHeight - txHeight + 1;

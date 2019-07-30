@@ -45,9 +45,11 @@ namespace NBXplorer
 	{
 		DBriizeEngine _Engine;
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
+		private readonly KeyPathTemplates keyPathTemplates;
 		ExplorerConfiguration _Configuration;
-		public RepositoryProvider(NBXplorerNetworkProvider networks, ExplorerConfiguration configuration)
+		public RepositoryProvider(NBXplorerNetworkProvider networks, KeyPathTemplates keyPathTemplates, ExplorerConfiguration configuration)
 		{
+			this.keyPathTemplates = keyPathTemplates;
 			_Configuration = configuration;
 			var directory = Path.Combine(configuration.DataDir, "db");
 			if (!Directory.Exists(directory))
@@ -70,7 +72,7 @@ namespace NBXplorer
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					var repo = new Repository(_Engine, net);
+					var repo = new Repository(_Engine, net, keyPathTemplates);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
@@ -132,11 +134,11 @@ namespace NBXplorer
 			await _TxContext.DoAsync(tx =>
 			{
 				bool needCommit = false;
-				var featuresPerKeyPaths = Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>()
-				.Select(f => (Feature: f, Path: DerivationStrategyBase.GetKeyPath(f)))
-				.ToDictionary(o => o.Path, o => o.Feature);
+				var featuresPerKeyPaths = keyPathTemplates.GetSupportedDerivationFeatures()
+				.Select(f => (Feature: f, KeyPathTemplate: keyPathTemplates.GetKeyPathTemplate(f)))
+				.ToDictionary(o => o.KeyPathTemplate, o => o.Feature);
 
-				var groups = keyPaths.Where(k => k.Indexes.Length > 0).GroupBy(k => k.Parent);
+				var groups = keyPaths.Where(k => k.Indexes.Length > 0).GroupBy(k => keyPathTemplates.GetKeyPathTemplate(k));
 				foreach (var group in groups)
 				{
 					if (featuresPerKeyPaths.TryGetValue(group.Key, out DerivationFeature feature))
@@ -305,6 +307,7 @@ namespace NBXplorer
 		}
 
 		NBXplorerNetwork _Network;
+		private readonly KeyPathTemplates keyPathTemplates;
 
 		public NBXplorerNetwork Network
 		{
@@ -315,11 +318,12 @@ namespace NBXplorer
 		}
 
 		DBriizeTransactionContext _TxContext;
-		internal Repository(DBriizeEngine engine, NBXplorerNetwork network)
+		internal Repository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates)
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
+			this.keyPathTemplates = keyPathTemplates;
 			Serializer = new Serializer(_Network.NBitcoinNetwork);
 			_Network = network;
 			_TxContext = new DBriizeTransactionContext(engine);
@@ -403,7 +407,7 @@ namespace NBXplorer
 			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
 			var highestTable = GetHighestPathIndex(tx, strategy, derivationFeature);
 			int highestGenerated = highestTable.SelectInt(0) ?? -1;
-			var feature = strategy.GetLineFor(derivationFeature);
+			var feature = strategy.GetLineFor(keyPathTemplates.GetKeyPathTemplate(derivationFeature));
 			for (int i = 0; i < toGenerate; i++)
 			{
 				var index = highestGenerated + i + 1;
@@ -415,7 +419,7 @@ namespace NBXplorer
 					TrackedSource = new DerivationSchemeTrackedSource(strategy),
 					DerivationStrategy = strategy,
 					Feature = derivationFeature,
-					KeyPath = DerivationStrategyBase.GetKeyPath(derivationFeature).Derive(index, false)
+					KeyPath = keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false)
 				};
 				var bytes = ToBytes(info);
 				GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{strategy.GetHash()}-{derivationFeature}", bytes);
@@ -1184,7 +1188,7 @@ namespace NBXplorer
 						{
 							foreach (var kv in value.KnownKeyPathMapping)
 							{
-								var info = new KeyPathInformation(kv.Value, s.DerivationStrategy);
+								var info = new KeyPathInformation(keyPathTemplates, kv.Value, s.DerivationStrategy);
 								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var index = info.GetIndex();

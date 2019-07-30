@@ -163,6 +163,16 @@ namespace NBXplorer.Configuration
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 
+			var customKeyPathTemplate = config.GetOrDefault<string>("customkeypathtemplate", null);
+			if (customKeyPathTemplate != null)
+			{
+				if (!KeyPathTemplate.TryParse(customKeyPathTemplate, out var v))
+					throw new ConfigException("Invalid customKeyPathTemplate");
+				if (v.PostIndexes.IsHardened || v.PreIndexes.IsHardened)
+					throw new ConfigException("customKeyPathTemplate should not be an hardened path");
+				CustomKeyPathTemplate = v;
+			}
+
 			AzureServiceBusConnectionString = config.GetOrDefault<string>("asbcnstr", "");
 			AzureServiceBusBlockQueue = config.GetOrDefault<string>("asbblockq", "");
 			AzureServiceBusTransactionQueue = config.GetOrDefault<string>("asbtranq", "");
@@ -224,5 +234,6 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
 	}
 }

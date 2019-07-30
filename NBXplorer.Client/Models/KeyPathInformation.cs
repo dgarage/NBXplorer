@@ -13,14 +13,14 @@ namespace NBXplorer.Models
 		{
 
 		}
-		public KeyPathInformation(KeyPath keyPath, DerivationStrategyBase derivationStrategy)
+		public KeyPathInformation(KeyPathTemplates keyPathTemplates, KeyPath keyPath, DerivationStrategyBase derivationStrategy)
 		{
 			var derivation = derivationStrategy.Derive(keyPath);
 			ScriptPubKey = derivation.ScriptPubKey;
 			Redeem = derivation.Redeem;
 			TrackedSource = new DerivationSchemeTrackedSource(derivationStrategy);
 			DerivationStrategy = derivationStrategy;
-			Feature = DerivationStrategyBase.GetFeature(keyPath);
+			Feature = keyPathTemplates.GetDerivationFeature(keyPath);
 			KeyPath = keyPath;
 		}
 		public TrackedSource TrackedSource { get; set; }

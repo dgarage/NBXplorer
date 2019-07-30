@@ -1880,8 +1880,8 @@ namespace NBXplorer.Tests
 
 		private static Derivation Generate(DerivationStrategyBase strategy)
 		{
-			var derivation = strategy.GetLineFor(DerivationFeature.Deposit).Derive(1);
-			var derivation2 = strategy.Derive(DerivationStrategyBase.GetKeyPath(DerivationFeature.Deposit).Derive(1));
+			var derivation = strategy.GetLineFor(KeyPathTemplates.Default.GetKeyPathTemplate(DerivationFeature.Deposit)).Derive(1U);
+			var derivation2 = strategy.Derive(KeyPathTemplates.Default.GetKeyPathTemplate(DerivationFeature.Deposit).GetKeyPath(1U));
 			Assert.Equal(derivation.Redeem, derivation2.Redeem);
 			return derivation;
 		}
@@ -2796,6 +2796,20 @@ namespace NBXplorer.Tests
 				Assert.Null(info.Progress.CompletedAt);
 				Thread.Sleep(100);
 			}
+		}
+
+		[Theory]
+		[InlineData("*","0", "1")]
+		[InlineData("*/", "0", "1")]
+		[InlineData("/*", "0", "1")]
+		[InlineData("1/*", "1/0", "1/1")]
+		[InlineData("1/*/2", "1/0/2", "1/1/2")]
+		[InlineData("*/2", "0/2", "1/2")]
+		[InlineData("m/*/2", "0/2", "1/2")]
+		public void CanParseKeyPathTemplates(string template, string path1, string path2)
+		{
+			Assert.Equal(path1, KeyPathTemplate.Parse(template).GetKeyPath(0).ToString());
+			Assert.Equal(path2, KeyPathTemplate.Parse(template).GetKeyPath(1).ToString());
 		}
 	}
 }

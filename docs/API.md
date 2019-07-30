@@ -299,7 +299,7 @@ Error codes:
 
 Optional parameters:
 
-* `feature`: Use `Deposit` to get a deposit address (`0/x`), `Change` to get a change address (`1/x`), or `Direct` to get `x` (default: `Deposit`)
+* `feature`: Use `Deposit` to get a deposit address (`0/x`), `Change` to get a change address (`1/x`), `Direct` to get `x` or `Custom` if `customKeyPathTemplate` is configured (default: `Deposit`)
 * `skip`: How much address to skip, needed if the user want multiple unused addresses (default:0)
 * `reserve`: Mark the returned address as used (default: false)
 

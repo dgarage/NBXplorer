@@ -10,8 +10,9 @@ namespace NBXplorer.DerivationStrategy
 	{
 		Change =  1,
 		Deposit = 0,
-        	Direct =  2  
-    	}
+		Direct = 2,
+		Custom = 3,
+	}
 	public abstract class DerivationStrategyBase : IHDScriptPubKey
 	{
 		internal DerivationStrategyBase()
@@ -19,22 +20,10 @@ namespace NBXplorer.DerivationStrategy
 
 		}
 
-		public static KeyPath GetKeyPath(DerivationFeature derivationFeature)
+		public DerivationLine GetLineFor(KeyPathTemplate keyPathTemplate)
 		{
-			return derivationFeature == DerivationFeature.Direct ? new KeyPath() : new KeyPath((uint)derivationFeature);
+			return new DerivationLine(this, keyPathTemplate);
 		}
-		public static DerivationFeature GetFeature(KeyPath path)
-		{
-			if (path == null)
-				return DerivationFeature.Deposit;
-			return path.Indexes.Length == 1 ? DerivationFeature.Direct : (DerivationFeature)path.Indexes[0];
-		}
-		public DerivationStrategyBase GetLineFor(DerivationFeature derivationFeature)
-		{
-            		return derivationFeature == DerivationFeature.Direct ? this :
-                    		GetLineFor(GetKeyPath(derivationFeature));
-        	}
-
 		public abstract DerivationStrategyBase GetLineFor(KeyPath keyPath);
 
 		public Derivation Derive(uint i)
@@ -90,6 +79,27 @@ namespace NBXplorer.DerivationStrategy
 		public bool CanDeriveHardenedPath()
 		{
 			return false;
+		}
+	}
+
+	public class DerivationLine
+	{
+		public DerivationLine(DerivationStrategyBase derivationStrategyBase, KeyPathTemplate keyPathTemplate)
+		{
+			if (derivationStrategyBase == null)
+				throw new ArgumentNullException(nameof(derivationStrategyBase));
+			if (keyPathTemplate == null)
+				throw new ArgumentNullException(nameof(keyPathTemplate));
+			DerivationStrategyBase = derivationStrategyBase;
+			KeyPathTemplate = keyPathTemplate;
+		}
+
+		public DerivationStrategyBase DerivationStrategyBase { get; }
+		public KeyPathTemplate KeyPathTemplate { get; }
+
+		public Derivation Derive(uint index)
+		{
+			return DerivationStrategyBase.Derive(KeyPathTemplate.GetKeyPath(index));
 		}
 	}
 }

@@ -147,6 +147,12 @@ namespace NBXplorer
 
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 
+			services.AddSingleton<KeyPathTemplates>(o =>
+			{
+				var conf = o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value;
+				return new KeyPathTemplates(conf.CustomKeyPathTemplate);
+			});
+
 			services.AddSingleton<NBXplorerNetworkProvider>(o =>
 			{
 				var c = o.GetRequiredService<ExplorerConfiguration>();

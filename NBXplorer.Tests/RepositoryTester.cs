@@ -20,7 +20,8 @@ namespace NBXplorer.Tests
 		{
 			_Name = name;
 			ServerTester.DeleteFolderRecursive(name);
-			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(NetworkType.Regtest), 
+			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(NetworkType.Regtest),
+											   KeyPathTemplates.Default,
 											   new Configuration.ExplorerConfiguration()
 											   {
 												   DataDir = name,
