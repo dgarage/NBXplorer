@@ -164,7 +164,7 @@ namespace NBXplorer.Configuration
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 
 			var customKeyPathTemplate = config.GetOrDefault<string>("customkeypathtemplate", null);
-			if (customKeyPathTemplate != null)
+			if (!string.IsNullOrEmpty(customKeyPathTemplate))
 			{
 				if (!KeyPathTemplate.TryParse(customKeyPathTemplate, out var v))
 					throw new ConfigException("Invalid customKeyPathTemplate");
