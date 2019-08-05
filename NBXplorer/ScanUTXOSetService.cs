@@ -222,7 +222,8 @@ namespace NBXplorer
 					}
 					finally
 					{
-						await rpc.AbortScanTxoutSetAsync();
+						try { await rpc.AbortScanTxoutSetAsync(); }
+						catch { }
 					}
 					workItem.Finished = true;
 				}
