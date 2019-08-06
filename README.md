@@ -87,6 +87,12 @@ Example, if you have ltc node and btc node on regtest (default configuration), a
 ./run.sh --chains=btc,ltc --network=regtest
 ```
 
+## How to use the API?
+
+Check [the documentation](docs/API.md), you can then use any client library:
+* [NBXplorer.NodeJS](https://github.com/junderw/NBXplorer.NodeJS) for NodeJS clients.
+* [NBXplorer.Client](https://www.nuget.org/packages/NBxplorer.Client) for .NET clients.
+
 ## With Docker
 
 Use [our image](https://hub.docker.com/r/nicolasdorier/nbxplorer/).
