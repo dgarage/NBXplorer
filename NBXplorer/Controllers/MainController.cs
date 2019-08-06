@@ -43,12 +43,13 @@ namespace NBXplorer.Controllers
 			ScanUTXOSetServiceAccessor scanUTXOSetService,
 			RebroadcasterHostedService rebroadcaster,
 			KeyPathTemplates keyPathTemplates,
-			IOptions<MvcJsonOptions> jsonOptions)
+			MvcNewtonsoftJsonOptions jsonOptions
+			)
 		{
 			ExplorerConfiguration = explorerConfiguration;
 			RepositoryProvider = repositoryProvider;
 			ChainProvider = chainProvider;
-			_SerializerSettings = jsonOptions.Value.SerializerSettings;
+			_SerializerSettings = jsonOptions.SerializerSettings;
 			_EventAggregator = eventAggregator;
 			ScanUTXOSetService = scanUTXOSetService.Instance;
 			Waiters = waiters;

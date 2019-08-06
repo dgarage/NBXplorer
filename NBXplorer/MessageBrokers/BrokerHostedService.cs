@@ -25,13 +25,13 @@ namespace NBXplorer.MessageBrokers
 		ExplorerConfiguration _config;
 		JsonSerializerSettings _serializerSettings;
 
-		public BrokerHostedService(BitcoinDWaiters waiters, ChainProvider chainProvider, EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, IOptions<MvcJsonOptions> jsonOptions)
+		public BrokerHostedService(BitcoinDWaiters waiters, ChainProvider chainProvider, EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, MvcNewtonsoftJsonOptions jsonOptions)
 		{
 			_EventAggregator = eventAggregator;
 			ChainProvider = chainProvider;
 			Waiters = waiters;
 			_config = config.Value;
-			_serializerSettings = jsonOptions.Value.SerializerSettings;
+			_serializerSettings = jsonOptions.SerializerSettings;
 		}
 
 		public Task StartAsync(CancellationToken cancellationToken)

@@ -6,7 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+#if NETCOREAPP21
 using Microsoft.AspNetCore.Http.Internal;
+#endif
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -52,7 +54,6 @@ namespace NBXplorer.Logging
 		private async Task<string> FormatRequest(HttpRequest request)
 		{
 			var body = request.Body;
-
 			//This line allows us to set the reader for the request back at the beginning of its stream.
 			request.EnableRewind();
 
