@@ -6,9 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-#if NETCOREAPP21
-using Microsoft.AspNetCore.Http.Internal;
-#endif
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -55,7 +52,7 @@ namespace NBXplorer.Logging
 		{
 			var body = request.Body;
 			//This line allows us to set the reader for the request back at the beginning of its stream.
-			request.EnableRewind();
+			request.EnableBuffering();
 
 			//We now need to read the request stream.  First, we create a new byte[] with the same length as the request stream...
 			var buffer = new byte[Convert.ToInt32(request.ContentLength)];
