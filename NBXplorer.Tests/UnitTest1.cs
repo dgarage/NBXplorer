@@ -2719,6 +2719,13 @@ namespace NBXplorer.Tests
 				Assert.Equal(100, info.Progress.Count);
 				Assert.Equal(50, info.Progress.HighestKeyIndexFound[DerivationFeature.Deposit]);
 				Assert.Null(info.Progress.HighestKeyIndexFound[DerivationFeature.Change]);
+				// Check that address 49 is tracked
+				var scriptPubKey = pubkey.GetDerivation(new KeyPath("0/49")).ScriptPubKey;
+#pragma warning disable CS0618 // Type or member is obsolete
+				var infos = tester.Client.GetKeyInformations(scriptPubKey);
+				Assert.Single(infos);
+#pragma warning restore CS0618 // Type or member is obsolete
+
 				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be the next unused address");
 				Assert.Equal(51, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex());
 				utxo = tester.Client.GetUTXOs(pubkey);
