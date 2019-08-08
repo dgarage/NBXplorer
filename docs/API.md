@@ -54,6 +54,25 @@ HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}
 
 Returns nothing.
 
+Optionally, you can attach a json body:
+```json
+ {
+  "derivationOptions": [
+    {
+      "feature": "Deposit",
+      "minAddresses": 30,
+      "maxAddresses": null
+    }
+  ],
+  "wait": true
+}
+```
+* `wait`: Optional. If `true` the call will return when all addresses has been generated, addresses will be generated in the background (default: `false`)
+* `derivationOptions`: Optional. Options to manually start the address generation process. (default: empty)
+* `derivationOptions.feature`: Optional. Define to which feature this option should be used. (defaut: null, which match all feature)
+* `derivationOptions.minAddresses`: Optional. The minimum addresses that need to be generated with this call. (default: null, make sure the number of address in the pool is between MinGap and MaxGap)
+* `derivationOptions.maxAddresses`: Optional. The maximum addresses that need to be generated with this call. (default: null, make sure the number of address in the pool is between MinGap and MaxGap)
+
 ## Track a specific address
 
 After this call, the specified address will be tracked by NBXplorer

@@ -2080,6 +2080,34 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanTrackManyAddressesAtOnce()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+
+				tester.Client.Track(pubkey, new TrackWalletRequest()
+				{
+					Wait = true,
+					DerivationOptions = new TrackDerivationOption[]
+					{
+						new TrackDerivationOption()
+						{
+							Feature = DerivationFeature.Deposit,
+							MinAddresses = 500
+						}
+					}
+				});
+
+#pragma warning disable CS0618 // Type or member is obsolete
+				var info = tester.Client.GetKeyInformations(pubkey.GetDerivation(new KeyPath("0/499")).ScriptPubKey);
+				Assert.Single(info);
+#pragma warning restore CS0618 // Type or member is obsolete
+			}
+		}
+
+		[Fact]
 		public void CanTrack()
 		{
 			using (var tester = ServerTester.Create())

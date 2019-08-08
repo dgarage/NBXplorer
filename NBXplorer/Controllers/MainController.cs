@@ -120,7 +120,7 @@ namespace NBXplorer.Controllers
 				{
 					while (result == null)
 					{
-						await AddressPoolService.GenerateAddresses(network, strategy, feature, 1);
+						await AddressPoolService.GenerateAddresses(network, strategy, feature, new GenerateAddressQuery(1, null));
 						result = await repository.GetUnused(strategy, feature, skip, reserve);
 					}
 					_ = AddressPoolService.GenerateAddresses(network, strategy, feature);
@@ -447,21 +447,32 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
+			BitcoinAddress address, [FromBody] TrackWalletRequest request = null)
 		{
+			request = request ?? new TrackWalletRequest();
 			TrackedSource trackedSource = GetTrackedSource(derivationScheme, address);
 			if (trackedSource == null)
 				return NotFound();
 			var network = GetNetwork(cryptoCode, false);
 			if (trackedSource is DerivationSchemeTrackedSource dts)
 			{
-				foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+				if (request.Wait)
 				{
-					await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, new GenerateAddressQuery(minAddresses: 3, null));
+					foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+					{
+						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
+					}
 				}
-				foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+				else
 				{
-					_ = AddressPoolService.GenerateAddresses(network, dts.DerivationStrategy, feature);
+					foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+					{
+						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, new GenerateAddressQuery(minAddresses: 3, null));
+					}
+					foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+					{
+						_ = AddressPoolService.GenerateAddresses(network, dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
+					}
 				}
 			}
 			else if (trackedSource is IDestination ats)
@@ -469,6 +480,20 @@ namespace NBXplorer.Controllers
 				await RepositoryProvider.GetRepository(network).Track(ats);
 			}
 			return Ok();
+		}
+
+		private GenerateAddressQuery GenerateAddressQuery(TrackWalletRequest request, DerivationFeature feature)
+		{
+			if (request?.DerivationOptions == null)
+				return null;
+			foreach (var derivationOption in request.DerivationOptions)
+			{
+				if ((derivationOption.Feature is DerivationFeature f && f == feature) || derivationOption.Feature is null)
+				{
+					return new GenerateAddressQuery(derivationOption.MinAddresses, derivationOption.MaxAddresses);
+				}
+			}
+			return null;
 		}
 
 		private static TrackedSource GetTrackedSource(DerivationStrategyBase derivationScheme, BitcoinAddress address)

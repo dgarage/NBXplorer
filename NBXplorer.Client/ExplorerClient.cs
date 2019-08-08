@@ -246,6 +246,17 @@ namespace NBXplorer
 			return TrackAsync(TrackedSource.Create(strategy), cancellation);
 		}
 
+		public void Track(DerivationStrategyBase strategy, TrackWalletRequest trackDerivationRequest, CancellationToken cancellation = default)
+		{
+			TrackAsync(strategy, trackDerivationRequest, cancellation).GetAwaiter().GetResult();
+		}
+		public async Task TrackAsync(DerivationStrategyBase strategy, TrackWalletRequest trackDerivationRequest, CancellationToken cancellation = default)
+		{
+			if (strategy == null)
+				throw new ArgumentNullException(nameof(strategy));
+			await SendAsync<string>(HttpMethod.Post, trackDerivationRequest, "v1/cryptos/{0}/derivations/{1}", new[] { CryptoCode, strategy.ToString() }, cancellation).ConfigureAwait(false);
+		}
+
 		public void Track(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
 			TrackAsync(trackedSource, cancellation).GetAwaiter().GetResult();

@@ -408,7 +408,9 @@ namespace NBXplorer
 			var highestTable = GetHighestPathIndex(tx, strategy, derivationFeature);
 			int highestGenerated = highestTable.SelectInt(0) ?? -1;
 			var feature = strategy.GetLineFor(keyPathTemplates.GetKeyPathTemplate(derivationFeature));
-			for (int i = 0; i < toGenerate; i++)
+
+			KeyPathInformation[] keyPathInformations = new KeyPathInformation[toGenerate];
+			Parallel.For(0, toGenerate, i =>
 			{
 				var index = highestGenerated + i + 1;
 				var derivation = feature.Derive((uint)index);
@@ -421,6 +423,12 @@ namespace NBXplorer
 					Feature = derivationFeature,
 					KeyPath = keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false)
 				};
+				keyPathInformations[i] = info;
+			});
+			for (int i = 0; i < toGenerate; i++)
+			{
+				var index = highestGenerated + i + 1;
+				var info = keyPathInformations[i];
 				var bytes = ToBytes(info);
 				GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{strategy.GetHash()}-{derivationFeature}", bytes);
 				availableTable.Insert(index, bytes);

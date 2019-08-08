@@ -28,12 +28,13 @@ namespace NBXplorer
 			public DerivationStrategyBase DerivationStrategy { get; set; }
 			public DerivationFeature Feature { get; set; }
 			public TaskCompletionSource<bool> Done { get; set; }
-			public int? MinAddresses { get; set; }
+			public GenerateAddressQuery GenerateAddressQuery { get; set; }
 		}
 		class AddressPool
 		{
 			Repository _Repository;
 			Task _Task;
+			CancellationTokenSource _Cts;
 			internal Channel<RefillPoolRequest> _Channel = Channel.CreateUnbounded<RefillPoolRequest>();
 
 			public AddressPool(Repository repository)
@@ -42,76 +43,35 @@ namespace NBXplorer
 			}
 			public Task StartAsync(CancellationToken cancellationToken)
 			{
-				_Task = Listen();
+				_Cts = new CancellationTokenSource();
+				_Task = Listen(_Cts.Token);
 				return Task.CompletedTask;
 			}
 			public Task StopAsync(CancellationToken cancellationToken)
 			{
 				_Channel.Writer.Complete();
-				return _Channel.Reader.Completion;
+				_Cts.Cancel();
+				return _Task;
 			}
 
-			private async Task Listen()
+			private async Task Listen(CancellationToken cancellationToken)
 			{
-				while (await _Channel.Reader.WaitToReadAsync())
+				while (await _Channel.Reader.WaitToReadAsync(cancellationToken))
 				{
-					List<RefillPoolRequest> pendingRequests = new List<RefillPoolRequest>();
+					RefillPoolRequest modelItem = null;
 					try
 					{
-						_Channel.Reader.TryRead(out var modelItem);
+						_Channel.Reader.TryRead(out modelItem);
 						if (modelItem == null)
 							continue;
-						retry:
-						RefillPoolRequest nextItem = null;
-						pendingRequests.Add(modelItem);
-
-						// Try to batch several requests together
-						while (_Channel.Reader.TryRead(out var item))
-						{
-							if (modelItem.DerivationStrategy == item.DerivationStrategy &&
-								modelItem.Feature == item.Feature)
-							{
-								pendingRequests.Add(item);
-							}
-							else
-							{
-								nextItem = item;
-								break;
-							}
-						}
-
-						var query = new GenerateAddressQuery();
-						foreach (var i in pendingRequests.Where(o => o.MinAddresses is int).Select(o => o.MinAddresses.Value))
-						{
-							if (query.MinAddresses is int min)
-							{
-								query.MinAddresses = min + i;
-							}
-							else
-							{
-								query.MinAddresses = new int?(i);
-							}
-						}
-
-						if (query.MinAddresses is int)
-						{
-							query.MinAddresses = Math.Min(1000, query.MinAddresses.Value);
-						}
-
-						var c = await _Repository.GenerateAddresses(modelItem.DerivationStrategy, modelItem.Feature, query);
-						pendingRequests.ForEach(i => i.Done?.TrySetResult(true));
-						if (nextItem != null)
-						{
-							modelItem = nextItem;
-							pendingRequests.Clear();
-							goto retry;
-						}
+						var c = await _Repository.GenerateAddresses(modelItem.DerivationStrategy, modelItem.Feature, modelItem.GenerateAddressQuery);
+						modelItem.Done?.TrySetResult(true);
 					}
 					catch (Exception ex)
 					{
-						pendingRequests.ForEach(i => i.Done?.TrySetException(ex));
+						modelItem?.Done.TrySetException(ex);
 						Logs.Explorer.LogError(ex, $"{_Repository.Network.CryptoCode}: Error in the Listen of the AddressPoolService");
-						await Task.Delay(1000);
+						await Task.Delay(1000, cancellationToken);
 					}
 				}
 			}
@@ -131,17 +91,21 @@ namespace NBXplorer
 			return Task.WhenAll(_AddressPoolByNetwork.Select(kv => kv.Value.StartAsync(cancellationToken)));
 		}
 
-		public Task GenerateAddresses(NBXplorerNetwork network, DerivationStrategyBase derivationStrategy, DerivationFeature feature, int? minAddresses = null)
+		public Task GenerateAddresses(NBXplorerNetwork network, DerivationStrategyBase derivationStrategy, DerivationFeature feature, GenerateAddressQuery generateAddressQuery = null)
 		{
 			var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-			if (!_AddressPoolByNetwork[network]._Channel.Writer.TryWrite(new RefillPoolRequest() { DerivationStrategy = derivationStrategy, Feature = feature, Done = completion, MinAddresses = minAddresses }))
+			if (!_AddressPoolByNetwork[network]._Channel.Writer.TryWrite(new RefillPoolRequest() { DerivationStrategy = derivationStrategy, Feature = feature, Done = completion, GenerateAddressQuery = generateAddressQuery }))
 				completion.TrySetCanceled();
 			return completion.Task;
 		}
 
-		public Task StopAsync(CancellationToken cancellationToken)
+		public async Task StopAsync(CancellationToken cancellationToken)
 		{
-			return Task.WhenAll(_AddressPoolByNetwork.Select(kv => kv.Value.StopAsync(cancellationToken)));
+			try
+			{
+				await Task.WhenAll(_AddressPoolByNetwork.Select(kv => kv.Value.StopAsync(cancellationToken)));
+			}
+			catch { }
 		}
 
 		internal Task GenerateAddresses(NBXplorerNetwork network, TrackedTransaction[] matches)
