@@ -232,7 +232,7 @@ namespace NBXplorer.Tests
 					tx,
 					new Dictionary<Script, KeyPath>()
 					{
-						{ strat.Derive(keyPath).ScriptPubKey, keyPath }
+						{ strat.GetDerivation(keyPath).ScriptPubKey, keyPath }
 					})}).GetAwaiter().GetResult();
 		}
 
@@ -850,16 +850,16 @@ namespace NBXplorer.Tests
 				Assert.NotNull(a1);
 				Assert.NotNull(a1.Address);
 				Assert.Equal(a1.ScriptPubKey, tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0).ScriptPubKey);
-				Assert.Equal(a1.ScriptPubKey, bob.Derive(new KeyPath("0/0")).ScriptPubKey);
+				Assert.Equal(a1.ScriptPubKey, bob.GetDerivation(new KeyPath("0/0")).ScriptPubKey);
 
 				var a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
-				Assert.Equal(a2.ScriptPubKey, bob.Derive(new KeyPath("0/1")).ScriptPubKey);
+				Assert.Equal(a2.ScriptPubKey, bob.GetDerivation(new KeyPath("0/1")).ScriptPubKey);
 
 				var a3 = tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 0);
-				Assert.Equal(a3.ScriptPubKey, bob.Derive(new KeyPath("1/0")).ScriptPubKey);
+				Assert.Equal(a3.ScriptPubKey, bob.GetDerivation(new KeyPath("1/0")).ScriptPubKey);
 
 				var a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
-				Assert.Equal(a4.ScriptPubKey, bob.Derive(new KeyPath("1")).ScriptPubKey);
+				Assert.Equal(a4.ScriptPubKey, bob.GetDerivation(new KeyPath("1")).ScriptPubKey);
 
 				Assert.Null(tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 30));
 
@@ -874,12 +874,12 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(bob, txId);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
-				Assert.Equal(a1.ScriptPubKey, bob.Derive(new KeyPath("0/1")).ScriptPubKey);
+				Assert.Equal(a1.ScriptPubKey, bob.GetDerivation(new KeyPath("0/1")).ScriptPubKey);
 				a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
-				Assert.Equal(a2.ScriptPubKey, bob.Derive(new KeyPath("0/3")).ScriptPubKey);
+				Assert.Equal(a2.ScriptPubKey, bob.GetDerivation(new KeyPath("0/3")).ScriptPubKey);
 
 				a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
-				Assert.Equal(a4.ScriptPubKey, bob.Derive(new KeyPath("2")).ScriptPubKey);
+				Assert.Equal(a4.ScriptPubKey, bob.GetDerivation(new KeyPath("2")).ScriptPubKey);
 
 			}
 		}
@@ -1427,7 +1427,7 @@ namespace NBXplorer.Tests
 						var txOut = txEvent.TransactionData.Transaction.Outputs[output.Index];
 						Assert.Equal(txOut.ScriptPubKey, output.ScriptPubKey);
 						Assert.Equal(txOut.Value, output.Value);
-						var derived = ((DerivationSchemeTrackedSource)txEvent.TrackedSource).DerivationStrategy.Derive(output.KeyPath);
+						var derived = ((DerivationSchemeTrackedSource)txEvent.TrackedSource).DerivationStrategy.GetDerivation(output.KeyPath);
 						Assert.Equal(derived.ScriptPubKey, txOut.ScriptPubKey);
 					}
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), schemes);
@@ -1745,7 +1745,7 @@ namespace NBXplorer.Tests
 				var extkey2 = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey2 = new DerivationStrategyFactory(extkey.Network).Parse($"{extkey.Neuter()}-[legacy]");
 				tester.Client.Track(pubkey2);
-				var txId = tester.SendToAddress(pubkey2.Derive(new KeyPath("0/0")).ScriptPubKey, Money.Coins(1.0m));
+				var txId = tester.SendToAddress(pubkey2.GetDerivation(new KeyPath("0/0")).ScriptPubKey, Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(pubkey2, txId);
 
 				Logs.Tester.LogInformation("Sending from 0/0 to the tracked address");
@@ -1893,7 +1893,7 @@ namespace NBXplorer.Tests
 		private static Derivation Generate(DerivationStrategyBase strategy)
 		{
 			var derivation = strategy.GetLineFor(KeyPathTemplates.Default.GetKeyPathTemplate(DerivationFeature.Deposit)).Derive(1U);
-			var derivation2 = strategy.Derive(KeyPathTemplates.Default.GetKeyPathTemplate(DerivationFeature.Deposit).GetKeyPath(1U));
+			var derivation2 = strategy.GetDerivation(KeyPathTemplates.Default.GetKeyPathTemplate(DerivationFeature.Deposit).GetKeyPath(1U));
 			Assert.Equal(derivation.Redeem, derivation2.Redeem);
 			return derivation;
 		}
@@ -2559,7 +2559,7 @@ namespace NBXplorer.Tests
 				tester.Client.Track(pubkey);
 
 				KeyPathInformation[] keyinfos;
-				var script = pubkey.Derive(new KeyPath("0/0")).ScriptPubKey;
+				var script = pubkey.GetDerivation(new KeyPath("0/0")).ScriptPubKey;
 
 #pragma warning disable CS0618 // Type or member is obsolete
 				keyinfos = tester.Client.GetKeyInformations(script);
@@ -2574,13 +2574,13 @@ namespace NBXplorer.Tests
 					Assert.Equal(DerivationFeature.Deposit, k.Feature);
 				}
 
-				var keyInfo = tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/0")).ScriptPubKey);
+				var keyInfo = tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/0")).ScriptPubKey);
 				Assert.NotNull(keyInfo?.Address);
-				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/100")).ScriptPubKey));
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/100")).ScriptPubKey));
 
 				key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				pubkey = tester.CreateDerivationStrategy(key.Neuter());
-				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/0")).ScriptPubKey));
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/0")).ScriptPubKey));
 			}
 		}
 
@@ -2695,7 +2695,7 @@ namespace NBXplorer.Tests
 				int gaplimit = 1000;
 				int batchsize = 100;
 				// By default, gap limit is 1000 and batch size is 100 on all 3 feature line
-				var outOfBandAddress = pubkey.Derive(new KeyPath("0/50"));
+				var outOfBandAddress = pubkey.GetDerivation(new KeyPath("0/50"));
 				var txId = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey, Money.Coins(1.0m));
 				Logs.Tester.LogInformation($"Sent money on 0/50 {txId}");
 				tester.RPC.EnsureGenerate(1);
@@ -2725,11 +2725,11 @@ namespace NBXplorer.Tests
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].TransactionHash);
 
 				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be monitored, but not 0/150");
-				Assert.NotNull(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/51")).ScriptPubKey));
-				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/150")).ScriptPubKey));
+				Assert.NotNull(tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/51")).ScriptPubKey));
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/150")).ScriptPubKey));
 
 				Logs.Tester.LogInformation($"Let's check what happen if we scan a UTXO that is already fully indexed");
-				outOfBandAddress = pubkey.Derive(new KeyPath("0/51"));
+				outOfBandAddress = pubkey.GetDerivation(new KeyPath("0/51"));
 				var txId2 = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey, Money.Coins(1.0m));
 				Logs.Tester.LogInformation($"Send money on 0/51 on {txId2}");
 				tester.RPC.EnsureGenerate(1);

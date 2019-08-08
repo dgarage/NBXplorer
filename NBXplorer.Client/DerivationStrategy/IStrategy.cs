@@ -24,13 +24,19 @@ namespace NBXplorer.DerivationStrategy
 		{
 			return new DerivationLine(this, keyPathTemplate);
 		}
-		public abstract DerivationStrategyBase GetLineFor(KeyPath keyPath);
+		public abstract DerivationStrategyBase GetChild(KeyPath keyPath);
 
-		public Derivation Derive(uint i)
+		public Derivation GetDerivation(uint i)
 		{
-			return Derive(new KeyPath(i));
+			return GetChild(new KeyPath(i)).GetDerivation();
 		}
-		public abstract Derivation Derive(KeyPath keyPath);
+		public Derivation GetDerivation(KeyPath keyPath)
+		{
+			if (keyPath == null || keyPath.Length == 0)
+				return GetDerivation();
+			return GetChild(keyPath).GetDerivation();
+		}
+		public abstract Derivation GetDerivation();
 
 		protected abstract string StringValue
 		{
@@ -70,10 +76,10 @@ namespace NBXplorer.DerivationStrategy
 			return StringValue;
 		}
 
-		Script IHDScriptPubKey.ScriptPubKey => Derive(new KeyPath()).ScriptPubKey;
+		Script IHDScriptPubKey.ScriptPubKey => GetDerivation().ScriptPubKey;
 		IHDScriptPubKey IHDScriptPubKey.Derive(KeyPath keyPath)
 		{
-			return GetLineFor(keyPath);
+			return GetChild(keyPath);
 		}
 
 		public bool CanDeriveHardenedPath()
@@ -97,9 +103,12 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase DerivationStrategyBase { get; }
 		public KeyPathTemplate KeyPathTemplate { get; }
 
+		DerivationStrategyBase _PreLine;
+
 		public Derivation Derive(uint index)
 		{
-			return DerivationStrategyBase.Derive(KeyPathTemplate.GetKeyPath(index));
+			_PreLine = _PreLine ?? DerivationStrategyBase.GetChild(KeyPathTemplate.PreIndexes);
+			return _PreLine.GetDerivation(new KeyPath(index).Derive(KeyPathTemplate.PostIndexes));
 		}
 	}
 }

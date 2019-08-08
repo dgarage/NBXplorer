@@ -83,7 +83,7 @@ namespace NBXplorer.Controllers
 			if (request.ExplicitChangeAddress == null)
 			{
 				// The dummyScriptPubKey is necessary to know the size of the change
-				var dummyScriptPubKey = utxos.FirstOrDefault()?.ScriptPubKey ?? strategy.Derive(0).ScriptPubKey;
+				var dummyScriptPubKey = utxos.FirstOrDefault()?.ScriptPubKey ?? strategy.GetDerivation(0).ScriptPubKey;
 				change = (Script.FromBytesUnsafe(new byte[dummyScriptPubKey.Length]), null);
 			}
 			else

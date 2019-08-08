@@ -15,7 +15,7 @@ namespace NBXplorer.Models
 		}
 		public KeyPathInformation(KeyPathTemplates keyPathTemplates, KeyPath keyPath, DerivationStrategyBase derivationStrategy)
 		{
-			var derivation = derivationStrategy.Derive(keyPath);
+			var derivation = derivationStrategy.GetDerivation(keyPath);
 			ScriptPubKey = derivation.ScriptPubKey;
 			Redeem = derivation.Redeem;
 			TrackedSource = new DerivationSchemeTrackedSource(derivationStrategy);

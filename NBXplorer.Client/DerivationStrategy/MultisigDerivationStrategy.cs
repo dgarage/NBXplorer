@@ -67,12 +67,12 @@ namespace NBXplorer.DerivationStrategy
 			ms.Write(v, 0, v.Length);
 		}
 
-		public override Derivation Derive(KeyPath keyPath)
+		public override Derivation GetDerivation()
 		{
 			var pubKeys = new PubKey[this.Keys.Length];
 			Parallel.For(0, pubKeys.Length, i =>
 			{
-				pubKeys[i] = this.Keys[i].ExtPubKey.Derive(keyPath).PubKey;
+				pubKeys[i] = this.Keys[i].ExtPubKey.PubKey;
 			});
 			if(LexicographicOrder)
 			{
@@ -82,7 +82,7 @@ namespace NBXplorer.DerivationStrategy
 			return new Derivation() { ScriptPubKey = redeem };
 		}
 
-		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
+		public override DerivationStrategyBase GetChild(KeyPath keyPath)
 		{
 			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray(), IsLegacy)
 			{

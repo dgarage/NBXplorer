@@ -311,7 +311,7 @@ namespace NBXplorer.Tests
 
 		public BitcoinAddress AddressOf(DerivationStrategyBase scheme, string path)
 		{
-			return scheme.Derive(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(Network);
+			return scheme.GetDerivation(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(Network);
 		}
 
 		public DirectDerivationStrategy CreateDerivationStrategy(ExtPubKey pubKey = null)
