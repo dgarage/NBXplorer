@@ -1256,31 +1256,35 @@ namespace NBXplorer
 			});
 		}
 
-		internal Task UpdateAddressPool(DerivationSchemeTrackedSource trackedSource, Dictionary<DerivationFeature, int?> highestKeyIndexFound)
+		internal async Task UpdateAddressPool(DerivationSchemeTrackedSource trackedSource, Dictionary<DerivationFeature, int?> highestKeyIndexFound)
 		{
-			return _TxContext.DoAsync(tx =>
+			bool needRefill = false;
+			do
 			{
-				tx.ValuesLazyLoadingIsOn = false;
-				foreach (var kv in highestKeyIndexFound)
+				await _TxContext.DoAsync(tx =>
 				{
-					if (kv.Value == null)
-						continue;
-					var index = GetAvailableKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-					bool needRefill = CleanUsed(kv, index);
-					index = GetReservedKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-					needRefill |= CleanUsed(kv, index);
-					if (needRefill)
+					tx.ValuesLazyLoadingIsOn = false;
+					foreach (var kv in highestKeyIndexFound)
 					{
-						var hIndex = GetHighestPathIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-						int highestGenerated = hIndex.SelectInt(0) ?? -1;
-						if (highestGenerated < kv.Value.Value)
-							hIndex.Insert(0, kv.Value.Value);
-						var toGenerate = GetAddressToGenerateCount(tx, trackedSource.DerivationStrategy, kv.Key);
-						RefillAvailable(tx, trackedSource.DerivationStrategy, kv.Key, toGenerate);
+						if (kv.Value == null)
+							continue;
+						var index = GetAvailableKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+						needRefill = CleanUsed(kv, index);
+						index = GetReservedKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+						needRefill |= CleanUsed(kv, index);
+						if (needRefill)
+						{
+							var hIndex = GetHighestPathIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+							int highestGenerated = hIndex.SelectInt(0) ?? -1;
+							if (highestGenerated < kv.Value.Value)
+								hIndex.Insert(0, kv.Value.Value);
+							var toGenerate = GetAddressToGenerateCount(tx, trackedSource.DerivationStrategy, kv.Key);
+							RefillAvailable(tx, trackedSource.DerivationStrategy, kv.Key, toGenerate);
+						}
 					}
-				}
-				tx.Commit();
-			});
+					tx.Commit();
+				});
+			} while (needRefill);
 		}
 
 		private bool CleanUsed(KeyValuePair<DerivationFeature, int?> kv, Index index)
