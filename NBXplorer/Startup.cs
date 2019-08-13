@@ -74,14 +74,17 @@ namespace NBXplorer
 			{
 				app.UseDeveloperExceptionPage();
 			}
-
 			Logs.Configure(loggerFactory);
-			app.UseAuthentication();
-			app.UseWebSockets();
+
 #if !NETCOREAPP21
 			app.UseRouting();
 #endif
-			//app.UseMiddleware<LogAllRequestsMiddleware>();
+			app.UseAuthentication();
+#if !NETCOREAPP21
+			app.UseAuthorization();
+#endif
+			app.UseWebSockets();
+			// app.UseMiddleware<LogAllRequestsMiddleware>();
 #if NETCOREAPP21
 			app.UseMvc();
 #else

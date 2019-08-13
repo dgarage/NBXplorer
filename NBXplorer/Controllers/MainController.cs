@@ -911,7 +911,10 @@ namespace NBXplorer.Controllers
 			var network = GetNetwork(cryptoCode, true);
 			var trackedSource = GetTrackedSource(derivationScheme ?? extPubKey, address);
 			var tx = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
-			var stream = new BitcoinStream(Request.Body, false);
+			var buffer = new MemoryStream();
+			await Request.Body.CopyToAsync(buffer);
+			buffer.Position = 0;
+			var stream = new BitcoinStream(buffer, false);
 			tx.ReadWrite(stream);
 
 			var waiter = this.Waiters.GetWaiter(network);
