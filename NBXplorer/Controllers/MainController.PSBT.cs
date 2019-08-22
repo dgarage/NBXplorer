@@ -275,7 +275,7 @@ namespace NBXplorer.Controllers
 
 		static bool NeedNonWitnessUtxo(PSBTInput input)
 		{
-			return (input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness;
+			return !((input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness);
 		}
 
 		private static async Task UpdateInputsUTXO(UpdatePSBTRequest update, Repository repo, BitcoinDWaiter rpc)
