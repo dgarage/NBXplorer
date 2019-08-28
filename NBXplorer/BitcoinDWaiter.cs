@@ -314,19 +314,7 @@ namespace NBXplorer
 					var explorer = GetExplorerBehavior();
 					if (explorer == null)
 					{
-						GetBlockchainInfoResponse blockchainInfo3 = null;
-						try
-						{
-							blockchainInfo3 = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
-						}
-						catch (Exception ex)
-						{
-							Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Failed to connect to RPC");
-							State = BitcoinDWaiterState.NotStarted;
-							break;
-						}
-						if (IsSynchingCore(blockchainInfo3))
-							State = BitcoinDWaiterState.CoreSynching;
+						State = BitcoinDWaiterState.NotStarted;
 					}
 					else if (!explorer.IsSynching())
 					{
