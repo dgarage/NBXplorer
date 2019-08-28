@@ -1,0 +1,41 @@
+{
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:4771/",
+      "sslPort": 0
+    }
+  },
+  
+  "profiles": {
+    "NBXplorer - BTC on Mainnet": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:4774/"
+    },
+	
+    "NBXplorer - BTC+LTC on Regtest": {
+      "commandName": "Project",
+      "commandLineArgs": "--chains=btc,ltc --network=regtest",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:4774/"
+	},
+	
+    "NBXplorer - DASH on Testnet": {
+      "commandName": "Project",
+      "commandLineArgs": "--chains=dash --network=test --dashrpcuser=myuser --dashrpcpassword=mypassword",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:4774/"
+    }
+  }
+}
