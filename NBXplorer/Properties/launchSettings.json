@@ -15,9 +15,10 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "http://localhost:4774/"
+      "applicationUrl": "http://localhost:4774",
+      "launchUrl": "v1/cryptos/btc/status"
     },
-	
+
     "NBXplorer - BTC+LTC on Regtest": {
       "commandName": "Project",
       "commandLineArgs": "--chains=btc,ltc --network=regtest",
@@ -25,9 +26,10 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "http://localhost:4774/"
-	},
-	
+      "applicationUrl": "http://localhost:4774",
+      "launchUrl": "v1/cryptos/ltc/status"
+    },
+
     "NBXplorer - DASH on Testnet": {
       "commandName": "Project",
       "commandLineArgs": "--chains=dash --network=test --dashrpcuser=myuser --dashrpcpassword=mypassword",
@@ -35,7 +37,8 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
-      "applicationUrl": "http://localhost:4774/"
+      "applicationUrl": "http://localhost:4774",
+      "launchUrl": "v1/cryptos/dash/status"
     }
   }
 }
