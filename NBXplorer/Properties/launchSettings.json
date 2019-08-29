@@ -11,6 +11,7 @@
   "profiles": {
     "NBXplorer - BTC on Mainnet": {
       "commandName": "Project",
+      "commandLineArgs": "--btcrpcuser=myuser --btcrpcpassword=mypassword",
       "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
@@ -21,7 +22,7 @@
 
     "NBXplorer - BTC+LTC on Regtest": {
       "commandName": "Project",
-      "commandLineArgs": "--chains=btc,ltc --network=regtest",
+      "commandLineArgs": "--chains=btc,ltc --network=regtest --btcrpcuser=myuser --btcrpcpassword=mypassword --ltcrpcuser=myuser --ltcrpcpassword=mypassword",
       "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
