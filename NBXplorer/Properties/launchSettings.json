@@ -1,13 +1,4 @@
 {
-  "iisSettings": {
-    "windowsAuthentication": false,
-    "anonymousAuthentication": true,
-    "iisExpress": {
-      "applicationUrl": "http://localhost:4771/",
-      "sslPort": 0
-    }
-  },
-  
   "profiles": {
     "NBXplorer - BTC on Mainnet": {
       "commandName": "Project",
