@@ -94,9 +94,19 @@ namespace NBXplorer
 		{
 			if (StartHeight > Chain.Height)
 				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight should not be above the current tip");
-			return StartHeight == -1 ?
-				Chain.GetTipLocator() :
-				Chain.GetLocator(StartHeight);
+
+			BlockLocator blockLocator = null;
+			if (StartHeight == -1)
+			{
+				blockLocator = Chain.GetTipLocator();
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Current Index Progress not found, start syncing from the header's chain tip (At height: {Chain.Height})");
+			}
+			else
+			{
+				blockLocator = Chain.GetLocator(StartHeight);
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Current Index Progress not found, start syncing at height {Chain.Height}");
+			}
+			return blockLocator;
 		}
 
 
@@ -136,7 +146,7 @@ namespace NBXplorer
 			if (invs.Count != 0)
 			{
 				Repository.BatchSize = invs.Count == maxConcurrentBlocks ? int.MaxValue : 100;
-				_HighestInFlight = Chain.GetLocator(invs[invs.Count - 1].Hash);
+				_HighestInFlight = _HighestInFlight ?? Chain.GetLocator(invs[invs.Count - 1].Hash);
 				node.SendMessageAsync(new GetDataPayload(invs.ToArray()));
 				if (invs.Count > 1)
 					GC.Collect(); // Let's collect memory if we are synching 
