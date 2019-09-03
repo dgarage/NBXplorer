@@ -129,13 +129,26 @@ The default configuration assumes `mainnet` with only `btc` chain supported, and
 You can change the location of the configuration file with the `--conf=pathToConf` command line argument.
 
 ### Command line parameters
+Please note that NBXplorer uses cookie authentication by default. If you run your Bitcoin/Litecoin/Dash nodes using their daemon (like `bitcoind`, `litecoind` or `dashd`), they generate a new cookie every time you start them, and that should work without any extra configuration. 
+If you run the node(s) using the GUI versions, like Bitcoin\Litecoin\Dash Core Qt with the `-server` parameter while you set the rpcusername and rpcpassword in their `.conf` files, you must set those values for every crypto you are planning to support. 
+See samples below.
 
-#### From Source (.NET Core SDK required)
-The same settings as above, e.g.
-```dotnet run NBXplorer.dll --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939```
+#### Run from source (.NET Core SDK required)
+```dotnet run NBXplorer.dll <parameters>```
 
-#### From Built DLL (.NET Core Runtime required)
-```dotnet NBXplorer.dll --port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939```
+#### Run using built DLL (.NET Core Runtime required)
+```dotnet NBXplorer.dll <parameters>```
+
+#### Sample parameters
+Running NBXplorer HTTP server on port 20300, connecting to the BTC mainnet node locally.
+```--port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939```
+
+Running NBXplorer on testnet, supporting Bitcoin, Litecoin and Dash, using cookie authentication for BTC and LTC, and RPC username and password for Dash, connecting to all of them locally. 
+```--chains=btc,ltc,dash --network=testnet --dashrpcuser=myuser --dashrpcpassword=mypassword```
+
+Running NBXplorer with a BTC rescan from January 1st of 2019.
+```--network=mainnet --btcstartheight=556452 --btcrescan```
+
 
 ### Environment variables
 
@@ -167,7 +180,7 @@ If you need to see old payments, you need to configure `startheight` to a specif
 ### Using Postman
 [Postman](https://www.getpostman.com) is a useful tool for testing and experimenting with REST API's. 
 
-You can test the NBXplorer API quickly and easily using Postman as follows :
+You can test the [NBXplorer API](docs/API.md) quickly and easily using Postman as follows :
 * Assumption: you are using the default Cookie Auth , you are running NBXplorer on the same machine as your BTC (or other supported crypto) node or NBXplorer can access the blockchain data files.
 * Run NBXplorer and locate you cookie file - note NBXplorer will generate a new Cookie file each time it runs
 * In Postman create a new GET API test
