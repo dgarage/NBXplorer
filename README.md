@@ -146,9 +146,6 @@ Running NBXplorer HTTP server on port 20300, connecting to the BTC mainnet node 
 Running NBXplorer on testnet, supporting Bitcoin, Litecoin and Dash, using cookie authentication for BTC and LTC, and RPC username and password for Dash, connecting to all of them locally. 
 ```--chains=btc,ltc,dash --network=testnet --dashrpcuser=myuser --dashrpcpassword=mypassword```
 
-Running NBXplorer with a BTC rescan from January 1st of 2019.
-```--network=mainnet --btcstartheight=556452 --btcrescan```
-
 
 ### Environment variables
 
