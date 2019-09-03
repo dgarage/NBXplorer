@@ -134,14 +134,14 @@ If you run the node(s) using the GUI versions, like Bitcoin\Litecoin\Dash Core Q
 See samples below.
 
 #### Run from source (.NET Core SDK required)
-```dotnet run NBXplorer.dll <parameters>```
+```dotnet run -p .\NBXplorer\NBXplorer.csproj <parameters>```
 
 #### Run using built DLL (.NET Core Runtime required)
 ```dotnet NBXplorer.dll <parameters>```
 
 #### Sample parameters
 Running NBXplorer HTTP server on port 20300, connecting to the BTC mainnet node locally.
-```--port=20300 --network=mainnet --nodeendpoint=127.0.0.1:32939```
+```--port=20300 --network=mainnet --btcnodeendpoint=127.0.0.1:32939```
 
 Running NBXplorer on testnet, supporting Bitcoin, Litecoin and Dash, using cookie authentication for BTC and LTC, and RPC username and password for Dash, connecting to all of them locally. 
 ```--chains=btc,ltc,dash --network=testnet --dashrpcuser=myuser --dashrpcpassword=mypassword```
