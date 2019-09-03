@@ -24,7 +24,7 @@
 
     "NBXplorer - DASH on Testnet": {
       "commandName": "Project",
-      "commandLineArgs": "--chains=dash --network=test --dashrpcuser=myuser --dashrpcpassword=mypassword",
+      "commandLineArgs": "--chains=dash --network=testnet",
       "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
