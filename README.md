@@ -89,7 +89,7 @@ Example, if you have ltc node and btc node on regtest (default configuration), a
 
 ## How to use the API?
 
-Check [the documentation](docs/API.md), you can then use any client library:
+Check [the API documentation](docs/API.md), you can then use any client library:
 * [NBXplorer.NodeJS](https://github.com/junderw/NBXplorer.NodeJS) for NodeJS clients.
 * [NBXplorer.Client](https://www.nuget.org/packages/NBxplorer.Client) for .NET clients.
 
@@ -133,10 +133,12 @@ Please note that NBXplorer uses cookie authentication by default. If you run you
 If you run the node(s) using the GUI versions, like Bitcoin\Litecoin\Dash Core Qt with the `-server` parameter while you set the rpcusername and rpcpassword in their `.conf` files, you must set those values for every crypto you are planning to support. 
 See samples below.
 
-#### Run from source (.NET Core SDK required)
-```dotnet run -p .\NBXplorer\NBXplorer.csproj <parameters>```
+#### Run from source (requires .NET Core SDK)
+You should use `run.ps1` (Windows) or `run.sh` (Linux) to execute NBXplorer, but you can also execute it manually with the following command:
+```dotnet run --no-launch-profile -p .\NBXplorer\NBXplorer.csproj -- <parameters>```
 
-#### Run using built DLL (.NET Core Runtime required)
+#### Run using built DLL (requires .NET Core Runtime only)
+If you already have a compiled DLL, you can run the compiled executable with the following command:
 ```dotnet NBXplorer.dll <parameters>```
 
 #### Sample parameters
