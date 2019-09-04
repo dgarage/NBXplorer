@@ -138,7 +138,7 @@ You should use `run.ps1` (Windows) or `run.sh` (Linux) to execute NBXplorer, but
 ```dotnet run --no-launch-profile -p .\NBXplorer\NBXplorer.csproj -- <parameters>```
 
 #### Run using built DLL (requires .NET Core Runtime only)
-If you already have a compiled DLL, you can run the compiled executable with the following command:
+If you already have a compiled DLL, you can run the executable with the following command:
 ```dotnet NBXplorer.dll <parameters>```
 
 #### Sample parameters
