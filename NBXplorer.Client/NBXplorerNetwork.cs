@@ -77,6 +77,12 @@ namespace NBXplorer
 			set;
 		} = TimeSpan.FromMinutes(15);
 
+		public TimeSpan ChainCacheLoadingTimeout
+		{
+			get;
+			set;
+		} = TimeSpan.FromSeconds(30);
+
 		/// <summary>
 		/// Minimum blocks to keep if pruning is activated
 		/// </summary>
