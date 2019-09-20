@@ -765,6 +765,7 @@ namespace NBXplorer.Controllers
 			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
 
 			changes.Confirmed = ToUTXOChange(transactions.ConfirmedState);
+			changes.Confirmed.SpentOutpoints.Clear();
 			changes.Unconfirmed = ToUTXOChange(transactions.UnconfirmedState - transactions.ConfirmedState);
 
 
