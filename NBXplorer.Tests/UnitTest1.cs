@@ -3100,7 +3100,6 @@ namespace NBXplorer.Tests
 				}
 				if (info.Status == ScanUTXOStatus.Error)
 					Assert.False(true, $"Scanning should not have failed {info.Error}");
-				Assert.Null(info.Progress.CompletedAt);
 				Thread.Sleep(100);
 			}
 		}
