@@ -419,6 +419,23 @@ namespace NBXplorer.Tests
 					FeeRate = new FeeRate(Money.Satoshis(1), 1)
 				}));
 				Assert.Equal("not-enough-funds", ex.Error.Code);
+				// If we ignore locks, then the UTXO should be selected
+				var lockId = tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
+				{
+					Destination = bob.ToString(),
+					Amount = Money.Coins(1.01m),
+					FeeRate = new FeeRate(Money.Satoshis(1), 1),
+					IgnoreLocks = true
+				}).UnlockId;
+				tester.Client.UnlockUTXOs(lockId);
+				// Let's make sure that unlocking the second lock, does not unlock the former one
+				ex = Assert.Throws<NBXplorerException>(() => tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
+				{
+					Destination = bob.ToString(),
+					Amount = Money.Coins(1.01m),
+					FeeRate = new FeeRate(Money.Satoshis(1), 1)
+				}));
+				Assert.Equal("not-enough-funds", ex.Error.Code);
 
 				// We have only 1 coins left
 				var balance = tester.Client.GetBalance(alice);
