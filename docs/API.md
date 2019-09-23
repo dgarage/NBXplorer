@@ -583,6 +583,33 @@ Error codes:
 * HTTP 404: `unlockid-not-found`
 * HTTP 404: `cryptoCode-not-supported`
 
+Response:
+
+```json
+{  
+   "outpoints":"0100000001310adef458f690a4241e29691d1890d18d4b30026930fac5fdfe996276a293a5010000001716001476c33e147aa7960e309a6a9bafd6c5e66fd9c70affffffff02005a6202000000001976a9142e83f4230fd4514d386c8f0a9874cc20dcadb75988ac588693030000000017a914759d298c66a2dafb726ffc4a110b97f35daedfdb8700000000"
+}
+```
+
+## Get Lock information
+
+You can query which outpoints are affected by a lock.
+
+HTTP GET v1/cryptos/{cryptoCode}/locks/{unlockId}
+
+Error codes:
+
+* HTTP 404: `unlockid-not-found`
+* HTTP 404: `cryptoCode-not-supported`
+
+```json
+{
+    "lockedOutpoints": [
+      "9345f9585d643a31202e686ec7a4c2fe17917a5e7731a79d2327d24d25c0339f01000000"
+    ]
+}
+```
+
 ## Notifications via websocket
 
 NBXplorer implements real-time notification via websocket supports for new block or transaction.

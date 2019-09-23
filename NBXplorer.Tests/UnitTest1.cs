@@ -369,7 +369,7 @@ namespace NBXplorer.Tests
 				tester.Client.Track(alice);
 
 				var utxo = tester.Client.GetUTXOs(alice);
-				// Send two coins of 1 BTC
+				Logs.Tester.LogInformation("Send two coins of 1 BTC to Alice");
 				var newAddress = tester.Client.GetUnused(alice, DerivationFeature.Direct, reserve: true);
 				var txId = tester.Explorer.CreateRPCClient().SendToAddress(newAddress.ScriptPubKey.GetDestinationAddress(tester.Network), Money.Coins(1.0m));
 				var newTx = tester.Notifications.WaitForTransaction(alice, txId);
@@ -384,6 +384,7 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.GetUTXOs(alice);
 				Assert.Equal(2, tester.Client.GetUTXOs(alice).GetUnspentCoins().Length);
 
+				Logs.Tester.LogInformation("Spending 3 BTC should be too much");
 				var ex = Assert.Throws<NBXplorerException>(() => tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
 				{
 					Destination = bob.ToString(),
@@ -398,6 +399,7 @@ namespace NBXplorer.Tests
 				}));
 				Assert.Equal("fee-estimation-unavailable", ex.Error.Code);
 
+				Logs.Tester.LogInformation("Spending 0.4 BTC should lock 1 UTXO");
 				var locked = tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
 				{
 					Destination = bob.ToString(),
@@ -411,7 +413,7 @@ namespace NBXplorer.Tests
 				Assert.NotNull(locked.ChangeInformation);
 				Assert.True(locked.ChangeInformation.Value.Almost(Money.Coins(0.6m), 0.001m));
 
-				// Because one whole bitcoin is locked, we should not have enough fund
+				Logs.Tester.LogInformation("Because one 1 BTC is locked, we should not have enough fund to pay 1.01 BTC");
 				ex = Assert.Throws<NBXplorerException>(() => tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
 				{
 					Destination = bob.ToString(),
@@ -419,7 +421,7 @@ namespace NBXplorer.Tests
 					FeeRate = new FeeRate(Money.Satoshis(1), 1)
 				}));
 				Assert.Equal("not-enough-funds", ex.Error.Code);
-				// If we ignore locks, then the UTXO should be selected
+				Logs.Tester.LogInformation("But we should be able to still select locked fund if we ignore the locks, and now two UTXO should be locked");
 				var lockId = tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
 				{
 					Destination = bob.ToString(),
@@ -427,8 +429,13 @@ namespace NBXplorer.Tests
 					FeeRate = new FeeRate(Money.Satoshis(1), 1),
 					IgnoreLocks = true
 				}).UnlockId;
+				var lockInfo = tester.Client.GetLockInfo(lockId);
+				Assert.NotNull(lockInfo);
+				Assert.Equal(2, lockInfo.LockedOutpoints.Length);
 				tester.Client.UnlockUTXOs(lockId);
-				// Let's make sure that unlocking the second lock, does not unlock the former one
+				Assert.Null(tester.Client.GetLockInfo(lockId));
+
+				Logs.Tester.LogInformation("Let's remove the last lock, which should unlock 2 UTXO, but one of the UTXO has still the previous lock operating, so only 1 UTXO should be available");
 				ex = Assert.Throws<NBXplorerException>(() => tester.Client.LockUTXOs(alice, new LockUTXOsRequest()
 				{
 					Destination = bob.ToString(),

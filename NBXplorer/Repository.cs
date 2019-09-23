@@ -1324,6 +1324,38 @@ namespace NBXplorer
 			}
 		}
 
+		public async Task<OutPoint[]> GetLockOutpoints(string unlockId)
+		{
+			using (var tx = await _ContextFactory.GetContext())
+			{
+				var table = GetCancellableMachesIndex(tx, unlockId);
+				var bytes = (await table.SelectForwardSkip(0)).Select(_ => _.Value).FirstOrDefault();
+				if (bytes == null)
+					return null;
+				var cancellable = ToObject<CancellableMatches>(bytes);
+
+				List<OutPoint> outPoints = new List<OutPoint>();
+				foreach (var group in cancellable.Groups)
+				{
+					var tableTx = GetTransactionsIndex(tx, group.Key);
+					foreach (var rowStr in group.RowKeys)
+					{
+						var row = (await tableTx.SelectForwardSkip(0, rowStr)).FirstOrDefault();
+						if (row.Value == null)
+							continue;
+						MemoryStream ms = new MemoryStream(row.Value);
+						BitcoinStream bs = new BitcoinStream(ms, false);
+						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
+						TransactionMatchData data = new TransactionMatchData(TrackedTransactionKey.Parse(row.Key));
+						data.ReadWrite(bs);
+						var trackedTx = data.ToTrackedTransaction(group.Key);
+						outPoints.AddRange(trackedTx.SpentOutpoints);
+					}
+				}
+				return outPoints.ToArray();
+			}
+		}
+
 		public async Task<bool> CancelMatches(string key)
 		{
 			using (var tx = await _ContextFactory.GetContext())

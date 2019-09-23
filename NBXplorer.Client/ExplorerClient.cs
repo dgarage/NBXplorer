@@ -460,6 +460,20 @@ namespace NBXplorer
 			return SendAsync<LockUTXOsResponse>(HttpMethod.Post, request, $"v1/cryptos/{CryptoCode}/derivations/{derivationScheme}/transactions", null, cancellation);
 		}
 
+		public LockInfoResponse GetLockInfo(string unlockId, CancellationToken cancellation = default)
+		{
+			return GetLockInfoAsync(unlockId, cancellation).GetAwaiter().GetResult();
+		}
+
+		public async Task<LockInfoResponse> GetLockInfoAsync(string unlockId, CancellationToken cancellation = default)
+		{
+			if (unlockId == null)
+				throw new ArgumentNullException(nameof(unlockId));
+			return await GetAsync<LockInfoResponse>($"v1/cryptos/{CryptoCode}/locks/{unlockId}", null, cancellation).ConfigureAwait(false);
+		}
+
+
+
 		public bool UnlockUTXOs(string unlockId, CancellationToken cancellation = default)
 		{
 			return UnlockUTXOsAsync(unlockId, cancellation).GetAwaiter().GetResult();

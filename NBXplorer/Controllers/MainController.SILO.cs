@@ -26,6 +26,19 @@ namespace NBXplorer.Controllers
 				return NotFound("unlockid-not-found");
 		}
 
+		[HttpGet]
+		[Route("cryptos/{cryptoCode}/locks/{unlockId}")]
+		public async Task<IActionResult> GetLockInfoAsync(string cryptoCode, string unlockId)
+		{
+			var network = GetNetwork(cryptoCode, false);
+			var repo = RepositoryProvider.GetRepository(network);
+			var outpoints = await repo.GetLockOutpoints(unlockId);
+			if (outpoints != null)
+				return Json(new LockInfoResponse() { LockedOutpoints = outpoints });
+			else
+				return NotFound("unlockid-not-found");
+		}
+
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions")]
