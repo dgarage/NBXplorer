@@ -23,7 +23,7 @@ jobs:
             dotnet test -c Release ./NBXplorer.Tests/NBXplorer.Tests.csproj --filter "Azure!=Azure" -v n
 
   # publish jobs require $DOCKERHUB_REPO, $DOCKERHUB_USER, $DOCKERHUB_PASS defined
-  publish_docker_linuxamd64:
+  amd64:
     machine:
       docker_layer_caching: true
     steps:
@@ -36,7 +36,7 @@ jobs:
             sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
             sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-amd64
 
-  publish_docker_linuxarm:
+  arm32v7:
     machine:
       docker_layer_caching: true
     steps:
@@ -50,7 +50,21 @@ jobs:
             sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
             sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-arm32v7
 
-  publish_docker_multiarch:
+  arm64v8:
+    machine:
+      docker_layer_caching: true
+    steps:
+      - checkout  
+      - run:
+          command: |
+            sudo docker run --rm --privileged multiarch/qemu-user-static:register --reset
+            LATEST_TAG=${CIRCLE_TAG:1} #trim v from tag
+            #
+            sudo docker build --pull -t $DOCKERHUB_REPO:$LATEST_TAG-arm64v8 -f Dockerfile.linuxarm64v8 .
+            sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
+            sudo docker push $DOCKERHUB_REPO:$LATEST_TAG-arm64v8
+
+  multiarch:
     machine:
       enabled: true
       image: circleci/classic:201808-01
@@ -64,9 +78,10 @@ jobs:
             sudo docker login --username=$DOCKERHUB_USER --password=$DOCKERHUB_PASS
             #
             LATEST_TAG=${CIRCLE_TAG:1} #trim v from tag
-            sudo docker manifest create --amend $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-amd64 $DOCKERHUB_REPO:$LATEST_TAG-arm32v7
+            sudo docker manifest create --amend $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-amd64 $DOCKERHUB_REPO:$LATEST_TAG-arm32v7 $DOCKERHUB_REPO:$LATEST_TAG-arm64v8
             sudo docker manifest annotate $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-amd64 --os linux --arch amd64
             sudo docker manifest annotate $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-arm32v7 --os linux --arch arm --variant v7
+            sudo docker manifest annotate $DOCKERHUB_REPO:$LATEST_TAG $DOCKERHUB_REPO:$LATEST_TAG-arm64v8 --os linux --arch arm64 --variant v8
             sudo docker manifest push $DOCKERHUB_REPO:$LATEST_TAG -p
 
 workflows:
@@ -77,7 +92,7 @@ workflows:
 
   publish:
     jobs:
-      - publish_docker_linuxamd64:
+      - amd64:
           filters:
             # ignore any commit on any branch by default
             branches:
@@ -85,16 +100,23 @@ workflows:
             # only act on version tags
             tags:
               only: /v[1-9]+(\.[0-9]+)*/
-      - publish_docker_linuxarm:
+      - arm32v7:
           filters:
             branches:
               ignore: /.*/
             tags:
               only: /v[1-9]+(\.[0-9]+)*/
-      - publish_docker_multiarch:
+      - arm64v8:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /v[1-9]+(\.[0-9]+)*/
+      - multiarch:
           requires:
-            - publish_docker_linuxamd64
-            - publish_docker_linuxarm
+            - amd64
+            - arm32v7
+            - arm64v8
           filters:
             branches:
               ignore: /.*/

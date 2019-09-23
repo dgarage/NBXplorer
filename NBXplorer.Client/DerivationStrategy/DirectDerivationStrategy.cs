@@ -52,13 +52,13 @@ namespace NBXplorer.DerivationStrategy
 				throw new ArgumentNullException(nameof(root));
 			_Root = root;
 		}
-		public override Derivation Derive(KeyPath keyPath)
+		public override Derivation GetDerivation()
 		{
-			var pubKey = _Root.ExtPubKey.Derive(keyPath).PubKey;
+			var pubKey = _Root.ExtPubKey.PubKey;
 			return new Derivation() { ScriptPubKey = Segwit ? pubKey.WitHash.ScriptPubKey : pubKey.Hash.ScriptPubKey };
 		}
 
-		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
+		public override DerivationStrategyBase GetChild(KeyPath keyPath)
 		{
 			return new DirectDerivationStrategy(_Root.ExtPubKey.Derive(keyPath).GetWif(_Root.Network)) { Segwit = Segwit };
 		}

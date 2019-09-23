@@ -31,7 +31,6 @@ namespace NBXplorer
 	{
 		public int GapLimit { get; set; } = 10_000;
 		public int BatchSize { get; set; } = 1000;
-		public DerivationFeature[] DerivationFeatures { get; set; } = new[] { DerivationFeature.Change, DerivationFeature.Deposit, DerivationFeature.Direct };
 		public int From { get; set; }
 	}
 	public class ScanUTXOSetService : IHostedService
@@ -63,10 +62,12 @@ namespace NBXplorer
 
 		public ScanUTXOSetService(ScanUTXOSetServiceAccessor accessor,
 								  RPCClientProvider rpcClients,
+								  KeyPathTemplates keyPathTemplates,
 								  RepositoryProvider repositories)
 		{
 			accessor.Instance = this;
 			RpcClients = rpcClients;
+			this.keyPathTemplates = keyPathTemplates;
 			Repositories = repositories;
 		}
 		Channel<string> _Channel = Channel.CreateBounded<string>(500);
@@ -113,6 +114,8 @@ namespace NBXplorer
 
 		Task _Task;
 		CancellationTokenSource _Cts = new CancellationTokenSource();
+		private readonly KeyPathTemplates keyPathTemplates;
+
 		public RPCClientProvider RpcClients { get; }
 		public RepositoryProvider Repositories { get; }
 
@@ -146,7 +149,7 @@ namespace NBXplorer
 							From = workItem.Options.From,
 							StartedAt = DateTimeOffset.UtcNow
 						};
-						foreach (var feature in workItem.Options.DerivationFeatures)
+						foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
 						{
 							workItem.State.Progress.HighestKeyIndexFound.Add(feature, null);
 						}
@@ -219,7 +222,8 @@ namespace NBXplorer
 					}
 					finally
 					{
-						await rpc.AbortScanTxoutSetAsync();
+						try { await rpc.AbortScanTxoutSetAsync(); }
+						catch { }
 					}
 					workItem.Finished = true;
 				}
@@ -290,10 +294,10 @@ namespace NBXplorer
 		{
 			var items = new ScannedItems();
 			var derivationStrategy = workItem.DerivationStrategy;
-			foreach (var feature in workItem.Options.DerivationFeatures)
+			foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
 			{
-				var path = DerivationStrategyBase.GetKeyPath(feature);
-				var lineDerivation = workItem.DerivationStrategy.DerivationStrategy.GetLineFor(feature);
+				var keyPathTemplate = keyPathTemplates.GetKeyPathTemplate(feature);
+				var lineDerivation = workItem.DerivationStrategy.DerivationStrategy.GetLineFor(keyPathTemplate);
 				Enumerable.Range(progress.From, progress.Count)
 						  .Select(index =>
 						  {
@@ -305,7 +309,7 @@ namespace NBXplorer
 								  TrackedSource = derivationStrategy,
 								  DerivationStrategy = derivationStrategy.DerivationStrategy,
 								  Feature = feature,
-								  KeyPath = path.Derive(index, false)
+								  KeyPath = keyPathTemplate.GetKeyPath(index, false)
 							  };
 							  items.Descriptors.Add(new ScanTxoutSetObject(ScanTxoutDescriptor.Raw(info.ScriptPubKey)));
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);

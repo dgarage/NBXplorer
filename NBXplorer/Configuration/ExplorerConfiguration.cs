@@ -183,11 +183,22 @@ namespace NBXplorer.Configuration
 				Directory.CreateDirectory(SignalFilesDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
+
 			var user = config.GetOrDefault<string>("user", "nbxplorer");
 			var pwd = config.GetOrDefault<string>("password", null);
 			if (string.IsNullOrEmpty(user) && string.IsNullOrEmpty(pwd))
 			{
 				UserPassword = new NetworkCredential(user, pwd);
+			}
+
+			var customKeyPathTemplate = config.GetOrDefault<string>("customkeypathtemplate", null);
+			if (!string.IsNullOrEmpty(customKeyPathTemplate))
+			{
+				if (!KeyPathTemplate.TryParse(customKeyPathTemplate, out var v))
+					throw new ConfigException("Invalid customKeyPathTemplate");
+				if (v.PostIndexes.IsHardened || v.PreIndexes.IsHardened)
+					throw new ConfigException("customKeyPathTemplate should not be an hardened path");
+				CustomKeyPathTemplate = v;
 			}
 
 			return this;
@@ -217,5 +228,6 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
 	}
 }

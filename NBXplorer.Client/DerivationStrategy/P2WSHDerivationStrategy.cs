@@ -24,9 +24,9 @@ namespace NBXplorer.DerivationStrategy
 
 		protected override string StringValue => Inner.ToString();
 
-		public override Derivation Derive(KeyPath keyPath)
+		public override Derivation GetDerivation()
 		{
-			var derivation = Inner.Derive(keyPath);
+			var derivation = Inner.GetDerivation();
 			return new Derivation()
 			{
 				ScriptPubKey = derivation.ScriptPubKey.WitHash.ScriptPubKey,
@@ -39,9 +39,9 @@ namespace NBXplorer.DerivationStrategy
 			return Inner.GetExtPubKeys();
 		}
 
-		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
+		public override DerivationStrategyBase GetChild(KeyPath keyPath)
 		{
-			return new P2WSHDerivationStrategy(Inner.GetLineFor(keyPath));
+			return new P2WSHDerivationStrategy(Inner.GetChild(keyPath));
 		}
 	}
 }

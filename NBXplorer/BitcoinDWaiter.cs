@@ -39,7 +39,8 @@ namespace NBXplorer
 							  RepositoryProvider repositoryProvider,
 							  ExplorerConfiguration config,
 							  RPCClientProvider rpcProvider,
-							  EventAggregator eventAggregator)
+							  EventAggregator eventAggregator,
+							  KeyPathTemplates keyPathTemplates)
 		{
 			_Waiters = networkProvider
 				.GetAll()
@@ -54,7 +55,7 @@ namespace NBXplorer
 												s.Chain,
 												s.Repository,
 												addressPool.Instance,
-												eventAggregator))
+												eventAggregator, keyPathTemplates))
 				.ToDictionary(s => s.Network.CryptoCode, s => s);
 			this.repositoryProvider = repositoryProvider;
 		}
@@ -105,7 +106,8 @@ namespace NBXplorer
 			SlimChain chain,
 			Repository repository,
 			AddressPoolService addressPoolService,
-			EventAggregator eventAggregator)
+			EventAggregator eventAggregator,
+			KeyPathTemplates keyPathTemplates)
 		{
 			if (addressPoolService == null)
 				throw new ArgumentNullException(nameof(addressPoolService));
@@ -118,7 +120,7 @@ namespace NBXplorer
 			State = BitcoinDWaiterState.NotStarted;
 			_EventAggregator = eventAggregator;
 			_ChainConfiguration = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
-			_ExplorerPrototype = new ExplorerBehavior(repository, chain, addressPoolService, eventAggregator) { StartHeight = _ChainConfiguration.StartHeight };
+			_ExplorerPrototype = new ExplorerBehavior(repository, chain, addressPoolService, eventAggregator, keyPathTemplates) { StartHeight = _ChainConfiguration.StartHeight };
 			RPCReadyFile = Path.Combine(configuration.SignalFilesDir, $"{network.CryptoCode.ToLowerInvariant()}_fully_synched");
 		}
 		public NodeState NodeState
@@ -314,19 +316,7 @@ namespace NBXplorer
 					var explorer = GetExplorerBehavior();
 					if (explorer == null)
 					{
-						GetBlockchainInfoResponse blockchainInfo3 = null;
-						try
-						{
-							blockchainInfo3 = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
-						}
-						catch (Exception ex)
-						{
-							Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Failed to connect to RPC");
-							State = BitcoinDWaiterState.NotStarted;
-							break;
-						}
-						if (IsSynchingCore(blockchainInfo3))
-							State = BitcoinDWaiterState.CoreSynching;
+						State = BitcoinDWaiterState.NotStarted;
 					}
 					else if (!explorer.IsSynching())
 					{

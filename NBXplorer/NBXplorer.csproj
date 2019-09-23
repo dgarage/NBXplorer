@@ -1,8 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
-    <Version>2.0.0.55</Version>
+    <TargetFramework Condition="'$(TargetFrameworkOverride)' == ''">netcoreapp2.1</TargetFramework>
+    <TargetFramework Condition="'$(TargetFrameworkOverride)' != ''">$(TargetFrameworkOverride)</TargetFramework>
+    <Version>2.0.0.58</Version>
 	  <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\NBXplorer.xml</DocumentationFile>
 	  <NoWarn>1701;1702;1705;1591;CS1591</NoWarn>
 	  <LangVersion>7.3</LangVersion>
@@ -13,13 +14,21 @@
   <ItemGroup>
     <EmbeddedResource Include="banlist.cli.txt" />
   </ItemGroup>
-  <ItemGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
+    <DefineConstants>$(DefineConstants);NETCOREAPP21</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != 'netcoreapp2.1'">
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.0.0-*" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
 	  <PackageReference Include="Microsoft.AspNetCore.App" Version="2.1.9" />
-	<PackageReference Include="NicolasDorier.CommandLine" Version="1.0.0.2" />
-	<PackageReference Include="NicolasDorier.CommandLine.Configuration" Version="1.0.0.3" />
-	<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="2.1.2" />
+	  <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="2.1.2" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.ServiceBus" Version="3.1.1" />
+    <PackageReference Include="DBriize" Version="1.0.0.4" />
+	  <PackageReference Include="NicolasDorier.CommandLine" Version="1.0.0.2" />
+	  <PackageReference Include="NicolasDorier.CommandLine.Configuration" Version="1.0.0.3" />
     <ProjectReference Include="..\NBXplorer.Client\NBXplorer.Client.csproj" />
   </ItemGroup>
   <ItemGroup>

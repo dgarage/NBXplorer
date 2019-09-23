@@ -42,10 +42,13 @@ namespace NBXplorer
 	public class RepositoryProvider
 	{
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
+		private readonly KeyPathTemplates keyPathTemplates;
 		ExplorerConfiguration _Configuration;
+
 		NBXplorerContextFactory _ContextFactory;
-		public RepositoryProvider(NBXplorerContextFactory contextFactory, NBXplorerNetworkProvider networks, ExplorerConfiguration configuration)
+		public RepositoryProvider(NBXplorerContextFactory contextFactory, NBXplorerNetworkProvider networks, KeyPathTemplates keyPathTemplates, ExplorerConfiguration configuration)
 		{
+			this.keyPathTemplates = keyPathTemplates;
 			_Configuration = configuration;
 			var directory = Path.Combine(configuration.DataDir, "db");
 			if (!Directory.Exists(directory))
@@ -56,7 +59,7 @@ namespace NBXplorer
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					var repo = new Repository(_ContextFactory, net);
+					var repo = new Repository(_ContextFactory, net, keyPathTemplates);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
@@ -120,11 +123,11 @@ namespace NBXplorer
 			{
 				tx.ForceDelete = true;
 				bool needCommit = false;
-				var featuresPerKeyPaths = Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>()
-				.Select(f => (Feature: f, Path: DerivationStrategyBase.GetKeyPath(f)))
-				.ToDictionary(o => o.Path, o => o.Feature);
+				var featuresPerKeyPaths = keyPathTemplates.GetSupportedDerivationFeatures()
+				.Select(f => (Feature: f, KeyPathTemplate: keyPathTemplates.GetKeyPathTemplate(f)))
+				.ToDictionary(o => o.KeyPathTemplate, o => o.Feature);
 
-				var groups = keyPaths.Where(k => k.Indexes.Length > 0).GroupBy(k => k.Parent);
+				var groups = keyPaths.Where(k => k.Indexes.Length > 0).GroupBy(k => keyPathTemplates.GetKeyPathTemplate(k));
 				foreach (var group in groups)
 				{
 					if (featuresPerKeyPaths.TryGetValue(group.Key, out DerivationFeature feature))
@@ -279,6 +282,7 @@ namespace NBXplorer
 		}
 
 		NBXplorerNetwork _Network;
+		private readonly KeyPathTemplates keyPathTemplates;
 
 		public NBXplorerNetwork Network
 		{
@@ -290,11 +294,12 @@ namespace NBXplorer
 
 		NBXplorerContextFactory _ContextFactory;
 
-		internal Repository(NBXplorerContextFactory contextFactory, NBXplorerNetwork network)
+		internal Repository(NBXplorerContextFactory contextFactory, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates)
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
+			this.keyPathTemplates = keyPathTemplates;
 			Serializer = new Serializer(_Network.NBitcoinNetwork);
 			_Network = network;
 			_ContextFactory = contextFactory;
@@ -445,8 +450,9 @@ namespace NBXplorer
 			var row = await highestTable.SelectInt(0);
 			if (row != null)
 				highestGenerated = row.Value;
-			var feature = strategy.GetLineFor(derivationFeature);
-			for (int i = 0; i < toGenerate; i++)
+			var feature = strategy.GetLineFor(keyPathTemplates.GetKeyPathTemplate(derivationFeature));
+			KeyPathInformation[] keyPathInformations = new KeyPathInformation[toGenerate];
+			Parallel.For(0, toGenerate, i =>
 			{
 				var index = highestGenerated + i + 1;
 				var derivation = feature.Derive((uint)index);
@@ -457,8 +463,14 @@ namespace NBXplorer
 					TrackedSource = new DerivationSchemeTrackedSource(strategy, Network.NBitcoinNetwork),
 					DerivationStrategy = strategy,
 					Feature = derivationFeature,
-					KeyPath = DerivationStrategyBase.GetKeyPath(derivationFeature).Derive(index, false)
+					KeyPath = keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false)
 				};
+				keyPathInformations[i] = info;
+			});
+			for (int i = 0; i < toGenerate; i++)
+			{
+				var index = highestGenerated + i + 1;
+				var info = keyPathInformations[i];
 				var bytes = ToBytes(info);
 				GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{strategy.GetHash()}-{derivationFeature}", bytes);
 				availableTable.Insert(index, bytes);
@@ -491,7 +503,7 @@ namespace NBXplorer
 				foreach (var info in keyPathInformations)
 				{
 					var bytes = ToBytes(info);
-					GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{info.DerivationStrategy.GetHash()}-{info.DerivationStrategy}", bytes);
+					GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{info.DerivationStrategy.GetHash()}-{info.Feature}", bytes);
 				}
 				await tx.CommitAsync();
 			}
@@ -1271,7 +1283,7 @@ namespace NBXplorer
 						{
 							foreach (var kv in value.KnownKeyPathMapping)
 							{
-								var info = new KeyPathInformation(kv.Value, s.DerivationStrategy, Network.NBitcoinNetwork);
+								var info = new KeyPathInformation(keyPathTemplates, kv.Value, s.DerivationStrategy, Network.NBitcoinNetwork);
 								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var index = info.GetIndex();
@@ -1409,9 +1421,9 @@ namespace NBXplorer
 					if (kv.Value == null)
 						continue;
 					var index = GetAvailableKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-					bool needRefill = await CleanUsed(kv, index);
+					bool needRefill = await CleanUsed(kv.Value.Value, index);
 					index = GetReservedKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-					needRefill |= await CleanUsed(kv, index);
+					needRefill |= await CleanUsed(kv.Value.Value, index);
 					if (needRefill)
 					{
 						await tx.CommitAsync();
@@ -1427,13 +1439,13 @@ namespace NBXplorer
 			}
 		}
 
-		private async Task<bool> CleanUsed(KeyValuePair<DerivationFeature, int?> kv, Index index)
+		private async Task<bool> CleanUsed(int highestIndex, Index index)
 		{
 			bool needRefill = false;
 			foreach (var row in await index.SelectForwardSkip(0))
 			{
 				var keyInfo = ToObject<KeyPathInformation>(row.Value);
-				if (keyInfo.GetIndex() <= kv.Value.Value)
+				if (keyInfo.GetIndex() <= highestIndex)
 				{
 					index.RemoveKey(keyInfo.GetIndex());
 					needRefill = true;

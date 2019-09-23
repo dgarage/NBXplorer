@@ -155,7 +155,7 @@ namespace NBXplorer.Models
 			var coin = new Coin(Outpoint, new TxOut(Value, ScriptPubKey));
 			if (derivationStrategy != null)
 			{
-				var derivation = derivationStrategy.Derive(KeyPath);
+				var derivation = derivationStrategy.GetDerivation(KeyPath);
 				if (derivation.ScriptPubKey != coin.ScriptPubKey)
 					throw new InvalidOperationException($"This Derivation Strategy does not own this coin");
 				if (derivation.Redeem != null)

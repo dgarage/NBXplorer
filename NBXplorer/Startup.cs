@@ -24,17 +24,21 @@ using NBXplorer.Configuration;
 using System.Net;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.IO;
+#if NETCOREAPP21
+using IWebHostEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
+#else
+using Newtonsoft.Json.Serialization;
+using Microsoft.Extensions.Hosting;
+#endif
 
 namespace NBXplorer
 {
 	public class Startup
 	{
-		public Startup(IConfiguration conf, IHostingEnvironment env)
+		public Startup(IConfiguration conf)
 		{
 			Configuration = conf;
-			_Env = env;
 		}
-		IHostingEnvironment _Env;
 		public IConfiguration Configuration
 		{
 			get;
@@ -49,11 +53,19 @@ namespace NBXplorer
 			});
 			services.AddNBXplorer();
 			services.ConfigureNBxplorer(Configuration);
-			services.AddMvcCore()
-				.AddJsonFormatters()
-				.AddMvcOptions(o => o.InputFormatters.Add(new NoContentTypeInputFormatter()))
-				.AddAuthorization()
-				.AddFormatterMappings();
+			var builder = services.AddMvcCore();
+#if NETCOREAPP21
+			builder.AddJsonFormatters();
+#else
+			builder.AddNewtonsoftJson(options =>
+			{
+				options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+				new Serializer(null).ConfigureSerializer(options.SerializerSettings);
+			});
+#endif
+			builder.AddMvcOptions(o => o.InputFormatters.Add(new NoContentTypeInputFormatter()))
+			.AddAuthorization()
+			.AddFormatterMappings();
 			services.AddAuthentication("Basic")
 				.AddNBXplorerAuthentication();
 
@@ -89,8 +101,9 @@ namespace NBXplorer
 				});
 			}
 		}
-
-		public void Configure(NBXplorerContextFactory dbFactory, IApplicationBuilder app, IServiceProvider prov, IHostingEnvironment env, ILoggerFactory loggerFactory, IServiceProvider serviceProvider,
+		public void Configure(NBXplorerContextFactory dbFactory, IApplicationBuilder app, IServiceProvider prov,
+			IWebHostEnvironment env,
+			ILoggerFactory loggerFactory, IServiceProvider serviceProvider,
 			CookieRepository cookieRepository, NBXplorer.Configuration.ExplorerConfiguration conf)
 		{
 			if (!conf.NoCreateDB)
@@ -100,14 +113,26 @@ namespace NBXplorer
 			{
 				app.UseDeveloperExceptionPage();
 			}
-
 			Logs.Configure(loggerFactory);
 
 			app.UseMiddleware<SILOLogAllRequestsMiddleware>();
+#if !NETCOREAPP21
+			app.UseRouting();
+#endif
 			app.UseAuthentication();
+#if !NETCOREAPP21
+			app.UseAuthorization();
+#endif
 			app.UseWebSockets();
-			//app.UseMiddleware<LogAllRequestsMiddleware>();
+			// app.UseMiddleware<LogAllRequestsMiddleware>();
+#if NETCOREAPP21
 			app.UseMvc();
+#else
+			app.UseEndpoints(endpoints =>
+			{
+				endpoints.MapControllers();
+			});
+#endif
 		}
 	}
 }

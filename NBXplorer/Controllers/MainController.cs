@@ -43,19 +43,23 @@ namespace NBXplorer.Controllers
 			AddressPoolServiceAccessor addressPoolService,
 			ScanUTXOSetServiceAccessor scanUTXOSetService,
 			RebroadcasterHostedService rebroadcaster,
-			IOptions<MvcJsonOptions> jsonOptions)
+			KeyPathTemplates keyPathTemplates,
+			MvcNewtonsoftJsonOptions jsonOptions
+			)
 		{
 			ExplorerConfiguration = explorerConfiguration;
 			RepositoryProvider = repositoryProvider;
 			ChainProvider = chainProvider;
-			_SerializerSettings = jsonOptions.Value.SerializerSettings;
+			_SerializerSettings = jsonOptions.SerializerSettings;
 			_EventAggregator = eventAggregator;
 			ScanUTXOSetService = scanUTXOSetService.Instance;
 			Waiters = waiters;
 			Rebroadcaster = rebroadcaster;
+			this.keyPathTemplates = keyPathTemplates;
 			AddressPoolService = addressPoolService.Instance;
 		}
 		EventAggregator _EventAggregator;
+		private readonly KeyPathTemplates keyPathTemplates;
 
 		public BitcoinDWaiters Waiters
 		{
@@ -128,7 +132,7 @@ namespace NBXplorer.Controllers
 				{
 					while (result == null)
 					{
-						await AddressPoolService.GenerateAddresses(network, strategy, feature, 1);
+						await AddressPoolService.GenerateAddresses(network, strategy, feature, new GenerateAddressQuery(1, null));
 						result = await repository.GetUnused(strategy, feature, skip, reserve);
 					}
 					_ = AddressPoolService.GenerateAddresses(network, strategy, feature);
@@ -457,21 +461,32 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
+			BitcoinAddress address, [FromBody] TrackWalletRequest request = null)
 		{
+			request = request ?? new TrackWalletRequest();
 			var network = GetNetwork(cryptoCode, false);
 			TrackedSource trackedSource = GetTrackedSource(derivationScheme, address, network.NBitcoinNetwork);
 			if (trackedSource == null)
 				return NotFound();
 			if (trackedSource is DerivationSchemeTrackedSource dts)
 			{
-				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
+				if (request.Wait)
 				{
-					await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, new GenerateAddressQuery(minAddresses: 3, null));
+					foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+					{
+						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
+					}
 				}
-				foreach (var feature in Enum.GetValues(typeof(DerivationFeature)).Cast<DerivationFeature>())
+				else
 				{
-					_ = AddressPoolService.GenerateAddresses(network, dts.DerivationStrategy, feature);
+					foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+					{
+						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, new GenerateAddressQuery(minAddresses: 3, null));
+					}
+					foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+					{
+						_ = AddressPoolService.GenerateAddresses(network, dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
+					}
 				}
 			}
 			else if (trackedSource is IDestination ats)
@@ -479,6 +494,19 @@ namespace NBXplorer.Controllers
 				await RepositoryProvider.GetRepository(network).Track(ats);
 			}
 			return Ok();
+		}
+		private GenerateAddressQuery GenerateAddressQuery(TrackWalletRequest request, DerivationFeature feature)
+		{
+			if (request?.DerivationOptions == null)
+				return null;
+			foreach (var derivationOption in request.DerivationOptions)
+			{
+				if ((derivationOption.Feature is DerivationFeature f && f == feature) || derivationOption.Feature is null)
+				{
+					return new GenerateAddressQuery(derivationOption.MinAddresses, derivationOption.MaxAddresses);
+				}
+			}
+			return null;
 		}
 
 		private static TrackedSource GetTrackedSource(DerivationStrategyBase derivationScheme, BitcoinAddress address, Network network)
@@ -750,6 +778,7 @@ namespace NBXplorer.Controllers
 			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
 
 			changes.Confirmed = ToUTXOChange(transactions.ConfirmedState);
+			changes.Confirmed.SpentOutpoints.Clear();
 			changes.Unconfirmed = ToUTXOChange(transactions.UnconfirmedState - transactions.ConfirmedState);
 
 			if (withLocks)
@@ -786,7 +815,7 @@ namespace NBXplorer.Controllers
 			return change;
 		}
 
-		private async Task AttemptPrune(Repository repo, AnnotatedTransactionCollection transactions, UTXOState state)
+		private async Task<int> AttemptPrune(Repository repo, AnnotatedTransactionCollection transactions, UTXOState state)
 		{
 			var network = repo.Network;
 			var trackedSource = transactions.TrackedSource;
@@ -829,8 +858,10 @@ namespace NBXplorer.Controllers
 													.Select(id => transactions.GetByTxId(id).Record)
 													.ToList());
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunableIds.Count} transactions");
+					return prunableIds.Count;
 				}
 			}
+			return 0;
 		}
 
 		private bool OldEnough(AnnotatedTransactionCollection transactions, uint256 prunedBy, DateTimeOffset pruneBefore)
@@ -860,7 +891,7 @@ namespace NBXplorer.Controllers
 				var utxo = utxos[i];
 				utxo.KeyPath = transactions.GetKeyPath(utxo.ScriptPubKey);
 				if (utxo.KeyPath != null)
-					utxo.Feature = DerivationStrategyBase.GetFeature(utxo.KeyPath);
+					utxo.Feature = keyPathTemplates.GetDerivationFeature(utxo.KeyPath);
 				var txHeight = transactions.GetByTxId(utxo.Outpoint.Hash).Height is int h ? h : MaxHeight;
 				var isUnconf = txHeight == MaxHeight;
 				utxo.Confirmations = isUnconf ? 0 : currentHeight - txHeight + 1;
@@ -902,7 +933,10 @@ namespace NBXplorer.Controllers
 			var network = GetNetwork(cryptoCode, true);
 			var trackedSource = GetTrackedSource(derivationScheme ?? extPubKey, address, network.NBitcoinNetwork);
 			var tx = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
-			var stream = new BitcoinStream(Request.Body, false);
+			var buffer = new MemoryStream();
+			await Request.Body.CopyToAsync(buffer);
+			buffer.Position = 0;
+			var stream = new BitcoinStream(buffer, false);
 			tx.ReadWrite(stream);
 
 			var waiter = this.Waiters.GetWaiter(network);
@@ -952,6 +986,22 @@ namespace NBXplorer.Controllers
 					RPCMessage = rpcEx.Message
 				};
 			}
+		}
+
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/prune")]
+		public async Task<PruneResponse> Prune(
+			string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme)
+		{
+			var network = GetNetwork(cryptoCode, false);
+			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme, network.NBitcoinNetwork);
+			var chain = ChainProvider.GetChain(network);
+			var repo = RepositoryProvider.GetRepository(network);
+			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
+			int pruned = await AttemptPrune(repo, transactions, transactions.ConfirmedState);
+			return new PruneResponse() { TotalPruned = pruned };
 		}
 	}
 }

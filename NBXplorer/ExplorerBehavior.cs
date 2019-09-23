@@ -22,7 +22,7 @@ namespace NBXplorer
 {
 	public class ExplorerBehavior : NodeBehavior
 	{
-		public ExplorerBehavior(Repository repo, SlimChain chain, AddressPoolService addressPoolService, EventAggregator eventAggregator)
+		public ExplorerBehavior(Repository repo, SlimChain chain, AddressPoolService addressPoolService, EventAggregator eventAggregator, KeyPathTemplates keyPathTemplates)
 		{
 			if (repo == null)
 				throw new ArgumentNullException(nameof(repo));
@@ -34,6 +34,7 @@ namespace NBXplorer
 			AddressPoolService = addressPoolService;
 			_Repository = repo;
 			_EventAggregator = eventAggregator;
+			KeyPathTemplates = keyPathTemplates;
 		}
 
 		EventAggregator _EventAggregator;
@@ -64,7 +65,7 @@ namespace NBXplorer
 
 		public override object Clone()
 		{
-			return new ExplorerBehavior(_Repository, _Chain, AddressPoolService, _EventAggregator) { StartHeight = StartHeight };
+			return new ExplorerBehavior(_Repository, _Chain, AddressPoolService, _EventAggregator, KeyPathTemplates) { StartHeight = StartHeight };
 		}
 
 		Timer _Timer;
@@ -95,9 +96,19 @@ namespace NBXplorer
 		{
 			if (StartHeight > Chain.Height)
 				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight should not be above the current tip");
-			return StartHeight == -1 ?
-				Chain.GetTipLocator() :
-				Chain.GetLocator(StartHeight);
+
+			BlockLocator blockLocator = null;
+			if (StartHeight == -1)
+			{
+				blockLocator = Chain.GetTipLocator();
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Current Index Progress not found, start syncing from the header's chain tip (At height: {Chain.Height})");
+			}
+			else
+			{
+				blockLocator = Chain.GetLocator(StartHeight);
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Current Index Progress not found, start syncing at height {Chain.Height}");
+			}
+			return blockLocator;
 		}
 
 
@@ -136,7 +147,7 @@ namespace NBXplorer
 
 			if (invs.Count != 0)
 			{
-				_HighestInFlight = Chain.GetLocator(invs[invs.Count - 1].Hash);
+				_HighestInFlight = _HighestInFlight ?? Chain.GetLocator(invs[invs.Count - 1].Hash);
 				node.SendMessageAsync(new GetDataPayload(invs.ToArray()));
 				if (invs.Count > 1)
 					GC.Collect(); // Let's collect memory if we are synching 
@@ -206,6 +217,7 @@ namespace NBXplorer
 		{
 			get;
 		}
+		public KeyPathTemplates KeyPathTemplates { get; }
 
 		protected override void DetachCore()
 		{
@@ -348,7 +360,7 @@ namespace NBXplorer
 						if (tx.ReceivedCoins.Count == 0)
 							continue;
 						// Do not lock transactions originating from the wallet.
-						if (tx.KnownKeyPathMapping.Any(k => DerivationStrategyBase.GetFeature(k.Value) is DerivationFeature.Change))
+						if (tx.KnownKeyPathMapping.Any(k => KeyPathTemplates.GetDerivationFeature(k.Value) is DerivationFeature.Change))
 							continue;
 						var lockTx = Network.NBitcoinNetwork.CreateTransaction();
 						foreach (var received in tx.ReceivedCoins)

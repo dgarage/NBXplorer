@@ -66,12 +66,12 @@ namespace NBXplorer.DerivationStrategy
 			get; private set;
 		}
 
-		public override Derivation Derive(KeyPath keyPath)
+		public override Derivation GetDerivation()
 		{
 			var pubKeys = new PubKey[this.Multisig.Keys.Length];
 			Parallel.For(0, pubKeys.Length, i =>
 			{
-				pubKeys[i] = this.Multisig.Keys[i].ExtPubKey.Derive(keyPath).PubKey;
+				pubKeys[i] = this.Multisig.Keys[i].ExtPubKey.PubKey;
 			});
 
 			if (LexicographicOrder)
@@ -79,10 +79,10 @@ namespace NBXplorer.DerivationStrategy
 				Array.Sort(pubKeys, MultisigDerivationStrategy.LexicographicComparer);
 			}
 			List<Op> ops = new List<Op>();
-			ops.Add(Op.GetPushOp(One.Root.Derive(keyPath).PubKey.ToBytes()));
+			ops.Add(Op.GetPushOp(One.Root.PubKey.ToBytes()));
 			ops.Add(OpcodeType.OP_CHECKSIGVERIFY);
 			ops.Add(Op.GetPushOp(Multisig.RequiredSignatures));
-			foreach(var keys in pubKeys)
+			foreach (var keys in pubKeys)
 			{
 				ops.Add(Op.GetPushOp(keys.ToBytes()));
 			}
@@ -92,17 +92,14 @@ namespace NBXplorer.DerivationStrategy
 			return new Derivation() { ScriptPubKey = new Script(ops.ToList()) };
 		}
 
-		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
-		{
-			return new MultisigPlusOneDerivationStrategy((MultisigDerivationStrategy)Multisig.GetLineFor(keyPath), (DirectDerivationStrategy)One.GetLineFor(keyPath), IsLegacy)
-			{
-				LexicographicOrder = LexicographicOrder
-			};
-		}
-
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()
 		{
 			return this.Multisig.GetExtPubKeys();
+		}
+
+		public override DerivationStrategyBase GetChild(KeyPath keyPath)
+		{
+			return new MultisigPlusOneDerivationStrategy((MultisigDerivationStrategy)Multisig.GetChild(keyPath), (DirectDerivationStrategy)One.GetChild(keyPath), IsLegacy);
 		}
 	}
 }

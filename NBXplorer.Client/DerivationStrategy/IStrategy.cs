@@ -10,8 +10,9 @@ namespace NBXplorer.DerivationStrategy
 	{
 		Change =  1,
 		Deposit = 0,
-        	Direct =  2  
-    	}
+		Direct = 2,
+		Custom = 3,
+	}
 	public abstract class DerivationStrategyBase : IHDScriptPubKey
 	{
 		internal DerivationStrategyBase()
@@ -19,29 +20,23 @@ namespace NBXplorer.DerivationStrategy
 
 		}
 
-		public static KeyPath GetKeyPath(DerivationFeature derivationFeature)
+		public DerivationLine GetLineFor(KeyPathTemplate keyPathTemplate)
 		{
-			return derivationFeature == DerivationFeature.Direct ? new KeyPath() : new KeyPath((uint)derivationFeature);
+			return new DerivationLine(this, keyPathTemplate);
 		}
-		public static DerivationFeature GetFeature(KeyPath path)
-		{
-			if (path == null)
-				return DerivationFeature.Deposit;
-			return path.Indexes.Length == 1 ? DerivationFeature.Direct : (DerivationFeature)path.Indexes[0];
-		}
-		public DerivationStrategyBase GetLineFor(DerivationFeature derivationFeature)
-		{
-            		return derivationFeature == DerivationFeature.Direct ? this :
-                    		GetLineFor(GetKeyPath(derivationFeature));
-        	}
+		public abstract DerivationStrategyBase GetChild(KeyPath keyPath);
 
-		public abstract DerivationStrategyBase GetLineFor(KeyPath keyPath);
-
-		public Derivation Derive(uint i)
+		public Derivation GetDerivation(uint i)
 		{
-			return Derive(new KeyPath(i));
+			return GetChild(new KeyPath(i)).GetDerivation();
 		}
-		public abstract Derivation Derive(KeyPath keyPath);
+		public Derivation GetDerivation(KeyPath keyPath)
+		{
+			if (keyPath == null || keyPath.Length == 0)
+				return GetDerivation();
+			return GetChild(keyPath).GetDerivation();
+		}
+		public abstract Derivation GetDerivation();
 
 		protected abstract string StringValue
 		{
@@ -81,15 +76,39 @@ namespace NBXplorer.DerivationStrategy
 			return StringValue;
 		}
 
-		Script IHDScriptPubKey.ScriptPubKey => Derive(new KeyPath()).ScriptPubKey;
+		Script IHDScriptPubKey.ScriptPubKey => GetDerivation().ScriptPubKey;
 		IHDScriptPubKey IHDScriptPubKey.Derive(KeyPath keyPath)
 		{
-			return GetLineFor(keyPath);
+			return GetChild(keyPath);
 		}
 
 		public bool CanDeriveHardenedPath()
 		{
 			return false;
+		}
+	}
+
+	public class DerivationLine
+	{
+		public DerivationLine(DerivationStrategyBase derivationStrategyBase, KeyPathTemplate keyPathTemplate)
+		{
+			if (derivationStrategyBase == null)
+				throw new ArgumentNullException(nameof(derivationStrategyBase));
+			if (keyPathTemplate == null)
+				throw new ArgumentNullException(nameof(keyPathTemplate));
+			DerivationStrategyBase = derivationStrategyBase;
+			KeyPathTemplate = keyPathTemplate;
+		}
+
+		public DerivationStrategyBase DerivationStrategyBase { get; }
+		public KeyPathTemplate KeyPathTemplate { get; }
+
+		DerivationStrategyBase _PreLine;
+
+		public Derivation Derive(uint index)
+		{
+			_PreLine = _PreLine ?? DerivationStrategyBase.GetChild(KeyPathTemplate.PreIndexes);
+			return _PreLine.GetDerivation(new KeyPath(index).Derive(KeyPathTemplate.PostIndexes));
 		}
 	}
 }

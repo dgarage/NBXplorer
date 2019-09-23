@@ -11,7 +11,6 @@ using NBXplorer.Logging;
 using NBitcoin.Protocol;
 using System.Collections;
 using Microsoft.Extensions.Configuration;
-using Microsoft.AspNetCore.Hosting.Internal;
 using Microsoft.AspNetCore;
 using NBitcoin;
 using System.Text;

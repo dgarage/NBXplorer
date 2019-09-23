@@ -176,7 +176,7 @@ namespace NBXplorer.Controllers
 			// This is breaking change to clients
 			if (keyPath != null)
 			{
-				var information = strategy.Derive(keyPath);
+				var information = strategy.GetChild(keyPath).GetDerivation();
 				return Json(new KeyPathInformation()
 				{
 					Address = information.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork).ToString(),
@@ -184,7 +184,7 @@ namespace NBXplorer.Controllers
 					KeyPath = keyPath,
 					ScriptPubKey = information.ScriptPubKey,
 					Redeem = information.Redeem,
-					Feature = DerivationStrategyBase.GetFeature(keyPath)
+					Feature = keyPathTemplates.GetDerivationFeature(keyPath)
 				});
 			}
 			else
@@ -194,10 +194,11 @@ namespace NBXplorer.Controllers
 				List<KeyPathInformation> keyPathInformations = new List<KeyPathInformation>();
 				foreach (var kv in highest)
 				{
-					var accountLevel = strategy.GetLineFor(kv.Key);
+					var template = keyPathTemplates.GetKeyPathTemplate(kv.Key);
+					var accountLevel = strategy.GetChild(template.PreIndexes);
 					for (int i = 0; i < kv.Value + 1; i++)
 					{
-						var derivation = accountLevel.Derive((uint)i);
+						var derivation = accountLevel.GetChild(new KeyPath((uint)i)).GetChild(template.PostIndexes).GetDerivation();
 						keyPathInformations.Add(new KeyPathInformation()
 						{
 							Address = derivation.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork).ToString(),

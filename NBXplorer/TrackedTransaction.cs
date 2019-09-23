@@ -148,11 +148,6 @@ namespace NBXplorer{
 			};
 		}
 
-		internal IEnumerable<KeyPathInformation> GetKeyPaths(DerivationStrategyBase derivationStrategy, Network network)
-		{
-			return KnownKeyPathMapping.Values.Select(v => new KeyPathInformation(v, derivationStrategy, network));
-		}
-
 		public IEnumerable<MatchedOutput> GetReceivedOutputs()
 		{
 			return this.ReceivedCoins

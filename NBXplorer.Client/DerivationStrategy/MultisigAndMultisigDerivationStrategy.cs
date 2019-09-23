@@ -61,12 +61,12 @@ namespace NBXplorer.DerivationStrategy
 			get; private set;
 		}
 
-		public override Derivation Derive(KeyPath keyPath)
+		public override Derivation GetDerivation()
 		{
 			var pubKeys1 = new PubKey[this.Multisig1.Keys.Length];
 			Parallel.For(0, pubKeys1.Length, i =>
 			{
-				pubKeys1[i] = this.Multisig1.Keys[i].ExtPubKey.Derive(keyPath).PubKey;
+				pubKeys1[i] = this.Multisig1.Keys[i].ExtPubKey.PubKey;
 			});
 			if (LexicographicOrder)
 			{
@@ -76,7 +76,7 @@ namespace NBXplorer.DerivationStrategy
 			var pubKeys2 = new PubKey[this.Multisig2.Keys.Length];
 			Parallel.For(0, pubKeys2.Length, i =>
 			{
-				pubKeys2[i] = this.Multisig2.Keys[i].ExtPubKey.Derive(keyPath).PubKey;
+				pubKeys2[i] = this.Multisig2.Keys[i].ExtPubKey.PubKey;
 			});
 			if (LexicographicOrder)
 			{
@@ -101,17 +101,17 @@ namespace NBXplorer.DerivationStrategy
 			return new Derivation() { ScriptPubKey = new Script(ops.ToList()) };
 		}
 
-		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
-		{
-			return new MultisigAndMultisigDerivationStrategy((MultisigDerivationStrategy)Multisig1.GetLineFor(keyPath), (MultisigDerivationStrategy)Multisig2.GetLineFor(keyPath), IsLegacy)
-			{
-				LexicographicOrder = LexicographicOrder
-			};
-		}
-
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()
 		{
 			return Multisig1.GetExtPubKeys().Concat(Multisig2.GetExtPubKeys());
+		}
+
+		public override DerivationStrategyBase GetChild(KeyPath keyPath)
+		{
+			return new MultisigAndMultisigDerivationStrategy((MultisigDerivationStrategy)Multisig1.GetChild(keyPath), (MultisigDerivationStrategy)Multisig2.GetChild(keyPath), IsLegacy)
+			{
+				LexicographicOrder = LexicographicOrder
+			};
 		}
 	}
 }

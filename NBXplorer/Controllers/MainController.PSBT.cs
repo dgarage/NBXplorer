@@ -83,7 +83,7 @@ namespace NBXplorer.Controllers
 			if (request.ExplicitChangeAddress == null)
 			{
 				// The dummyScriptPubKey is necessary to know the size of the change
-				var dummyScriptPubKey = utxos.FirstOrDefault()?.ScriptPubKey ?? strategy.Derive(0).ScriptPubKey;
+				var dummyScriptPubKey = utxos.FirstOrDefault()?.ScriptPubKey ?? strategy.GetDerivation(0).ScriptPubKey;
 				change = (Script.FromBytesUnsafe(new byte[dummyScriptPubKey.Length]), null);
 			}
 			else
@@ -198,8 +198,9 @@ namespace NBXplorer.Controllers
 		private async Task UpdatePSBTCore(UpdatePSBTRequest update, NBXplorerNetwork network)
 		{
 			var repo = RepositoryProvider.GetRepository(network);
+			var rpc = Waiters.GetWaiter(network);
 
-			await UpdateInputsUTXO(update, repo);
+			await UpdateInputsUTXO(update, repo, rpc);
 
 			if (update.DerivationScheme is DerivationStrategyBase)
 			{
@@ -270,15 +271,19 @@ namespace NBXplorer.Controllers
 			if (redeems.Count != 0)
 				update.PSBT.AddScripts(redeems.ToArray());
 		}
-		private static async Task UpdateInputsUTXO(UpdatePSBTRequest update, Repository repo)
+
+
+		static bool NeedNonWitnessUtxo(PSBTInput input)
+		{
+			return !((input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness);
+		}
+
+		private static async Task UpdateInputsUTXO(UpdatePSBTRequest update, Repository repo, BitcoinDWaiter rpc)
 		{
 			await Task.WhenAll(update.PSBT.Inputs
+							.Where(i => NeedNonWitnessUtxo(i) && rpc.Network.CryptoCode != "BCH")
 							.Select(async (input) =>
 							{
-								var isWitness = (input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness;
-								// We are sure we are using segwit, so no need to fetch anything else
-								if (isWitness)
-									return;
 								// If this is not segwit, or we are unsure of it, let's try to grab from our saved transactions
 								if (input.NonWitnessUtxo == null)
 								{
@@ -290,21 +295,32 @@ namespace NBXplorer.Controllers
 								}
 
 								// Maybe we don't have the saved transaction, but we have the WitnessUTXO from the derivation scheme UTXOs
-								if (input.NonWitnessUtxo == null && input.WitnessUtxo == null && update.DerivationScheme != null)
+								if (input.NonWitnessUtxo == null)
 								{
 									var tx = (await repo.GetTransactions(new DerivationSchemeTrackedSource(update.DerivationScheme, repo.Network.NBitcoinNetwork), input.PrevOut.Hash)).FirstOrDefault();
 									if (tx != null)
 									{
-										var output = tx.GetReceivedOutputs().FirstOrDefault(o => o.Index == input.PrevOut.N);
-										if (output != null)
-										{
-											input.WitnessUtxo = repo.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
-											input.WitnessUtxo.ScriptPubKey = output.ScriptPubKey;
-											input.WitnessUtxo.Value = output.Value;
-										}
+										input.NonWitnessUtxo = tx.Transaction;
 									}
 								}
 							}).ToArray());
+			if (rpc?.RPCAvailable is true)
+			{
+				var batch = rpc.RPC.PrepareBatch();
+				var getTransactions = Task.WhenAll(update.PSBT.Inputs
+					.Where(NeedNonWitnessUtxo)
+					.Where(input => input.NonWitnessUtxo == null)
+					.Select(async input =>
+				   {
+					   var tx = await batch.GetRawTransactionAsync(input.PrevOut.Hash, false);
+					   if (tx != null)
+					   {
+						   input.NonWitnessUtxo = tx;
+					   }
+				   }).ToArray());
+				await batch.SendBatchAsync();
+				await getTransactions;
+			}
 		}
 
 		private T ParseJObject<T>(JObject requestObj, NBXplorerNetwork network)

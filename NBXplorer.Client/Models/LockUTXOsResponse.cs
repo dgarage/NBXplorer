@@ -69,7 +69,7 @@ namespace NBXplorer.Models
 
 		ICoin CreateCoin(DerivationStrategyBase derivationStrategy, SpentCoin spent)
 		{
-			var derivation = derivationStrategy.Derive(spent.KeyPath);
+			var derivation = derivationStrategy.GetChild(spent.KeyPath).GetDerivation();
 			ICoin coin = new Coin(spent.Outpoint, new TxOut(spent.Value, derivation.ScriptPubKey));
 			if(derivation.Redeem != null)
 				coin = ((Coin)coin).ToScriptCoin(derivation.Redeem);

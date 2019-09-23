@@ -283,7 +283,7 @@ namespace NBXplorer.Tests
 					tx,
 					new Dictionary<Script, KeyPath>()
 					{
-						{ strat.Derive(keyPath).ScriptPubKey, keyPath }
+						{ strat.GetDerivation(keyPath).ScriptPubKey, keyPath }
 					})}).GetAwaiter().GetResult();
 		}
 
@@ -538,7 +538,7 @@ namespace NBXplorer.Tests
 						TransactionBuilder builder = tester.Network.CreateTransactionBuilder();
 						foreach (var c in locked.SpentCoins)
 						{
-							var derived = wallet1.DerivationScheme.Derive(c.KeyPath);
+							var derived = wallet1.DerivationScheme.GetChild(c.KeyPath).GetDerivation();
 							var coin = new Coin(c.Outpoint, new TxOut(c.Value, derived.ScriptPubKey)).ToScriptCoin(derived.Redeem);
 							var key = wallet1.Key.Derive(c.KeyPath);
 							builder.AddCoins(coin);
@@ -1107,198 +1107,138 @@ namespace NBXplorer.Tests
 			});
 		}
 
+		[Fact]
+		public async Task ShowRBFedTransaction()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var bob = tester.CreateDerivationStrategy();
+				var bobSource = new DerivationSchemeTrackedSource(bob, tester.Network);
+				tester.Client.Track(bob);
+				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+
+				var payment1 = Money.Coins(0.04m);
+				var payment2 = Money.Coins(0.08m);
+
+				var tx1 = tester.RPC.SendToAddress(a1.ScriptPubKey, payment1, replaceable: true);
+				tester.Notifications.WaitForTransaction(bob, tx1);
+				var utxo = tester.Client.GetUTXOs(bob); //Wait tx received
+				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+
+				var tx = tester.RPC.GetRawTransaction(new uint256(tx1));
+				foreach (var input in tx.Inputs)
+				{
+					input.ScriptSig = Script.Empty; //Strip signatures
+				}
+				var output = tx.Outputs.First(o => o.Value == payment1);
+				output.Value = payment2;
+				var change = tx.Outputs.First(o => o.Value != payment1);
+				change.Value -= (payment2 - payment1) * 2; //Add more fees
+				var replacement = tester.RPC.SignRawTransaction(tx);
+
+				tester.RPC.SendRawTransaction(replacement);
+				tester.Notifications.WaitForTransaction(bob, replacement.GetHash());
+				var prevUtxo = utxo;
+				utxo = tester.Client.GetUTXOs(bob); //Wait tx received
+				Assert.Equal(replacement.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
+				Assert.Single(utxo.Unconfirmed.UTXOs);
+
+				var txs = tester.Client.GetTransactions(bob);
+				Assert.Single(txs.UnconfirmedTransactions.Transactions);
+				Assert.Equal(replacement.GetHash(), txs.UnconfirmedTransactions.Transactions[0].TransactionId);
+				Assert.Single(txs.ReplacedTransactions.Transactions);
+				Assert.Equal(tx1, txs.ReplacedTransactions.Transactions[0].TransactionId);
+
+				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should fail");
+				var rebroadcaster = tester.GetService<RebroadcasterHostedService>();
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { tx1 });
+				var rebroadcast = await rebroadcaster.RebroadcastAll();
+				Assert.Single(rebroadcast.UnknownFailure);
+
+				Logs.Tester.LogInformation("Rebroadcasting the replacement should succeed");
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				Assert.Single(rebroadcast.Rebroadcasted); // Success
+
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+
+				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should clean one tx record (the unconf one) from the list");
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				// The unconf record should be cleaned
+				var cleaned = Assert.Single(rebroadcast.Cleaned);
+				Assert.Null(cleaned.BlockHash);
+				// Only one missing input, as there is only one txid
+				Assert.Single(rebroadcast.MissingInputs);
+
+				// Nothing should be cleaned now
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				Assert.Empty(rebroadcast.Cleaned);
+
+				Logs.Tester.LogInformation("Let's orphan the block, and check that the orphaned tx is cleaned");
+				var orphanedBlock = tester.RPC.GetBestBlockHash();
+				tester.RPC.InvalidateBlock(orphanedBlock);
+
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+
+				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+				rebroadcast = await rebroadcaster.RebroadcastAll();
+				cleaned = Assert.Single(rebroadcast.Cleaned);
+				Assert.Equal(orphanedBlock, cleaned.BlockHash);
+			}
+		}
+
+		[Fact]
+		public void CanGetUnusedAddresses()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var bob = tester.CreateDerivationStrategy();
+				var utxo = tester.Client.GetUTXOs(bob); //Track things do not wait
+
+				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+				Assert.Null(a1);
+				tester.Client.Track(bob);
+				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+				Assert.NotNull(a1);
+				Assert.NotNull(a1.Address);
+				Assert.Equal(a1.ScriptPubKey, tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0).ScriptPubKey);
+				Assert.Equal(a1.ScriptPubKey, bob.GetDerivation(new KeyPath("0/0")).ScriptPubKey);
+
+				var a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
+				Assert.Equal(a2.ScriptPubKey, bob.GetDerivation(new KeyPath("0/1")).ScriptPubKey);
+
+				var a3 = tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 0);
+				Assert.Equal(a3.ScriptPubKey, bob.GetDerivation(new KeyPath("1/0")).ScriptPubKey);
+
+				var a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
+				Assert.Equal(a4.ScriptPubKey, bob.GetDerivation(new KeyPath("1")).ScriptPubKey);
+
+				Assert.Null(tester.Client.GetUnused(bob, DerivationFeature.Change, skip: 30));
+
+				a3 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 2);
+				Assert.Equal(new KeyPath("0/2"), a3.KeyPath);
+
+#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+				//   0/0 and 0/2 used
+				tester.SendToAddressAsync(a1.ScriptPubKey, Money.Coins(1.0m));
+				tester.SendToAddressAsync(a3.ScriptPubKey, Money.Coins(1.0m));
+				var txId = tester.SendToAddressAsync(a4.ScriptPubKey, Money.Coins(1.0m)).GetAwaiter().GetResult();
+				tester.Notifications.WaitForTransaction(bob, txId);
+#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
+				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+				Assert.Equal(a1.ScriptPubKey, bob.GetDerivation(new KeyPath("0/1")).ScriptPubKey);
+				a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
+				Assert.Equal(a2.ScriptPubKey, bob.GetDerivation(new KeyPath("0/3")).ScriptPubKey);
+
+				a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
+				Assert.Equal(a4.ScriptPubKey, bob.GetDerivation(new KeyPath("2")).ScriptPubKey);
+
+			}
+		}
+
 		CancellationToken Cancel => new CancellationTokenSource(5000).Token;
-
-		[Fact]
-		[Trait("Azure", "Azure")]
-		public async Task CanSendAzureServiceBusNewBlockEventMessage()
-		{
-
-			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.ConnectionString), "Please Set Azure Service Bus Connection string in TestConfig.cs AzureServiceBusTestConfig Class. ");
-
-			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.NewBlockQueue), "Please Set Azure Service Bus NewBlockQueue name in TestConfig.cs AzureServiceBusTestConfig Class. ");
-
-			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.NewBlockTopic), "Please Set Azure Service Bus NewBlockTopic name in TestConfig.cs AzureServiceBusTestConfig Class. ");
-
-			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.NewBlockSubscription), "Please Set Azure Service Bus NewBlock Subscription name in TestConfig.cs AzureServiceBusTestConfig Class. ");
-
-
-			using (var tester = ServerTester.Create())
-			{
-				tester.Client.WaitServerStarted();
-				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
-				tester.Client.Track(pubkey);
-
-				IQueueClient blockClient = new QueueClient(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewBlockQueue);
-				ISubscriptionClient subscriptionClient = new SubscriptionClient(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewBlockTopic, AzureServiceBusTestConfig.NewBlockSubscription);
-
-				//Configure Service Bus Subscription callback
-
-				//We may have existing messages from other tests - push all message to a LIFO stack
-				var busMessages = new ConcurrentStack<Microsoft.Azure.ServiceBus.Message>();
-
-				var messageHandlerOptions = new MessageHandlerOptions((e) =>
-				{
-					throw e.Exception;
-				})
-				{
-					// Maximum number of Concurrent calls to the callback `ProcessMessagesAsync`, set to 1 for simplicity.
-					// Set it according to how many messages the application wants to process in parallel.
-					MaxConcurrentCalls = 1,
-
-					// Indicates whether MessagePump should automatically complete the messages after returning from User Callback.
-					// False below indicates the Complete will be handled by the User Callback as in `ProcessMessagesAsync` below.
-					AutoComplete = false
-				};
-
-				//Service Bus Topic Message Handler
-				subscriptionClient.RegisterMessageHandler(async (m, t) =>
-				{
-					busMessages.Push(m);
-					await subscriptionClient.CompleteAsync(m.SystemProperties.LockToken);
-				}, messageHandlerOptions);
-
-
-				//Test Service Bus Queue
-				//Retry 10 times 
-				var retryPolicy = new RetryExponential(new TimeSpan(0, 0, 0, 0, 500), new TimeSpan(0, 0, 1), 10);
-
-				var messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewBlockQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
-				Microsoft.Azure.ServiceBus.Message msg = null;
-
-				//Clear any existing messages from queue
-				while (await messageReceiver.PeekAsync() != null)
-				{
-					// Batch the receive operation
-					var brokeredMessages = await messageReceiver.ReceiveAsync(300);
-				}
-				await messageReceiver.CloseAsync();     //Close queue , otherwise receiver will consume our test message
-
-				messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewBlockQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
-
-				//Create a new Block - AzureServiceBus broker will receive a message from EventAggregator and publish to queue
-				var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
-
-				msg = await messageReceiver.ReceiveAsync();
-
-				JsonSerializerSettings settings = new JsonSerializerSettings();
-				new Serializer(Network.RegTest).ConfigureSerializer(settings);
-
-				Assert.True(msg != null, $"No message received on Azure Service Bus Block Queue : {AzureServiceBusTestConfig.NewBlockQueue} after 10 read attempts.");
-
-				Assert.Equal(msg.ContentType, typeof(NewBlockEvent).ToString());
-
-				var blockEventQ = JsonConvert.DeserializeObject<NewBlockEvent>(Encoding.UTF8.GetString(msg.Body), settings);
-				Assert.IsType<Models.NewBlockEvent>(blockEventQ);
-				Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(), msg.MessageId.ToUpperInvariant());
-				Assert.Equal(expectedBlockId, blockEventQ.Hash);
-				Assert.NotEqual(0, blockEventQ.Height);
-
-				await Task.Delay(1000);
-				Assert.True(busMessages.Count > 0, $"No message received on Azure Service Bus Block Topic : {AzureServiceBusTestConfig.NewBlockTopic}.");
-				Microsoft.Azure.ServiceBus.Message busMsg = null;
-				busMessages.TryPop(out busMsg);
-				var blockEventS = JsonConvert.DeserializeObject<Models.NewBlockEvent>(Encoding.UTF8.GetString(busMsg.Body), settings);
-				Assert.IsType<Models.NewBlockEvent>(blockEventS);
-				Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(), busMsg.MessageId.ToUpperInvariant());
-				Assert.Equal(expectedBlockId, blockEventS.Hash);
-				Assert.NotEqual(0, blockEventS.Height);
-			}
-		}
-
-		[Fact]
-		[Trait("Azure", "Azure")]
-		public async Task CanSendAzureServiceBusNewTransactionEventMessage()
-		{
-			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.ConnectionString), "Please Set Azure Service Bus Connection string in TestConfig.cs AzureServiceBusTestConfig Class.");
-
-			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.NewTransactionQueue), "Please Set Azure Service Bus NewTransactionQueue name in TestConfig.cs AzureServiceBusTestConfig Class.");
-
-			Assert.False(string.IsNullOrWhiteSpace(AzureServiceBusTestConfig.NewTransactionSubscription), "Please Set Azure Service Bus NewTransactionSubscription name in TestConfig.cs AzureServiceBusTestConfig Class.");
-
-
-			using (var tester = ServerTester.Create())
-			{
-				tester.Client.WaitServerStarted();
-				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
-				tester.Client.Track(pubkey);
-
-				IQueueClient tranClient = new QueueClient(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewTransactionQueue);
-				ISubscriptionClient subscriptionClient = new SubscriptionClient(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewTransactionTopic, AzureServiceBusTestConfig.NewTransactionSubscription);
-
-				//Configure Service Bus Subscription callback				
-				//We may have existing messages from other tests - push all message to a LIFO stack
-				var busMessages = new ConcurrentStack<Microsoft.Azure.ServiceBus.Message>();
-
-				var messageHandlerOptions = new MessageHandlerOptions((e) =>
-				{
-					throw e.Exception;
-				})
-				{
-					// Maximum number of Concurrent calls to the callback `ProcessMessagesAsync`, set to 1 for simplicity.
-					// Set it according to how many messages the application wants to process in parallel.
-					MaxConcurrentCalls = 1,
-
-					// Indicates whether MessagePump should automatically complete the messages after returning from User Callback.
-					// False below indicates the Complete will be handled by the User Callback as in `ProcessMessagesAsync` below.
-					AutoComplete = false
-				};
-
-				//Service Bus Topic Message Handler
-				subscriptionClient.RegisterMessageHandler(async (m, t) =>
-				{
-					busMessages.Push(m);
-					await subscriptionClient.CompleteAsync(m.SystemProperties.LockToken);
-				}, messageHandlerOptions);
-
-				//Configure JSON custom serialization
-				JsonSerializerSettings settings = new JsonSerializerSettings();
-				new Serializer(Network.RegTest).ConfigureSerializer(settings);
-
-				//Test Service Bus Queue
-				//Retry 10 times 
-				var retryPolicy = new RetryExponential(new TimeSpan(0, 0, 0, 0, 500), new TimeSpan(0, 0, 1), 10);
-
-				//Setup Message Receiver and clear queue
-				var messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewTransactionQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
-				while (await messageReceiver.PeekAsync() != null)
-				{
-					// Batch the receive operation
-					var brokeredMessages = await messageReceiver.ReceiveAsync(300);
-				}
-				await messageReceiver.CloseAsync();
-
-
-				//New message receiver to listen to our test event
-				messageReceiver = new MessageReceiver(AzureServiceBusTestConfig.ConnectionString, AzureServiceBusTestConfig.NewTransactionQueue, ReceiveMode.ReceiveAndDelete, retryPolicy);
-
-				//Create a new UTXO for our tracked key
-				tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
-
-				//Check Queue Message
-				Microsoft.Azure.ServiceBus.Message msg = null;
-				msg = await messageReceiver.ReceiveAsync();
-
-				Assert.True(msg != null, $"No message received on Azure Service Bus Transaction Queue : {AzureServiceBusTestConfig.NewTransactionQueue} after 10 read attempts.");
-
-				var txEventQ = JsonConvert.DeserializeObject<NewTransactionEvent>(Encoding.UTF8.GetString(msg.Body), settings);
-				Assert.Equal(txEventQ.DerivationStrategy, pubkey);
-
-				await Task.Delay(1000);
-				Assert.True(busMessages.Count > 0, $"No message received on Azure Service Bus Transaction Topic : {AzureServiceBusTestConfig.NewTransactionTopic}.");
-				//Check Service Bus Topic Payload
-
-				Microsoft.Azure.ServiceBus.Message busMsg = null;
-				busMessages.TryPop(out busMsg);
-				var blockEventS = JsonConvert.DeserializeObject<NewTransactionEvent>(Encoding.UTF8.GetString(busMsg.Body), settings);
-				Assert.IsType<NewTransactionEvent>(blockEventS);
-				Assert.Equal(blockEventS.DerivationStrategy, pubkey);
-
-			}
-		}
-
 
 		class TestMetadata
 		{
@@ -1328,8 +1268,10 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanPrune()
+		[Theory]
+		[InlineData(false)]
+		[InlineData(true)]
+		public void CanPrune(bool autoPruning)
 		{
 			// In this test we have fundingTxId with 2 output and spending1
 			// We make sure that only once the 2 outputs of fundingTxId have been consumed
@@ -1367,8 +1309,14 @@ namespace NBXplorer.Tests
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
 
-				tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
-
+				if (autoPruning)
+				{
+					tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
+				}
+				else
+				{
+					tester.Client.Prune(pubkey);
+				}
 
 				Logs.Tester.LogInformation("After activating pruning, it still should not pruned, because there is still one coin");
 				utxo = tester.Client.GetUTXOs(pubkey);
@@ -1394,6 +1342,10 @@ namespace NBXplorer.Tests
 				tester.WaitSynchronized();
 				Thread.Sleep(1000);
 				// Now it should get pruned
+				if (!autoPruning)
+				{
+					tester.Client.Prune(pubkey);
+				}
 				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey);
 				AssertPruned(tester, pubkey, fundingTxId);
@@ -1642,7 +1594,7 @@ namespace NBXplorer.Tests
 						var txOut = txEvent.TransactionData.Transaction.Outputs[output.Index];
 						Assert.Equal(txOut.ScriptPubKey, output.ScriptPubKey);
 						Assert.Equal(txOut.Value, output.Value);
-						var derived = ((DerivationSchemeTrackedSource)txEvent.TrackedSource).DerivationStrategy.Derive(output.KeyPath);
+						var derived = ((DerivationSchemeTrackedSource)txEvent.TrackedSource).DerivationStrategy.GetDerivation(output.KeyPath);
 						Assert.Equal(derived.ScriptPubKey, txOut.ScriptPubKey);
 					}
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), schemes);
@@ -1973,7 +1925,7 @@ namespace NBXplorer.Tests
 				var extkey2 = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey2 = new DerivationStrategyFactory(extkey.Network).Parse($"{extkey.Neuter()}-[legacy]");
 				tester.Client.Track(pubkey2);
-				var txId = tester.SendToAddress(pubkey2.Derive(new KeyPath("0/0")).ScriptPubKey, Money.Coins(1.0m));
+				var txId = tester.SendToAddress(pubkey2.GetDerivation(new KeyPath("0/0")).ScriptPubKey, Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(pubkey2, txId);
 
 				Logs.Tester.LogInformation("Sending from 0/0 to the tracked address");
@@ -2095,7 +2047,7 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("scheme: " + scheme.ToString());
 				// Derive 0/0
-				var derivation = derivationScheme.GetLineFor(DerivationFeature.Deposit).Derive(new KeyPath(0));
+				var derivation = derivationScheme.GetLineFor(DerivationFeature.Deposit).Derive(0);
 
 				Logs.Tester.LogInformation("segwit redeem: " + derivation.Redeem.ToString());
 				Logs.Tester.LogInformation("segwit redeem (hex): " + derivation.Redeem.ToHex());
@@ -2179,7 +2131,7 @@ namespace NBXplorer.Tests
 			var multioneP2WSHP2SH = (P2SHDerivationStrategy)factory.Parse($"2-of-{toto}-{tata}-and-{tata}-[p2sh]");
 			var multione = Assert.IsType<MultisigPlusOneDerivationStrategy>(Assert.IsType<P2WSHDerivationStrategy>(multioneP2WSHP2SH.Inner).Inner);
 			Assert.Equal($"2-of-{toto}-{tata}-and-{tata}", multione.ToString());
-			multione.GetLineFor(new KeyPath(0));
+			multione.GetChild(new KeyPath(0)).GetDerivation();
 
 			network = NBitcoin.Altcoins.BCash.Instance.Mainnet;
 
@@ -2192,8 +2144,8 @@ namespace NBXplorer.Tests
 
 		private static Derivation Generate(DerivationStrategyBase strategy)
 		{
-			var derivation = strategy.GetLineFor(DerivationFeature.Deposit).Derive(1);
-			var derivation2 = strategy.Derive(DerivationStrategyBase.GetKeyPath(DerivationFeature.Deposit).Derive(1));
+			var derivation = strategy.GetLineFor(KeyPathTemplates.Default.GetKeyPathTemplate(DerivationFeature.Deposit)).Derive(1U);
+			var derivation2 = strategy.GetDerivation(KeyPathTemplates.Default.GetKeyPathTemplate(DerivationFeature.Deposit).GetKeyPath(1U));
 			Assert.Equal(derivation.Redeem, derivation2.Redeem);
 			return derivation;
 		}
@@ -2378,6 +2330,34 @@ namespace NBXplorer.Tests
 						Assert.DoesNotContain(utxos.Confirmed.UTXOs, u => u.AsCoin().Outpoint.Hash == txid);
 					}
 				}
+			}
+		}
+
+		[Fact]
+		public void CanTrackManyAddressesAtOnce()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
+
+				tester.Client.Track(pubkey, new TrackWalletRequest()
+				{
+					Wait = true,
+					DerivationOptions = new TrackDerivationOption[]
+					{
+						new TrackDerivationOption()
+						{
+							Feature = DerivationFeature.Deposit,
+							MinAddresses = 500
+						}
+					}
+				});
+
+#pragma warning disable CS0618 // Type or member is obsolete
+				var info = tester.Client.GetKeyInformations(pubkey.GetDerivation(new KeyPath("0/499")).ScriptPubKey);
+				Assert.Single(info);
+#pragma warning restore CS0618 // Type or member is obsolete
 			}
 		}
 
@@ -2867,7 +2847,7 @@ namespace NBXplorer.Tests
 				tester.Client.Track(pubkey);
 
 				KeyPathInformation[] keyinfos;
-				var script = pubkey.Derive(new KeyPath("0/0")).ScriptPubKey;
+				var script = pubkey.GetDerivation(new KeyPath("0/0")).ScriptPubKey;
 
 #pragma warning disable CS0618 // Type or member is obsolete
 				keyinfos = tester.Client.GetKeyInformations(script);
@@ -2882,13 +2862,13 @@ namespace NBXplorer.Tests
 					Assert.Equal(DerivationFeature.Deposit, k.Feature);
 				}
 
-				var keyInfo = tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/0")).ScriptPubKey);
+				var keyInfo = tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/0")).ScriptPubKey);
 				Assert.NotNull(keyInfo?.Address);
-				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/100")).ScriptPubKey));
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/100")).ScriptPubKey));
 
 				key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				pubkey = tester.CreateDerivationStrategy(key.Neuter());
-				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/0")).ScriptPubKey));
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/0")).ScriptPubKey));
 			}
 		}
 
@@ -3003,7 +2983,7 @@ namespace NBXplorer.Tests
 				int gaplimit = 1000;
 				int batchsize = 100;
 				// By default, gap limit is 1000 and batch size is 100 on all 3 feature line
-				var outOfBandAddress = pubkey.Derive(new KeyPath("0/50"));
+				var outOfBandAddress = pubkey.GetDerivation(new KeyPath("0/50"));
 				var txId = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey, Money.Coins(1.0m));
 				Logs.Tester.LogInformation($"Sent money on 0/50 {txId}");
 				tester.RPC.EnsureGenerate(1);
@@ -3027,17 +3007,24 @@ namespace NBXplorer.Tests
 				Assert.Equal(100, info.Progress.Count);
 				Assert.Equal(50, info.Progress.HighestKeyIndexFound[DerivationFeature.Deposit]);
 				Assert.Null(info.Progress.HighestKeyIndexFound[DerivationFeature.Change]);
+				// Check that address 49 is tracked
+				var scriptPubKey = pubkey.GetDerivation(new KeyPath("0/49")).ScriptPubKey;
+#pragma warning disable CS0618 // Type or member is obsolete
+				var infos = tester.Client.GetKeyInformations(scriptPubKey);
+				Assert.Single(infos);
+#pragma warning restore CS0618 // Type or member is obsolete
+
 				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be the next unused address");
 				Assert.Equal(51, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex());
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].TransactionHash);
 
 				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be monitored, but not 0/150");
-				Assert.NotNull(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/51")).ScriptPubKey));
-				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.Derive(new KeyPath("0/150")).ScriptPubKey));
+				Assert.NotNull(tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/51")).ScriptPubKey));
+				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/150")).ScriptPubKey));
 
 				Logs.Tester.LogInformation($"Let's check what happen if we scan a UTXO that is already fully indexed");
-				outOfBandAddress = pubkey.Derive(new KeyPath("0/51"));
+				outOfBandAddress = pubkey.GetDerivation(new KeyPath("0/51"));
 				var txId2 = tester.RPC.SendToAddress(outOfBandAddress.ScriptPubKey, Money.Coins(1.0m));
 				Logs.Tester.LogInformation($"Send money on 0/51 on {txId2}");
 				tester.RPC.EnsureGenerate(1);
@@ -3116,6 +3103,20 @@ namespace NBXplorer.Tests
 				Assert.Null(info.Progress.CompletedAt);
 				Thread.Sleep(100);
 			}
+		}
+
+		[Theory]
+		[InlineData("*","0", "1")]
+		[InlineData("*/", "0", "1")]
+		[InlineData("/*", "0", "1")]
+		[InlineData("1/*", "1/0", "1/1")]
+		[InlineData("1/*/2", "1/0/2", "1/1/2")]
+		[InlineData("*/2", "0/2", "1/2")]
+		[InlineData("m/*/2", "0/2", "1/2")]
+		public void CanParseKeyPathTemplates(string template, string path1, string path2)
+		{
+			Assert.Equal(path1, KeyPathTemplate.Parse(template).GetKeyPath(0).ToString());
+			Assert.Equal(path2, KeyPathTemplate.Parse(template).GetKeyPath(1).ToString());
 		}
 	}
 }

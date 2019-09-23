@@ -56,6 +56,7 @@ HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}
 
 Returns nothing.
 
+<<<<<<< HEAD
 ## Get balance
 
 HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balances
@@ -74,6 +75,26 @@ HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balances
 If Alice has 2 coins of 1 BTC, if she wants to spend 0.3 BTC she will lock 1 coin of 1BTC and have a change of 0.7 BTC.
 
 `total` would be equal to 1.7 BTC, but `spendable` would be equal to 1 BTC.
+=======
+Optionally, you can attach a json body:
+```json
+ {
+  "derivationOptions": [
+    {
+      "feature": "Deposit",
+      "minAddresses": 30,
+      "maxAddresses": null
+    }
+  ],
+  "wait": true
+}
+```
+* `wait`: Optional. If `true` the call will return when all addresses has been generated, addresses will be generated in the background (default: `false`)
+* `derivationOptions`: Optional. Options to manually start the address generation process. (default: empty)
+* `derivationOptions.feature`: Optional. Define to which feature this option should be used. (defaut: null, which match all feature)
+* `derivationOptions.minAddresses`: Optional. The minimum addresses that need to be generated with this call. (default: null, make sure the number of address in the pool is between MinGap and MaxGap)
+* `derivationOptions.maxAddresses`: Optional. The maximum addresses that need to be generated with this call. (default: null, make sure the number of address in the pool is between MinGap and MaxGap)
+>>>>>>> master
 
 ## Track a specific address
 
@@ -322,7 +343,7 @@ Error codes:
 
 Optional parameters:
 
-* `feature`: Use `Deposit` to get a deposit address (`0/x`), `Change` to get a change address (`1/x`), or `Direct` to get `x` (default: `Deposit`)
+* `feature`: Use `Deposit` to get a deposit address (`0/x`), `Change` to get a change address (`1/x`), `Direct` to get `x` or `Custom` if `customKeyPathTemplate` is configured (default: `Deposit`)
 * `skip`: How much address to skip, needed if the user want multiple unused addresses (default:0)
 * `reserve`: Mark the returned address as used (default: false)
 
@@ -1096,6 +1117,7 @@ Body:
 }
 ```
 
+<<<<<<< HEAD
 ## Wallet auto-locking
 
 You can set the auto locking behavior via the well-known metadata key `silo.locking`.
@@ -1115,3 +1137,21 @@ By activating `autoLocking`, all incoming transactions will have all the UTXOs l
 Transaction events will get a new `unlockId` field that you can use to unlock the transaction.
 
 Note that transactions originating from the `derivationScheme` (ie. outgoing transactions) will not be locked.
+=======
+## Manual pruning
+
+NBXplorer has an auto pruning feature configurable with `--autopruning x` where `x` is in second. If a call to NBXplorer's `Get utxo` or `Get PSBT`  takes more time than `x seconds`, then the auto pruning will delete transactions whose all UTXOs have been already spent and which are old enough.
+
+You can however force pruning by calling:
+
+HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/prune
+
+Response:
+```json
+{
+	"totalPruned": 10
+}
+```
+
+* `totalPruned` is the number of transactions pruned from the derivation scheme
+>>>>>>> master
