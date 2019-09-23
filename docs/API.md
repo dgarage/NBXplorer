@@ -531,7 +531,8 @@ Request:
   # feeRate is optional, specifying it will override default fee estimation
   "feeRate":1,
   # true if the destination pays the fees
-  "substractFees": false
+  "substractFees": false,
+  "includeOnlyOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1" ]
 }
 ```
 
@@ -540,6 +541,7 @@ Request:
 * `destinations[].amount` Send this amount to the destination (Mutually exclusive with: sweepAll)
 * `destinations[].substractFees` Default to false, will substract the fees of this transaction to this destination (Mutually exclusive with: sweepAll)
 * `destinations[].sweepAll` Default to false, will sweep all the balance of your wallet to this destination (Mutually exclusive with: amount, substractFees)
+* `includeOnlyOutpoints`: Only select the following outpoints for creating the transaction (default to null)
 
 Note, `destination` and `substractFees` at the root request is still supported for backward compatibility but is deprecated.
 

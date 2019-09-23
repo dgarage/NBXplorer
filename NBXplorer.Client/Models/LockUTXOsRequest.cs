@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -36,6 +37,7 @@ namespace NBXplorer.Models
 			set;
 		}
 		public bool SubstractFees { get; set; }
+		public List<OutPoint> IncludeOnlyOutpoints { get; set; }
 	}
 
 	public class LockUTXOsRequestDestination
