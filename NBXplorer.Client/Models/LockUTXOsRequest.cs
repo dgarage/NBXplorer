@@ -38,6 +38,7 @@ namespace NBXplorer.Models
 		}
 		public bool SubstractFees { get; set; }
 		public List<OutPoint> IncludeOnlyOutpoints { get; set; }
+		public bool IgnoreLocks { get; set; }
 	}
 
 	public class LockUTXOsRequestDestination

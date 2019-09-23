@@ -58,6 +58,7 @@ namespace NBXplorer.Controllers
 				psbtRequest.FeePreference = new FeePreference() { ExplicitFeeRate = request.FeeRate, BlockTarget = 6 };
 				psbtRequest.ReserveChangeAddress = true;
 				psbtRequest.IncludeOnlyOutpoints = request.IncludeOnlyOutpoints;
+				psbtRequest.IgnoreLocks = request.IgnoreLocks;
 				var psbtActionResult = await this.CreatePSBT(network, derivationScheme, network.Serializer.ToJObject(psbtRequest));
 				var psbt = ((psbtActionResult as JsonResult)?.Value as CreatePSBTResponse)?.PSBT;
 				var changeAddress = ((psbtActionResult as JsonResult)?.Value as CreatePSBTResponse)?.ChangeAddress;
