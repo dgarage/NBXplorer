@@ -7,7 +7,6 @@ jobs:
       - checkout
       - run:
           command: |
-            lsb_release -a
             dotnet --info
             dotnet build /p:TreatWarningsAsErrors=true
             dotnet test -c Release ./NBXplorer.Tests/NBXplorer.Tests.csproj --filter "Azure!=Azure" -v n
