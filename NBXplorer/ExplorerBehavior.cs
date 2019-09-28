@@ -306,6 +306,10 @@ namespace NBXplorer
 					await saving;
 				}
 			}
+			catch (ObjectDisposedException)
+			{
+				throw;
+			}
 			catch (Exception ex)
 			{
 				Logs.Explorer.LogWarning(ex, $"{Network.CryptoCode}: Error while saving block in database, retrying in {delay.TotalSeconds} seconds ({ex.Message})");
