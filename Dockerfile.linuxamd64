@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:3.0.100-alpine3.9 AS builder
+FROM mcr.microsoft.com/dotnet/core/sdk:3.0.100 AS builder
 WORKDIR /source
 COPY NBXplorer/NBXplorer.csproj NBXplorer/NBXplorer.csproj
 COPY NBXplorer.Client/NBXplorer.Client.csproj NBXplorer.Client/NBXplorer.Client.csproj
