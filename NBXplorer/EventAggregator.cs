@@ -65,7 +65,7 @@ namespace NBXplorer
 		}
 		public async Task<T> WaitNext<T>(Func<T, bool> predicate, CancellationToken cancellation = default)
 		{
-			TaskCompletionSource<T> tcs = new TaskCompletionSource<T>();
+			TaskCompletionSource<T> tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 			var subscription = Subscribe<T>((a, b) => {
 				if(predicate(b))
 				{

@@ -61,10 +61,10 @@ namespace NBXplorer.Tests
 		Action<HttpContext> _Act;
 		public void ProcessNextRequest(Action<HttpContext> act)
 		{
-			var source = new TaskCompletionSource<bool>();
+			var source = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 			CancellationTokenSource cancellation = new CancellationTokenSource(20000);
 			cancellation.Token.Register(() => source.TrySetCanceled());
-			source = new TaskCompletionSource<bool>();
+			source = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 			_Evt = source;
 			_Act = act;
 			try
