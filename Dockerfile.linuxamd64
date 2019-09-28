@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/core/sdk:2.1.505-alpine3.7 AS builder
+FROM mcr.microsoft.com/dotnet/core/sdk:3.0.100-alpine3.9 AS builder
 WORKDIR /source
 COPY NBXplorer/NBXplorer.csproj NBXplorer/NBXplorer.csproj
 COPY NBXplorer.Client/NBXplorer.Client.csproj NBXplorer.Client/NBXplorer.Client.csproj
@@ -8,7 +8,7 @@ COPY . .
 RUN cd NBXplorer && \
     dotnet publish --output /app/ --configuration Release
 
-FROM mcr.microsoft.com/dotnet/core/aspnet:2.1.9-alpine3.7
+FROM mcr.microsoft.com/dotnet/core/aspnet:3.0.0-buster-slim
 WORKDIR /app
 
 RUN mkdir /datadir
