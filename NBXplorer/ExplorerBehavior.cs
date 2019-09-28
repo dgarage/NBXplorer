@@ -35,6 +35,7 @@ namespace NBXplorer
 			_EventAggregator = eventAggregator;
 		}
 
+		CancellationTokenSource _Cts = new CancellationTokenSource();
 		EventAggregator _EventAggregator;
 
 		Repository Repository
@@ -221,7 +222,7 @@ namespace NBXplorer
 		{
 			AttachedNode.StateChanged -= AttachedNode_StateChanged;
 			AttachedNode.MessageReceived -= AttachedNode_MessageReceived;
-
+			_Cts.Cancel();
 			_Timer.Dispose();
 			_Timer = null;
 		}
@@ -307,8 +308,8 @@ namespace NBXplorer
 			}
 			catch (Exception ex)
 			{
-				Logs.Explorer.LogWarning(ex, $"{Network.CryptoCode}: Error while saving block in database, retrying in {delay.TotalSeconds} seconds");
-				await Task.Delay(delay);
+				Logs.Explorer.LogWarning(ex, $"{Network.CryptoCode}: Error while saving block in database, retrying in {delay.TotalSeconds} seconds ({ex.Message})");
+				await Task.Delay(delay, _Cts.Token);
 				delay = delay * 2;
 				var maxDelay = TimeSpan.FromSeconds(60);
 				if (delay > maxDelay)
