@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NBXplorer.Models;
+using NBitcoin.DataEncoders;
 
 namespace NBXplorer
 {
@@ -82,6 +83,35 @@ namespace NBXplorer
 		{
 			var result = await client.SendCommandAsync("getnetworkinfo").ConfigureAwait(false);
 			return JsonConvert.DeserializeObject<GetNetworkInfoResponse>(result.ResultString);
+		}
+
+		public static async Task<Repository.SavedTransaction> TryGetTransaction(this RPCClient client, uint256 txId)
+		{
+			var request = new RPCRequest(RPCOperations.getrawtransaction, new object[] { txId, true });
+			var response = await client.SendCommandAsync(request, false);
+			if (response.Error == null && response.Result is JToken rpcResult && rpcResult["hex"] != null)
+			{
+				uint256 blockHash = null;
+				if (rpcResult["blockhash"] != null)
+				{
+					blockHash = uint256.Parse(rpcResult.Value<string>("blockhash"));
+				}
+				DateTimeOffset timestamp = DateTimeOffset.UtcNow;
+				if (rpcResult["time"] != null)
+				{
+					timestamp = NBitcoin.Utils.UnixTimeToDateTime(rpcResult.Value<long>("time"));
+				}
+				
+				var rawTx = client.Network.Consensus.ConsensusFactory.CreateTransaction();
+				rawTx.ReadWrite(Encoders.Hex.DecodeData(rpcResult.Value<string>("hex")), client.Network);
+				return new Repository.SavedTransaction()
+									{
+										BlockHash = blockHash,
+										Timestamp = timestamp,
+										Transaction = rawTx
+									};
+			}
+			return null;
 		}
 	}
 }

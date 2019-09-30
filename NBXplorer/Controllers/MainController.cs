@@ -432,7 +432,18 @@ namespace NBXplorer.Controllers
 			var chain = this.ChainProvider.GetChain(network);
 			var result = await RepositoryProvider.GetRepository(network).GetSavedTransactions(txId);
 			if (result.Length == 0)
-				return NotFound();
+			{
+				var waiter = Waiters.GetWaiter(cryptoCode);
+				if (waiter.RPCAvailable is true &&
+					await waiter.RPC.TryGetTransaction(txId) is Repository.SavedTransaction savedTransaction)
+				{
+					result = new[] { savedTransaction };
+				}
+				else
+				{
+					return NotFound();
+				}
+			}
 			var tx = Utils.ToTransactionResult(chain, result);
 			if (!includeTransaction)
 				tx.Transaction = null;

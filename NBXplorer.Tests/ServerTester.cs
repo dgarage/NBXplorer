@@ -74,6 +74,7 @@ namespace NBXplorer.Tests
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, directory);
 
 				Explorer = NodeBuilder.CreateNode();
+				Explorer.ConfigParameters.Add("txindex", "1");
 				foreach (var node in NodeBuilder.Nodes)
 				{
 					node.WhiteBind = true;
