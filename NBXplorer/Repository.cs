@@ -59,7 +59,11 @@ namespace NBXplorer
 		retry:
 			try
 			{
-				_Engine = new DBriizeEngine(directory);
+				_Engine = new DBriizeEngine(new DBriizeConfiguration()
+				{
+					DBriizeDataFolderName = directory,
+					IsSingleThread = true
+				});
 			}
 			catch when (tried < 10)
 			{
