@@ -11,6 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NBXplorer.Client", "NBXplor
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionFiles", "SolutionFiles", "{E5A765B1-3F91-4D13-9501-EED582AD2BDB}"
 	ProjectSection(SolutionItems) = preProject
+		appveyor.yml = appveyor.yml
 		.circleci\config.yml = .circleci\config.yml
 		Dockerfile.linuxamd64 = Dockerfile.linuxamd64
 		Dockerfile.linuxarm32v7 = Dockerfile.linuxarm32v7
