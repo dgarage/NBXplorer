@@ -85,7 +85,7 @@ namespace NBXplorer
 			return JsonConvert.DeserializeObject<GetNetworkInfoResponse>(result.ResultString);
 		}
 
-		public static async Task<Repository.SavedTransaction> TryGetTransaction(this RPCClient client, uint256 txId)
+		public static async Task<Repository.SavedTransaction> TryGetRawTransaction(this RPCClient client, uint256 txId)
 		{
 			var request = new RPCRequest(RPCOperations.getrawtransaction, new object[] { txId, true });
 			var response = await client.SendCommandAsync(request, false);

@@ -434,8 +434,9 @@ namespace NBXplorer.Controllers
 			if (result.Length == 0)
 			{
 				var waiter = Waiters.GetWaiter(cryptoCode);
-				if (waiter.RPCAvailable is true &&
-					await waiter.RPC.TryGetTransaction(txId) is Repository.SavedTransaction savedTransaction)
+				if (waiter.RPCAvailable &&
+					waiter.HasTxIndex &&
+					await waiter.RPC.TryGetRawTransaction(txId) is Repository.SavedTransaction savedTransaction)
 				{
 					result = new[] { savedTransaction };
 				}
@@ -615,12 +616,13 @@ namespace NBXplorer.Controllers
 			bool needTxIndex = rescanRequest.Transactions.Any(t => t.Transaction == null && t.BlockId == null);
 			var network = GetNetwork(cryptoCode, willFetchTransactions);
 
-			var rpc = Waiters.GetWaiter(cryptoCode).RPC.PrepareBatch();
+			var waiter = Waiters.GetWaiter(cryptoCode);
+			var rpc = waiter.RPC.PrepareBatch();
 			var repo = RepositoryProvider.GetRepository(network);
 
 			var fetchingTransactions = rescanRequest
 				.Transactions
-				.Select(t => FetchTransaction(rpc, t))
+				.Select(t => FetchTransaction(rpc, waiter.HasTxIndex, t))
 				.ToArray();
 
 			await rpc.SendBatchAsync();
@@ -644,7 +646,7 @@ namespace NBXplorer.Controllers
 			return Ok();
 		}
 
-		async Task<(uint256 BlockId, Transaction Transaction, DateTimeOffset BlockTime)> FetchTransaction(RPCClient rpc, RescanRequest.TransactionToRescan transaction)
+		async Task<(uint256 BlockId, Transaction Transaction, DateTimeOffset BlockTime)> FetchTransaction(RPCClient rpc,  bool hasTxIndex, RescanRequest.TransactionToRescan transaction)
 		{
 			if (transaction.Transaction != null)
 			{
@@ -659,13 +661,20 @@ namespace NBXplorer.Controllers
 			{
 				if (transaction.BlockId != null)
 				{
-					var getTx = rpc.GetRawTransactionAsync(transaction.TransactionId, transaction.BlockId, false);
-					var blockTime = await rpc.GetBlockTimeAsync(transaction.BlockId, false);
-					if (blockTime == null)
-						return (null, null, default);
-					return (transaction.BlockId, await getTx, blockTime.Value);
+					try
+					{
+						var getTx = rpc.GetRawTransactionAsync(transaction.TransactionId, transaction.BlockId, false);
+						var blockTime = await rpc.GetBlockTimeAsync(transaction.BlockId, false);
+						if (blockTime == null)
+							return (null, null, default);
+						return (transaction.BlockId, await getTx, blockTime.Value);
+					}
+					catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
+					{
+					}
 				}
-				else
+
+				if (hasTxIndex)
 				{
 					try
 					{
@@ -674,9 +683,9 @@ namespace NBXplorer.Controllers
 					}
 					catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
 					{
-						return (null, null, default);
 					}
 				}
+				return (null, null, default);
 			}
 			else
 			{

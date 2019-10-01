@@ -42,6 +42,7 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public bool HasTxIndex { get; set; }
 	}
 	public class ExplorerConfiguration
 	{
@@ -135,6 +136,7 @@ namespace NBXplorer.Configuration
 					}
 
 					chainConfiguration.StartHeight = config.GetOrDefault<int>($"{network.CryptoCode}.startheight", -1);
+					chainConfiguration.HasTxIndex = config.GetOrDefault<bool>($"{network.CryptoCode}.hastxindex", false);
 
 					ChainConfigurations.Add(chainConfiguration);
 				}

@@ -42,6 +42,7 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}rpcurl", $"The RPC server url (default: default rpc server depended on the network)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}startheight", $"The height where starting the scan (default: where your rpc server was synched when you first started this program)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}hastxindex", "If true, NBXplorer will try to fetch missing transactions from the local node (default: false)", CommandOptionType.BoolValue);
 			}
 
 			app.Option("--asbcnstr", "[For Azure Service Bus] Azure Service Bus Connection string. New Block and New Transaction messages will be pushed to queues when this values is set", CommandOptionType.SingleValue);

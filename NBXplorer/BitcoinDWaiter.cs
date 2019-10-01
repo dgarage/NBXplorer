@@ -120,6 +120,7 @@ namespace NBXplorer
 			_ChainConfiguration = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
 			_ExplorerPrototype = new ExplorerBehavior(repository, chain, addressPoolService, eventAggregator) { StartHeight = _ChainConfiguration.StartHeight };
 			RPCReadyFile = Path.Combine(configuration.SignalFilesDir, $"{network.CryptoCode.ToLowerInvariant()}_fully_synched");
+			HasTxIndex = _ChainConfiguration.HasTxIndex;
 		}
 		public NodeState NodeState
 		{
@@ -707,5 +708,6 @@ namespace NBXplorer
 		}
 
 		public GetNetworkInfoResponse NetworkInfo { get; internal set; }
+		public bool HasTxIndex { get; set; }
 	}
 }

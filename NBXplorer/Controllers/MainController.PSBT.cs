@@ -304,7 +304,7 @@ namespace NBXplorer.Controllers
 									}
 								}
 							}).ToArray());
-			if (rpc?.RPCAvailable is true)
+			if (rpc?.RPCAvailable is true && rpc?.HasTxIndex is true)
 			{
 				var batch = rpc.RPC.PrepareBatch();
 				var getTransactions = Task.WhenAll(update.PSBT.Inputs

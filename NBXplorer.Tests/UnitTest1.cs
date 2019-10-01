@@ -2056,7 +2056,7 @@ namespace NBXplorer.Tests
 						{
 							new RescanRequest.TransactionToRescan() { BlockId = blockId, TransactionId = txId1 },
 							new RescanRequest.TransactionToRescan() { BlockId = blockId2, TransactionId = txId2 }, // should fail because wrong block
-							new RescanRequest.TransactionToRescan() {  TransactionId = txId3 },  // should fail because no -txindex, but RPC remember wallet transactions :(
+							new RescanRequest.TransactionToRescan() {  TransactionId = txId3 },  // should work because -txindex
 							new RescanRequest.TransactionToRescan() { BlockId = blockId, Transaction = tx4 },  // should find it
 						}
 					});

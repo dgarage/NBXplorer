@@ -119,7 +119,8 @@ namespace NBXplorer.Tests
 			keyValues.Add(("asbblockt", AzureServiceBusTestConfig.NewBlockTopic));
 			keyValues.Add(("asbtrant", AzureServiceBusTestConfig.NewTransactionTopic));
 
-			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }).ToArray();
+			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }
+			.Concat(new[] { $"--{CryptoCode.ToLowerInvariant()}hastxindex" })).ToArray();
 			Host = new WebHostBuilder()
 				.UseConfiguration(new DefaultConfiguration().CreateConfiguration(args))
 				.UseKestrel()
