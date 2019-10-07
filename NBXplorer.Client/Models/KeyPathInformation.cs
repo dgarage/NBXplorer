@@ -25,7 +25,7 @@ namespace NBXplorer.Models
 			Address = network.CreateAddress(derivationStrategy, keyPath, ScriptPubKey);
 		}
 		public TrackedSource TrackedSource { get; set; }
-
+		public PubKey BlindingKey { get; set; }
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
 		public DerivationFeature Feature
 		{

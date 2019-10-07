@@ -28,6 +28,7 @@ using Microsoft.AspNetCore.Authentication;
 using NBXplorer.Authentication;
 using NBitcoin.DataEncoders;
 using System.Text.RegularExpressions;
+using NBitcoin.Altcoins.Elements;
 using NBXplorer.MessageBrokers;
 using NBitcoin.Protocol;
 
@@ -83,7 +84,13 @@ namespace NBXplorer
 		{
 			if(keyPathInformation.Address == null)
 			{
-				keyPathInformation.Address = keyPathInformation.ScriptPubKey.GetDestinationAddress(network);
+				var address = keyPathInformation.ScriptPubKey.GetDestinationAddress(network);
+				if (keyPathInformation.BlindingKey != null)
+				{
+					address = new BitcoinBlindedAddress(keyPathInformation.BlindingKey, address);
+				}
+
+				keyPathInformation.Address = address.ToString();
 			}
 			return keyPathInformation;
 		}

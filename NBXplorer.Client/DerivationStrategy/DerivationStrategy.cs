@@ -20,6 +20,8 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
+		
+		public Dictionary<string,object> AdditionalOptions { get; set; } = new Dictionary<string, object>();
 	}
 	public class DerivationStrategyFactory
 	{
@@ -41,13 +43,13 @@ namespace NBXplorer.DerivationStrategy
 
 		readonly Regex MultiSigRegex = new Regex("^([0-9]{1,2})-of(-[A-Za-z0-9]+)+$");
 		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
-		public DerivationStrategyBase Parse(string str)
+		public virtual DerivationStrategyBase Parse(string str)
 		{
-			var strategy = ParseCore(str);
+			var strategy = ParseCore(str, new Dictionary<string, object>());
 			return strategy;
 		}
 
-		private DerivationStrategyBase ParseCore(string str)
+		protected DerivationStrategyBase ParseCore(string str, Dictionary<string, object> additionalOptions)
 		{
 			bool legacy = false;
 			ReadBool(ref str, "legacy", ref legacy);
@@ -104,7 +106,7 @@ namespace NBXplorer.DerivationStrategy
 		/// <param name="publicKey">The public key of the wallet</param>
 		/// <param name="options">Derivation options</param>
 		/// <returns></returns>
-		public DerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey, DerivationStrategyOptions options = null)
+		public virtual DerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
 			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey) { Segwit = options.ScriptPubKeyType != ScriptPubKeyType.Legacy };
@@ -157,7 +159,7 @@ namespace NBXplorer.DerivationStrategy
 			return derivationStrategy;
 		}
 
-		private void ReadBool(ref string str, string attribute, ref bool value)
+		protected void ReadBool(ref string str, string attribute, ref bool value)
 		{
 			value = str.Contains($"[{attribute}]");
 			if(value)

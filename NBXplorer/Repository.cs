@@ -19,6 +19,8 @@ using DBriize.Utils;
 using System.Runtime.Serialization;
 using Newtonsoft.Json;
 using DBriize.Exceptions;
+using NBitcoin.Altcoins;
+using NBitcoin.Altcoins.Elements;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using static NBXplorer.RepositoryProvider;
@@ -1345,6 +1347,10 @@ namespace NBXplorer
 						var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
 						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 						{
+							if (keyInfo.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
+							{
+								//TODO Unblind Transaction.
+							}
 							match = new TrackedTransaction(
 								new TrackedTransactionKey(tx.GetHash(), blockId, false),
 								keyInfo.TrackedSource,
