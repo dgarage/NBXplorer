@@ -241,60 +241,6 @@ namespace Microsoft.Extensions.Logging.Abstractions.Internal
     }
 }
 
-namespace Microsoft.AspNetCore.Http
-{
-    internal static class BufferingHelper
-    {
-        internal const int DefaultBufferThreshold = 1024 * 30;
-
-        public static HttpRequest EnableRewind(this HttpRequest request, int bufferThreshold = DefaultBufferThreshold, long? bufferLimit = null)
-        {
-            if (request == null)
-            {
-                throw new ArgumentNullException(nameof(request));
-            }
-
-            var body = request.Body;
-            if (!body.CanSeek)
-            {
-                var fileStream = new FileBufferingReadStream(body, bufferThreshold, bufferLimit, AspNetCoreTempDirectory.TempDirectoryFactory);
-                request.Body = fileStream;
-                request.HttpContext.Response.RegisterForDispose(fileStream);
-            }
-            return request;
-        }
-	}
-
-	internal static class AspNetCoreTempDirectory
-    {
-        private static string _tempDirectory;
-
-        public static string TempDirectory
-        {
-            get
-            {
-                if (_tempDirectory == null)
-                {
-                    // Look for folders in the following order.
-                    var temp = Environment.GetEnvironmentVariable("ASPNETCORE_TEMP") ?? // ASPNETCORE_TEMP - User set temporary location.
-                               Path.GetTempPath();                                      // Fall back.
-
-                    if (!Directory.Exists(temp))
-                    {
-                        throw new DirectoryNotFoundException(temp);
-                    }
-
-                    _tempDirectory = temp;
-                }
-
-                return _tempDirectory;
-            }
-        }
-
-        public static Func<string> TempDirectoryFactory => () => TempDirectory;
-    }
-}
-
 #else
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
