@@ -9,7 +9,7 @@ jobs:
           command: |
             dotnet --info
             dotnet build -c Release /p:TreatWarningsAsErrors=true
-            dotnet test -c Release --no-build ./NBXplorer.Tests/NBXplorer.Tests.csproj --filter "Azure!=Azure" -v n < /dev/null
+            dotnet test -c Release --no-build ./NBXplorer.Tests/NBXplorer.Tests.csproj --filter "Azure!=Azure" --logger:"console;noprogress=true" -v n
 
   # publish jobs require $DOCKERHUB_REPO, $DOCKERHUB_USER, $DOCKERHUB_PASS defined
   amd64:
