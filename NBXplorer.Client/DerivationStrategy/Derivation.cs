@@ -19,7 +19,5 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
-
-		public PubKey BlindingKey { get; set; }
 	}
 }

@@ -79,21 +79,7 @@ namespace NBXplorer
 			}
 			return null;
 		}
-
-		internal static KeyPathInformation AddAddress(this KeyPathInformation keyPathInformation, Network network)
-		{
-			if(keyPathInformation.Address == null)
-			{
-				var address = keyPathInformation.ScriptPubKey.GetDestinationAddress(network);
-				if (keyPathInformation.BlindingKey != null)
-				{
-					address = new BitcoinBlindedAddress(keyPathInformation.BlindingKey, address);
-				}
-
-				keyPathInformation.Address = address.ToString();
-			}
-			return keyPathInformation;
-		}
+		
 #if NETCOREAPP21
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
 		{

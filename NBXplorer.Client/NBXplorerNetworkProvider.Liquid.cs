@@ -28,24 +28,90 @@ namespace NBXplorer
 
 		class LiquidNBXplorerNetwork : NBXplorerNetwork
 		{
-			public LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType, DerivationStrategyFactory derivationStrategyFactory = null) : base(networkSet, networkType, derivationStrategyFactory)
+			public LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType,
+				DerivationStrategyFactory derivationStrategyFactory = null) : base(networkSet, networkType,
+				derivationStrategyFactory)
+			{
+			}
+
+			public override async Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx,
+				KeyPathInformation keyInfo)
+			{
+				if (keyInfo is LiquidKeyPathInformation liquidKeyPathInformation && liquidKeyPathInformation.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
+				{
+					return await rpcClient.UnblindTransaction(
+						new BitcoinBlindedAddress(liquidKeyPathInformation.BlindingKey,
+							BitcoinAddress.Create(keyInfo.Address, NBitcoinNetwork)),
+						elementsTransaction);
+				}
+
+				return await base.GetTransaction(rpcClient, tx, keyInfo);
+			}
+
+			public override KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,
+				DerivationFeature derivationFeature, KeyPath keyPath)
+			{
+				var result =  base.GetKeyPathInformation(derivation, trackedSource, derivationFeature, keyPath);
+				return new LiquidKeyPathInformation(result,
+					derivation is LiquidDerivation liquidDerivation ? liquidDerivation.BlindingKey : null);
+			}
+
+			public override KeyPathInformation GetKeyPathInformation(IDestination derivation)
+			{
+				var result = base.GetKeyPathInformation(derivation);
+				
+				return new LiquidKeyPathInformation(result,
+					derivation is BitcoinBlindedAddress bitcoinBlindedAddress ? bitcoinBlindedAddress.BlindingKey : null);
+			}
+		}
+
+		class LiquidKeyPathInformation:KeyPathInformation
+		{
+			public LiquidKeyPathInformation()
 			{
 				
 			}
 
-			public override async Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx, KeyPathInformation keyInfo)
+			public LiquidKeyPathInformation(KeyPathInformation keyPathInformation, PubKey blindingKey)
 			{
-				if (keyInfo.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
+				Address = keyPathInformation.Address;
+				Feature = keyPathInformation.Feature;
+				Redeem = keyPathInformation.Redeem;
+				BlindingKey = blindingKey;
+				DerivationStrategy = keyPathInformation.DerivationStrategy;
+				KeyPath = keyPathInformation.KeyPath;
+				TrackedSource = keyPathInformation.TrackedSource;
+				ScriptPubKey = keyPathInformation.ScriptPubKey;
+			}
+			public PubKey BlindingKey { get; set; }
+			
+			public override KeyPathInformation AddAddress(Network network)
+			{
+				if(Address == null)
 				{
-					return await rpcClient.UnblindTransaction(
-						new BitcoinBlindedAddress(keyInfo.BlindingKey,
-							BitcoinAddress.Create(keyInfo.Address, NBitcoinNetwork)),
-						elementsTransaction);
+					var address = ScriptPubKey.GetDestinationAddress(network);
+					if (BlindingKey != null)
+					{
+						address = new BitcoinBlindedAddress(BlindingKey, address);
+					}
+
+					Address = address.ToString();
 				}
-				return await base.GetTransaction(rpcClient, tx, keyInfo);
+				return this;
 			}
 		}
 		
+		class LiquidDerivation : Derivation
+		{
+			public LiquidDerivation(Derivation derivation, PubKey blindingKey)
+			{
+				BlindingKey = blindingKey;
+				ScriptPubKey = derivation.ScriptPubKey;
+				Redeem = derivation.Redeem;
+			}
+			public PubKey BlindingKey { get; set; }
+		}
+
 		class LiquidDerivationStrategyFactory : DerivationStrategyFactory
 		{
 			public LiquidDerivationStrategyFactory(Network network) : base(network)
@@ -71,10 +137,8 @@ namespace NBXplorer
 				{
 					case DirectDerivationStrategy directDerivationStrategy:
 						return new LiquidDirectDerivationStrategy(directDerivationStrategy);
-						break;
 					case P2SHDerivationStrategy p2ShDerivationStrategy:
 						return new LiquidP2SHDerivationStrategy(p2ShDerivationStrategy);
-						break;
 				}
 
 				return result;
@@ -84,7 +148,8 @@ namespace NBXplorer
 			{
 				private readonly DerivationStrategyOptions _options;
 
-				public LiquidDirectDerivationStrategy(DirectDerivationStrategy derivationStrategy, DerivationStrategyOptions options = null) : base(derivationStrategy
+				public LiquidDirectDerivationStrategy(DirectDerivationStrategy derivationStrategy,
+					DerivationStrategyOptions options = null) : base(derivationStrategy
 					.RootBase58)
 				{
 					_options = options;
@@ -98,9 +163,8 @@ namespace NBXplorer
 					{
 						return base.GetDerivation();
 					}
-					var result =  base.GetDerivation();
-					result.BlindingKey = Root.PubKey;
-					return result;
+
+					return new LiquidDerivation(base.GetDerivation(),Root.PubKey);
 				}
 			}
 
@@ -108,7 +172,8 @@ namespace NBXplorer
 			{
 				private readonly DerivationStrategyOptions _options;
 
-				public LiquidP2SHDerivationStrategy(P2SHDerivationStrategy derivationStrategy, DerivationStrategyOptions options = null) : base(
+				public LiquidP2SHDerivationStrategy(P2SHDerivationStrategy derivationStrategy,
+					DerivationStrategyOptions options = null) : base(
 					derivationStrategy.Inner, derivationStrategy.AddSuffix)
 				{
 					_options = options;
@@ -121,14 +186,18 @@ namespace NBXplorer
 					{
 						return base.GetDerivation();
 					}
-					var result =  base.GetDerivation();
+
+					var result = base.GetDerivation();
 					if (Inner is DirectDerivationStrategy directDerivationStrategy)
 					{
-						result.BlindingKey = directDerivationStrategy.Root.PubKey;
+						return new LiquidDerivation(result, directDerivationStrategy.Root.PubKey);
 					}
+
 					return result;
 				}
 			}
+
+			
 		}
 	}
 }

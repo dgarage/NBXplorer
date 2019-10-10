@@ -120,5 +120,28 @@ namespace NBXplorer
 		{
 			return new ExplorerClient(this, uri);
 		}
+
+		public virtual KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,
+			DerivationFeature derivationFeature, KeyPath keyPath)
+		{
+			return new KeyPathInformation()
+			{
+				ScriptPubKey = derivation.ScriptPubKey,
+				Redeem = derivation.Redeem,
+				TrackedSource = trackedSource,
+				DerivationStrategy = trackedSource is DerivationSchemeTrackedSource derivationSchemeTrackedSource? derivationSchemeTrackedSource.DerivationStrategy: null,
+				Feature = derivationFeature,
+				KeyPath = keyPath
+			};
+		}
+
+		public virtual KeyPathInformation GetKeyPathInformation(IDestination derivation)
+		{
+			return new KeyPathInformation()
+            				{
+            					ScriptPubKey = derivation.ScriptPubKey,
+            					TrackedSource = (TrackedSource)derivation
+            				};
+		}
 	}
 }

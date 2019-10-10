@@ -50,13 +50,11 @@ namespace NBXplorer
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
 		private readonly KeyPathTemplates keyPathTemplates;
 		ExplorerConfiguration _Configuration;
-		private readonly RPCClientProvider _rpcClientProvider;
 
-		public RepositoryProvider(NBXplorerNetworkProvider networks, KeyPathTemplates keyPathTemplates, ExplorerConfiguration configuration, RPCClientProvider rpcClientProvider)
+		public RepositoryProvider(NBXplorerNetworkProvider networks, KeyPathTemplates keyPathTemplates, ExplorerConfiguration configuration)
 		{
 			this.keyPathTemplates = keyPathTemplates;
 			_Configuration = configuration;
-			_rpcClientProvider = rpcClientProvider;
 			var directory = Path.Combine(configuration.DataDir, "db");
 			if (!Directory.Exists(directory))
 				Directory.CreateDirectory(directory);
@@ -81,7 +79,7 @@ namespace NBXplorer
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					var repo = new Repository(_Engine, net, keyPathTemplates, _rpcClientProvider.GetRPCClient(net));
+					var repo = new Repository(_Engine, net, keyPathTemplates, settings.RPC);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
@@ -424,13 +422,11 @@ namespace NBXplorer
 			Parallel.For(0, toGenerate, i =>
 			{
 				var index = highestGenerated + i + 1;
-				var derivation = feature.Derive((uint)index);
-				var info = new KeyPathInformation(
+				var derivation = feature.Derive((uint) index);
+				keyPathInformations[i] = _Network.GetKeyPathInformation(derivation,
+					new DerivationSchemeTrackedSource(strategy),
 					derivationFeature,
-					keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false),
-					strategy,
-					Network);
-				keyPathInformations[i] = info;
+					keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false));
 			});
 			for (int i = 0; i < toGenerate; i++)
 			{
@@ -503,13 +499,7 @@ namespace NBXplorer
 		{
 			return _TxContext.DoAsync((tx) =>
 			{
-				var info = new KeyPathInformation()
-				{
-					ScriptPubKey = address.ScriptPubKey,
-					TrackedSource = (TrackedSource)address,
-					Address = (address as BitcoinAddress) ?? address.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork)
-				};
-				var bytes = ToBytes(info);
+				var bytes = ToBytes(_Network.GetKeyPathInformation(address));
 				GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
 				tx.Commit();
 			});
