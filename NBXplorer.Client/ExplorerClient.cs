@@ -378,14 +378,24 @@ namespace NBXplorer
 
 		public KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)
 		{
-			return GetUnusedAsync(strategy, feature, skip, reserve, cancellation).GetAwaiter().GetResult();
+			return GetUnused<KeyPathInformation>(strategy, feature, skip, reserve, cancellation);
+		}
+		
+		public T GetUnused<T>(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default) where T: KeyPathInformation
+		{
+			return GetUnusedAsync<T>(strategy, feature, skip, reserve, cancellation).GetAwaiter().GetResult();
 		}
 
-		public async Task<KeyPathInformation> GetUnusedAsync(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)
+		public Task<KeyPathInformation> GetUnusedAsync(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)
+		{
+			return GetUnusedAsync<KeyPathInformation>(strategy, feature, skip, reserve, cancellation);
+		}
+		
+		public async Task<T> GetUnusedAsync<T>(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)where T:KeyPathInformation
 		{
 			try
 			{
-				return await GetAsync<KeyPathInformation>($"v1/cryptos/{CryptoCode}/derivations/{strategy}/addresses/unused?feature={feature}&skip={skip}&reserve={reserve}", null, cancellation).ConfigureAwait(false);
+				return await GetAsync<T>($"v1/cryptos/{CryptoCode}/derivations/{strategy}/addresses/unused?feature={feature}&skip={skip}&reserve={reserve}", null, cancellation).ConfigureAwait(false);
 			}
 			catch (NBXplorerException ex) when (ex.Error?.HttpCode == 404)
 			{
@@ -395,14 +405,24 @@ namespace NBXplorer
 
 		public KeyPathInformation GetKeyInformation(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default)
 		{
-			return GetKeyInformationAsync(strategy, script, cancellation).GetAwaiter().GetResult();
+			return GetKeyInformation<KeyPathInformation>(strategy, script, cancellation);
+		}
+		
+		public T GetKeyInformation<T>(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default) where T: KeyPathInformation
+		{
+			return GetKeyInformationAsync<T>(strategy, script, cancellation).GetAwaiter().GetResult();
 		}
 
 		public async Task<KeyPathInformation> GetKeyInformationAsync(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default)
 		{
-			return await SendAsync<KeyPathInformation>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/scripts/" + script.ToHex(), new object[] { CryptoCode, strategy }, cancellation).ConfigureAwait(false);
+			return await GetKeyInformationAsync<KeyPathInformation>(strategy, script, cancellation);
 		}
 
+		public async Task<T> GetKeyInformationAsync<T>(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default) where T: KeyPathInformation
+		{
+			return await SendAsync<T>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/scripts/" + script.ToHex(), new object[] { CryptoCode, strategy }, cancellation).ConfigureAwait(false);
+		}
+		
 		[Obsolete("Use GetKeyInformationAsync(DerivationStrategyBase strategy, Script script) instead")]
 		public async Task<KeyPathInformation[]> GetKeyInformationsAsync(Script script, CancellationToken cancellation = default)
 		{

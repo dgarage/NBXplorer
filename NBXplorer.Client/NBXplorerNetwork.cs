@@ -23,27 +23,6 @@ namespace NBXplorer
 			DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(networkType);
 			DerivationStrategyFactory = derivationStrategyFactory;
 		}
-		public Network NBitcoinNetwork
-		{
-			get;
-			private set;
-		}
-		
-		public int MinRPCVersion
-		{
-			get;
-			internal set;
-		}
-		public string CryptoCode
-		{
-			get;
-			private set;
-		}
-		public NBXplorerDefaultSettings DefaultSettings
-		{
-			get;
-			private set;
-		}
 
 		public DerivationStrategy.DerivationStrategyFactory DerivationStrategyFactory
 		{
@@ -64,6 +43,7 @@ namespace NBXplorer
 
 
 		private Serializer _Serializer;
+
 		public Serializer Serializer
 		{
 			get
@@ -76,25 +56,14 @@ namespace NBXplorer
 
 		public JsonSerializerSettings JsonSerializerSettings
 		{
-			get
-			{
-				return Serializer.Settings;
-			}
+			get { return Serializer.Settings; }
 		}
 
-		
 
-		public TimeSpan ChainLoadingTimeout
-		{
-			get;
-			set;
-		} = TimeSpan.FromMinutes(15);
 
-		public TimeSpan ChainCacheLoadingTimeout
-		{
-			get;
-			set;
-		} = TimeSpan.FromSeconds(30);
+		public TimeSpan ChainLoadingTimeout { get; set; } = TimeSpan.FromMinutes(15);
+
+		public TimeSpan ChainCacheLoadingTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
 		/// <summary>
 		/// Minimum blocks to keep if pruning is activated
@@ -109,10 +78,10 @@ namespace NBXplorer
 		{
 			return CryptoCode.ToString();
 		}
-		
-		
 
-		public virtual Task<Transaction> GetTransaction(RPCClient rpcClient,Transaction tx, KeyPathInformation keyInfo)
+
+
+		public virtual Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx, KeyPathInformation keyInfo)
 		{
 			return Task.FromResult(tx);
 			}
@@ -129,7 +98,9 @@ namespace NBXplorer
 				ScriptPubKey = derivation.ScriptPubKey,
 				Redeem = derivation.Redeem,
 				TrackedSource = trackedSource,
-				DerivationStrategy = trackedSource is DerivationSchemeTrackedSource derivationSchemeTrackedSource? derivationSchemeTrackedSource.DerivationStrategy: null,
+				DerivationStrategy = trackedSource is DerivationSchemeTrackedSource derivationSchemeTrackedSource
+					? derivationSchemeTrackedSource.DerivationStrategy
+					: null,
 				Feature = derivationFeature,
 				KeyPath = keyPath
 			};
@@ -138,10 +109,10 @@ namespace NBXplorer
 		public virtual KeyPathInformation GetKeyPathInformation(IDestination derivation)
 		{
 			return new KeyPathInformation()
-            				{
-            					ScriptPubKey = derivation.ScriptPubKey,
-            					TrackedSource = (TrackedSource)derivation
-            				};
+			{
+				ScriptPubKey = derivation.ScriptPubKey,
+				TrackedSource = (TrackedSource) derivation
+			};
 		}
 	}
 }
