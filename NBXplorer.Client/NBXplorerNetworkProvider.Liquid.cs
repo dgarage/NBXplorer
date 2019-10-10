@@ -2,7 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
+using NBitcoin.Altcoins.Elements;
+using NBitcoin.RPC;
 using NBXplorer.DerivationStrategy;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
@@ -10,7 +14,7 @@ namespace NBXplorer
 	{
 		private void InitLiquid(NetworkType networkType)
 		{
-			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, networkType,
+			Add(new LiquidNBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, networkType,
 				new LiquidDerivationStrategyFactory(NBitcoin.Altcoins.Liquid.Instance.GetNetwork(networkType)))
 			{
 				MinRPCVersion = 150000
@@ -20,6 +24,26 @@ namespace NBXplorer
 		public NBXplorerNetwork GetLBTC()
 		{
 			return GetFromCryptoCode(NBitcoin.Altcoins.Liquid.Instance.CryptoCode);
+		}
+
+		class LiquidNBXplorerNetwork : NBXplorerNetwork
+		{
+			public LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType, DerivationStrategyFactory derivationStrategyFactory = null) : base(networkSet, networkType, derivationStrategyFactory)
+			{
+				
+			}
+
+			public override async Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx, KeyPathInformation keyInfo)
+			{
+				if (keyInfo.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
+				{
+					return await rpcClient.UnblindTransaction(
+						new BitcoinBlindedAddress(keyInfo.BlindingKey,
+							BitcoinAddress.Create(keyInfo.Address, NBitcoinNetwork)),
+						elementsTransaction);
+				}
+				return await base.GetTransaction(rpcClient, tx, keyInfo);
+			}
 		}
 		
 		class LiquidDerivationStrategyFactory : DerivationStrategyFactory

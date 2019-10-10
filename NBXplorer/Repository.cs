@@ -21,6 +21,7 @@ using Newtonsoft.Json;
 using DBriize.Exceptions;
 using NBitcoin.Altcoins;
 using NBitcoin.Altcoins.Elements;
+using NBitcoin.RPC;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using static NBXplorer.RepositoryProvider;
@@ -49,10 +50,13 @@ namespace NBXplorer
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
 		private readonly KeyPathTemplates keyPathTemplates;
 		ExplorerConfiguration _Configuration;
-		public RepositoryProvider(NBXplorerNetworkProvider networks, KeyPathTemplates keyPathTemplates, ExplorerConfiguration configuration)
+		private readonly RPCClientProvider _rpcClientProvider;
+
+		public RepositoryProvider(NBXplorerNetworkProvider networks, KeyPathTemplates keyPathTemplates, ExplorerConfiguration configuration, RPCClientProvider rpcClientProvider)
 		{
 			this.keyPathTemplates = keyPathTemplates;
 			_Configuration = configuration;
+			_rpcClientProvider = rpcClientProvider;
 			var directory = Path.Combine(configuration.DataDir, "db");
 			if (!Directory.Exists(directory))
 				Directory.CreateDirectory(directory);
@@ -77,7 +81,7 @@ namespace NBXplorer
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					var repo = new Repository(_Engine, net, keyPathTemplates);
+					var repo = new Repository(_Engine, net, keyPathTemplates, _rpcClientProvider.GetRPCClient(net));
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
@@ -313,6 +317,7 @@ namespace NBXplorer
 
 		NBXplorerNetwork _Network;
 		private readonly KeyPathTemplates keyPathTemplates;
+		private readonly RPCClient _rpcClient;
 
 		public NBXplorerNetwork Network
 		{
@@ -323,13 +328,14 @@ namespace NBXplorer
 		}
 
 		DBriizeTransactionContext _TxContext;
-		internal Repository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates)
+		internal Repository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpcClient)
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			this.keyPathTemplates = keyPathTemplates;
 			Serializer = new Serializer(_Network);
+			_rpcClient = rpcClient;
 			_Network = network;
 			_TxContext = new DBriizeTransactionContext(engine);
 			_TxContext.UnhandledException += (s, ex) =>
@@ -1347,14 +1353,11 @@ namespace NBXplorer
 						var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
 						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 						{
-							if (keyInfo.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
-							{
-								//TODO Unblind Transaction.
-							}
+							var txToSave = await Network.GetTransaction(_rpcClient, tx, keyInfo);
 							match = new TrackedTransaction(
-								new TrackedTransactionKey(tx.GetHash(), blockId, false),
+								new TrackedTransactionKey(txToSave.GetHash(), blockId, false),
 								keyInfo.TrackedSource,
-								tx,
+								txToSave,
 								new Dictionary<Script, KeyPath>())
 							{
 								FirstSeen = now,
