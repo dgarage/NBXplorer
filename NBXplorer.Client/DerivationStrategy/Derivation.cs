@@ -19,5 +19,10 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
+
+		public virtual BitcoinAddress GetAddress(Network network)
+		{
+			return ScriptPubKey.GetDestinationAddress(network);
+		}
 	}
 }

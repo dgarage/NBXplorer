@@ -110,6 +110,11 @@ namespace NBXplorer
 				Redeem = derivation.Redeem;
 			}
 			public PubKey BlindingKey { get; set; }
+
+			public override BitcoinAddress GetAddress(Network network)
+			{
+				return new BitcoinBlindedAddress(BlindingKey, base.GetAddress(network));
+			}
 		}
 
 		class LiquidDerivationStrategyFactory : DerivationStrategyFactory
@@ -128,6 +133,7 @@ namespace NBXplorer
 				});
 				return strategy;
 			}
+			
 
 			public override DerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey,
 				DerivationStrategyOptions options = null)
@@ -136,9 +142,9 @@ namespace NBXplorer
 				switch (result)
 				{
 					case DirectDerivationStrategy directDerivationStrategy:
-						return new LiquidDirectDerivationStrategy(directDerivationStrategy);
+						return new LiquidDirectDerivationStrategy(directDerivationStrategy, options);
 					case P2SHDerivationStrategy p2ShDerivationStrategy:
-						return new LiquidP2SHDerivationStrategy(p2ShDerivationStrategy);
+						return new LiquidP2SHDerivationStrategy(p2ShDerivationStrategy, options);
 				}
 
 				return result;
@@ -149,22 +155,37 @@ namespace NBXplorer
 				private readonly DerivationStrategyOptions _options;
 
 				public LiquidDirectDerivationStrategy(DirectDerivationStrategy derivationStrategy,
-					DerivationStrategyOptions options = null) : base(derivationStrategy
+					DerivationStrategyOptions options) : base(derivationStrategy
 					.RootBase58)
 				{
 					_options = options;
 					Segwit = derivationStrategy.Segwit;
 				}
 
+				
 				public override Derivation GetDerivation()
 				{
-					if (_options.AdditionalOptions.TryGetValue("unblinded", out var unblinded) &&
-					    unblinded == (object) true)
+					
+					if (_options.AdditionalOptions.TryGetValue("unblinded", out var unblinded) &&  (bool) unblinded)
 					{
 						return base.GetDerivation();
 					}
-
 					return new LiquidDerivation(base.GetDerivation(),Root.PubKey);
+				}
+				
+				public override DerivationStrategyBase GetChild(KeyPath keyPath)
+				{
+					var result = base.GetChild(keyPath);
+					switch (result)
+					{
+						case DirectDerivationStrategy directDerivationStrategy:
+							return new LiquidDirectDerivationStrategy(directDerivationStrategy, _options);
+						case P2SHDerivationStrategy p2ShDerivationStrategy:
+							return new LiquidP2SHDerivationStrategy(p2ShDerivationStrategy,_options);
+					}
+
+					return result;
+
 				}
 			}
 
@@ -173,16 +194,21 @@ namespace NBXplorer
 				private readonly DerivationStrategyOptions _options;
 
 				public LiquidP2SHDerivationStrategy(P2SHDerivationStrategy derivationStrategy,
-					DerivationStrategyOptions options = null) : base(
+					DerivationStrategyOptions options) : base(
 					derivationStrategy.Inner, derivationStrategy.AddSuffix)
 				{
 					_options = options;
 				}
 
+				public override DerivationStrategyBase GetChild(KeyPath keyPath)
+				{
+					return new LiquidP2SHDerivationStrategy((P2SHDerivationStrategy) base.GetChild(keyPath), _options);
+				}
+				
 				public override Derivation GetDerivation()
 				{
 					if (_options.AdditionalOptions.TryGetValue("unblinded", out var unblinded) &&
-					    unblinded == (object) true)
+					    (bool) unblinded)
 					{
 						return base.GetDerivation();
 					}
