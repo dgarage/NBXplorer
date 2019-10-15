@@ -30,6 +30,7 @@ It currently the following altcoins:
 * BGold (also known as Bitcoin Gold)
 * Bitcoin
 * Bitcore
+* Chaincoin 
 * ColossusXT
 * Dash
 * Dogecoin
