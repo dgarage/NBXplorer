@@ -61,8 +61,7 @@ namespace NBXplorer
 			{
 				_Engine = new DBriizeEngine(new DBriizeConfiguration()
 				{
-					DBriizeDataFolderName = directory,
-					IsSingleThread = true
+					DBriizeDataFolderName = directory
 				});
 			}
 			catch when (tried < 10)
