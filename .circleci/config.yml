@@ -14,7 +14,7 @@ jobs:
   # publish jobs require $DOCKERHUB_REPO, $DOCKERHUB_USER, $DOCKERHUB_PASS defined
   amd64:
     machine:
-      docker_layer_caching: true
+      enabled: true
     steps:
       - checkout  
       - run:
@@ -27,7 +27,7 @@ jobs:
 
   arm32v7:
     machine:
-      docker_layer_caching: true
+      enabled: true
     steps:
       - checkout  
       - run:
@@ -41,7 +41,7 @@ jobs:
 
   arm64v8:
     machine:
-      docker_layer_caching: true
+      enabled: true
     steps:
       - checkout  
       - run:
