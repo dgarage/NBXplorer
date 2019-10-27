@@ -55,19 +55,19 @@ services:
         mainchainrpchost=bitcoind
         mainchainrpcuser=liquid
         mainchainrpcpassword=liquid
-        rpcport=43783
-        rpcbind=0.0.0.0:43783
+        rpcport=19332
+        rpcbind=0.0.0.0:19332
         rpcauth=liquid:c8bf1a8961d97f224cb21224aaa8235d$$402f4a8907683d057b8c58a42940b6e54d1638322a42986ae28ebb844e603ae6
-        port=39389
+        port=19444
         whitelist=0.0.0.0/0
         validatepegin=0
-        initialfreecoins=2100000000000000
+        initialfreecoins=210000000000000
     expose:
-      - "43783"
-      - "39389"
+      - "19332"
+      - "19444"
     ports:
-      - "43783:43783"
-      - "39389:39389"
+      - "19332:19332"
+      - "19444:19444"
     volumes:
       - "elementsd_liquid_datadir:/data"
     

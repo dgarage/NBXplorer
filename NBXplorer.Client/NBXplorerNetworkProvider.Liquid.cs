@@ -39,10 +39,11 @@ namespace NBXplorer
 			{
 				if (keyInfo is LiquidKeyPathInformation liquidKeyPathInformation && liquidKeyPathInformation.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
 				{
-					return await rpcClient.UnblindTransaction(
-						new BitcoinBlindedAddress(liquidKeyPathInformation.BlindingKey,
-							BitcoinAddress.Create(keyInfo.Address, NBitcoinNetwork)),
-						elementsTransaction);
+					return await rpcClient.UnblindTransaction(new List<(BitcoinBlindedAddress address, Key blindingKey)>()
+						{
+							(new BitcoinBlindedAddress(liquidKeyPathInformation.Address, NBitcoinNetwork), liquidKeyPathInformation.BlindingKey)
+						}, 
+						elementsTransaction, NBitcoinNetwork);
 				}
 
 				return await base.GetTransaction(rpcClient, tx, keyInfo);
@@ -58,10 +59,11 @@ namespace NBXplorer
 
 			public override KeyPathInformation GetKeyPathInformation(IDestination derivation)
 			{
-				var result = base.GetKeyPathInformation(derivation);
-				
-				return new LiquidKeyPathInformation(result,
-					derivation is BitcoinBlindedAddress bitcoinBlindedAddress ? bitcoinBlindedAddress.BlindingKey : null);
+				if (derivation is BitcoinBlindedAddress bitcoinBlindedAddress)
+				{
+					throw new NotSupportedException("Individual blinded address tracking is not currently supported");
+				}
+				return base.GetKeyPathInformation(derivation);
 			}
 		}
 
@@ -72,7 +74,7 @@ namespace NBXplorer
 				
 			}
 
-			public LiquidKeyPathInformation(KeyPathInformation keyPathInformation, PubKey blindingKey)
+			public LiquidKeyPathInformation(KeyPathInformation keyPathInformation, Key blindingKey)
 			{
 				Address = keyPathInformation.Address;
 				Feature = keyPathInformation.Feature;
@@ -83,7 +85,7 @@ namespace NBXplorer
 				TrackedSource = keyPathInformation.TrackedSource;
 				ScriptPubKey = keyPathInformation.ScriptPubKey;
 			}
-			public PubKey BlindingKey { get; set; }
+			public Key BlindingKey { get; set; }
 			
 			public override KeyPathInformation AddAddress(Network network)
 			{
@@ -92,7 +94,7 @@ namespace NBXplorer
 					var address = ScriptPubKey.GetDestinationAddress(network);
 					if (BlindingKey != null)
 					{
-						address = new BitcoinBlindedAddress(BlindingKey, address);
+						address = new BitcoinBlindedAddress(BlindingKey.PubKey, address);
 					}
 
 					Address = address.ToString();
@@ -103,17 +105,17 @@ namespace NBXplorer
 		
 		class LiquidDerivation : Derivation
 		{
-			public LiquidDerivation(Derivation derivation, PubKey blindingKey)
+			public LiquidDerivation(Derivation derivation, Key blindingKey)
 			{
 				BlindingKey = blindingKey;
 				ScriptPubKey = derivation.ScriptPubKey;
 				Redeem = derivation.Redeem;
 			}
-			public PubKey BlindingKey { get; set; }
+			public Key BlindingKey { get; set; }
 
 			public override BitcoinAddress GetAddress(Network network)
 			{
-				return new BitcoinBlindedAddress(BlindingKey, base.GetAddress(network));
+				return new BitcoinBlindedAddress(BlindingKey.PubKey, base.GetAddress(network));
 			}
 		}
 
@@ -165,12 +167,22 @@ namespace NBXplorer
 				
 				public override Derivation GetDerivation()
 				{
-					
-					if (_options.AdditionalOptions.TryGetValue("unblinded", out var unblinded) &&  (bool) unblinded)
+					bool unblinded = true;
+					Key blindingKey = null;
+					if (_options.AdditionalOptions.TryGetValue("unblinded", out var unblindedflag) &&  (bool) unblindedflag)
+					{
+						unblinded = true;
+					}
+					if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
+					{
+						blindingKey = new Key(NBitcoin.DataEncoders.Encoders.Hex.DecodeData(blindkeyhex.ToString()));
+					}
+
+					if (unblinded || blindingKey == null)
 					{
 						return base.GetDerivation();
 					}
-					return new LiquidDerivation(base.GetDerivation(),Root.PubKey);
+					return new LiquidDerivation(base.GetDerivation(), blindingKey);
 				}
 				
 				public override DerivationStrategyBase GetChild(KeyPath keyPath)
@@ -207,16 +219,26 @@ namespace NBXplorer
 				
 				public override Derivation GetDerivation()
 				{
-					if (_options.AdditionalOptions.TryGetValue("unblinded", out var unblinded) &&
-					    (bool) unblinded)
+					
+					var unblinded = true;
+					Key blindingKey = null;
+					if (!_options.AdditionalOptions.TryGetValue("unblinded", out var unblindedflag) ||  !(bool) unblindedflag)
 					{
-						return base.GetDerivation();
+						unblinded = false;
+					}
+					if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
+					{
+						blindingKey = new Key(NBitcoin.DataEncoders.Encoders.Hex.DecodeData(blindkeyhex.ToString()));
 					}
 
 					var result = base.GetDerivation();
-					if (Inner is DirectDerivationStrategy directDerivationStrategy)
+					if (unblinded || blindingKey == null)
 					{
-						return new LiquidDerivation(result, directDerivationStrategy.Root.PubKey);
+						return result;
+					}
+					if (Inner is DirectDerivationStrategy _)
+					{
+						return new LiquidDerivation(result, blindingKey);
 					}
 
 					return result;
