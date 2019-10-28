@@ -170,5 +170,19 @@ namespace NBXplorer.DerivationStrategy
 					str = str.Substring(0, str.Length - 1);
 			}
 		}
+		
+		protected void ReadString(ref string str, string attribute, ref string value)
+		{
+			var pos = str.IndexOf($"[{attribute}=");
+			if (pos == -1)
+				return;
+			var endpos = str.IndexOf("]", pos);
+			value = str.Substring(pos + $"[{attribute}=".Length, (endpos - (pos + $"[{attribute}=".Length) ));
+			
+			str = str.Replace($"[{attribute}={value}]", string.Empty);
+			str = str.Replace("--", "-");
+			if(str.EndsWith("-"))
+				str = str.Substring(0, str.Length - 1);
+		}
 	}
 }

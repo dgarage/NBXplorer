@@ -128,10 +128,13 @@ namespace NBXplorer
 			public override DerivationStrategyBase Parse(string str)
 			{
 				var unblinded = false;
+				string blindKey =null;
 				ReadBool(ref str, "unblinded", ref unblinded);
+				ReadString(ref str, "blindingkey", ref blindKey);
 				var strategy = ParseCore(str, new Dictionary<string, object>()
 				{
-					{"unblinded", unblinded}
+					{"unblinded", unblinded},
+					{"blindingkey", blindKey}
 				});
 				return strategy;
 			}

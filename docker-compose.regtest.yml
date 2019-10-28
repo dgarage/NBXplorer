@@ -62,6 +62,7 @@ services:
         whitelist=0.0.0.0/0
         validatepegin=0
         initialfreecoins=210000000000000
+        con_dyna_deploy_start=99999999999
     expose:
       - "19332"
       - "19444"
