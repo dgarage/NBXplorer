@@ -199,6 +199,20 @@ namespace NBXplorer
 					return result;
 
 				}
+				
+				protected override string StringValue
+				{
+					get
+					{
+						var result = base.StringValue;
+						
+						if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
+						{
+							result += $"-[blindingkey={blindkeyhex}]";
+						}
+						return result;
+					}
+				}
 			}
 
 			class LiquidP2SHDerivationStrategy : P2SHDerivationStrategy
@@ -238,6 +252,22 @@ namespace NBXplorer
 					}
 
 					return result;
+				}
+
+				protected override string StringValue
+				{
+
+					get
+					{
+						var result = base.StringValue;
+						
+						if (AddSuffix && _options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
+						{
+							result += $"-[blindingkey={blindkeyhex}]";
+						}
+
+						return result;
+					}
 				}
 			}
 
