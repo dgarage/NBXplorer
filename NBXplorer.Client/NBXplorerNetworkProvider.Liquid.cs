@@ -132,13 +132,10 @@ namespace NBXplorer
 
 			public override DerivationStrategyBase Parse(string str)
 			{
-				var unblinded = false;
 				string blindKey =null;
-				ReadBool(ref str, "unblinded", ref unblinded);
 				ReadString(ref str, "blindingkey", ref blindKey);
 				var strategy = ParseCore(str, new Dictionary<string, object>()
 				{
-					{"unblinded", unblinded},
 					{"blindingkey", blindKey}
 				});
 				return strategy;
@@ -175,18 +172,13 @@ namespace NBXplorer
 				
 				public override Derivation GetDerivation()
 				{
-					bool unblinded = true;
 					Key blindingKey = null;
-					if (_options.AdditionalOptions.TryGetValue("unblinded", out var unblindedflag) &&  (bool) unblindedflag)
-					{
-						unblinded = true;
-					}
 					if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
 					{
 						blindingKey = new Key(NBitcoin.DataEncoders.Encoders.Hex.DecodeData(blindkeyhex.ToString()));
 					}
 
-					if (unblinded || blindingKey == null)
+					if (blindingKey == null)
 					{
 						return base.GetDerivation();
 					}
@@ -228,19 +220,15 @@ namespace NBXplorer
 				public override Derivation GetDerivation()
 				{
 					
-					var unblinded = true;
 					Key blindingKey = null;
-					if (!_options.AdditionalOptions.TryGetValue("unblinded", out var unblindedflag) ||  !(bool) unblindedflag)
-					{
-						unblinded = false;
-					}
+					
 					if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
 					{
 						blindingKey = new Key(NBitcoin.DataEncoders.Encoders.Hex.DecodeData(blindkeyhex.ToString()));
 					}
 
 					var result = base.GetDerivation();
-					if (unblinded || blindingKey == null)
+					if (blindingKey == null)
 					{
 						return result;
 					}
