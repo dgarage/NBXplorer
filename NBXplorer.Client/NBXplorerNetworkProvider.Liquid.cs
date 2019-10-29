@@ -37,12 +37,17 @@ namespace NBXplorer
 			public override async Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx,
 				KeyPathInformation keyInfo)
 			{
-				if (keyInfo is LiquidKeyPathInformation liquidKeyPathInformation && liquidKeyPathInformation.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
+				if (keyInfo is LiquidKeyPathInformation liquidKeyPathInformation &&
+				    liquidKeyPathInformation.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
 				{
-					return await rpcClient.UnblindTransaction(new List<(BitcoinBlindedAddress address, Key blindingKey)>()
+					return await rpcClient.UnblindTransaction(new List<UnblindTransactionBlindingAddressKey>()
 						{
-							(new BitcoinBlindedAddress(liquidKeyPathInformation.Address, NBitcoinNetwork), liquidKeyPathInformation.BlindingKey)
-						}, 
+							new UnblindTransactionBlindingAddressKey()
+							{
+								Address = new BitcoinBlindedAddress(liquidKeyPathInformation.Address, NBitcoinNetwork),
+								BlindingKey = liquidKeyPathInformation.BlindingKey
+							}
+						},
 						elementsTransaction, NBitcoinNetwork);
 				}
 
