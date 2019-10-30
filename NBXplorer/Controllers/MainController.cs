@@ -195,7 +195,8 @@ namespace NBXplorer.Controllers
 					rpc.RequestTimeout = TimeSpan.FromMinutes(1.0);
 					blockchainInfo = await rpc.GetBlockchainInfoAsyncEx();
 				}
-				catch(OperationCanceledException) // Timeout, can happen if core is really busy
+				catch (IOException) { } // Sometimes "The response ended prematurely."
+				catch (OperationCanceledException) // Timeout, can happen if core is really busy
 				{
 
 				}
@@ -379,7 +380,7 @@ namespace NBXplorer.Controllers
 			catch when (server.Socket.State != WebSocketState.Open)
 			{
 			}
-			finally { subscriptions.Dispose(); await server.DisposeAsync(cancellation); }
+			finally { try { subscriptions.Dispose(); await server.DisposeAsync(cancellation); } catch { } }
 			return new EmptyResult();
 		}
 
