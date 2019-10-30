@@ -4,9 +4,11 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using NBitcoin.Altcoins.Elements;
+using NBitcoin.JsonConverters;
 using NBitcoin.RPC;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
+using Newtonsoft.Json;
 
 namespace NBXplorer
 {
@@ -90,6 +92,8 @@ namespace NBXplorer
 				TrackedSource = keyPathInformation.TrackedSource;
 				ScriptPubKey = keyPathInformation.ScriptPubKey;
 			}
+			[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+			[JsonConverter(typeof(KeyJsonConverter))]
 			public Key BlindingKey { get; set; }
 			
 			public override KeyPathInformation AddAddress(Network network)
@@ -206,7 +210,8 @@ namespace NBXplorer
 					{
 						var result = base.StringValue;
 						
-						if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
+						if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) && 
+						    !string.IsNullOrEmpty(blindkeyhex?.ToString()))
 						{
 							result += $"-[blindingkey={blindkeyhex}]";
 						}
@@ -261,7 +266,8 @@ namespace NBXplorer
 					{
 						var result = base.StringValue;
 						
-						if (AddSuffix && _options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
+						if (AddSuffix && _options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex)  && 
+						    !string.IsNullOrEmpty(blindkeyhex?.ToString()))
 						{
 							result += $"-[blindingkey={blindkeyhex}]";
 						}
