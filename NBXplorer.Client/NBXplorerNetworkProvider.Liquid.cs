@@ -1,6 +1,7 @@
 ﻿using NBitcoin;
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using NBitcoin.Altcoins.Elements;
@@ -16,7 +17,7 @@ namespace NBXplorer
 	{
 		private void InitLiquid(NetworkType networkType)
 		{
-			Add(new LiquidNBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, networkType,
+			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, networkType,
 				new LiquidDerivationStrategyFactory(NBitcoin.Altcoins.Liquid.Instance.GetNetwork(networkType)))
 			{
 				MinRPCVersion = 150000
@@ -28,53 +29,7 @@ namespace NBXplorer
 			return GetFromCryptoCode(NBitcoin.Altcoins.Liquid.Instance.CryptoCode);
 		}
 
-		class LiquidNBXplorerNetwork : NBXplorerNetwork
-		{
-			public LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType,
-				DerivationStrategyFactory derivationStrategyFactory = null) : base(networkSet, networkType,
-				derivationStrategyFactory)
-			{
-			}
-
-			public override async Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx,
-				KeyPathInformation keyInfo)
-			{
-				if (keyInfo is LiquidKeyPathInformation liquidKeyPathInformation &&
-				    liquidKeyPathInformation.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
-				{
-					return await rpcClient.UnblindTransaction(new List<UnblindTransactionBlindingAddressKey>()
-						{
-							new UnblindTransactionBlindingAddressKey()
-							{
-								Address = new BitcoinBlindedAddress(liquidKeyPathInformation.Address, NBitcoinNetwork),
-								BlindingKey = liquidKeyPathInformation.BlindingKey
-							}
-						},
-						elementsTransaction, NBitcoinNetwork);
-				}
-
-				return await base.GetTransaction(rpcClient, tx, keyInfo);
-			}
-
-			public override KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,
-				DerivationFeature derivationFeature, KeyPath keyPath)
-			{
-				var result =  base.GetKeyPathInformation(derivation, trackedSource, derivationFeature, keyPath);
-				return new LiquidKeyPathInformation(result,
-					derivation is LiquidDerivation liquidDerivation ? liquidDerivation.BlindingKey : null);
-			}
-
-			public override KeyPathInformation GetKeyPathInformation(IDestination derivation)
-			{
-				if (derivation is BitcoinBlindedAddress bitcoinBlindedAddress)
-				{
-					throw new NotSupportedException("Individual blinded address tracking is not currently supported");
-				}
-				return base.GetKeyPathInformation(derivation);
-			}
-		}
-
-		class LiquidKeyPathInformation:KeyPathInformation
+		public class LiquidKeyPathInformation:KeyPathInformation
 		{
 			public LiquidKeyPathInformation()
 			{
@@ -96,23 +51,17 @@ namespace NBXplorer
 			[JsonConverter(typeof(KeyJsonConverter))]
 			public Key BlindingKey { get; set; }
 			
-			public override KeyPathInformation AddAddress(Network network)
+			public override KeyPathInformation AddAddress(Network network, out BitcoinAddress address)
 			{
-				if(Address == null)
-				{
-					var address = ScriptPubKey.GetDestinationAddress(network);
-					if (BlindingKey != null)
-					{
-						address = new BitcoinBlindedAddress(BlindingKey.PubKey, address);
-					}
-
-					Address = address.ToString();
-				}
+				address = null;
+				base.AddAddress(network, out var baseAddress);
+				address = BlindingKey != null ? new BitcoinBlindedAddress(BlindingKey.PubKey, baseAddress) : baseAddress;
+				Address = address.ToString();
 				return this;
 			}
 		}
 		
-		class LiquidDerivation : Derivation
+		public class LiquidDerivation : Derivation
 		{
 			public LiquidDerivation(Derivation derivation, Key blindingKey)
 			{

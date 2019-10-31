@@ -2,10 +2,7 @@
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
-using NBitcoin.Crypto;
-using NBitcoin.JsonConverters;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -14,18 +11,10 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using System.Threading.Tasks;
 using System.Threading;
-using NBitcoin.DataEncoders;
-using DBriize.Utils;
-using System.Runtime.Serialization;
-using Newtonsoft.Json;
-using DBriize.Exceptions;
 using NBitcoin.Altcoins;
-using NBitcoin.Altcoins.Elements;
 using NBitcoin.RPC;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
-using static NBXplorer.RepositoryProvider;
-using static NBXplorer.Repository;
 using Newtonsoft.Json.Linq;
 
 namespace NBXplorer
@@ -79,7 +68,15 @@ namespace NBXplorer
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					var repo = new Repository(_Engine, net, keyPathTemplates, settings.RPC);
+					Repository repo;
+					if (net.NBitcoinNetwork.NetworkSet == Liquid.Instance)
+					{
+						repo = new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC);
+					}
+					else
+					{
+						repo = new Repository(_Engine, net, keyPathTemplates, settings.RPC);
+					}
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
@@ -313,7 +310,7 @@ namespace NBXplorer
 			return new Index(tx, $"{_Suffix}Events", string.Empty);
 		}
 
-		NBXplorerNetwork _Network;
+		protected NBXplorerNetwork _Network;
 		private readonly KeyPathTemplates keyPathTemplates;
 		private readonly RPCClient _rpcClient;
 
@@ -381,7 +378,7 @@ namespace NBXplorer
 
 		public Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
-			return _TxContext.DoAsync<KeyPathInformation>((tx) =>
+			return _TxContext.DoAsync((tx) =>
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
@@ -389,7 +386,8 @@ namespace NBXplorer
 				var rows = availableTable.SelectForwardSkip(n);
 				if (rows.Length == 0)
 					return null;
-				var keyInfo = ToObject<KeyPathInformation>(rows[0].Value).AddAddress(Network.NBitcoinNetwork);
+
+				var keyInfo = GetKeyPathInformation(rows[0].Value);
 				if (reserve)
 				{
 					availableTable.RemoveKey(keyInfo.GetIndex());
@@ -398,6 +396,41 @@ namespace NBXplorer
 				}
 				return keyInfo;
 			});
+		}
+
+		protected virtual KeyPathInformation GetKeyPathInformation(byte[] value)
+		{
+			return ToObject<KeyPathInformation>(value).AddAddress(Network.NBitcoinNetwork, out _);
+		}
+		
+		protected virtual Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx, KeyPathInformation keyInfo)
+		{
+			return Task.FromResult(tx);
+		}
+
+		protected virtual KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,
+			DerivationFeature derivationFeature, KeyPath keyPath)
+		{
+			return new KeyPathInformation()
+			{
+				ScriptPubKey = derivation.ScriptPubKey,
+				Redeem = derivation.Redeem,
+				TrackedSource = trackedSource,
+				DerivationStrategy = trackedSource is DerivationSchemeTrackedSource derivationSchemeTrackedSource
+					? derivationSchemeTrackedSource.DerivationStrategy
+					: null,
+				Feature = derivationFeature,
+				KeyPath = keyPath
+			};
+		}
+
+		protected virtual KeyPathInformation GetKeyPathInformation(IDestination derivation)
+		{
+			return new KeyPathInformation()
+			{
+				ScriptPubKey = derivation.ScriptPubKey,
+				TrackedSource = (TrackedSource) derivation
+			};
 		}
 
 		int GetAddressToGenerateCount(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
@@ -423,7 +456,7 @@ namespace NBXplorer
 			{
 				var index = highestGenerated + i + 1;
 				var derivation = feature.Derive((uint) index);
-				keyPathInformations[i] = _Network.GetKeyPathInformation(derivation,
+				keyPathInformations[i] = GetKeyPathInformation(derivation,
 					new DerivationSchemeTrackedSource(strategy),
 					derivationFeature,
 					keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false));
@@ -499,7 +532,7 @@ namespace NBXplorer
 		{
 			return _TxContext.DoAsync((tx) =>
 			{
-				var bytes = ToBytes(_Network.GetKeyPathInformation(address));
+				var bytes = ToBytes(GetKeyPathInformation(address));
 				GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
 				tx.Commit();
 			});
@@ -665,7 +698,7 @@ namespace NBXplorer
 					{
 						var table = GetScriptsIndex(tx, script);
 						var keyInfos = table.SelectForwardSkip(0)
-											.Select(r => ToObject<KeyPathInformation>(r.Value).AddAddress(Network.NBitcoinNetwork))
+											.Select(r => ToObject<KeyPathInformation>(r.Value).AddAddress(Network.NBitcoinNetwork, out _))
 											// Because xpub are mutable (several xpub map to same script)
 											// an attacker could generate lot's of xpub mapping to the same script
 											// and this would blow up here. This we take only 5 results max.
@@ -682,7 +715,8 @@ namespace NBXplorer
 		{
 			get; private set;
 		}
-		private T ToObject<T>(byte[] value)
+
+		protected T ToObject<T>(byte[] value)
 		{
 			var result = Serializer.ToObject<T>(Unzip(value));
 
@@ -1343,7 +1377,7 @@ namespace NBXplorer
 						var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
 						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 						{
-							var txToSave = await Network.GetTransaction(_rpcClient, tx, keyInfo);
+							var txToSave = await GetTransaction(_rpcClient, tx, keyInfo);
 							match = new TrackedTransaction(
 								new TrackedTransactionKey(txToSave.GetHash(), blockId, false),
 								keyInfo.TrackedSource,

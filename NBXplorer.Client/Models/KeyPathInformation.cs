@@ -56,12 +56,10 @@ namespace NBXplorer.Models
 			return (int)KeyPath.Indexes[KeyPath.Indexes.Length - 1];
 		}
 		
-		public virtual KeyPathInformation AddAddress(Network network)
+		public virtual KeyPathInformation AddAddress(Network network, out BitcoinAddress address)
 		{
-			if(Address == null)
-			{
-				Address = ScriptPubKey.GetDestinationAddress(network).ToString();
-			}
+			address =  ScriptPubKey.GetDestinationAddress(network);
+			Address = address.ToString();
 			return this;
 		}
 	}
