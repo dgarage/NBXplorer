@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using NBitcoin.Altcoins.Elements;
 using NBitcoin.JsonConverters;
@@ -15,9 +16,51 @@ namespace NBXplorer
 {
 	public partial class NBXplorerNetworkProvider
 	{
+
+		public class LiquidExplorerClient : ExplorerClient
+		{
+			public LiquidExplorerClient(NBXplorerNetwork network, Uri serverAddress = null) : base(network, serverAddress)
+			{
+			}
+
+			public override KeyPathInformation GetKeyInformation(DerivationStrategyBase strategy, Script script,
+				CancellationToken cancellation = default)
+			{
+				return GetKeyInformation<LiquidKeyPathInformation>(strategy, script, cancellation);
+			}
+
+			public override async Task<KeyPathInformation> GetKeyInformationAsync(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default)
+			{
+				return await GetKeyInformationAsync<LiquidKeyPathInformation>(strategy, script, cancellation);
+			}
+
+			public override KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0,
+				bool reserve = false, CancellationToken cancellation = default)
+			{
+				return GetUnused<LiquidKeyPathInformation>(strategy, feature, skip, reserve, cancellation);
+			}
+
+			public override async Task<KeyPathInformation> GetUnusedAsync(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false,
+				CancellationToken cancellation = default)
+			{
+				return await GetUnusedAsync<LiquidKeyPathInformation>(strategy, feature, skip, reserve, cancellation);
+			}
+		}
+		
+		public class LiquidNBXplorerNetwork : NBXplorerNetwork
+		{
+			public LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType, DerivationStrategyFactory derivationStrategyFactory = null) : base(networkSet, networkType, derivationStrategyFactory)
+			{
+			}
+
+			public override ExplorerClient CreateExplorerClient(Uri uri)
+			{
+				return new LiquidExplorerClient(this, uri);
+			}
+		}
 		private void InitLiquid(NetworkType networkType)
 		{
-			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, networkType,
+			Add(new LiquidNBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, networkType,
 				new LiquidDerivationStrategyFactory(NBitcoin.Altcoins.Liquid.Instance.GetNetwork(networkType)))
 			{
 				MinRPCVersion = 150000

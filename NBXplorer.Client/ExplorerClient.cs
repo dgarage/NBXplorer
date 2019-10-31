@@ -376,7 +376,7 @@ namespace NBXplorer
 			RescanAsync(rescanRequest, cancellation).GetAwaiter().GetResult();
 		}
 
-		public KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)
+		public virtual KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)
 		{
 			return GetUnused<KeyPathInformation>(strategy, feature, skip, reserve, cancellation);
 		}
@@ -386,7 +386,7 @@ namespace NBXplorer
 			return GetUnusedAsync<T>(strategy, feature, skip, reserve, cancellation).GetAwaiter().GetResult();
 		}
 
-		public Task<KeyPathInformation> GetUnusedAsync(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)
+		public virtual Task<KeyPathInformation> GetUnusedAsync(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false, CancellationToken cancellation = default)
 		{
 			return GetUnusedAsync<KeyPathInformation>(strategy, feature, skip, reserve, cancellation);
 		}
@@ -403,7 +403,7 @@ namespace NBXplorer
 			}
 		}
 
-		public KeyPathInformation GetKeyInformation(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default)
+		public virtual KeyPathInformation GetKeyInformation(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default)
 		{
 			return GetKeyInformation<KeyPathInformation>(strategy, script, cancellation);
 		}
@@ -413,7 +413,7 @@ namespace NBXplorer
 			return GetKeyInformationAsync<T>(strategy, script, cancellation).GetAwaiter().GetResult();
 		}
 
-		public async Task<KeyPathInformation> GetKeyInformationAsync(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default)
+		public virtual async Task<KeyPathInformation> GetKeyInformationAsync(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default)
 		{
 			return await GetKeyInformationAsync<KeyPathInformation>(strategy, script, cancellation);
 		}
