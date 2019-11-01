@@ -171,11 +171,11 @@ namespace NBXplorer.DerivationStrategy
 			}
 		}
 		
-		protected void ReadString(ref string str, string attribute, ref string value)
+		protected bool ReadString(ref string str, string attribute, ref string value)
 		{
 			var pos = str.IndexOf($"[{attribute}=");
 			if (pos == -1)
-				return;
+				return false;
 			var endpos = str.IndexOf("]", pos);
 			value = str.Substring(pos + $"[{attribute}=".Length, (endpos - (pos + $"[{attribute}=".Length) ));
 			
@@ -183,6 +183,7 @@ namespace NBXplorer.DerivationStrategy
 			str = str.Replace("--", "-");
 			if(str.EndsWith("-"))
 				str = str.Substring(0, str.Length - 1);
+			return true;
 		}
 	}
 }

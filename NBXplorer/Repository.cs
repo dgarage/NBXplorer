@@ -698,7 +698,7 @@ namespace NBXplorer
 					{
 						var table = GetScriptsIndex(tx, script);
 						var keyInfos = table.SelectForwardSkip(0)
-											.Select(r => ToObject<KeyPathInformation>(r.Value).AddAddress(Network.NBitcoinNetwork, out _))
+											.Select(r => GetKeyPathInformation(r.Value))
 											// Because xpub are mutable (several xpub map to same script)
 											// an attacker could generate lot's of xpub mapping to the same script
 											// and this would blow up here. This we take only 5 results max.
@@ -1318,7 +1318,7 @@ namespace NBXplorer
 			bool needRefill = false;
 			foreach (var row in index.SelectForwardSkip(0))
 			{
-				var keyInfo = ToObject<KeyPathInformation>(row.Value);
+				var keyInfo = GetKeyPathInformation(row.Value);
 				if (keyInfo.GetIndex() <= highestIndex)
 				{
 					index.RemoveKey(keyInfo.GetIndex());
@@ -1378,6 +1378,10 @@ namespace NBXplorer
 						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 						{
 							var txToSave = await GetTransaction(_rpcClient, tx, keyInfo);
+							if (txToSave == null)
+							{
+								continue;
+							}
 							match = new TrackedTransaction(
 								new TrackedTransactionKey(txToSave.GetHash(), blockId, false),
 								keyInfo.TrackedSource,

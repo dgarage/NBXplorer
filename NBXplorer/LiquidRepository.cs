@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DBriize;
 using NBitcoin;
@@ -20,10 +21,12 @@ namespace NBXplorer
 		protected override async Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx,
 			KeyPathInformation keyInfo)
 		{
+
+			var result = tx;
 			if (keyInfo is NBXplorerNetworkProvider.LiquidKeyPathInformation liquidKeyPathInformation &&
 			    liquidKeyPathInformation.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
 			{
-				return await rpcClient.UnblindTransaction(new List<UnblindTransactionBlindingAddressKey>()
+				result =  await rpcClient.UnblindTransaction(new List<UnblindTransactionBlindingAddressKey>()
 					{
 						new UnblindTransactionBlindingAddressKey()
 						{
@@ -34,8 +37,20 @@ namespace NBXplorer
 					},
 					elementsTransaction, Network.NBitcoinNetwork);
 			}
+			else
+			{
+				result = await base.GetTransaction(rpcClient, tx, keyInfo);
+			}
+			
+			//if there is at least one matching valid(aka unblinded) output, we can pass it along. 
+			if (result.Outputs.Any(txout =>
+				txout.ScriptPubKey == keyInfo.ScriptPubKey && txout is ElementsTxOut elementsTxOut &&
+				elementsTxOut.Value != null))
+			{
+				return result;
+			}
 
-			return await base.GetTransaction(rpcClient, tx, keyInfo);
+			return null;
 		}
 
 		protected override KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,

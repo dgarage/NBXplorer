@@ -101,6 +101,8 @@ namespace NBXplorer{
 			for (int i = 0; i < Transaction.Outputs.Count; i++)
 			{
 				var output = Transaction.Outputs[i];
+				if(output.Value == null )
+					continue;
 				if (KnownKeyPathMapping.ContainsKey(output.ScriptPubKey) || scriptPubKey == output.ScriptPubKey)
 					ReceivedCoins.Add(new Coin(new OutPoint(Key.TxId, i), output));
 			}
