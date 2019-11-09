@@ -68,15 +68,7 @@ namespace NBXplorer
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					Repository repo;
-					if (net.NBitcoinNetwork.NetworkSet == Liquid.Instance)
-					{
-						repo = new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC);
-					}
-					else
-					{
-						repo = new Repository(_Engine, net, keyPathTemplates, settings.RPC);
-					}
+					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
