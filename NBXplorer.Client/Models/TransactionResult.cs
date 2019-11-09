@@ -34,7 +34,7 @@ namespace NBXplorer.Models
 		}
 		public uint256 TransactionHash { get; set; }
 		Transaction _Transaction;
-		public Transaction Transaction
+		public virtual Transaction Transaction
 		{
 			get
 			{

@@ -125,9 +125,14 @@ namespace NBXplorer
 			return GetUTXOsAsync(TrackedSource.Create(extKey), cancellation);
 		}
 
-		public async Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default)
+		public virtual async  Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default)
 		{
-			return await SendAsync<TransactionResult>(HttpMethod.Get, null, "v1/cryptos/{0}/transactions/" + txId, new[] { CryptoCode }, cancellation).ConfigureAwait(false);
+			return await GetTransactionAsync(txId, cancellation);
+		}
+		
+		public virtual async  Task<TTransactionResult> GetTransactionAsync<TTransactionResult>(uint256 txId, CancellationToken cancellation = default) where TTransactionResult: TransactionResult
+		{
+			return await SendAsync<TTransactionResult>(HttpMethod.Get, null, "v1/cryptos/{0}/transactions/" + txId, new[] { CryptoCode }, cancellation).ConfigureAwait(false);
 		}
 
 		public TransactionResult GetTransaction(uint256 txId, CancellationToken cancellation = default)
