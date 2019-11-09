@@ -49,7 +49,7 @@ namespace NBXplorer.DerivationStrategy
 			return strategy;
 		}
 
-		protected DerivationStrategyBase ParseCore(string str, Dictionary<string, object> additionalOptions)
+		protected DerivationStrategyBase ParseCore(string str, Dictionary<string, object> additionalOptions = null)
 		{
 			bool legacy = false;
 			ReadBool(ref str, "legacy", ref legacy);
