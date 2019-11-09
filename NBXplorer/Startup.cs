@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Http.Features;
 using NBXplorer.Filters;
 using NBXplorer.Logging;
 using Microsoft.AspNetCore.Authentication;
+using NBitcoin;
 using NBXplorer.Authentication;
 #if NETCOREAPP21
 using IWebHostEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
@@ -55,7 +56,7 @@ namespace NBXplorer
 			builder.AddNewtonsoftJson(options =>
 			{
 				options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
-				new Serializer(null).ConfigureSerializer(options.SerializerSettings);
+				new Serializer(new NBXplorerNetwork(NBitcoin.Bitcoin.Instance, NetworkType.Mainnet)).ConfigureSerializer(options.SerializerSettings);
 			});
 #endif
 			builder.AddMvcOptions(o => o.InputFormatters.Add(new NoContentTypeInputFormatter()))

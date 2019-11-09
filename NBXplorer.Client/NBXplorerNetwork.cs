@@ -53,13 +53,10 @@ namespace NBXplorer
 			}
 		}
 
-
 		public JsonSerializerSettings JsonSerializerSettings
 		{
 			get { return Serializer.Settings; }
 		}
-
-
 
 		public TimeSpan ChainLoadingTimeout { get; set; } = TimeSpan.FromMinutes(15);
 

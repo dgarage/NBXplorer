@@ -21,55 +21,15 @@
       "applicationUrl": "http://localhost:4774",
       "launchUrl": "v1/cryptos/ltc/status"
     },
-    "NBXplorer - BTC+LBTC on Mainnet": {
-      "commandName": "Project",
-      "launchBrowser": true,
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "NBXPLORER_NETWORK": "mainnet",
-        "NBXPLORER_CHAINS":"btc,lbtc",
-        "NBXPLORER_BTCRPCUSER": "liquid",
-        "NBXPLORER_BTCRPCPASSWORD": "liquid",
-        "NBXPLORER_BTCRPCURL": "http://127.0.0.1:43782/",
-        "NBXPLORER_BTCNODEENDPOINT": "127.0.0.1:39388",
-        "NBXPLORER_LBTCRPCURL": "http://127.0.0.1:7041/",
-        "NBXPLORER_LBTCNODEENDPOINT": "127.0.0.1:7042",
-        "NBXPLORER_LBTCRPCUSER": "liquid",
-        "NBXPLORER_LBTCRPCPASSWORD": "liquid",
-        "NBXPLORER_NOAUTH": "true"
-      },
-      "applicationUrl": "http://localhost:4774",
-      "launchUrl": "v1/cryptos/lbtc/status"
-    },
-    "NBXplorer - BTC+LBTC on Regtest from Docker": {
+    "NBXplorer - LBTC on Regtest from Docker": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "NBXPLORER_NETWORK": "regtest",
-        "NBXPLORER_CHAINS":"btc,lbtc",
-        "NBXPLORER_BTCRPCUSER": "liquid",
-        "NBXPLORER_BTCRPCPASSWORD": "liquid",
-        "NBXPLORER_BTCRPCURL": "http://127.0.0.1:43782/",
-        "NBXPLORER_BTCNODEENDPOINT": "127.0.0.1:39388",
+        "NBXPLORER_CHAINS":"lbtc",
         "NBXPLORER_LBTCRPCURL": "http://127.0.0.1:19332/",
         "NBXPLORER_LBTCNODEENDPOINT": "127.0.0.1:19444",
-        "NBXPLORER_LBTCRPCUSER": "liquid",
-        "NBXPLORER_LBTCRPCPASSWORD": "liquid",
-        "NBXPLORER_NOAUTH": "true"
-      },
-      "applicationUrl": "http://localhost:4774",
-      "launchUrl": "v1/cryptos/lbtc/status"
-    },
-    "NBXplorer - LBTC on Mainnet from Docker": {
-      "commandName": "Project",
-      "launchBrowser": true,
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "NBXPLORER_NETWORK": "mainnet",
-        "NBXPLORER_CHAINS":"lbtc",
-        "NBXPLORER_LBTCRPCURL": "http://127.0.0.1:7041/",
-        "NBXPLORER_LBTCNODEENDPOINT": "127.0.0.1:7042",
         "NBXPLORER_LBTCRPCUSER": "liquid",
         "NBXPLORER_LBTCRPCPASSWORD": "liquid",
         "NBXPLORER_NOAUTH": "true"
