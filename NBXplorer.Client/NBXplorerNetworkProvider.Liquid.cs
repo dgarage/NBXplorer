@@ -29,24 +29,33 @@ namespace NBXplorer
 				return GetKeyInformation<LiquidKeyPathInformation>(strategy, script, cancellation);
 			}
 
-			public override async Task<KeyPathInformation> GetKeyInformationAsync(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default)
+			public override async Task<KeyPathInformation> GetKeyInformationAsync(DerivationStrategyBase strategy,
+				Script script, CancellationToken cancellation = default)
 			{
 				return await GetKeyInformationAsync<LiquidKeyPathInformation>(strategy, script, cancellation);
 			}
 
-			public override KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0,
+			public override KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature,
+				int skip = 0,
 				bool reserve = false, CancellationToken cancellation = default)
 			{
 				return GetUnused<LiquidKeyPathInformation>(strategy, feature, skip, reserve, cancellation);
 			}
 
-			public override async Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default)
+			public override async Task<TransactionResult> GetTransactionAsync(uint256 txId,
+				CancellationToken cancellation = default)
 			{
 				return await base.GetTransactionAsync<LiquidTransactionResult>(txId, cancellation);
 			}
+			public override async Task<KeyPathInformation> GetUnusedAsync(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false,
+				CancellationToken cancellation = default)
+			{
+				return await GetUnusedAsync<LiquidKeyPathInformation>(strategy, feature, skip, reserve, cancellation);
+			}
 		}
 
-		public class LiquidTransactionResult : TransactionResult
+
+		public class  LiquidTransactionResult : TransactionResult
 		{
 			private ElementsTransaction _transaction;
 			public override Transaction Transaction

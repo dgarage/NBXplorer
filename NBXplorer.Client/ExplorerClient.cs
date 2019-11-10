@@ -127,10 +127,10 @@ namespace NBXplorer
 
 		public virtual async  Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default)
 		{
-			return await GetTransactionAsync(txId, cancellation);
+			return await GetTransactionAsync<TransactionResult>(txId, cancellation);
 		}
 		
-		public virtual async  Task<TTransactionResult> GetTransactionAsync<TTransactionResult>(uint256 txId, CancellationToken cancellation = default) where TTransactionResult: TransactionResult
+		public async  Task<TTransactionResult> GetTransactionAsync<TTransactionResult>(uint256 txId, CancellationToken cancellation = default) where TTransactionResult: TransactionResult
 		{
 			return await SendAsync<TTransactionResult>(HttpMethod.Get, null, "v1/cryptos/{0}/transactions/" + txId, new[] { CryptoCode }, cancellation).ConfigureAwait(false);
 		}
