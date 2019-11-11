@@ -56,7 +56,7 @@ namespace NBXplorer
 			builder.AddNewtonsoftJson(options =>
 			{
 				options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
-				new Serializer(new NBXplorerNetwork(NBitcoin.Bitcoin.Instance, NetworkType.Mainnet)).ConfigureSerializer(options.SerializerSettings);
+				new Serializer(null).ConfigureSerializer(options.SerializerSettings);
 			});
 #endif
 			builder.AddMvcOptions(o => o.InputFormatters.Add(new NoContentTypeInputFormatter()))
