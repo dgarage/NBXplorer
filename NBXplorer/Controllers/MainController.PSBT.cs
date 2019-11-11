@@ -46,7 +46,7 @@ namespace NBXplorer.Controllers
 				txBuilder.SetLockTime(lockTime);
 				txBuilder.OptInRBF = true;
 			}
-			var utxos = (await GetUTXOs(network.CryptoCode, strategy, null)).GetUnspentCoins(request.MinConfirmations);
+			var utxos = (await GetUTXOs(network.CryptoCode, strategy, null)).As<UTXOChanges>().GetUnspentCoins(request.MinConfirmations);
 			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)
 			{

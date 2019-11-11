@@ -102,7 +102,7 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/unused")]
-		public async Task<KeyPathInformation> GetUnusedAddress(
+		public async Task<IActionResult> GetUnusedAddress(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false)
@@ -125,7 +125,7 @@ namespace NBXplorer.Controllers
 					}
 					_ = AddressPoolService.GenerateAddresses(network, strategy, feature);
 				}
-				return result;
+				return Json(result, network.Serializer.Settings);
 			}
 			catch (NotSupportedException)
 			{
@@ -155,7 +155,7 @@ namespace NBXplorer.Controllers
 			var result = (await repo.GetKeyInformations(new[] { script }))
 						   .SelectMany(k => k.Value)
 						   .ToArray();
-			return Json(result);
+			return Json(result, network.Serializer.Settings);
 		}
 
 		[HttpGet]
@@ -173,7 +173,7 @@ namespace NBXplorer.Controllers
 						   .FirstOrDefault();
 			if (result == null)
 				throw new NBXplorerError(404, "script-not-found", "The script does not seem to be tracked").AsException();
-			return Json(result);
+			return Json(result, network.Serializer.Settings);
 		}
 
 		[HttpGet]
@@ -249,7 +249,7 @@ namespace NBXplorer.Controllers
 					Logs.Explorer.LogWarning($"Repository ping exceeded 30 seconds ({(int)status.RepositoryPingTime}), please report the issue to NBXplorer developers");
 				}
 			}
-			return Json(status);
+			return Json(status, network.Serializer.Settings);
 		}
 
 		private NBXplorerNetwork GetNetwork(string cryptoCode, bool checkRPC)
@@ -449,7 +449,7 @@ namespace NBXplorer.Controllers
 			var tx = Utils.ToTransactionResult(chain, result);
 			if (!includeTransaction)
 				tx.Transaction = null;
-			return Json(tx);
+			return Json(tx, network.Serializer.Settings);
 		}
 
 		[HttpPost]
@@ -592,7 +592,7 @@ namespace NBXplorer.Controllers
 
 			if (txId == null)
 			{
-				return Json(response);
+				return Json(response, repo.Serializer.Settings);
 			}
 			else if (fetchedTransactionInfo == null)
 			{
@@ -600,7 +600,7 @@ namespace NBXplorer.Controllers
 			}
 			else
 			{
-				return Json(fetchedTransactionInfo);
+				return Json(fetchedTransactionInfo, repo.Serializer.Settings);
 			}
 		}
 
@@ -718,7 +718,7 @@ namespace NBXplorer.Controllers
 			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
 			var repo = this.RepositoryProvider.GetRepository(network);
 			var result = await repo.GetMetadata<JToken>(trackedSource, key);
-			return result == null ? (IActionResult)NotFound() : Json(result);
+			return result == null ? (IActionResult)NotFound() : Json(result, repo.Serializer.Settings);
 		}
 		Encoding UTF8 = new UTF8Encoding(false);
 		[HttpPost]
@@ -756,13 +756,13 @@ namespace NBXplorer.Controllers
 			var info = ScanUTXOSetService.GetInformation(network, derivationScheme);
 			if (info == null)
 				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
-			return Json(info);
+			return Json(info, network.Serializer.Settings);
 		}
 
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}/utxos")]
-		public async Task<UTXOChanges> GetUTXOs(
+		public async Task<IActionResult> GetUTXOs(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
@@ -804,7 +804,7 @@ namespace NBXplorer.Controllers
 			changes.TrackedSource = trackedSource;
 			changes.DerivationStrategy = (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 
-			return changes;
+			return Json(changes, repo.Serializer.Settings);
 		}
 
 		private UTXOChange ToUTXOChange(UTXOState state)

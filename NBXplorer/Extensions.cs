@@ -53,7 +53,12 @@ namespace NBXplorer
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
 		}
 
-
+		public static T As<T>(this IActionResult actionResult)
+		{
+			if (actionResult is JsonResult jsonResult && jsonResult.Value is T v)
+				return v;
+			return default;
+		}
 		public static async Task<DateTimeOffset?> GetBlockTimeAsync(this RPCClient client, uint256 blockId, bool throwIfNotFound = true)
 		{
 			var response = await client.SendCommandAsync(new RPCRequest("getblockheader", new object[] { blockId }), throwIfNotFound).ConfigureAwait(false);
