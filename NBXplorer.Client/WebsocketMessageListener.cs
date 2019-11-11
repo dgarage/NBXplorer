@@ -106,9 +106,9 @@ namespace NBXplorer
 			return NewEventBase.ParseEvent(str, _SerializerSettings);
 		}
 
-		public async Task Send<T>(T evt, CancellationToken cancellation = default) where T : NewEventBase
+		public async Task Send<T>(T evt, JsonSerializerSettings serializerSettings = null, CancellationToken cancellation = default) where T : NewEventBase
 		{
-			var bytes = UTF8.GetBytes(evt.ToJObject(_SerializerSettings).ToString());
+			var bytes = UTF8.GetBytes(evt.ToJObject(serializerSettings ?? _SerializerSettings).ToString());
 			using(var cts = new CancellationTokenSource(5000))
 			{
 				using(var cts2 = CancellationTokenSource.CreateLinkedTokenSource(cancellation))

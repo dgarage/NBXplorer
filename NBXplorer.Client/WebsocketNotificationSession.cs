@@ -80,7 +80,7 @@ namespace NBXplorer
 		}
 		public Task ListenNewBlockAsync(CancellationToken cancellation = default)
 		{
-			return _MessageListener.Send(new Models.NewBlockEventRequest() { CryptoCode = _Client.CryptoCode }, cancellation);
+			return _MessageListener.Send(new Models.NewBlockEventRequest() { CryptoCode = _Client.CryptoCode }, null, cancellation);
 		}
 
 		/// <summary>
@@ -100,7 +100,7 @@ namespace NBXplorer
 		/// <param name="cancellation">Cancellation token</param>
 		public Task ListenAllDerivationSchemesAsync(bool allCryptoCodes = false, CancellationToken cancellation = default)
 		{
-			return _MessageListener.Send(new Models.NewTransactionEventRequest() { CryptoCode = allCryptoCodes ? "*" : _Client.CryptoCode }, cancellation);
+			return _MessageListener.Send(new Models.NewTransactionEventRequest() { CryptoCode = allCryptoCodes ? "*" : _Client.CryptoCode }, null, cancellation);
 		}
 
 		/// <summary>
@@ -120,7 +120,7 @@ namespace NBXplorer
 		/// <param name="cancellation">Cancellation token</param>
 		public Task ListenAllTrackedSourceAsync(bool allCryptoCodes = false, CancellationToken cancellation = default)
 		{
-			return _MessageListener.Send(new Models.NewTransactionEventRequest() { CryptoCode = allCryptoCodes ? "*" : _Client.CryptoCode, ListenAllTrackedSource = true }, cancellation);
+			return _MessageListener.Send(new Models.NewTransactionEventRequest() { CryptoCode = allCryptoCodes ? "*" : _Client.CryptoCode, ListenAllTrackedSource = true }, null, cancellation);
 		}
 
 		public void ListenDerivationSchemes(DerivationStrategyBase[] derivationSchemes, CancellationToken cancellation = default)
@@ -130,7 +130,7 @@ namespace NBXplorer
 
 		public Task ListenDerivationSchemesAsync(DerivationStrategyBase[] derivationSchemes, CancellationToken cancellation = default)
 		{
-			return _MessageListener.Send(new Models.NewTransactionEventRequest() { DerivationSchemes = derivationSchemes.Select(d=>d.ToString()).ToArray(), CryptoCode = _Client.CryptoCode }, cancellation);
+			return _MessageListener.Send(new Models.NewTransactionEventRequest() { DerivationSchemes = derivationSchemes.Select(d=>d.ToString()).ToArray(), CryptoCode = _Client.CryptoCode }, null, cancellation);
 		}
 
 		public void ListenTrackedSources(TrackedSource[] trackedSources, CancellationToken cancellation = default)
@@ -140,7 +140,7 @@ namespace NBXplorer
 
 		public Task ListenTrackedSourcesAsync(TrackedSource[] trackedSources, CancellationToken cancellation = default)
 		{
-			return _MessageListener.Send(new Models.NewTransactionEventRequest() { TrackedSources = trackedSources.Select(d => d.ToString()).ToArray(), CryptoCode = _Client.CryptoCode }, cancellation);
+			return _MessageListener.Send(new Models.NewTransactionEventRequest() { TrackedSources = trackedSources.Select(d => d.ToString()).ToArray(), CryptoCode = _Client.CryptoCode }, null, cancellation);
 		}
 
 		public override Task<NewEventBase> NextEventAsync(CancellationToken cancellation = default)

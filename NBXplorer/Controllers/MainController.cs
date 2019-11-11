@@ -294,7 +294,7 @@ namespace NBXplorer.Controllers
 			{
 				if (listenedBlocks.ContainsKey(o.CryptoCode))
 				{
-					await server.Send(o);
+					await server.Send(o, GetSerializerSettings(o.CryptoCode));
 				}
 			}));
 			subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(async o =>
@@ -318,7 +318,7 @@ namespace NBXplorer.Controllers
 				if (forward)
 				{
 					var derivation = (o.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-					await server.Send(o);
+					await server.Send(o, GetSerializerSettings(o.CryptoCode));
 				}
 			}));
 			try
@@ -384,6 +384,12 @@ namespace NBXplorer.Controllers
 			return new EmptyResult();
 		}
 
+		private JsonSerializerSettings GetSerializerSettings(string cryptoCode)
+		{
+			if (string.IsNullOrEmpty(cryptoCode))
+				return _SerializerSettings;
+			return this.GetNetwork(cryptoCode, false).JsonSerializerSettings;
+		}
 
 		[Route("cryptos/{cryptoCode}/events")]
 		public async Task<JArray> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false, CancellationToken cancellationToken = default)
@@ -606,8 +612,11 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/rescan")]
-		public async Task<IActionResult> Rescan(string cryptoCode, [FromBody]RescanRequest rescanRequest)
+		public async Task<IActionResult> Rescan(string cryptoCode, [FromBody] JObject body)
 		{
+			if (body == null)
+				throw new ArgumentNullException(nameof(body));
+			var rescanRequest = ParseJObject<RescanRequest>(body, GetNetwork(cryptoCode, false));
 			if (rescanRequest == null)
 				throw new ArgumentNullException(nameof(rescanRequest));
 			if (rescanRequest?.Transactions == null)
