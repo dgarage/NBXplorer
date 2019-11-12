@@ -581,6 +581,9 @@ Body:
 
 Raw bytes of the transaction.
 
+Parameter:
+* `testMempoolAccept`: If `true`, will not attempt to broadcast the transaction but just test its acceptance in the mempool. (default: `false`)
+
 Error codes:
 
 * HTTP 404: `cryptoCode-not-supported`

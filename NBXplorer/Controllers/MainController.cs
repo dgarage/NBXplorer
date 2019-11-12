@@ -937,7 +937,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
+			BitcoinAddress address, bool testMempoolAccept = false)
 		{
 			var network = GetNetwork(cryptoCode, true);
 			var trackedSource = GetTrackedSource(derivationScheme ?? extPubKey, address);
@@ -954,10 +954,20 @@ namespace NBXplorer.Controllers
 			RPCException rpcEx = null;
 			try
 			{
+				if (testMempoolAccept)
+				{
+					var mempoolAccept = await waiter.RPC.TestMempoolAcceptAsync(tx);
+					if (mempoolAccept.IsAllowed)
+						return new BroadcastResult(true);
+					return new BroadcastResult(false)
+					{
+						RPCCodeMessage = $"{mempoolAccept.RejectReason} ({mempoolAccept.RejectCode})"
+					};
+				}
 				await waiter.RPC.SendRawTransactionAsync(tx);
 				return new BroadcastResult(true);
 			}
-			catch (RPCException ex)
+			catch (RPCException ex) when (!testMempoolAccept)
 			{
 				rpcEx = ex;
 				Logs.Explorer.LogInformation($"{network.CryptoCode}: Transaction {tx.GetHash()} failed to broadcast (Code: {ex.RPCCode}, Message: {ex.RPCCodeMessage}, Details: {ex.Message} )");
