@@ -244,8 +244,7 @@ namespace NBXplorer.Tests
 				var userExtKey = new ExtKey();
 				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
 				{
-					// Use non-segwit
-					Legacy = true
+					ScriptPubKeyType = ScriptPubKeyType.Legacy
 				});
 				tester.Client.Track(userDerivationScheme);
 
@@ -308,13 +307,13 @@ namespace NBXplorer.Tests
 			var userExtKey = new ExtKey();
 			var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
 			{
-				Legacy = !segwit
+				ScriptPubKeyType = segwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy
 			});
 			tester.Client.Track(userDerivationScheme);
 			var userExtKey2 = new ExtKey();
 			var userDerivationScheme2 = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey2.Neuter(), new DerivationStrategyOptions()
 			{
-				Legacy = !segwit
+				ScriptPubKeyType = segwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy
 			});
 			tester.Client.Track(userDerivationScheme2);
 			var newAddress2 = tester.Client.GetUnused(userDerivationScheme2, DerivationFeature.Deposit, skip: 2);
@@ -666,12 +665,12 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = BitcoinAddress.Create(newAddress.Address, tester.Network),
+								Destination = newAddress.Address,
 								Amount = Money.Coins(0.0001m)
 							},
 							new CreatePSBTDestination()
 							{
-								Destination = BitcoinAddress.Create(newAddress2.Address, tester.Network),
+								Destination = newAddress2.Address,
 								Amount = Money.Coins(0.0001m)
 							}
 						},
@@ -715,12 +714,12 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = BitcoinAddress.Create(newAddress.Address, tester.Network),
+								Destination = newAddress.Address,
 								Amount = Money.Coins(0.0001m)
 							},
 							new CreatePSBTDestination()
 							{
-								Destination = BitcoinAddress.Create(newAddress2.Address, tester.Network),
+								Destination = newAddress2.Address,
 								Amount = Money.Coins(0.0001m)
 							}
 						},
@@ -2867,6 +2866,58 @@ namespace NBXplorer.Tests
 		{
 			Assert.Equal(path1, KeyPathTemplate.Parse(template).GetKeyPath(0).ToString());
 			Assert.Equal(path2, KeyPathTemplate.Parse(template).GetKeyPath(1).ToString());
+		}
+
+		[Fact]
+		public async Task CanGenerateWallet()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				Logs.Tester.LogInformation("Let's try default parameters");
+				var wallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest());
+				Assert.NotNull(wallet.Mnemonic);
+				Assert.NotNull(wallet.Passphrase);
+				Assert.NotNull(wallet.WordList);
+				Assert.NotNull(wallet.AccountKeyPath);
+				Assert.Equal(WordCount.Twelve, wallet.WordCount);
+				Assert.Equal(new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase).Neuter().GetWif(tester.Network).ToString(),
+					wallet.DerivationStrategy.ToString());
+
+				Logs.Tester.LogInformation("Let's make sure our parameters are not ignored");
+				wallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
+				{
+					ImportKeysToRPC = true,
+					Passphrase = "hello",
+					ScriptPubKeyType = ScriptPubKeyType.SegwitP2SH,
+					WordCount = WordCount.Fifteen,
+					WordList = Wordlist.French,
+					AccountKeyPath = new KeyPath("44'/0'/0'")
+				});
+				Assert.NotNull(wallet.Mnemonic);
+				Assert.Equal("hello", wallet.Passphrase);
+				Assert.Equal(new KeyPath("44'/0'/0'"), wallet.AccountKeyPath);
+				Assert.Equal(Wordlist.French.ToString(), wallet.WordList.ToString());
+				Assert.Equal(WordCount.Fifteen, wallet.WordCount);
+				var masterKey = new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase);
+				Assert.Equal(masterKey.GetPublicKey().GetHDFingerPrint(), wallet.MasterFingerprint);
+				Assert.Equal(masterKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString() + "-[p2sh]",
+					wallet.DerivationStrategy.ToString());
+				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Client.Network);
+
+				Logs.Tester.LogInformation("Let's assert it is tracked");
+				var firstKeyInfo = repo.GetKeyInformation(wallet.DerivationStrategy.GetChild(new KeyPath("0/0")).GetDerivation().ScriptPubKey);
+				Assert.NotNull(firstKeyInfo);
+				var firstGenerated = await tester.Client.GetUnusedAsync(wallet.DerivationStrategy, DerivationFeature.Deposit);
+				Assert.Equal(firstKeyInfo.ScriptPubKey, firstGenerated.ScriptPubKey);
+				await tester.Client.GetUnusedAsync(wallet.DerivationStrategy, DerivationFeature.Deposit);
+
+				Logs.Tester.LogInformation($"Let's assert it is tracked by RPC {firstKeyInfo.Address}");
+				var waiter = tester.GetService<BitcoinDWaiters>().GetWaiter(tester.Client.Network);
+				await Task.Delay(1000);
+				var rpcAddressInfo = await waiter.RPC.GetAddressInfoAsync(firstKeyInfo.Address);
+				Assert.True(rpcAddressInfo.IsMine);
+				Assert.False(rpcAddressInfo.IsWatchOnly);
+			}
 		}
 	}
 }

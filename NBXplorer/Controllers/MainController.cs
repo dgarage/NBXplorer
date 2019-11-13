@@ -125,11 +125,36 @@ namespace NBXplorer.Controllers
 					}
 					_ = AddressPoolService.GenerateAddresses(network, strategy, feature);
 				}
+				_ = AddAddressToRPCIfNeeded(repository, result, strategy);
 				return Json(result, network.Serializer.Settings);
 			}
 			catch (NotSupportedException)
 			{
 				throw new NBXplorerError(400, "derivation-not-supported", $"The derivation scheme {feature} is not supported").AsException();
+			}
+		}
+
+		async Task AddAddressToRPCIfNeeded(Repository repository, KeyPathInformation result, DerivationStrategyBase strategyBase)
+		{
+			try
+			{
+				var ts = new DerivationSchemeTrackedSource(strategyBase);
+				var shouldImportRPC = (await repository.GetMetadata<string>(ts, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
+				if (!shouldImportRPC)
+					return;
+				var rpc = Waiters.GetWaiter(repository.Network).RPC;
+				if (await repository.GetMetadata<BitcoinExtKey>(ts, WellknownMetadataKeys.AccountExtKey) is BitcoinExtKey accountKey)
+				{
+					await rpc.ImportPrivKeyAsync(accountKey.Derive(result.KeyPath).PrivateKey.GetWif(result.Address.Network), null, false);
+				}
+				else
+				{
+					await rpc.ImportAddressAsync(result.Address, null, false);
+				}
+			}
+			catch (Exception ex)
+			{
+				Logs.Explorer.LogWarning(ex, "Error while trying to track an address with RPC");
 			}
 		}
 
@@ -1005,6 +1030,52 @@ namespace NBXplorer.Controllers
 					RPCMessage = rpcEx.Message
 				};
 			}
+		}
+
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations")]
+		public async Task<IActionResult> GenerateWallet(string cryptoCode, [FromBody] GenerateWalletRequest request)
+		{
+			if (request == null)
+				request = new GenerateWalletRequest();
+			request.WordList ??= Wordlist.English;
+			request.WordCount ??= WordCount.Twelve;
+			request.ScriptPubKeyType ??= ScriptPubKeyType.Segwit;
+			request.AccountKeyPath ??= new KeyPath();
+			var network = GetNetwork(cryptoCode, request.ImportKeysToRPC);
+
+			if (!network.NBitcoinNetwork.Consensus.SupportSegwit && request.ScriptPubKeyType != ScriptPubKeyType.Legacy)
+				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
+
+			var repo = RepositoryProvider.GetRepository(network);
+			var mnemonic = new Mnemonic(request.WordList, request.WordCount.Value);
+			var masterKey = mnemonic.DeriveExtKey(request.Passphrase).GetWif(network.NBitcoinNetwork);
+			var accountKey = masterKey.Derive(request.AccountKeyPath);
+			DerivationStrategyBase derivation = network.DerivationStrategyFactory.CreateDirectDerivationStrategy(accountKey.Neuter(), new DerivationStrategyOptions()
+			{
+				ScriptPubKeyType = request.ScriptPubKeyType.Value
+			});
+
+			var derivationTrackedSource = new DerivationSchemeTrackedSource(derivation);
+			await Task.WhenAll(new[] {
+				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Mnemonic, mnemonic.ToString()),
+				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterExtKey, masterKey),
+				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountExtKey, accountKey),
+				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountKeyPath, request.AccountKeyPath),
+				repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, request.ImportKeysToRPC.ToString())
+			}.ToArray());
+
+			await TrackWallet(cryptoCode, derivation, null);
+			return Json(new GenerateWalletResponse()
+			{
+				MasterFingerprint = masterKey.ExtKey.GetPublicKey().GetHDFingerPrint(),
+				AccountKeyPath = request.AccountKeyPath,
+				DerivationStrategy = derivation,
+				Mnemonic = mnemonic.ToString(),
+				Passphrase = request.Passphrase ?? string.Empty,
+				WordCount = request.WordCount.Value,
+				WordList = request.WordList
+			}, network.Serializer.Settings);
 		}
 
 		[HttpPost]
