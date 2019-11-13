@@ -1076,6 +1076,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
+
 		class TestMetadata
 		{
 			public string Message { get; set; }
