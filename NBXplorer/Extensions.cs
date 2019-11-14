@@ -80,6 +80,14 @@ namespace NBXplorer
 			return null;
 		}
 		
+		internal static KeyPathInformation AddAddress(this KeyPathInformation keyPathInformation, Network network)
+		{
+			if(keyPathInformation.Address == null)
+			{
+				keyPathInformation.Address = keyPathInformation.ScriptPubKey.GetDestinationAddress(network);
+			}
+			return keyPathInformation;
+		}
 #if NETCOREAPP21
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
 		{

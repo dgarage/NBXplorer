@@ -13,12 +13,15 @@ namespace NBXplorer
 {
 	public class LiquidRepository : Repository
 	{
+		private readonly RPCClient _rpcClient;
+
 		internal LiquidRepository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates,
-			RPCClient rpcClient) : base(engine, network, keyPathTemplates, rpcClient)
+			RPCClient rpcClient) : base(engine, network, keyPathTemplates)
 		{
+			_rpcClient = rpcClient;
 		}
 
-		protected override async Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx,
+		protected override async Task<Transaction> GetTransaction(Transaction tx,
 			KeyPathInformation keyInfo)
 		{
 
@@ -29,7 +32,7 @@ namespace NBXplorer
 				var privateKey =
 					NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(
 						keyInfo.DerivationStrategy, keyInfo.KeyPath);
-				result =  await rpcClient.UnblindTransaction(new List<UnblindTransactionBlindingAddressKey>()
+				result =  await _rpcClient.UnblindTransaction(new List<UnblindTransactionBlindingAddressKey>()
 					{
 						new UnblindTransactionBlindingAddressKey()
 						{
@@ -41,7 +44,7 @@ namespace NBXplorer
 			}
 			else
 			{
-				result = await base.GetTransaction(rpcClient, tx, keyInfo);
+				result = await base.GetTransaction(tx, keyInfo);
 			}
 			
 			//if there is at least one matching valid(aka unblinded) output, we can pass it along. 

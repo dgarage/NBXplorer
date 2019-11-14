@@ -16,10 +16,8 @@ namespace NBXplorer.DerivationStrategy
 			{
 				return _Root;
 			}
+			
 		}
-
-		public BitcoinExtPubKey RootBase58 => _Root;
-
 		public bool Segwit
 		{
 			get;
