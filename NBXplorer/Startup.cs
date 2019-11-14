@@ -85,6 +85,7 @@ namespace NBXplorer
 			app.UseAuthorization();
 #endif
 			app.UseWebSockets();
+			//app.UseMiddleware<LogAllRequestsMiddleware>();
 #if NETCOREAPP21
 			app.UseMvc();
 #else

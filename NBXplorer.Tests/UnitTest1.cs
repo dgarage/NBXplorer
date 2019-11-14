@@ -2572,7 +2572,7 @@ namespace NBXplorer.Tests
 			{
 				tester.Client.WaitServerStarted();
 				var tx = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
-				tx.Outputs.Add(new TxOut(Money.Coins(1.0m), new Key()));
+				tx.Outputs.Add(Money.Coins(1.0m), new Key());
 				var funded = tester.RPC.FundRawTransaction(tx);
 				var signed = tester.RPC.SignRawTransaction(funded.Transaction);
 				var result = tester.Client.Broadcast(signed);
