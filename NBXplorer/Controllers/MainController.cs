@@ -1038,19 +1038,25 @@ namespace NBXplorer.Controllers
 		{
 			if (request == null)
 				request = new GenerateWalletRequest();
+			var network = GetNetwork(cryptoCode, request.ImportKeysToRPC);
+			if (network.CoinType == null)
+				// Don't document, only shitcoins nobody use goes into this
+				throw new NBXplorerException(new NBXplorerError(400, "not-supported", "This feature is not supported for this coin because we don't have CoinType information"));
 			request.WordList ??= Wordlist.English;
 			request.WordCount ??= WordCount.Twelve;
 			request.ScriptPubKeyType ??= ScriptPubKeyType.Segwit;
-			request.AccountKeyPath ??= new KeyPath();
-			var network = GetNetwork(cryptoCode, request.ImportKeysToRPC);
-
+			if (request.ScriptPubKeyType is null)
+			{
+				request.ScriptPubKeyType = network.NBitcoinNetwork.Consensus.SupportSegwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy;
+			}
 			if (!network.NBitcoinNetwork.Consensus.SupportSegwit && request.ScriptPubKeyType != ScriptPubKeyType.Legacy)
 				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
 
 			var repo = RepositoryProvider.GetRepository(network);
 			var mnemonic = new Mnemonic(request.WordList, request.WordCount.Value);
 			var masterKey = mnemonic.DeriveExtKey(request.Passphrase).GetWif(network.NBitcoinNetwork);
-			var accountKey = masterKey.Derive(request.AccountKeyPath);
+			var keyPath = GetDerivationKeyPath(request.ScriptPubKeyType.Value, request.AccountNumber, network);
+			var accountKey = masterKey.Derive(keyPath);
 			DerivationStrategyBase derivation = network.DerivationStrategyFactory.CreateDirectDerivationStrategy(accountKey.Neuter(), new DerivationStrategyOptions()
 			{
 				ScriptPubKeyType = request.ScriptPubKeyType.Value
@@ -1061,7 +1067,7 @@ namespace NBXplorer.Controllers
 				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Mnemonic, mnemonic.ToString()),
 				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterExtKey, masterKey),
 				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountExtKey, accountKey),
-				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountKeyPath, request.AccountKeyPath),
+				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountKeyPath, keyPath),
 				repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, request.ImportKeysToRPC.ToString())
 			}.ToArray());
 
@@ -1069,13 +1075,23 @@ namespace NBXplorer.Controllers
 			return Json(new GenerateWalletResponse()
 			{
 				MasterFingerprint = masterKey.ExtKey.GetPublicKey().GetHDFingerPrint(),
-				AccountKeyPath = request.AccountKeyPath,
-				DerivationStrategy = derivation,
+				AccountKeyPath = keyPath,
+				DerivationScheme = derivation,
 				Mnemonic = mnemonic.ToString(),
 				Passphrase = request.Passphrase ?? string.Empty,
 				WordCount = request.WordCount.Value,
 				WordList = request.WordList
 			}, network.Serializer.Settings);
+		}
+
+		private KeyPath GetDerivationKeyPath(ScriptPubKeyType scriptPubKeyType, int accountNumber, NBXplorerNetwork network)
+		{
+			var keyPath = new KeyPath(scriptPubKeyType == ScriptPubKeyType.Legacy ? "44'" :
+				scriptPubKeyType == ScriptPubKeyType.Segwit ? "84'" :
+				scriptPubKeyType == ScriptPubKeyType.SegwitP2SH ? "49'" : 
+				throw new NotSupportedException(scriptPubKeyType.ToString())); // Should never happen
+			return keyPath.Derive(network.CoinType)
+				   .Derive(accountNumber, true);
 		}
 
 		[HttpPost]

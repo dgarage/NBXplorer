@@ -8,7 +8,8 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.BGold.Instance, networkType)
 			{
-				MinRPCVersion = 140200
+				MinRPCVersion = 140200,
+				CoinType = networkType == NetworkType.Mainnet ? new KeyPath("156'") : new KeyPath("1'")
 			});
 		}
 

@@ -2878,10 +2878,10 @@ namespace NBXplorer.Tests
 				Assert.NotNull(wallet.Mnemonic);
 				Assert.NotNull(wallet.Passphrase);
 				Assert.NotNull(wallet.WordList);
-				Assert.NotNull(wallet.AccountKeyPath);
+				Assert.Equal(new KeyPath("84'/1'/0'"), wallet.AccountKeyPath);
 				Assert.Equal(WordCount.Twelve, wallet.WordCount);
-				Assert.Equal(new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase).Neuter().GetWif(tester.Network).ToString(),
-					wallet.DerivationStrategy.ToString());
+				Assert.Equal(new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase).Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString(),
+					wallet.DerivationScheme.ToString());
 
 				Logs.Tester.LogInformation("Let's make sure our parameters are not ignored");
 				wallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
@@ -2891,25 +2891,25 @@ namespace NBXplorer.Tests
 					ScriptPubKeyType = ScriptPubKeyType.SegwitP2SH,
 					WordCount = WordCount.Fifteen,
 					WordList = Wordlist.French,
-					AccountKeyPath = new KeyPath("44'/0'/0'")
+					AccountNumber = 2
 				});
 				Assert.NotNull(wallet.Mnemonic);
 				Assert.Equal("hello", wallet.Passphrase);
-				Assert.Equal(new KeyPath("44'/0'/0'"), wallet.AccountKeyPath);
+				Assert.Equal(new KeyPath("49'/1'/2'"), wallet.AccountKeyPath);
 				Assert.Equal(Wordlist.French.ToString(), wallet.WordList.ToString());
 				Assert.Equal(WordCount.Fifteen, wallet.WordCount);
 				var masterKey = new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase);
 				Assert.Equal(masterKey.GetPublicKey().GetHDFingerPrint(), wallet.MasterFingerprint);
 				Assert.Equal(masterKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString() + "-[p2sh]",
-					wallet.DerivationStrategy.ToString());
+					wallet.DerivationScheme.ToString());
 				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Client.Network);
 
 				Logs.Tester.LogInformation("Let's assert it is tracked");
-				var firstKeyInfo = repo.GetKeyInformation(wallet.DerivationStrategy.GetChild(new KeyPath("0/0")).GetDerivation().ScriptPubKey);
+				var firstKeyInfo = repo.GetKeyInformation(wallet.DerivationScheme.GetChild(new KeyPath("0/0")).GetDerivation().ScriptPubKey);
 				Assert.NotNull(firstKeyInfo);
-				var firstGenerated = await tester.Client.GetUnusedAsync(wallet.DerivationStrategy, DerivationFeature.Deposit);
+				var firstGenerated = await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
 				Assert.Equal(firstKeyInfo.ScriptPubKey, firstGenerated.ScriptPubKey);
-				await tester.Client.GetUnusedAsync(wallet.DerivationStrategy, DerivationFeature.Deposit);
+				await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
 
 				Logs.Tester.LogInformation($"Let's assert it is tracked by RPC {firstKeyInfo.Address}");
 				var waiter = tester.GetService<BitcoinDWaiters>().GetWaiter(tester.Client.Network);

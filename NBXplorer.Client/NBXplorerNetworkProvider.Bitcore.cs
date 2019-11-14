@@ -11,7 +11,8 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Bitcore.Instance, networkType)
 			{
-				MinRPCVersion = 150100
+				MinRPCVersion = 150100,
+				CoinType = networkType == NetworkType.Mainnet ? new KeyPath("160'") : new KeyPath("1'")
 			});
 		}
 

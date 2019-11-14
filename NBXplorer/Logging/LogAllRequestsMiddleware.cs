@@ -68,7 +68,7 @@ namespace NBXplorer.Logging
 				bodyAsText = JsonConvert.SerializeObject(token, Formatting.Indented);
 			}
 			//..and finally, assign the read body back to the request body, which is allowed because of EnableRewind()
-			request.Body = body;
+			request.Body.Position = 0;
 
 			return $"{request.Scheme} {request.Host}{request.Path} {request.QueryString} {bodyAsText}";
 		}

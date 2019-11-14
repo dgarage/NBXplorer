@@ -90,6 +90,7 @@ namespace NBXplorer
 		{
 			get; set;
 		} = 288;
+		public KeyPath CoinType { get; internal set; }
 
 		public override string ToString()
 		{

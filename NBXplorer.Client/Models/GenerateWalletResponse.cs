@@ -12,7 +12,7 @@ namespace NBXplorer.Models
 		public NBitcoin.HDFingerprint MasterFingerprint { get; set; }
 		[JsonConverter(typeof(NBitcoin.JsonConverters.KeyPathJsonConverter))]
 		public NBitcoin.KeyPath AccountKeyPath { get; set; }
-		public DerivationStrategyBase DerivationStrategy { get; set; }
+		public DerivationStrategyBase DerivationScheme { get; set; }
 		public string Mnemonic { get; set; }
 		public string Passphrase { get; set; }
 		[JsonConverter(typeof(NBXplorer.JsonConverters.WordlistJsonConverter))]

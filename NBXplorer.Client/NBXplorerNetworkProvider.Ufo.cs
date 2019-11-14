@@ -11,7 +11,8 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Ufo.Instance, networkType)
 			{
-				MinRPCVersion = 150000
+				MinRPCVersion = 150000,
+				CoinType = NetworkType == NetworkType.Mainnet ? new KeyPath("202'") : new KeyPath("1'")
 			});
 		}
 

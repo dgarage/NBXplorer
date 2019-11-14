@@ -7,8 +7,7 @@ namespace NBXplorer.Models
 {
 	public class GenerateWalletRequest
 	{
-		[JsonConverter(typeof(NBitcoin.JsonConverters.KeyPathJsonConverter))]
-		public NBitcoin.KeyPath AccountKeyPath { get; set; }
+		public int AccountNumber { get; set; }
 		[JsonConverter(typeof(NBXplorer.JsonConverters.WordlistJsonConverter))]
 		public NBitcoin.Wordlist WordList { get; set; }
 		[JsonConverter(typeof(NBXplorer.JsonConverters.WordcountJsonConverter))]
