@@ -327,7 +327,7 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			this.keyPathTemplates = keyPathTemplates;
-			Serializer = new Serializer(_Network.NBitcoinNetwork);
+			Serializer = new Serializer(_Network);
 			_Network = network;
 			_TxContext = new DBriizeTransactionContext(engine);
 			_TxContext.UnhandledException += (s, ex) =>
