@@ -9,11 +9,6 @@ using System.Text.RegularExpressions;
 
 namespace NBXplorer.DerivationStrategy
 {
-	public interface IHasDerivationStrategyOptions
-	{
-		DerivationStrategyOptions DerivationStrategyOptions { get; }
-	}
-	
 	public class DerivationStrategyOptions
 	{
 		public ScriptPubKeyType ScriptPubKeyType { get; set; }
@@ -25,8 +20,6 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
-		
-		public Dictionary<string,object> AdditionalOptions { get; set; } = new Dictionary<string, object>();
 	}
 	public class DerivationStrategyFactory
 	{
@@ -50,11 +43,11 @@ namespace NBXplorer.DerivationStrategy
 		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
 		public virtual DerivationStrategyBase Parse(string str)
 		{
-			var strategy = ParseCore(str, new Dictionary<string, object>());
+			var strategy = ParseCore(str);
 			return strategy;
 		}
 
-		protected DerivationStrategyBase ParseCore(string str, Dictionary<string, object> additionalOptions = null)
+		protected DerivationStrategyBase ParseCore(string str)
 		{
 			bool legacy = false;
 			ReadBool(ref str, "legacy", ref legacy);
