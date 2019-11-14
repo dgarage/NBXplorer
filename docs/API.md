@@ -33,6 +33,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Retrieve metadata from a derivation scheme](#getmetadata)
 * [Manual pruning](#pruning)
 * [Generate a wallet](#wallet)
+* [Health check](#health)
 
 ## <a name="configuration"></a>Configuration
 
@@ -1080,3 +1081,11 @@ Response:
 * `AccountExtKey`: The [xpub](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) that is tracked by NBXplorer.
 * `AccountKeyPath`: The `accountKeyPath` to this `accountExtKey`
 * `ImportAddressToRPC`: `true` or `false`, depending if addresses generated are also imported to the internal node.
+
+## <a name="health"></a>Health check
+
+A endpoint that can be used without the need for [authentication](#auth) which will returns HTTP 200 only if all nodes connected to NBXplorer are ready.
+
+HTTP GET /health
+
+It will output the state for each nodes in JSON, whose format might change in the future.
