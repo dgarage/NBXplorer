@@ -379,7 +379,7 @@ namespace NBXplorer
 				if (rows.Length == 0)
 					return null;
 
-				var keyInfo = GetKeyPathInformation(rows[0].Value);
+				var keyInfo = GetKeyPathInformation(rows[0].Value, strategy);
 				if (reserve)
 				{
 					availableTable.RemoveKey(keyInfo.GetIndex());
@@ -390,9 +390,15 @@ namespace NBXplorer
 			});
 		}
 
-		protected virtual KeyPathInformation GetKeyPathInformation(byte[] value)
+		protected virtual KeyPathInformation GetKeyPathInformation(byte[] value, DerivationStrategyBase derivationStrategyBase)
 		{
-			return ToObject<KeyPathInformation>(value).AddAddress(Network.NBitcoinNetwork, out _);
+			var result = ToObject<KeyPathInformation>(value);
+			if (result.Address == null)
+			{
+				result.Address = Network.CreateAddress(derivationStrategyBase, result.KeyPath, result.ScriptPubKey);
+			}
+
+			return result;
 		}
 		
 		protected virtual Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx, KeyPathInformation keyInfo)
@@ -416,12 +422,13 @@ namespace NBXplorer
 			};
 		}
 
-		protected virtual KeyPathInformation GetKeyPathInformation(IDestination derivation)
+		protected KeyPathInformation GetKeyPathInformation(IDestination derivation)
 		{
+			var src = (TrackedSource) derivation;
 			return new KeyPathInformation()
 			{
 				ScriptPubKey = derivation.ScriptPubKey,
-				TrackedSource = (TrackedSource) derivation
+				TrackedSource = src
 			};
 		}
 
@@ -690,7 +697,7 @@ namespace NBXplorer
 					{
 						var table = GetScriptsIndex(tx, script);
 						var keyInfos = table.SelectForwardSkip(0)
-											.Select(r => GetKeyPathInformation(r.Value))
+											.Select(r => GetKeyPathInformation(r.Value, null))
 											// Because xpub are mutable (several xpub map to same script)
 											// an attacker could generate lot's of xpub mapping to the same script
 											// and this would blow up here. This we take only 5 results max.
@@ -1288,9 +1295,9 @@ namespace NBXplorer
 					if (kv.Value == null)
 						continue;
 					var index = GetAvailableKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-					bool needRefill = CleanUsed(kv.Value.Value, index);
+					bool needRefill = CleanUsed(kv.Value.Value, index, trackedSource.DerivationStrategy);
 					index = GetReservedKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-					needRefill |= CleanUsed(kv.Value.Value, index);
+					needRefill |= CleanUsed(kv.Value.Value, index, trackedSource.DerivationStrategy);
 					if (needRefill)
 					{
 						var hIndex = GetHighestPathIndex(tx, trackedSource.DerivationStrategy, kv.Key);
@@ -1305,12 +1312,12 @@ namespace NBXplorer
 			});
 		}
 
-		private bool CleanUsed(int highestIndex, Index index)
+		private bool CleanUsed(int highestIndex, Index index, DerivationStrategyBase derivationStrategyBase)
 		{
 			bool needRefill = false;
 			foreach (var row in index.SelectForwardSkip(0))
 			{
-				var keyInfo = GetKeyPathInformation(row.Value);
+				var keyInfo = GetKeyPathInformation(row.Value, derivationStrategyBase);
 				if (keyInfo.GetIndex() <= highestIndex)
 				{
 					index.RemoveKey(keyInfo.GetIndex());

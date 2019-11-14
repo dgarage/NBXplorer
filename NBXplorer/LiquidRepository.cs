@@ -23,16 +23,18 @@ namespace NBXplorer
 		{
 
 			var result = tx;
-			if (keyInfo is NBXplorerNetworkProvider.LiquidKeyPathInformation liquidKeyPathInformation &&
-			    liquidKeyPathInformation.BlindingKey != null && tx is ElementsTransaction elementsTransaction)
+			if (keyInfo.Address is BitcoinBlindedAddress bitcoinBlindedAddress && tx is ElementsTransaction elementsTransaction)
 			{
+
+				var privateKey =
+					NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(
+						keyInfo.DerivationStrategy, keyInfo.KeyPath);
 				result =  await rpcClient.UnblindTransaction(new List<UnblindTransactionBlindingAddressKey>()
 					{
 						new UnblindTransactionBlindingAddressKey()
 						{
-							Address = new BitcoinBlindedAddress(liquidKeyPathInformation.Address,
-								Network.NBitcoinNetwork),
-							BlindingKey = liquidKeyPathInformation.BlindingKey
+							Address = bitcoinBlindedAddress,
+							BlindingKey = privateKey
 						}
 					},
 					elementsTransaction, Network.NBitcoinNetwork);
@@ -51,32 +53,6 @@ namespace NBXplorer
 			}
 
 			return null;
-		}
-
-		protected override KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,
-			DerivationFeature derivationFeature, KeyPath keyPath)
-		{
-			var result = base.GetKeyPathInformation(derivation, trackedSource, derivationFeature, keyPath);
-			return new NBXplorerNetworkProvider.LiquidKeyPathInformation(result,
-				derivation is NBXplorerNetworkProvider.LiquidDerivation liquidDerivation
-					? liquidDerivation.BlindingKey
-					: null);
-		}
-
-		protected override KeyPathInformation GetKeyPathInformation(IDestination derivation)
-		{
-			if (derivation is BitcoinBlindedAddress bitcoinBlindedAddress)
-			{
-				throw new NotSupportedException("Individual blinded address tracking is not currently supported");
-			}
-
-			return base.GetKeyPathInformation(derivation);
-		}
-
-		protected override KeyPathInformation GetKeyPathInformation(byte[] value)
-		{
-			return ToObject<NBXplorerNetworkProvider.LiquidKeyPathInformation>(value)
-				.AddAddress(Network.NBitcoinNetwork, out _);
 		}
 	}
 }

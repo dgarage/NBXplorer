@@ -22,35 +22,10 @@ namespace NBXplorer
 			public LiquidExplorerClient(NBXplorerNetwork network, Uri serverAddress = null) : base(network, serverAddress)
 			{
 			}
-
-			public override KeyPathInformation GetKeyInformation(DerivationStrategyBase strategy, Script script,
-				CancellationToken cancellation = default)
-			{
-				return GetKeyInformation<LiquidKeyPathInformation>(strategy, script, cancellation);
-			}
-
-			public override async Task<KeyPathInformation> GetKeyInformationAsync(DerivationStrategyBase strategy,
-				Script script, CancellationToken cancellation = default)
-			{
-				return await GetKeyInformationAsync<LiquidKeyPathInformation>(strategy, script, cancellation);
-			}
-
-			public override KeyPathInformation GetUnused(DerivationStrategyBase strategy, DerivationFeature feature,
-				int skip = 0,
-				bool reserve = false, CancellationToken cancellation = default)
-			{
-				return GetUnused<LiquidKeyPathInformation>(strategy, feature, skip, reserve, cancellation);
-			}
-
 			public override async Task<TransactionResult> GetTransactionAsync(uint256 txId,
 				CancellationToken cancellation = default)
 			{
 				return await base.GetTransactionAsync<LiquidTransactionResult>(txId, cancellation);
-			}
-			public override async Task<KeyPathInformation> GetUnusedAsync(DerivationStrategyBase strategy, DerivationFeature feature, int skip = 0, bool reserve = false,
-				CancellationToken cancellation = default)
-			{
-				return await GetUnusedAsync<LiquidKeyPathInformation>(strategy, feature, skip, reserve, cancellation);
 			}
 		}
 
@@ -75,6 +50,37 @@ namespace NBXplorer
 			{
 				return new LiquidExplorerClient(this, uri);
 			}
+			
+			public override BitcoinAddress CreateAddress(DerivationStrategyBase derivationStrategy, KeyPath keyPath, Script scriptPubKey)
+			{
+				if (derivationStrategy is IHasDerivationStrategyOptions strategyOptions &&
+				    strategyOptions.DerivationStrategyOptions.AdditionalOptions.TryGetValue("unblinded",
+					    out var unblinded) && (bool) unblinded)
+				{
+					return base.CreateAddress(derivationStrategy, keyPath, scriptPubKey);
+				}
+				
+				var blindingKey = GenerateBlindingKey(derivationStrategy, keyPath);
+				if (blindingKey == null)
+				{
+					return base.CreateAddress(derivationStrategy, keyPath, scriptPubKey);
+				}
+				var blindingPubKey = blindingKey.PubKey;
+				return new BitcoinBlindedAddress(blindingPubKey, base.CreateAddress(derivationStrategy, keyPath, scriptPubKey));
+			}
+
+			public static Key GenerateBlindingKey(DerivationStrategyBase derivationStrategy, KeyPath keyPath)
+			{
+				if (derivationStrategy == null)
+				{
+					return null;
+				}
+				var blindingKey = new Key(derivationStrategy.GetChild(keyPath).GetChild(new KeyPath("0")).GetDerivation()
+					.ScriptPubKey.Hash.ToBytes());
+				return blindingKey;
+			}
+			
+			
 		}
 		private void InitLiquid(NetworkType networkType)
 		{
@@ -90,54 +96,6 @@ namespace NBXplorer
 			return GetFromCryptoCode(NBitcoin.Altcoins.Liquid.Instance.CryptoCode);
 		}
 
-		public class LiquidKeyPathInformation:KeyPathInformation
-		{
-			public LiquidKeyPathInformation()
-			{
-				
-			}
-
-			public LiquidKeyPathInformation(KeyPathInformation keyPathInformation, Key blindingKey)
-			{
-				Address = keyPathInformation.Address;
-				Feature = keyPathInformation.Feature;
-				Redeem = keyPathInformation.Redeem;
-				BlindingKey = blindingKey;
-				DerivationStrategy = keyPathInformation.DerivationStrategy;
-				KeyPath = keyPathInformation.KeyPath;
-				TrackedSource = keyPathInformation.TrackedSource;
-				ScriptPubKey = keyPathInformation.ScriptPubKey;
-			}
-			[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-			[JsonConverter(typeof(KeyJsonConverter))]
-			public Key BlindingKey { get; set; }
-			
-			public override KeyPathInformation AddAddress(Network network, out BitcoinAddress address)
-			{
-				address = null;
-				base.AddAddress(network, out var baseAddress);
-				address = BlindingKey != null ? new BitcoinBlindedAddress(BlindingKey.PubKey, baseAddress) : baseAddress;
-				Address = address.ToString();
-				return this;
-			}
-		}
-		
-		public class LiquidDerivation : Derivation
-		{
-			public LiquidDerivation(Derivation derivation, Key blindingKey)
-			{
-				BlindingKey = blindingKey;
-				ScriptPubKey = derivation.ScriptPubKey;
-				Redeem = derivation.Redeem;
-			}
-			public Key BlindingKey { get; set; }
-
-			public override BitcoinAddress GetAddress(Network network)
-			{
-				return new BitcoinBlindedAddress(BlindingKey.PubKey, base.GetAddress(network));
-			}
-		}
-
 		class LiquidDerivationStrategyFactory : DerivationStrategyFactory
 		{
 			public LiquidDerivationStrategyFactory(Network network) : base(network)
@@ -146,12 +104,10 @@ namespace NBXplorer
 
 			public override DerivationStrategyBase Parse(string str)
 			{
-				string blindKey =null;
 				var options = new Dictionary<string, object>();
-				if (ReadString(ref str, "blindingkey", ref blindKey))
-				{
-					options.Add("blindingkey", blindKey);
-				}
+				var unblinded = false;
+				ReadBool(ref str, "unblinded", ref unblinded);
+				options.Add("unblinded", unblinded);
 				var strategy = ParseCore(str, options);
 				return strategy;
 			}
@@ -172,32 +128,15 @@ namespace NBXplorer
 				return result;
 			}
 
-			class LiquidDirectDerivationStrategy : DirectDerivationStrategy
+			class LiquidDirectDerivationStrategy : DirectDerivationStrategy, IHasDerivationStrategyOptions
 			{
-				private readonly DerivationStrategyOptions _options;
 
 				public LiquidDirectDerivationStrategy(DirectDerivationStrategy derivationStrategy,
 					DerivationStrategyOptions options) : base(derivationStrategy
 					.RootBase58)
 				{
-					_options = options;
+					DerivationStrategyOptions = options;
 					Segwit = derivationStrategy.Segwit;
-				}
-
-				
-				public override Derivation GetDerivation()
-				{
-					Key blindingKey = null;
-					if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
-					{
-						blindingKey = new Key(NBitcoin.DataEncoders.Encoders.Hex.DecodeData(blindkeyhex.ToString()));
-					}
-
-					if (blindingKey == null)
-					{
-						return base.GetDerivation();
-					}
-					return new LiquidDerivation(base.GetDerivation(), blindingKey);
 				}
 				
 				public override DerivationStrategyBase GetChild(KeyPath keyPath)
@@ -206,9 +145,9 @@ namespace NBXplorer
 					switch (result)
 					{
 						case DirectDerivationStrategy directDerivationStrategy:
-							return new LiquidDirectDerivationStrategy(directDerivationStrategy, _options);
+							return new LiquidDirectDerivationStrategy(directDerivationStrategy, DerivationStrategyOptions);
 						case P2SHDerivationStrategy p2ShDerivationStrategy:
-							return new LiquidP2SHDerivationStrategy(p2ShDerivationStrategy,_options);
+							return new LiquidP2SHDerivationStrategy(p2ShDerivationStrategy,DerivationStrategyOptions);
 					}
 
 					return result;
@@ -221,55 +160,32 @@ namespace NBXplorer
 					{
 						var result = base.StringValue;
 						
-						if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) && 
-						    !string.IsNullOrEmpty(blindkeyhex?.ToString()))
+						if (DerivationStrategyOptions.AdditionalOptions.TryGetValue("unblinded", out var unblinded) && 
+						    (bool)unblinded)
 						{
-							result += $"-[blindingkey={blindkeyhex}]";
+							result += $"-[unblinded]";
 						}
 						return result;
 					}
 				}
+
+				public DerivationStrategyOptions DerivationStrategyOptions { get; }
 			}
 
-			class LiquidP2SHDerivationStrategy : P2SHDerivationStrategy
+			class LiquidP2SHDerivationStrategy : P2SHDerivationStrategy, IHasDerivationStrategyOptions
 			{
-				private readonly DerivationStrategyOptions _options;
 
 				public LiquidP2SHDerivationStrategy(P2SHDerivationStrategy derivationStrategy,
 					DerivationStrategyOptions options) : base(
 					derivationStrategy.Inner, derivationStrategy.AddSuffix)
 				{
-					_options = options;
+					DerivationStrategyOptions = options;
 				}
 
 				public override DerivationStrategyBase GetChild(KeyPath keyPath)
 				{
-					return new LiquidP2SHDerivationStrategy((P2SHDerivationStrategy) base.GetChild(keyPath), _options);
+					return new LiquidP2SHDerivationStrategy((P2SHDerivationStrategy) base.GetChild(keyPath), DerivationStrategyOptions);
 				}
-				
-				public override Derivation GetDerivation()
-				{
-					
-					Key blindingKey = null;
-					
-					if (_options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex) )
-					{
-						blindingKey = new Key(NBitcoin.DataEncoders.Encoders.Hex.DecodeData(blindkeyhex.ToString()));
-					}
-
-					var result = base.GetDerivation();
-					if (blindingKey == null)
-					{
-						return result;
-					}
-					if (Inner is DirectDerivationStrategy _)
-					{
-						return new LiquidDerivation(result, blindingKey);
-					}
-
-					return result;
-				}
-
 				protected override string StringValue
 				{
 
@@ -277,18 +193,17 @@ namespace NBXplorer
 					{
 						var result = base.StringValue;
 						
-						if (AddSuffix && _options.AdditionalOptions.TryGetValue("blindingkey", out var blindkeyhex)  && 
-						    !string.IsNullOrEmpty(blindkeyhex?.ToString()))
+						if (DerivationStrategyOptions.AdditionalOptions.TryGetValue("unblinded", out var unblinded) && 
+						    (bool)unblinded)
 						{
-							result += $"-[blindingkey={blindkeyhex}]";
+							result += $"-[unblinded]";
 						}
-
 						return result;
 					}
 				}
-			}
 
-			
+				public DerivationStrategyOptions DerivationStrategyOptions { get; }
+			}
 		}
 	}
 }

@@ -2,14 +2,6 @@
 using NBXplorer.DerivationStrategy;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using NBitcoin.Altcoins.Elements;
-using NBitcoin.RPC;
-using NBXplorer.DerivationStrategy;
-using NBXplorer.Models;
 
 namespace NBXplorer
 {
@@ -24,6 +16,27 @@ namespace NBXplorer
 			DerivationStrategyFactory = derivationStrategyFactory;
 		}
 
+		public Network NBitcoinNetwork
+		{
+			get;
+			private set;
+		}
+		
+		public int MinRPCVersion
+		{
+			get;
+			internal set;
+		}
+		public string CryptoCode
+		{
+			get;
+			private set;
+		}
+		public NBXplorerDefaultSettings DefaultSettings
+		{
+			get;
+			private set;
+		}
 		public DerivationStrategy.DerivationStrategyFactory DerivationStrategyFactory
 		{
 			get;

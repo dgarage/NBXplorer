@@ -9,6 +9,11 @@ using System.Text.RegularExpressions;
 
 namespace NBXplorer.DerivationStrategy
 {
+	public interface IHasDerivationStrategyOptions
+	{
+		DerivationStrategyOptions DerivationStrategyOptions { get; }
+	}
+	
 	public class DerivationStrategyOptions
 	{
 		public ScriptPubKeyType ScriptPubKeyType { get; set; }
@@ -169,21 +174,6 @@ namespace NBXplorer.DerivationStrategy
 				if(str.EndsWith("-"))
 					str = str.Substring(0, str.Length - 1);
 			}
-		}
-		
-		protected bool ReadString(ref string str, string attribute, ref string value)
-		{
-			var pos = str.IndexOf($"[{attribute}=");
-			if (pos == -1)
-				return false;
-			var endpos = str.IndexOf("]", pos);
-			value = str.Substring(pos + $"[{attribute}=".Length, (endpos - (pos + $"[{attribute}=".Length) ));
-			
-			str = str.Replace($"[{attribute}={value}]", string.Empty);
-			str = str.Replace("--", "-");
-			if(str.EndsWith("-"))
-				str = str.Substring(0, str.Length - 1);
-			return true;
 		}
 	}
 }
