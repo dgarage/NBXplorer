@@ -22,7 +22,7 @@ namespace NBXplorer
 		public JsonSerializerSettings Settings { get; } = new JsonSerializerSettings();
 		public Serializer(NBXplorerNetwork network)
 		{
-			_Network = network.NBitcoinNetwork;
+			_Network = network?.NBitcoinNetwork;
 			ConfigureSerializer(Settings);
 		}
 
