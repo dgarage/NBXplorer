@@ -496,6 +496,18 @@ namespace NBXplorer
 			return SendAsync<string>(HttpMethod.Post, value, "v1/cryptos/{0}/derivations/{1}/metadata/{2}", new object[] { CryptoCode, derivationScheme, key }, cancellationToken);
 		}
 
+		public Task<GenerateWalletResponse> GenerateWalletAsync(GenerateWalletRequest request = null, CancellationToken cancellationToken = default)
+		{
+			request ??= new GenerateWalletRequest();
+			return SendAsync<GenerateWalletResponse>(HttpMethod.Post, request, "v1/cryptos/{0}/derivations", new object[] { CryptoCode }, cancellationToken);
+		}
+
+		public GenerateWalletResponse GenerateWallet(GenerateWalletRequest request = null, CancellationToken cancellationToken = default)
+		{
+			request ??= new GenerateWalletRequest();
+			return GenerateWalletAsync(request, cancellationToken).GetAwaiter().GetResult();
+		}
+
 		private static readonly HttpClient SharedClient = new HttpClient();
 		internal HttpClient Client = SharedClient;
 

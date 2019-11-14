@@ -11,7 +11,8 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Feathercoin.Instance, networkType)
 			{
-				MinRPCVersion = 160000
+				MinRPCVersion = 160000,
+				CoinType = networkType == NetworkType.Mainnet ? new KeyPath("8'") : new KeyPath("1'")
 			});
 		}
 

@@ -5,13 +5,14 @@ using System.Text;
 
 namespace NBXplorer
 {
-    public partial class NBXplorerNetworkProvider
-    {
+	public partial class NBXplorerNetworkProvider
+	{
 		private void InitBCash(NetworkType networkType)
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.BCash.Instance, networkType)
 			{
-				MinRPCVersion = 140200
+				MinRPCVersion = 140200,
+				CoinType = networkType == NetworkType.Mainnet ? new KeyPath("145'") : new KeyPath("1'")
 			});
 		}
 

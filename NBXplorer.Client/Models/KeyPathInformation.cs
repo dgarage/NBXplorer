@@ -45,7 +45,7 @@ namespace NBXplorer.Models
 			get; set;
 		}
 		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-		public string Address { get; set; }
+		public BitcoinAddress Address { get; set; }
 		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public Script Redeem
 		{

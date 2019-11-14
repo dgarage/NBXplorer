@@ -12,11 +12,11 @@
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/dgarage/NBXplorer/</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
-		<LangVersion>7.3</LangVersion>
+		<LangVersion>8.0</LangVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="5.0.1" />
+		<PackageReference Include="NBitcoin" Version="5.0.3" />
 		<PackageReference Include="NBitcoin.Altcoins" Version="2.0.1" />
 		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.18" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
