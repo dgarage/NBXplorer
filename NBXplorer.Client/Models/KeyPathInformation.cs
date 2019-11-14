@@ -13,7 +13,7 @@ namespace NBXplorer.Models
 		{
 
 		}
-		public KeyPathInformation(KeyPathTemplates keyPathTemplates, KeyPath keyPath, DerivationStrategyBase derivationStrategy)
+		public KeyPathInformation(KeyPathTemplates keyPathTemplates, KeyPath keyPath, DerivationStrategyBase derivationStrategy, NBXplorerNetwork network)
 		{
 			var derivation = derivationStrategy.GetDerivation(keyPath);
 			ScriptPubKey = derivation.ScriptPubKey;
@@ -22,6 +22,7 @@ namespace NBXplorer.Models
 			DerivationStrategy = derivationStrategy;
 			Feature = keyPathTemplates.GetDerivationFeature(keyPath);
 			KeyPath = keyPath;
+			Address = network.CreateAddress(derivationStrategy, keyPath, ScriptPubKey);
 		}
 		public TrackedSource TrackedSource { get; set; }
 

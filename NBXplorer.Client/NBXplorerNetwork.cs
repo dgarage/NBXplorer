@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using NBXplorer.DerivationStrategy;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -43,6 +44,12 @@ namespace NBXplorer
 			get;
 			internal set;
 		}
+
+		public virtual BitcoinAddress CreateAddress(DerivationStrategyBase derivationStrategy, KeyPath keyPath, Script scriptPubKey)
+		{
+			return scriptPubKey.GetDestinationAddress(NBitcoinNetwork);
+		}
+
 		public bool SupportCookieAuthentication
 		{
 			get;
