@@ -4,7 +4,36 @@ NBXplorer is a multi crypto currency lightweight block explorer.
 
 NBXplorer does not index the whole blockchain, rather, it listens transactions and blocks from a trusted full node and index only addresses and transactions which belongs to a `DerivationScheme` that you decide to track.
 
-## Authentication
+## Table of content
+
+* [Authentication](#auth)
+* [Derivation Scheme Format](#derivationScheme)
+* [Tracking a Derivation Scheme](#track)
+* [Track a specific address](#address)
+* [Query transactions associated to a Derivation Scheme](#transactions)
+* [Query transactions associated to a specific address](#address-transactions)
+* [Query a single transaction associated to a address or derivation scheme](#singletransaction)
+* [Get a transaction](#gettransaction)
+* [Get connection status to the chain](#status)
+* [Get a new unused address](#unused)
+* [Get scriptPubKey information of a Derivation Scheme](#scriptPubKey)
+* [Get Unspent Transaction Outputs (UTXOs)](#utxos)
+* [Get Unspent Transaction Outputs of a specific address](#address-utxos)
+* [Notifications via websocket](#websocket)
+* [Broadcast a transaction](#broadcast)
+* [Rescan a transaction](#rescan)
+* [Get fee rate](#feerate)
+* [Scan UTXO Set](#scanUtxoSet)
+* [Query event stream](#eventStream)
+* [Create Partially Signed Bitcoin Transaction](#psbt)
+* [Update Partially Signed Bitcoin Transaction](#updatepsbt)
+* [Attach metadata to a derivation scheme](#metadata)
+* [Detach metadata from a derivation scheme](#detachmetadata)
+* [Retrieve metadata from a derivation scheme](#getmetadata)
+* [Manual pruning](#pruning)
+* [Generate a wallet](#wallet)
+
+## <a name="auth"></a>Authentication
 
 By default a cookie file is generated when NBXplorer is starting, for windows in:
 ```
@@ -22,7 +51,7 @@ This can be disabled with `--noauth`.
 
 Also, NBXPlorer listen by default on `127.0.0.1`, if you want to access it from another machine, run `--bind "0.0.0.0"`.
 
-## Derivation Scheme Format
+## <a name="derivationScheme"></a>Derivation Scheme Format
 
 A derivation scheme, also called derivationStrategy in the code, is a flexible way to define how to generate address of a wallet.
 NBXplorer will track any addresses on the `0/x`, `1/x` and `x` path.
@@ -42,11 +71,9 @@ For multisig, the public keys are ordered before generating the address by defau
 
 You can use more than one options at same time, example: `2-of-xpub1-xpub2-[legacy]-[keeporder]`
 
-## CryptoCode
+Most of routes asks for a `cryptoCode`. This identify the crypto currency to request data from. (eg. `BTC`, `LTC`...)
 
-Most of routes asks for a crypto code. This identify the crypto currency to request data from. Currently supported is `BTC` and `LTC`.
-
-## Track a derivation scheme
+## <a name="track"></a>Track a derivation scheme
 
 After this call, the specified `derivation scheme` will be tracked by NBXplorer
 
@@ -73,7 +100,7 @@ Optionally, you can attach a json body:
 * `derivationOptions.minAddresses`: Optional. The minimum addresses that need to be generated with this call. (default: null, make sure the number of address in the pool is between MinGap and MaxGap)
 * `derivationOptions.maxAddresses`: Optional. The maximum addresses that need to be generated with this call. (default: null, make sure the number of address in the pool is between MinGap and MaxGap)
 
-## Track a specific address
+## <a name="address"></a>Track a specific address
 
 After this call, the specified address will be tracked by NBXplorer
 
@@ -81,7 +108,7 @@ HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}
 
 Returns nothing.
 
-## Query transactions associated to a derivationScheme
+## <a name="transactions"></a>Query transactions associated to a derivationScheme
 
 To query all transactions of a `derivation scheme`:
 
@@ -150,7 +177,7 @@ Returns:
 }
 ```
 
-## Query transactions associated to a specific address
+## <a name="address-transactions"></a>Query transactions associated to a specific address
 
 Query all transactions of a tracked address. (Only work if you called the Track operation on this specific address)
 
@@ -213,7 +240,7 @@ Returns:
 }
 ```
 
-## Query a single transaction associated to a address or derivation scheme
+## <a name="singletransaction"></a>Query a single transaction associated to a address or derivation scheme
 
 HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}
 HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions/{txId}
@@ -248,7 +275,7 @@ Returns:
 }
 ```
 
-## Get a transaction
+## <a name="gettransaction"></a>Get a transaction
 
 HTTP GET v1/cryptos/{cryptoCode}/transactions/{txId}
 
@@ -275,7 +302,7 @@ Returns:
 
 `height` and `blockId` will be null if the transaction is not confirmed.
 
-## Get connection status to the chain
+## <a name="status"></a>Get connection status to the chain
 
 HTTP GET v1/cryptos/{cryptoCode}/status
 
@@ -307,7 +334,7 @@ Returns:
 }
 ```
 
-## Get a new unused address
+## <a name="unused"></a>Get a new unused address
 
 HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses/unused
 
@@ -338,7 +365,7 @@ Returns:
 
 Note: `redeem` is returning the segwit redeem if the derivation scheme is a P2SH-P2WSH or P2WSH, or the p2sh redeem if just a p2sh.
 
-## Get ExtPubKey from scriptPubKey
+## <a name="scriptPubKey"></a>Get scriptPubKey information of a Derivation Scheme
 
 HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/scripts/{script}
 
@@ -358,7 +385,7 @@ Returns:
 }
 ```
 
-## Get Unspent Transaction Outputs (UTXOs)
+## <a name="utxos"></a>Get Unspent Transaction Outputs (UTXOs)
 
 HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos
 
@@ -415,7 +442,7 @@ Result:
 
 This call does not returns conflicted unconfirmed UTXOs.
 
-## Get Unspent Transaction Outputs of a specific address
+## <a name="address-utxos"></a>Get Unspent Transaction Outputs of a specific address
 
 Assuming you use Track on this specific address:
 
@@ -475,7 +502,7 @@ Result:
 
 This call does not returns conflicted unconfirmed UTXOs.
 
-## Notifications via websocket
+## <a name="websocket"></a>Notifications via websocket
 
 NBXplorer implements real-time notification via websocket supports for new block or transaction.
 
@@ -573,7 +600,7 @@ If you want all transactions of all derivation schemes of all crypto currencies,
 }
 ```
 
-## Broadcast a transaction
+## <a name="broadcast"></a>Broadcast a transaction
 
 HTTP POST v1/cryptos/{cryptoCode}/transactions
 
@@ -600,7 +627,7 @@ Returns:
 }
 ```
 
-## Rescan a transaction
+## <a name="rescan"></a>Rescan a transaction
 
 NBXplorer does not rescan the whole blockchain when tracking a new derivation scheme.
 This means that if the derivation scheme already received UTXOs in the past, NBXplorer will not be aware of it and might reuse addresses already generated in the past, and will not show past transactions.
@@ -641,7 +668,7 @@ Error codes:
 
 * HTTP 400: `rpc-unavailable`
 
-## Get fee rate
+## <a name="feerate"></a>Get fee rate
 
 HTTP GET v1/cryptos/{cryptoCode}/fees/{blockCount}
 
@@ -664,7 +691,7 @@ Returns:
 
 The fee rate is in satoshi/byte.
 
-## Scan UTXO Set
+## <a name="scanUtxoSet"></a>Scan UTXO Set
 
 NBXplorer can scan the UTXO Set for output belonging to your derivationScheme.
 
@@ -732,7 +759,7 @@ Error codes:
 
 * HTTP 404 `scanutxoset-info-not-found` if the scan has been done above the last 24H.
 
-## Query event stream
+## <a name="eventStream"></a>Query event stream
 
 All notifications sent through websocket are also saved in a crypto specifc event stream.
 
@@ -788,7 +815,7 @@ The smallest `eventId` is 1.
 ]
 ```
 
-## Create Partially Signed Bitcoin Transaction
+## <a name="psbt"></a>Create Partially Signed Bitcoin Transaction
 
 Create a [Partially Signed Bitcoin Transaction](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki) (PSBT).
 
@@ -878,7 +905,7 @@ Response:
 * `psbt`: The partially signed bitcoin transaction in Base64.
 * `changeAddress`: The change address of the transaction, useful for tests (can be null) 
 
-## Update Partially Signed Bitcoin Transaction
+## <a name="updatepsbt"></a>Update Partially Signed Bitcoin Transaction
 
 HTTP POST v1/cryptos/{cryptoCode}/psbt/update
 
@@ -912,7 +939,7 @@ Response:
 }
 ```
 
-## Attach metadata to a derivation scheme
+## <a name="metadata"></a>Attach metadata to a derivation scheme
 
 You can attach JSON metadata to a derivation scheme:
 
@@ -927,14 +954,13 @@ Body:
 	"example": "value"
 }
 ```
-
-## Detach metadata from a derivation scheme
+## <a name="detachmetadata"></a>Detach metadata from a derivation scheme
 
 HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}
 
 Call without body and without content type.
 
-## Retrieve metadata from a derivation scheme
+## <a name="getmetadata"></a>Retrieve metadata from a derivation scheme
 
 You retrieve the JSON metadata of a derivation scheme:
 
@@ -954,7 +980,7 @@ Body:
 }
 ```
 
-## Manual pruning
+## <a name="pruning"></a>Manual pruning
 
 NBXplorer has an auto pruning feature configurable with `--autopruning x` where `x` is in second. If a call to NBXplorer's `Get utxo` or `Get PSBT`  takes more time than `x seconds`, then the auto pruning will delete transactions whose all UTXOs have been already spent and which are old enough.
 
@@ -971,7 +997,7 @@ Response:
 
 * `totalPruned` is the number of transactions pruned from the derivation scheme
 
-## Generate a wallet
+## <a name="wallet"></a>Generate a wallet
 
 NBXplorer will generate and save a mnemonic and create a derivationScheme.
 
@@ -1010,14 +1036,14 @@ Response:
 }
 ```
 
-* `derivationScheme`: The derivation scheme that is being tracked by NBXplorer.
+* `derivationScheme`: The [derivation scheme](#derivationScheme) that is being tracked by NBXplorer.
 * `masterFingerprint`: The [BIP174](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki) master key fingerprint.
 * `accountKeyPath`: The derivation path used to generate the `derivationScheme`. ([Purpose field](https://github.com/bitcoin/bips/blob/master/bip-0043.mediawiki) based on [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki), [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki) or [BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki) and [SLIP44](https://github.com/satoshilabs/slips/blob/master/slip-0044.md) for the coin type)
 * `passphrase`: The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) passphrase.
 * `wordList`: The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) wordlist to use when generating the mnemonic.
 * `wordCount`: The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) word count in the mnemonic.
 
-Metadata set for this derivation scheme after this call:
+[Metadata](#metadata) for this derivation scheme after this call:
 * `Mnemonic`: The mnemonic generated.
 * `MasterExtKey`: The derived [xpriv](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) generated by the mnemonic and passphrase.
 * `AccountExtKey`: The [xpub](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) that is tracked by NBXplorer.
