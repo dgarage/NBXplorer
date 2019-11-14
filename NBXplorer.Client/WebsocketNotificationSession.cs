@@ -46,7 +46,7 @@ namespace NBXplorer
 				socket = await ConnectAsyncCore(uri, cancellation);
 			}
 			JsonSerializerSettings settings = new JsonSerializerSettings();
-			new Serializer(_Client.Network.NBitcoinNetwork).ConfigureSerializer(settings);
+			new Serializer(_Client.Network).ConfigureSerializer(settings);
 			_MessageListener = new WebsocketMessageListener(socket, settings);
 		}
 
