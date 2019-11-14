@@ -6,6 +6,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 
 ## Table of content
 
+* [Configuration](#configuration)
 * [Authentication](#auth)
 * [Derivation Scheme Format](#derivationScheme)
 * [Tracking a Derivation Scheme](#track)
@@ -32,6 +33,32 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Retrieve metadata from a derivation scheme](#getmetadata)
 * [Manual pruning](#pruning)
 * [Generate a wallet](#wallet)
+
+## <a name="configuration"></a>Configuration
+
+You can check the available settings with `--help`.
+
+NBXplorer can be configured in three way:
+* Through command line arguments (eg. `--chains btc`)
+* Through environment variables (eg. `NBXPLORER_CHAINS=btc`)
+* Through configuration file (eg. `chains=btc`)
+
+If you use configuration file, you can find it on windows in:
+```
+C:\Users\<user>\AppData\Roaming\NBXplorer\<network>\settings.config
+```
+
+On linux or mac:
+```
+~/.nbxplorer/<network>/settings.config
+```
+
+Be careful, if you run NBXplorer with `dotnet run`, you should do it this way, with settings after the `--`:
+```bash
+dotnet run --no-launch-profile --no-build -c Release -p .\NBXplorer\NBXplorer.csproj -- --chains btc
+```
+
+Else, launch profiles, which are settings meant to be used only for debugging time, might be taken into account.
 
 ## <a name="auth"></a>Authentication
 
@@ -600,6 +627,8 @@ If you want all transactions of all derivation schemes of all crypto currencies,
 }
 ```
 
+As an alternative to get notification, you can also use long polling with the [event stream](#eventStream).
+
 ## <a name="broadcast"></a>Broadcast a transaction
 
 HTTP POST v1/cryptos/{cryptoCode}/transactions
@@ -1020,7 +1049,9 @@ Request:
 * `wordCount`: The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) word count in the mnemonic (Default: `12`)
 * `scriptPubKeyType`: The type of scriptPubKey (address) to generate, available: Legacy, Segwit, SegwitP2SH (Default: `Segwit` or `Legacy` if `cryptoCode` does not support segwit)
 * `passphrase`: The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) passphrase. (Default: "")
-* `importKeysToRPC`: If true, every times a call to Get New Address will happen, the private key will be imported into the underlying node via RPC's `importprivkey`. (Default: `false`)
+* `importKeysToRPC`: If true, every times a call to [get a new unused address](#unused) is called, the private key will be imported into the underlying node via RPC's `importprivkey`. (Default: `false`)
+
+The `importKeysToRPC` is only useful if one need to manage his wallet via the node's cli tooling.
 
 Response:
 
