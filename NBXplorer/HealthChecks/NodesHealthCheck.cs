@@ -18,14 +18,14 @@ namespace NBXplorer.HealthChecks
 
 		public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
 		{
-			bool ok = false;
+			bool ok = true;
 			var data = new Dictionary<string, object>();
 			foreach (var waiter in Waiters.All())
 			{
-				ok &= !waiter.RPCAvailable;
+				ok &= waiter.RPCAvailable;
 				data.Add(waiter.Network.CryptoCode, waiter.State.ToString());
 			}
-			return Task.FromResult(ok ? HealthCheckResult.Healthy("Some nodes are not running", data: data) : HealthCheckResult.Degraded(data: data));
+			return Task.FromResult(ok ? HealthCheckResult.Healthy(data: data) : HealthCheckResult.Degraded("Some nodes are not running", data: data));
 		}
 	}
 }
