@@ -1046,11 +1046,12 @@ Request:
 }
 ```
 
-* `wordList`: The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) wordlist to use when generating the mnemonic, available: English, French, Japanese, Spanish, ChineseSimplified (Defaut: `English`)
-* `wordCount`: The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) word count in the mnemonic (Default: `12`)
-* `scriptPubKeyType`: The type of scriptPubKey (address) to generate, available: Legacy, Segwit, SegwitP2SH (Default: `Segwit` or `Legacy` if `cryptoCode` does not support segwit)
-* `passphrase`: The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) passphrase. (Default: "")
-* `importKeysToRPC`: If true, every times a call to [get a new unused address](#unused) is called, the private key will be imported into the underlying node via RPC's `importprivkey`. (Default: `false`)
+* `accountNumber`: Optional, the account number used for determining the keypath that NBXplorer will track, see `accountKeyPath` in the response. (Default: `0`)
+* `wordList`: Optional, the [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) wordlist to use when generating the mnemonic, available: English, French, Japanese, Spanish, ChineseSimplified (Defaut: `English`)
+* `wordCount`: Optional, the [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) word count in the mnemonic (Default: `12`)
+* `scriptPubKeyType`: Optional, the type of scriptPubKey (address) to generate, available: Legacy, Segwit, SegwitP2SH (Default: `Segwit` or `Legacy` if `cryptoCode` does not support segwit)
+* `passphrase`: Optional, the [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) passphrase. (Default: empty string)
+* `importKeysToRPC`: Optional, if true, every times a call to [get a new unused address](#unused) is called, the private key will be imported into the underlying node via RPC's `importprivkey`. (Default: `false`)
 
 The `importKeysToRPC` is only useful if one need to manage his wallet via the node's cli tooling.
 
