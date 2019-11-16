@@ -224,6 +224,16 @@ namespace NBXplorer.Controllers
 					update.PSBT.RebaseKeyPaths(rebase.AccountKey, rootedKeyPath);
 				}
 			}
+
+			var pubkey = update.DerivationScheme.GetExtPubKeys().SingleOrDefault();
+			if (pubkey != null)
+			{
+				var accountKeyPath = await repo.GetMetadata<RootedKeyPath>(new DerivationSchemeTrackedSource(update.DerivationScheme), WellknownMetadataKeys.AccountKeyPath);
+				if (accountKeyPath != null)
+				{
+					update.PSBT.RebaseKeyPaths(pubkey, accountKeyPath);
+				}
+			}
 		}
 
 		private static async Task UpdateHDKeyPathsWitnessAndRedeem(UpdatePSBTRequest update, Repository repo)

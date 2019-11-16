@@ -15,12 +15,10 @@ namespace NBXplorer.Models
 		public NBitcoin.Wordlist WordList { get; set; }
 		[JsonConverter(typeof(NBXplorer.JsonConverters.WordcountJsonConverter))]
 		public NBitcoin.WordCount WordCount { get; set; }
-		[JsonConverter(typeof(NBitcoin.JsonConverters.HDFingerprintJsonConverter))]
-		public NBitcoin.HDFingerprint MasterHDFingerprint { get; set; }
 		public BitcoinExtKey MasterHDKey { get; set; }
 		public BitcoinExtKey AccountHDKey { get; set; }
 		[JsonConverter(typeof(NBitcoin.JsonConverters.KeyPathJsonConverter))]
-		public NBitcoin.KeyPath AccountKeyPath { get; set; }
+		public NBitcoin.RootedKeyPath AccountKeyPath { get; set; }
 		public DerivationStrategyBase DerivationScheme { get; set; }
 	}
 }

@@ -2878,9 +2878,10 @@ namespace NBXplorer.Tests
 				Assert.NotNull(wallet.Mnemonic);
 				Assert.NotNull(wallet.Passphrase);
 				Assert.NotNull(wallet.WordList);
-				Assert.Equal(new KeyPath("84'/1'/0'"), wallet.AccountKeyPath);
+				var rootKey = new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase);
+				Assert.Equal(new RootedKeyPath(rootKey.GetPublicKey().GetHDFingerPrint(), new KeyPath("84'/1'/0'")), wallet.AccountKeyPath);
 				Assert.Equal(WordCount.Twelve, wallet.WordCount);
-				Assert.Equal(new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase).Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString(),
+				Assert.Equal(rootKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString(),
 					wallet.DerivationScheme.ToString());
 
 				foreach (var metadata in new[]
@@ -2895,7 +2896,6 @@ namespace NBXplorer.Tests
 				foreach (var metadata in new[]
 				{
 					WellknownMetadataKeys.AccountKeyPath,
-					WellknownMetadataKeys.MasterHDFingerprint,
 					WellknownMetadataKeys.ImportAddressToRPC
 				})
 				{
@@ -2920,7 +2920,6 @@ namespace NBXplorer.Tests
 					WellknownMetadataKeys.Mnemonic,
 					WellknownMetadataKeys.MasterHDKey,
 					WellknownMetadataKeys.AccountKeyPath,
-					WellknownMetadataKeys.MasterHDFingerprint,
 					WellknownMetadataKeys.ImportAddressToRPC
 				})
 				{
@@ -2929,11 +2928,11 @@ namespace NBXplorer.Tests
 
 				Assert.NotNull(wallet.Mnemonic);
 				Assert.Equal("hello", wallet.Passphrase);
-				Assert.Equal(new KeyPath("49'/1'/2'"), wallet.AccountKeyPath);
+				Assert.Equal(new RootedKeyPath(wallet.MasterHDKey.GetPublicKey().GetHDFingerPrint(), new KeyPath("49'/1'/2'")), wallet.AccountKeyPath);
 				Assert.Equal(Wordlist.French.ToString(), wallet.WordList.ToString());
 				Assert.Equal(WordCount.Fifteen, wallet.WordCount);
 				var masterKey = new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase);
-				Assert.Equal(masterKey.GetPublicKey().GetHDFingerPrint(), wallet.MasterHDFingerprint);
+				Assert.Equal(masterKey.GetPublicKey().GetHDFingerPrint(), wallet.AccountKeyPath.MasterFingerprint);
 				Assert.Equal(masterKey.GetWif(tester.Network), wallet.MasterHDKey);
 				Assert.Equal(masterKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString() + "-[p2sh]",
 					wallet.DerivationScheme.ToString());
@@ -2956,11 +2955,36 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Let's test the metadata are correct");
 				Assert.Equal(wallet.MasterHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.MasterHDKey));
-				Assert.Equal(wallet.MasterHDFingerprint, await tester.Client.GetMetadataAsync<HDFingerprint>(wallet.DerivationScheme, WellknownMetadataKeys.MasterHDFingerprint));
-				Assert.Equal(wallet.AccountKeyPath, await tester.Client.GetMetadataAsync<KeyPath>(wallet.DerivationScheme, WellknownMetadataKeys.AccountKeyPath));
+				Assert.Equal(wallet.AccountKeyPath, await tester.Client.GetMetadataAsync<RootedKeyPath>(wallet.DerivationScheme, WellknownMetadataKeys.AccountKeyPath));
 				Assert.Equal(wallet.AccountHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.AccountHDKey));
 				Assert.Equal(wallet.Mnemonic, await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.Mnemonic));
 				Assert.Equal("True", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
+
+				Logs.Tester.LogInformation("Let's check if psbt are properly rooted automatically");
+				var txid = await tester.SendToAddressAsync(firstGenerated.Address, Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);
+				var psbtResponse = await tester.Client.CreatePSBTAsync(wallet.DerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations = new List<CreatePSBTDestination>()
+					{
+						new CreatePSBTDestination()
+						{
+							Amount = Money.Coins(1.0m),
+							Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
+							SubstractFees = true,
+							SweepAll = true
+						}
+					},
+					FeePreference = new FeePreference()
+					{
+						FallbackFeeRate = new FeeRate(1.0m)
+					}
+				});
+
+				var input = psbtResponse.PSBT.Inputs[0].HDKeyPaths.Single();
+				Assert.Equal(wallet.AccountKeyPath.Derive(new KeyPath("0/0")).KeyPath, input.Value.KeyPath);
+				Assert.Equal(wallet.AccountKeyPath.MasterFingerprint, input.Value.MasterFingerprint);
+				Assert.Equal(firstGenerated.ScriptPubKey, input.Key.GetScriptPubKey(ScriptPubKeyType.SegwitP2SH));
 			}
 		}
 	}
