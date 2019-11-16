@@ -69,7 +69,7 @@ namespace NBXplorer
 						}
 						// The action is setting the result, so no need of TrySetResult here
 					}
-					catch (OperationCanceledException ex) when (_Cancel.IsCancellationRequested)
+					catch (OperationCanceledException) when (_Cancel.IsCancellationRequested)
 					{
 						act.Item2.TrySetCanceled();
 						break;
