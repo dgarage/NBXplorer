@@ -935,6 +935,8 @@ Response:
 * `psbt`: The partially signed bitcoin transaction in Base64.
 * `changeAddress`: The change address of the transaction, useful for tests (can be null) 
 
+Note, in the example above, if the [metadata](#metadata) `AccountKeyPath` is set to `ab5ed9ab/49'/0'/0'`, then you don't have to pass `rebaseKeyPaths`.
+
 ## <a name="updatepsbt"></a>Update Partially Signed Bitcoin Transaction
 
 HTTP POST v1/cryptos/{cryptoCode}/psbt/update
@@ -968,6 +970,8 @@ Response:
   "psbt": "cHNidP8BAHcBAAAAASjvZHM29AbxO4IGGHbk3IE82yciSQFr2Ihge7P9P1HeAQAAAAD/////AmzQMAEAAAAAGXapFG1/TpHnIajdweam5Z3V9s6oGWBRiKyAw8kBAAAAABl2qRSVNmCfrnVeIwVkuTrCR6EvRFCP7IisAAAAAAABAP10AQEAAAACe9C2c9VL+gfYpic4c+Wk/Nn7bvhewA82owtcUDo/tPoAAAAAakcwRAIgUlLS0SDj7IXeY44x21eUg16Vh4qbJe+NDQ/ywUrB84kCIGLU5Vec2bjL1DZhUmDueLrf0uh/PycOK7FWg/Ptvwi0ASED7OpQGf+HzIRwWKZ1Hmd8h6vxkFOt5RlJ3u/flzNTesv/////818+qp4hLnw9DWOD+a601fLjFciZ/4iCNT1M9g+kMvkAAAAAakcwRAIgfk+bUUYfRs6AU1mt5unV4fZxCit34g8pE5fsawUM7H0CIBGpSil8+JCHdAHxKU2I7CvEBzAyz3ggd9RlH+QQSnlkASEC/wwlQ07b3xdSQaEf+wRJEnzEJT2GPNTY4Wb3Gg1hxFz/////AoDw+gIAAAAAGXapFHoZHSjaWNcmJk7sSHvRG29RaqIiiKxQlPoCAAAAABl2qRTSKm2x4ITWeuYLwCv3PUDtt+CL+YisAAAAACIGA1KRWHyJqdpbUzuezCSzj4+bj1+gNWGEibLG0BMj9/RmDDAn+hsBAAAAAgAAAAAiAgIuwas0MohgjmGIXoOgS95USEDawK//ZqrVEi5UIfP/FAwwJ/obAQAAAAMAAAAAAA=="
 }
 ```
+
+Note, in the example above, if the [metadata](#metadata) `AccountKeyPath` is set to `ab5ed9ab/49'/0'/0'`, then you don't have to pass `rebaseKeyPaths`.
 
 ## <a name="metadata"></a>Attach metadata to a derivation scheme
 
@@ -1087,6 +1091,8 @@ Response:
 * `AccountHDKey`: The derived [xpriv](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) account key from the `MasterHDKey` and `AccountKeyPath`. (if `savePrivateKeys` is `true`)
 * `AccountKeyPath`: The fingerprint of the master key as defined by The [BIP174](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki), followed by the derivation path used to generate the `derivationScheme`. ([Purpose field](https://github.com/bitcoin/bips/blob/master/bip-0043.mediawiki) based on [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki), [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki) or [BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki) and [SLIP44](https://github.com/satoshilabs/slips/blob/master/slip-0044.md) for the coin type)
 * `ImportAddressToRPC`: `true` or `false`, depending if addresses generated are also imported to the internal node.
+
+Note that the metadata `AccountKeyPath` is leveraged by [Create a PSBT](#psbt) and [Update a PSBT](#updatepsbt).
 
 ## <a name="health"></a>Health check
 
