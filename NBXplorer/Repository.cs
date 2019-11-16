@@ -737,7 +737,7 @@ namespace NBXplorer
 			get; set;
 		} = 30;
 
-		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null)
+		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, CancellationToken cancellation = default)
 		{
 
 			bool needUpdate = false;
@@ -773,7 +773,7 @@ namespace NBXplorer
 
 				}
 				return result;
-			});
+			}, cancellation);
 
 			TransactionMatchData previousConfirmed = null;
 			foreach (var tx in transactions)

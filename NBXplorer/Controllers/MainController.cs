@@ -935,7 +935,7 @@ namespace NBXplorer.Controllers
 
 		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, SlimChain chain, TrackedSource trackedSource, uint256 txId = null)
 		{
-			var transactions = await repo.GetTransactions(trackedSource, txId);
+			var transactions = await repo.GetTransactions(trackedSource, txId, this.HttpContext.RequestAborted);
 
 			// If the called is interested by only a single txId, we need to fetch the parents as well
 			if (txId != null)

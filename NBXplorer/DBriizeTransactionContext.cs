@@ -13,7 +13,7 @@ namespace NBXplorer
 		DBriizeEngine _Engine;
 		DBriize.Transactions.Transaction _Tx;
 		Thread _Loop;
-		readonly BlockingCollection<(Action<DBriize.Transactions.Transaction>, TaskCompletionSource<object>)> _Actions = new BlockingCollection<(Action<DBriize.Transactions.Transaction>, TaskCompletionSource<object>)>(new ConcurrentQueue<(Action<DBriize.Transactions.Transaction>, TaskCompletionSource<object>)>());
+		readonly BlockingCollection<(Action<DBriize.Transactions.Transaction>, TaskCompletionSource<object>, CancellationToken)> _Actions = new BlockingCollection<(Action<DBriize.Transactions.Transaction>, TaskCompletionSource<object>, CancellationToken)>(new ConcurrentQueue<(Action<DBriize.Transactions.Transaction>, TaskCompletionSource<object>, CancellationToken)>());
 		TaskCompletionSource<bool> _Done;
 		CancellationTokenSource _Cancel;
 		bool _IsDisposed;
@@ -49,6 +49,11 @@ namespace NBXplorer
 				bool initialized = false;
 				foreach (var act in _Actions.GetConsumingEnumerable(_Cancel.Token))
 				{
+					if (act.Item3.IsCancellationRequested)
+					{
+						act.Item2.TrySetCanceled();
+						continue;
+					}
 					try
 					{
 						if (!initialized)
@@ -66,7 +71,7 @@ namespace NBXplorer
 					}
 					catch (OperationCanceledException ex) when (_Cancel.IsCancellationRequested)
 					{
-						act.Item2.TrySetException(ex);
+						act.Item2.TrySetCanceled();
 						break;
 					}
 					catch (Exception ex)
@@ -90,29 +95,29 @@ namespace NBXplorer
 				throw new InvalidOperationException("Bug in NBXplorer. _Tx should be set by now, report on github.");
 		}
 
-		public Task DoAsync(Action<DBriize.Transactions.Transaction> action)
+		public Task DoAsync(Action<DBriize.Transactions.Transaction> action, CancellationToken cancellation = default)
 		{
 			if (_IsDisposed)
 				throw new ObjectDisposedException(nameof(DBriizeTransactionContext));
-			return DoAsyncCore(action);
+			return DoAsyncCore(action, cancellation);
 		}
-		public Task<T> DoAsync<T>(Func<DBriize.Transactions.Transaction, T> action)
+		public Task<T> DoAsync<T>(Func<DBriize.Transactions.Transaction, T> action, CancellationToken cancellation = default)
 		{
 			if (_IsDisposed)
 				throw new ObjectDisposedException(nameof(DBriizeTransactionContext));
-			return DoAsyncCore(action);
+			return DoAsyncCore(action, cancellation);
 		}
 
-		private Task DoAsyncCore(Action<DBriize.Transactions.Transaction> action)
+		private Task DoAsyncCore(Action<DBriize.Transactions.Transaction> action, CancellationToken cancellation)
 		{
 			var completion = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-			_Actions.Add(((tx) => { action(tx); completion.TrySetResult(true); }, completion));
+			_Actions.Add(((tx) => { action(tx); completion.TrySetResult(true); }, completion, cancellation));
 			return completion.Task;
 		}
-		private async Task<T> DoAsyncCore<T>(Func<DBriize.Transactions.Transaction, T> action)
+		private async Task<T> DoAsyncCore<T>(Func<DBriize.Transactions.Transaction, T> action, CancellationToken cancellation)
 		{
 			var completion = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
-			_Actions.Add(((tx) => { completion.TrySetResult(action(tx)); }, completion));
+			_Actions.Add(((tx) => { completion.TrySetResult(action(tx)); }, completion, cancellation));
 			return (T)(await completion.Task);
 		}
 
@@ -125,7 +130,7 @@ namespace NBXplorer
 			{
 				if (!_IsStarted)
 					return;
-				await DoAsyncCore(tx => { tx.Dispose(); });
+				await DoAsyncCore(tx => { tx.Dispose(); }, default);
 				_Cancel.Cancel();
 				await _Done.Task;
 			}
