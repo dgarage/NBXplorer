@@ -16,5 +16,6 @@ namespace NBXplorer.Models
 		public NBitcoin.ScriptPubKeyType? ScriptPubKeyType { get; set; }
 		public string Passphrase { get; set; }
 		public bool ImportKeysToRPC { get; set; }
+		public bool SavePrivateKeys { get; set; }
 	}
 }

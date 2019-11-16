@@ -8,8 +8,9 @@ namespace NBXplorer
 	{
 		public const string ImportAddressToRPC = nameof(ImportAddressToRPC);
 		public const string Mnemonic = nameof(Mnemonic);
-		public const string MasterExtKey = nameof(MasterExtKey);
-		public const string AccountExtKey = nameof(AccountExtKey);
+		public const string MasterHDFingerprint = nameof(MasterHDFingerprint);
+		public const string MasterHDKey = nameof(MasterHDKey);
+		public const string AccountHDKey = nameof(AccountHDKey);
 		public const string AccountKeyPath = nameof(AccountKeyPath);
 	}
 }

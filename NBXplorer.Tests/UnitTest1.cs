@@ -2883,6 +2883,25 @@ namespace NBXplorer.Tests
 				Assert.Equal(new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase).Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString(),
 					wallet.DerivationScheme.ToString());
 
+				foreach (var metadata in new[]
+				{
+					WellknownMetadataKeys.AccountHDKey,
+					WellknownMetadataKeys.Mnemonic,
+					WellknownMetadataKeys.MasterHDKey
+				})
+				{
+					Assert.Null(await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, metadata));
+				}
+				foreach (var metadata in new[]
+				{
+					WellknownMetadataKeys.AccountKeyPath,
+					WellknownMetadataKeys.MasterHDFingerprint,
+					WellknownMetadataKeys.ImportAddressToRPC
+				})
+				{
+					Assert.NotNull(await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, metadata));
+				}
+
 				Logs.Tester.LogInformation("Let's make sure our parameters are not ignored");
 				wallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
 				{
@@ -2891,19 +2910,35 @@ namespace NBXplorer.Tests
 					ScriptPubKeyType = ScriptPubKeyType.SegwitP2SH,
 					WordCount = WordCount.Fifteen,
 					WordList = Wordlist.French,
-					AccountNumber = 2
+					AccountNumber = 2,
+					SavePrivateKeys = true
 				});
+
+				foreach (var metadata in new[]
+				{
+					WellknownMetadataKeys.AccountHDKey,
+					WellknownMetadataKeys.Mnemonic,
+					WellknownMetadataKeys.MasterHDKey,
+					WellknownMetadataKeys.AccountKeyPath,
+					WellknownMetadataKeys.MasterHDFingerprint,
+					WellknownMetadataKeys.ImportAddressToRPC
+				})
+				{
+					Assert.NotNull(await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, metadata));
+				}
+
 				Assert.NotNull(wallet.Mnemonic);
 				Assert.Equal("hello", wallet.Passphrase);
 				Assert.Equal(new KeyPath("49'/1'/2'"), wallet.AccountKeyPath);
 				Assert.Equal(Wordlist.French.ToString(), wallet.WordList.ToString());
 				Assert.Equal(WordCount.Fifteen, wallet.WordCount);
 				var masterKey = new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase);
-				Assert.Equal(masterKey.GetPublicKey().GetHDFingerPrint(), wallet.MasterFingerprint);
+				Assert.Equal(masterKey.GetPublicKey().GetHDFingerPrint(), wallet.MasterHDFingerprint);
+				Assert.Equal(masterKey.GetWif(tester.Network), wallet.MasterHDKey);
 				Assert.Equal(masterKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString() + "-[p2sh]",
 					wallet.DerivationScheme.ToString());
 				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Client.Network);
-
+				Assert.Equal(wallet.DerivationScheme.GetExtPubKeys().Single().PubKey, wallet.AccountHDKey.GetPublicKey());
 				Logs.Tester.LogInformation("Let's assert it is tracked");
 				var firstKeyInfo = repo.GetKeyInformation(wallet.DerivationScheme.GetChild(new KeyPath("0/0")).GetDerivation().ScriptPubKey);
 				Assert.NotNull(firstKeyInfo);
@@ -2917,6 +2952,15 @@ namespace NBXplorer.Tests
 				var rpcAddressInfo = await waiter.RPC.GetAddressInfoAsync(firstKeyInfo.Address);
 				Assert.True(rpcAddressInfo.IsMine);
 				Assert.False(rpcAddressInfo.IsWatchOnly);
+
+
+				Logs.Tester.LogInformation("Let's test the metadata are correct");
+				Assert.Equal(wallet.MasterHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.MasterHDKey));
+				Assert.Equal(wallet.MasterHDFingerprint, await tester.Client.GetMetadataAsync<HDFingerprint>(wallet.DerivationScheme, WellknownMetadataKeys.MasterHDFingerprint));
+				Assert.Equal(wallet.AccountKeyPath, await tester.Client.GetMetadataAsync<KeyPath>(wallet.DerivationScheme, WellknownMetadataKeys.AccountKeyPath));
+				Assert.Equal(wallet.AccountHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.AccountHDKey));
+				Assert.Equal(wallet.Mnemonic, await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.Mnemonic));
+				Assert.Equal("True", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
 			}
 		}
 	}

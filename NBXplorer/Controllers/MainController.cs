@@ -143,7 +143,7 @@ namespace NBXplorer.Controllers
 				if (!shouldImportRPC)
 					return;
 				var rpc = Waiters.GetWaiter(repository.Network).RPC;
-				if (await repository.GetMetadata<BitcoinExtKey>(ts, WellknownMetadataKeys.AccountExtKey) is BitcoinExtKey accountKey)
+				if (await repository.GetMetadata<BitcoinExtKey>(ts, WellknownMetadataKeys.AccountHDKey) is BitcoinExtKey accountKey)
 				{
 					await rpc.ImportPrivKeyAsync(accountKey.Derive(result.KeyPath).PrivateKey.GetWif(result.Address.Network), null, false);
 				}
@@ -1063,18 +1063,26 @@ namespace NBXplorer.Controllers
 			});
 
 			var derivationTrackedSource = new DerivationSchemeTrackedSource(derivation);
-			await Task.WhenAll(new[] {
-				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Mnemonic, mnemonic.ToString()),
-				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterExtKey, masterKey),
-				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountExtKey, accountKey),
-				repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountKeyPath, keyPath),
-				repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, request.ImportKeysToRPC.ToString())
-			}.ToArray());
-
+			List<Task> saveMetadata = new List<Task>();
+			if (request.SavePrivateKeys)
+			{
+				saveMetadata.AddRange(
+				new[] {
+					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Mnemonic, mnemonic.ToString()),
+					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterHDKey, masterKey),
+					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountHDKey, accountKey)
+				});
+			}
+			saveMetadata.Add(repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterHDFingerprint, masterKey.GetPublicKey().GetHDFingerPrint().ToString()));
+			saveMetadata.Add(repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountKeyPath, keyPath));
+			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, request.ImportKeysToRPC.ToString()));
+			await Task.WhenAll(saveMetadata.ToArray());
 			await TrackWallet(cryptoCode, derivation, null);
 			return Json(new GenerateWalletResponse()
 			{
-				MasterFingerprint = masterKey.ExtKey.GetPublicKey().GetHDFingerPrint(),
+				MasterHDFingerprint = masterKey.ExtKey.GetPublicKey().GetHDFingerPrint(),
+				MasterHDKey = masterKey,
+				AccountHDKey = accountKey,
 				AccountKeyPath = keyPath,
 				DerivationScheme = derivation,
 				Mnemonic = mnemonic.ToString(),
