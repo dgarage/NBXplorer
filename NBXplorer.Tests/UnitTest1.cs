@@ -733,8 +733,7 @@ namespace NBXplorer.Tests
 						new PSBTRebaseKeyRules()
 						{
 							AccountKey = userDerivationScheme.GetExtPubKeys().First().GetWif(tester.Network),
-							MasterFingerprint = rootHD,
-							AccountKeyPath = new KeyPath("49'/0'")
+							AccountKeyPath = new RootedKeyPath(rootHD, new KeyPath("49'/0'"))
 						}
 					}
 			});

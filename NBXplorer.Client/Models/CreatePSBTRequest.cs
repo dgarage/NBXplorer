@@ -65,29 +65,13 @@ namespace NBXplorer.Models
 	public class PSBTRebaseKeyRules
 	{
 		/// <summary>
-		/// The fingerprint of the master key
-		/// </summary>
-		public HDFingerprint? MasterFingerprint { get; set; }
-		/// <summary>
 		/// The account key to rebase
 		/// </summary>
 		public BitcoinExtPubKey AccountKey { get; set; }
 		/// <summary>
 		/// The path from the root to the account key
 		/// </summary>
-		public KeyPath AccountKeyPath { get; set; }
-		/// <summary>
-		/// Alternative way to pass the MasterFingerprint and AccountKeyPath in the form "7b09d780/0'/0'/2'"
-		/// Mutually exclusive with MasterFingerprint and AccountKeyPath.
-		/// </summary>
-		public RootedKeyPath RootedKeyPath { get; set; }
-
-		public RootedKeyPath GetRootedKeyPath()
-		{
-			return RootedKeyPath ??
-				   ((MasterFingerprint is null || AccountKeyPath is null) ? null
-				   : new RootedKeyPath(MasterFingerprint.Value, AccountKeyPath));
-		}
+		public RootedKeyPath AccountKeyPath { get; set; }
 	}
 	public class CreatePSBTDestination
 	{

@@ -218,10 +218,9 @@ namespace NBXplorer.Controllers
 			{
 				foreach (var rebase in update.RebaseKeyPaths)
 				{
-					var rootedKeyPath = rebase.GetRootedKeyPath();
-					if (rootedKeyPath == null)
-						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].rootedKeyPath is missing"));
-					update.PSBT.RebaseKeyPaths(rebase.AccountKey, rootedKeyPath);
+					if (rebase.AccountKeyPath == null)
+						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].accountKeyPath is missing"));
+					update.PSBT.RebaseKeyPaths(rebase.AccountKey, rebase.AccountKeyPath);
 				}
 			}
 

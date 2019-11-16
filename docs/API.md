@@ -890,9 +890,8 @@ Fields:
   "includeOnlyOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1" ],
   "rebaseKeyPaths": [
   	  {
-		"masterFingerprint": "ab5ed9ab",
 		"accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
-		"accountKeyPath": "49'/0'/0'"
+		"accountKeyPath": "ab5ed9ab/49'/0'/0'"
 	  }
   ]
 }
@@ -918,10 +917,8 @@ Fields:
 * `feePreference.blockTarget`: A number of blocks after which the user expect one confirmation (Mutually exclusive with: explicitFeeRate, explicitFee)
 * `feePreference.fallbackFeeRate`: If the NBXplorer's node does not have proper fee estimation, this specific rate will be use in Satoshi per vBytes, this make sure that `fee-estimation-unavailable` is never sent. (Mutually exclusive with: explicitFeeRate, explicitFee)
 * `rebaseKeyPaths`: Optional. rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about), a rebase can transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint)
-* `rebaseKeyPaths[].masterFingerprint`: The fingerprint of the master key
 * `rebaseKeyPaths[].accountKey`: The account key to rebase
-* `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key
-* `rebaseKeyPaths[].rootedKeyPath`: Alternative way to pass the masterFingerprint and accountKeyPath in the form "7b09d780/0'/0'/2'". Mutually exclusive with masterFingerprint and accountKeyPath.
+* `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key prefixed by the master public key fingerprint.
 
 Response:
 
@@ -949,9 +946,8 @@ NBXplorer will take to complete as much information as it can about this PSBT.
   "derivationScheme": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
   "rebaseKeyPaths": [
   {
-    "masterFingerprint": "ab5ed9ab",
     "accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
-    "accountKeyPath": "49'/0'/0'"
+    "accountKeyPath": "ab5ed9ab/49'/0'/0'"
   }
   ]
 }
@@ -959,10 +955,8 @@ NBXplorer will take to complete as much information as it can about this PSBT.
 * `psbt`: Required. A potentially incomplete PSBT that you want to update (Input WitnessUTXO, NonWitnessUTXO)
 * `derivationScheme`: Optional. If specified, will complete HDKeyPaths, witness script and redeem script information in the PSBT belonging to this derivationScheme.
 * `rebaseKeyPaths`: Optional. Rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about), a rebase can transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint)
-* `rebaseKeyPaths[].masterFingerprint`: The fingerprint of the master key
 * `rebaseKeyPaths[].accountKey`: The account key to rebase
-* `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key
-* `rebaseKeyPaths[].rootedKeyPath`: Alternative way to pass the masterFingerprint and accountKeyPath in the form "7b09d780/0'/0'/2'". Mutually exclusive with masterFingerprint and accountKeyPath.
+* `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key prefixed by the master public key fingerprint.
 
 Response:
 ```json
