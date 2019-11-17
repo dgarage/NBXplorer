@@ -76,19 +76,21 @@ namespace NBXplorer.Controllers
 			}
 			(Script ScriptPubKey, KeyPath KeyPath) change = (null, null);
 			bool hasChange = false;
-			// We first build the transaction with a change which keep the length of the expected change scriptPubKey
-			// This allow us to detect if there is a change later in the constructed transaction.
-			// This defend against bug which can happen if one of the destination is the same as the expected change
-			// This assume that a script with only 0 can't be created from a strategy, nor by passing any data to explicitChangeAddress
 			if (request.ExplicitChangeAddress == null)
 			{
-				// The dummyScriptPubKey is necessary to know the size of the change
-				var dummyScriptPubKey = utxos.FirstOrDefault()?.ScriptPubKey ?? strategy.GetDerivation(0).ScriptPubKey;
-				change = (Script.FromBytesUnsafe(new byte[dummyScriptPubKey.Length]), null);
+				var keyInfo = await repo.GetUnused(strategy, DerivationFeature.Change, 0, false);
+				change = (keyInfo.ScriptPubKey, keyInfo.KeyPath);
 			}
 			else
 			{
-				change = (Script.FromBytesUnsafe(new byte[request.ExplicitChangeAddress.ScriptPubKey.Length]), null);
+				// The provided explicit change might have a known keyPath, let's change for it
+				KeyPath keyPath = null;
+				var keyInfos = await repo.GetKeyInformations(new[] { request.ExplicitChangeAddress.ScriptPubKey });
+				if (keyInfos.TryGetValue(request.ExplicitChangeAddress.ScriptPubKey, out var kis))
+				{
+					keyPath = kis.FirstOrDefault(k => k.DerivationStrategy == strategy)?.KeyPath;
+				}
+				change = (request.ExplicitChangeAddress.ScriptPubKey, keyPath);
 			}
 			txBuilder.SetChange(change.ScriptPubKey);
 			PSBT psbt = null;
@@ -133,37 +135,23 @@ namespace NBXplorer.Controllers
 			{
 				throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "Not enough funds for doing this transaction"));
 			}
-			if (hasChange) // We need to reserve an address, so we need to build again the psbt
+			// We made sure we can build the PSBT, so now we can reserve the change address if we need to
+			if (hasChange && request.ExplicitChangeAddress == null && request.ReserveChangeAddress)
 			{
-				if (request.ExplicitChangeAddress == null)
+				var derivation = await repo.GetUnused(strategy, DerivationFeature.Change, 0, true);
+				// In most of the time, this is the same as previously, so no need to rebuild PSBT
+				if (derivation.ScriptPubKey != change.ScriptPubKey)
 				{
-					var derivation = await repo.GetUnused(strategy, DerivationFeature.Change, 0, request.ReserveChangeAddress);
 					change = (derivation.ScriptPubKey, derivation.KeyPath);
+					txBuilder.SetChange(change.ScriptPubKey);
+					psbt = txBuilder.BuildPSBT(false);
 				}
-				else
-				{
-					change = (request.ExplicitChangeAddress.ScriptPubKey, null);
-				}
-				txBuilder.SetChange(change.ScriptPubKey);
-				psbt = txBuilder.BuildPSBT(false);
 			}
 
 			var tx = psbt.GetOriginalTransaction();
 			if (request.Version is uint v)
 				tx.Version = v;
 			psbt = txBuilder.CreatePSBTFrom(tx, false, SigHash.All);
-
-			// Maybe it is a change that we know about, let's search in the DB
-			if (hasChange && change.KeyPath == null)
-			{
-				var keyInfos = await repo.GetKeyInformations(new[] { request.ExplicitChangeAddress.ScriptPubKey });
-				if (keyInfos.TryGetValue(request.ExplicitChangeAddress.ScriptPubKey, out var kis))
-				{
-					var ki = kis.FirstOrDefault(k => k.DerivationStrategy == strategy);
-					if (ki != null)
-						change = (change.ScriptPubKey, kis.First().KeyPath);
-				}
-			}
 
 			await UpdatePSBTCore(new UpdatePSBTRequest()
 			{

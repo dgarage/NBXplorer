@@ -749,6 +749,27 @@ namespace NBXplorer.Tests
 				Assert.StartsWith("49'/0'", i.Value.KeyPath.ToString());
 				Assert.Equal(4, i.Value.KeyPath.Indexes.Length);
 			});
+
+			Logs.Tester.LogInformation("Let's check that if the explicit change is one of the destination, fee are calculated correctly");
+			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+			{
+				Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = newAddress.Address,
+								Amount = Money.Coins(0.0001m)
+							}
+						},
+				ExplicitChangeAddress = newAddress.Address,
+				FeePreference = new FeePreference()
+				{
+					FallbackFeeRate = new FeeRate(1.0m)
+				},
+				ReserveChangeAddress = true
+			});
+			Assert.True(psbt2.PSBT.TryGetEstimatedFeeRate(out var feeRate));
+			Assert.Equal(new FeeRate(1.0m), feeRate);
 		}
 
 		[Fact]
