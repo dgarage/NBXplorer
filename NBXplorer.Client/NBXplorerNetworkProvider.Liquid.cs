@@ -38,7 +38,8 @@ namespace NBXplorer
 		{
 			Add(new LiquidNBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, networkType)
 			{
-				MinRPCVersion = 150000
+				MinRPCVersion = 150000,
+				CoinType = new KeyPath(1776)
 			});
 		}
 
