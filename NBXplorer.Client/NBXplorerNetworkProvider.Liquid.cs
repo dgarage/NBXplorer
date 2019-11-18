@@ -57,7 +57,7 @@ namespace NBXplorer
 			public static Key GenerateBlindingKey(DerivationStrategyBase derivationStrategy, KeyPath keyPath)
 			{
 				var blindingKey = new Key(derivationStrategy.GetChild(keyPath).GetChild(new KeyPath("0")).GetDerivation()
-					.ScriptPubKey.Hash.ToBytes());
+					.ScriptPubKey.WitHash.ToBytes());
 				return blindingKey;
 			}
 		}
