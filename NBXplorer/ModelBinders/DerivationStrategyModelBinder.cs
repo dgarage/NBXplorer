@@ -42,7 +42,7 @@ namespace NBXplorer.ModelBinders
 			var network = networkProvider.GetFromCryptoCode((cryptoCode ?? "BTC"));
 			try
 			{
-				var data = new DerivationStrategy.DerivationStrategyFactory(network.NBitcoinNetwork).Parse(key);
+				var data = network.DerivationStrategyFactory.Parse(key);
 				if(!bindingContext.ModelType.IsInstanceOfType(data))
 				{
 					throw new FormatException("Invalid destination type");
