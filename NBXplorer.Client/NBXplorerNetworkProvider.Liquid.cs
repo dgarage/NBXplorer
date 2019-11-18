@@ -10,37 +10,10 @@ namespace NBXplorer
 {
 	public partial class NBXplorerNetworkProvider
 	{
-		public class LiquidExplorerClient : ExplorerClient
-		{
-			public LiquidExplorerClient(NBXplorerNetwork network, Uri serverAddress = null) : base(network, serverAddress)
-			{
-			}
-			public override async Task<TransactionResult> GetTransactionAsync(uint256 txId,
-				CancellationToken cancellation = default)
-			{
-				return await base.GetTransactionAsync<LiquidTransactionResult>(txId, cancellation);
-			}
-		}
-
-		public class  LiquidTransactionResult : TransactionResult
-		{
-			private ElementsTransaction _transaction;
-			public override Transaction Transaction
-			{
-				get => _transaction;
-				set => _transaction = value as ElementsTransaction;
-			}
-		}
-		
 		public class LiquidNBXplorerNetwork : NBXplorerNetwork
 		{
 			public LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType, DerivationStrategyFactory derivationStrategyFactory = null) : base(networkSet, networkType, derivationStrategyFactory)
 			{
-			}
-
-			public override ExplorerClient CreateExplorerClient(Uri uri)
-			{
-				return new LiquidExplorerClient(this, uri);
 			}
 			
 			public override BitcoinAddress CreateAddress(DerivationStrategyBase derivationStrategy, KeyPath keyPath, Script scriptPubKey)
