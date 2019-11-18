@@ -132,16 +132,6 @@ namespace NBXplorer{
 		}
 		public bool IsCoinBase => Transaction?.IsCoinBase is true;
 
-		public TrackedTransaction Prune()
-		{
-			// Pruning transactions, coins and known keys
-			return new TrackedTransaction(new TrackedTransactionKey(Key.TxId, Key.BlockHash, true), TrackedSource)
-			{
-				FirstSeen = FirstSeen,
-				Inserted = Inserted
-			};
-		}
-
 		public IEnumerable<MatchedOutput> GetReceivedOutputs()
 		{
 			return this.ReceivedCoins

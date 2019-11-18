@@ -1234,16 +1234,6 @@ namespace NBXplorer
 				foreach (var tracked in prunable)
 				{
 					table.RemoveKey(tracked.Key.ToString());
-					if (tracked.Key.BlockHash != null)
-					{
-						var pruned = tracked.Prune();
-						var data = new TransactionMatchData(pruned);
-						MemoryStream ms = new MemoryStream();
-						BitcoinStream bs = new BitcoinStream(ms, true);
-						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-						data.ReadWrite(bs);
-						table.Insert(data.GetRowKey(), ms.ToArrayEfficient());
-					}
 				}
 				tx.Commit();
 			});

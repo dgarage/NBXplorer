@@ -25,10 +25,6 @@ using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Tests
 {
-	public class ServerParams
-	{
-		public string AutoPruning { get; set; }
-	}
 	public partial class ServerTester : IDisposable
 	{
 		private readonly string _Directory;

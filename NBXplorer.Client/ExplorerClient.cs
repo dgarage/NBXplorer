@@ -135,16 +135,16 @@ namespace NBXplorer
 			return GetTransactionAsync(txId, cancellation).GetAwaiter().GetResult();
 		}
 
-		public async Task<PruneResponse> PruneAsync(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		public async Task<PruneResponse> PruneAsync(DerivationStrategyBase extKey, PruneRequest pruneRequest, CancellationToken cancellation = default)
 		{
 			if (extKey == null)
 				throw new ArgumentNullException(nameof(extKey));
-			return await SendAsync<PruneResponse>(HttpMethod.Post, null, "v1/cryptos/{0}/derivations/{1}/prune", new object[] { Network.CryptoCode, extKey }, cancellation).ConfigureAwait(false);
+			return await SendAsync<PruneResponse>(HttpMethod.Post, pruneRequest, "v1/cryptos/{0}/derivations/{1}/prune", new object[] { Network.CryptoCode, extKey }, cancellation).ConfigureAwait(false);
 		}
 
-		public PruneResponse Prune(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		public PruneResponse Prune(DerivationStrategyBase extKey, PruneRequest pruneRequest, CancellationToken cancellation = default)
 		{
-			return PruneAsync(extKey, cancellation).GetAwaiter().GetResult();
+			return PruneAsync(extKey, pruneRequest, cancellation).GetAwaiter().GetResult();
 		}
 
 		public async Task ScanUTXOSetAsync(DerivationStrategyBase extKey, int? batchSize = null, int? gapLimit = null, int? fromIndex = null, CancellationToken cancellation = default)

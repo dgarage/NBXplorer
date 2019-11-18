@@ -1124,10 +1124,9 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Theory]
-		[InlineData(false)]
-		[InlineData(true)]
-		public void CanPrune(bool autoPruning)
+		PruneRequest PruneTheMost = new PruneRequest() { DaysToKeep = 0.0 };
+		[Fact]
+		public void CanPrune()
 		{
 			// In this test we have fundingTxId with 2 output and spending1
 			// We make sure that only once the 2 outputs of fundingTxId have been consumed
@@ -1146,33 +1145,17 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
 				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
-
+				Logs.Tester.LogInformation($"Funding tx ({fundingTxId}) has two coins");
 				Logs.Tester.LogInformation("Let's spend one of the coins");
-				// [funding, spending1]
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
 				var spending1 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
 				Logs.Tester.LogInformation($"Spent on {spending1}");
-				// Let's add some transactions spending to push the spending in the first quarter
-				// [funding, *spending1*, tx1, tx2, tx3, tx4]
-				Thread.Sleep(1000);
-				for (int i = 0; i < 4; i++)
-				{
-					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.01m));
-				}
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
+				tester.Client.Prune(pubkey, PruneTheMost);
 
-				if (autoPruning)
-				{
-					tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
-				}
-				else
-				{
-					tester.Client.Prune(pubkey);
-				}
-
-				Logs.Tester.LogInformation("After activating pruning, it still should not pruned, because there is still one coin");
+				Logs.Tester.LogInformation("It still should not pruned, because there is still another UTXO in funding tx");
 				utxo = tester.Client.GetUTXOs(pubkey);
 				utxo = tester.Client.GetUTXOs(pubkey);
 				AssertNotPruned(tester, pubkey, fundingTxId);
@@ -1183,23 +1166,21 @@ namespace NBXplorer.Tests
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var spending2 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
 				Logs.Tester.LogInformation($"Spent on {spending2}");
-				Thread.Sleep(1000);
-				// Let's add some transactions spending to push the spending in the first quarter
-				// [funding, spending1, tx1, tx2, tx3, tx4, *spending2*, tx21, tx22, ..., tx217]
-				for (int i = 0; i < 17; i++)
-				{
-					if (i == 10)
-						tester.RPC.EnsureGenerate(1); // Can't have too big chain on unconf
-					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.001m));
-				}
-				tester.RPC.EnsureGenerate(1);
-				tester.WaitSynchronized();
 
-				if (!autoPruning)
-				{
-					tester.Client.Prune(pubkey);
-				}
-				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned");
+				tester.RPC.EnsureGenerate(3);
+				tester.WaitSynchronized();
+				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned if we want to keep 1H of blocks");
+				tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0/24.0 });
+				AssertNotPruned(tester, pubkey, fundingTxId);
+				AssertNotPruned(tester, pubkey, spending1);
+				AssertNotPruned(tester, pubkey, spending2);
+
+				tester.RPC.Generate(4);
+				var totalPruned = tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0 / 24.0 }).TotalPruned;
+				Assert.Equal(3, totalPruned);
+				totalPruned = tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0 / 24.0 }).TotalPruned;
+				Assert.Equal(0, totalPruned);
+				Logs.Tester.LogInformation($"But after 1H of blocks, it should be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey);
 				AssertPruned(tester, pubkey, fundingTxId);
 				AssertPruned(tester, pubkey, spending1);
@@ -1207,17 +1188,15 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		private static TransactionInformation AssertPruned(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
+		private static void AssertPruned(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
 		{
-			TransactionInformation tx = AssertExist(tester, pubkey, txid);
-			Assert.Null(tx.Transaction);
-			return tx;
+			var txs = tester.Client.GetTransactions(pubkey);
+			Assert.DoesNotContain(txid, txs.ConfirmedTransactions.Transactions.Select(t => t.TransactionId).ToArray());
 		}
-		private static TransactionInformation AssertNotPruned(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
+		private static void AssertNotPruned(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
 		{
-			TransactionInformation tx = AssertExist(tester, pubkey, txid);
-			Assert.NotNull(tx.Transaction);
-			return tx;
+			var txs = tester.Client.GetTransactions(pubkey);
+			Assert.Contains(txid, txs.ConfirmedTransactions.Transactions.Select(t => t.TransactionId).ToArray());
 		}
 
 		private static TransactionInformation AssertExist(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
@@ -1285,19 +1264,10 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation($"Spent again the coin in spending2({spending2})");
 				var tx = tester.RPC.GetRawTransactionAsync(spending2).Result;
 				Assert.Contains(tx.Inputs, (i) => i.PrevOut.Hash == spending1);
-
-				// Let's add some transactions spending to push the spending2 in the first quarter
-				// [funding, spending1, *spending2*, tx1, tx2, tx3, tx4, tx5]
-				Thread.Sleep(1000);
-				for (int i = 0; i < 5; i++)
-				{
-					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.01m));
-				}
 				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 				tester.WaitSynchronized();
 
-				tester.Configuration.AutoPruningTime = TimeSpan.Zero; // Activate pruning
-
+				tester.Client.Prune(pubkey, PruneTheMost);
 				// spending1 should not be pruned because fundingTx still can't be pruned
 				Logs.Tester.LogInformation($"Spending spending1({spending1}) and spending2({spending2} can't be pruned, because a common ancestor fundingTx({fundingTxId}) can't be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey);
@@ -1312,18 +1282,9 @@ namespace NBXplorer.Tests
 				var spending3 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
 				tester.Notifications.WaitForTransaction(pubkey, spending3);
 				Logs.Tester.LogInformation($"Spent the second coin to 0/0 in spending3({spending3})");
-				// Let's add some transactions spending to push the spending in the first quarter
-				// [funding, spending1, spending2, tx1, tx2, tx3, tx4, tx5, *spending3*, tx21, tx22, ..., tx232]
-				Thread.Sleep(1000);
-				for (int i = 0; i < 32 - 9; i++)
-				{
-					if (i % 10 == 0)
-						tester.RPC.EnsureGenerate(1); // Can't have too big chain on unconf
-					tester.SendToAddress(tester.AddressOf(pubkey, "0"), Money.Coins(0.001m));
-				}
-				Logs.Tester.LogInformation($"Waiting for next block to be mined...");
 				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 				tester.WaitSynchronized();
+				tester.Client.Prune(pubkey, PruneTheMost);
 
 				Logs.Tester.LogInformation($"Now fundingTx({fundingTxId}), spendgin1({spending1}) and spending2({spending2}) should be pruned");
 				utxo = tester.Client.GetUTXOs(pubkey);

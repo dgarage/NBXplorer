@@ -23,11 +23,6 @@ namespace NBXplorer
 			get; set;
 		} = new UTXOByOutpoint();
 
-		public Func<Script[], bool[]> MatchScript
-		{
-			get; set;
-		}
-
 		public HashSet<OutPoint> SpentUTXOs
 		{
 			get; set;
@@ -56,19 +51,14 @@ namespace NBXplorer
 			if(result == ApplyTransactionResult.Conflict)
 				return result;
 
-			_TransactionTimes.Add(trackedTransaction.FirstSeen);
-
 			foreach(var coin in trackedTransaction.ReceivedCoins)
 			{
 				UTXOByOutpoint.TryAdd(coin.Outpoint, coin);
 			}
 
-			if (trackedTransaction.ReceivedCoins.Count == 0 && trackedTransaction.Transaction != null)
-				UTXOByOutpoint.Prunable.Add(new Prunable() { PrunedBy = hash, TransactionId = hash });
-
 			foreach (var spentOutpoint in trackedTransaction.SpentOutpoints)
 			{
-				if(UTXOByOutpoint.Remove(spentOutpoint, hash))
+				if(UTXOByOutpoint.Remove(spentOutpoint))
 				{
 					SpentUTXOs.Add(spentOutpoint);
 				}
@@ -77,16 +67,6 @@ namespace NBXplorer
 			return result;
 		}
 		HashSet<OutPoint> _KnownInputs = new HashSet<OutPoint>();
-		List<DateTimeOffset> _TransactionTimes = new List<DateTimeOffset>();
-		public DateTimeOffset? GetQuarterTransactionTime()
-		{
-			var times = _TransactionTimes.ToArray();
-			Array.Sort(times);
-			var quarter = times.Length / 4;
-			if (times.Length <= quarter)
-				return null;
-			return times[quarter];
-		}
 
 		public UTXOState Snapshot()
 		{
@@ -95,7 +75,6 @@ namespace NBXplorer
 				UTXOByOutpoint = new UTXOByOutpoint(UTXOByOutpoint),
 				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
 				_KnownInputs = new HashSet<OutPoint>(_KnownInputs),
-				_TransactionTimes = new List<DateTimeOffset>(_TransactionTimes)
 			};
 		}
 

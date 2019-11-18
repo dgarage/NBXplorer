@@ -209,7 +209,7 @@ namespace NBXplorer.Controllers
 			var waiter = Waiters.GetWaiter(network);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
-			
+
 			var location = waiter.GetLocation();
 			GetBlockchainInfoResponse blockchainInfo = null;
 			if (waiter.RPCAvailable)
@@ -263,7 +263,7 @@ namespace NBXplorer.Controllers
 									&& waiter.State == BitcoinDWaiterState.Ready
 									&& status.SyncHeight.HasValue
 									&& blockchainInfo.Headers - status.SyncHeight.Value < 3;
-			if(status.IsFullySynched)
+			if (status.IsFullySynched)
 			{
 				var now = DateTimeOffset.UtcNow;
 				await repo.Ping();
@@ -681,7 +681,7 @@ namespace NBXplorer.Controllers
 			return Ok();
 		}
 
-		async Task<(uint256 BlockId, Transaction Transaction, DateTimeOffset BlockTime)> FetchTransaction(RPCClient rpc,  bool hasTxIndex, RescanRequest.TransactionToRescan transaction)
+		async Task<(uint256 BlockId, Transaction Transaction, DateTimeOffset BlockTime)> FetchTransaction(RPCClient rpc, bool hasTxIndex, RescanRequest.TransactionToRescan transaction)
 		{
 			if (transaction.Transaction != null)
 			{
@@ -732,7 +732,7 @@ namespace NBXplorer.Controllers
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}")]
 		public async Task<IActionResult> SetMetadata(string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme, string key, 
+			DerivationStrategyBase derivationScheme, string key,
 			[FromBody]
 			JToken value = null)
 		{
@@ -815,8 +815,6 @@ namespace NBXplorer.Controllers
 
 			changes = new UTXOChanges();
 			changes.CurrentHeight = chain.Height;
-			Stopwatch stopwatch = new Stopwatch();
-			stopwatch.Start();
 			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
 
 			changes.Confirmed = ToUTXOChange(transactions.ConfirmedState);
@@ -827,13 +825,6 @@ namespace NBXplorer.Controllers
 
 			FillUTXOsInformation(changes.Confirmed.UTXOs, transactions, changes.CurrentHeight);
 			FillUTXOsInformation(changes.Unconfirmed.UTXOs, transactions, changes.CurrentHeight);
-
-			stopwatch.Stop();
-			if (ExplorerConfiguration.AutoPruningTime != null &&
-			   stopwatch.Elapsed > ExplorerConfiguration.AutoPruningTime.Value)
-			{
-				await AttemptPrune(repo, transactions, transactions.ConfirmedState);
-			}
 
 			changes.TrackedSource = trackedSource;
 			changes.DerivationStrategy = (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
@@ -847,64 +838,6 @@ namespace NBXplorer.Controllers
 			change.SpentOutpoints.AddRange(state.SpentUTXOs);
 			change.UTXOs.AddRange(state.UTXOByOutpoint.Select(u => new UTXO(u.Value)));
 			return change;
-		}
-
-		private async Task<int> AttemptPrune(Repository repo, AnnotatedTransactionCollection transactions, UTXOState state)
-		{
-			var network = repo.Network;
-			var trackedSource = transactions.TrackedSource;
-			var quarter = state.GetQuarterTransactionTime();
-			if (quarter != null)
-			{
-				Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruning needed for {trackedSource.ToPrettyString()}...");
-
-				// Step 1. Mark all transactions whose UTXOs have been all spent for long enough (quarter of first seen time of all transaction)
-				var prunableIds = state.UTXOByOutpoint
-								.Prunable
-								.Where(p => OldEnough(transactions, p.PrunedBy, quarter.Value))
-								.Select(p => p.TransactionId)
-								.ToHashSet();
-
-				// Step2. Make sure that all their parent are also prunable (Ancestors first)
-				if (prunableIds.Count != 0)
-				{
-					foreach (var tx in transactions.ConfirmedTransactions)
-					{
-						if (prunableIds.Count == 0)
-							break;
-						if (!prunableIds.Contains(tx.Record.TransactionHash))
-							continue;
-						foreach (var parent in tx.Record.SpentOutpoints
-														.Select(spent => transactions.GetByTxId(spent.Hash))
-														.Where(parent => parent != null)
-														.Where(parent => !prunableIds.Contains(parent.Record.TransactionHash)))
-						{
-							prunableIds.Remove(tx.Record.TransactionHash);
-						}
-					}
-				}
-
-				if (prunableIds.Count == 0)
-					Logs.Explorer.LogInformation($"{network.CryptoCode}: Impossible to prune {trackedSource.ToPrettyString()}, if you wish to improve performance, please decrease the number of UTXOs");
-				else
-				{
-					await repo.Prune(trackedSource, prunableIds
-													.Select(id => transactions.GetByTxId(id).Record)
-													.ToList());
-					Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunableIds.Count} transactions");
-					return prunableIds.Count;
-				}
-			}
-			return 0;
-		}
-
-		private bool OldEnough(AnnotatedTransactionCollection transactions, uint256 prunedBy, DateTimeOffset pruneBefore)
-		{
-			// Let's make sure that the transaction that made this transaction pruned has enough confirmations
-			var tx = transactions.GetByTxId(prunedBy);
-			if (tx?.Height is null)
-				return false;
-			return tx.Record.FirstSeen <= pruneBefore;
 		}
 
 		private static bool IsMatching(TrackedSource trackedSource, Script s, AnnotatedTransactionCollection transactions)
@@ -1096,7 +1029,7 @@ namespace NBXplorer.Controllers
 		{
 			var keyPath = new KeyPath(scriptPubKeyType == ScriptPubKeyType.Legacy ? "44'" :
 				scriptPubKeyType == ScriptPubKeyType.Segwit ? "84'" :
-				scriptPubKeyType == ScriptPubKeyType.SegwitP2SH ? "49'" : 
+				scriptPubKeyType == ScriptPubKeyType.SegwitP2SH ? "49'" :
 				throw new NotSupportedException(scriptPubKeyType.ToString())); // Should never happen
 			return keyPath.Derive(network.CoinType)
 				   .Derive(accountNumber, true);
@@ -1107,15 +1040,59 @@ namespace NBXplorer.Controllers
 		public async Task<PruneResponse> Prune(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme)
+			DerivationStrategyBase derivationScheme, [FromBody] PruneRequest request)
 		{
+			request ??= new PruneRequest();
+			request.DaysToKeep ??= 1.0;
 			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
 			var network = GetNetwork(cryptoCode, false);
 			var chain = ChainProvider.GetChain(network);
 			var repo = RepositoryProvider.GetRepository(network);
 			var transactions = await GetAnnotatedTransactions(repo, chain, trackedSource);
-			int pruned = await AttemptPrune(repo, transactions, transactions.ConfirmedState);
-			return new PruneResponse() { TotalPruned = pruned };
+			var state = transactions.ConfirmedState;
+			var prunableIds = new HashSet<uint256>();
+
+			var keepConfMax = network.NBitcoinNetwork.Consensus.GetExpectedBlocksFor(TimeSpan.FromDays(request.DaysToKeep.Value));
+			var tip = chain.Height;
+			// Step 1. We can prune if all UTXOs are spent
+			foreach (var tx in transactions.ConfirmedTransactions)
+			{
+				if (tx.Height is int h && tip - h + 1 > keepConfMax)
+				{
+					if (tx.Record.ReceivedCoins.All(c => state.SpentUTXOs.Contains(c.Outpoint)))
+					{
+						prunableIds.Add(tx.Record.Key.TxId);
+					}
+				}
+			}
+
+			// Step2. However, we need to remove those who are spending a UTXO from a transaction that is not pruned
+			if (prunableIds.Count != 0)
+			{
+				foreach (var tx in transactions.ConfirmedTransactions)
+				{
+					if (prunableIds.Count == 0)
+						break;
+					if (!prunableIds.Contains(tx.Record.TransactionHash))
+						continue;
+					foreach (var parent in tx.Record.SpentOutpoints
+													.Select(spent => transactions.GetByTxId(spent.Hash))
+													.Where(parent => parent != null)
+													.Where(parent => !prunableIds.Contains(parent.Record.TransactionHash)))
+					{
+						prunableIds.Remove(tx.Record.TransactionHash);
+					}
+				}
+			}
+
+			if (prunableIds.Count != 0)
+			{
+				await repo.Prune(trackedSource, prunableIds
+												.Select(id => transactions.GetByTxId(id).Record)
+												.ToList());
+				Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunableIds.Count} transactions");
+			}
+			return new PruneResponse() { TotalPruned = prunableIds.Count };
 		}
 	}
 }

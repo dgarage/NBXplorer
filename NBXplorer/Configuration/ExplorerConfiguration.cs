@@ -71,7 +71,6 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
-		public TimeSpan? AutoPruningTime { get; set; }
 		public int MinGapSize
 		{
 			get; set;
@@ -146,9 +145,6 @@ namespace NBXplorer.Configuration
 				throw new ConfigException($"Invalid chains {invalidChains}");
 
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
-			AutoPruningTime = TimeSpan.FromSeconds(config.GetOrDefault<int>("autopruning", -1));
-			if (AutoPruningTime.Value < TimeSpan.Zero)
-				AutoPruningTime = null;
 			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);
 			MaxGapSize = config.GetOrDefault<int>("maxgapsize", 30);
 			if(MinGapSize >= MaxGapSize)

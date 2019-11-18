@@ -1016,6 +1016,15 @@ You can however force pruning by calling:
 
 HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/prune
 
+Request:
+```json
+{
+	"daysToKeep": 1.0
+}
+```
+
+* `daysToKeep`: Optional. The number of days of history to keep. (Default: 1.0)
+
 Response:
 ```json
 {
