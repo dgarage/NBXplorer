@@ -27,11 +27,6 @@ namespace NBXplorer.Tests
 			Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
 			Logs.LogProvider = new XUnitLogProvider(helper);
 		}
-		
-		private NBXplorerNetwork GetNetwork(Network network)
-		{
-			return new NBXplorerNetwork(network.NetworkSet, network.NetworkType, new DerivationStrategyFactory(network));
-		}
 
 		private NBXplorerNetwork GetNetwork(Network network)
 		{
