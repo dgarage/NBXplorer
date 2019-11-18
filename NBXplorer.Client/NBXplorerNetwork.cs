@@ -2,6 +2,10 @@
 using NBXplorer.DerivationStrategy;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace NBXplorer
 {
@@ -15,7 +19,6 @@ namespace NBXplorer
 			DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(networkType);
 			DerivationStrategyFactory = derivationStrategyFactory;
 		}
-
 		public Network NBitcoinNetwork
 		{
 			get;
@@ -37,6 +40,7 @@ namespace NBXplorer
 			get;
 			private set;
 		}
+
 		public DerivationStrategy.DerivationStrategyFactory DerivationStrategyFactory
 		{
 			get;
@@ -56,7 +60,6 @@ namespace NBXplorer
 
 
 		private Serializer _Serializer;
-
 		public Serializer Serializer
 		{
 			get
@@ -66,14 +69,28 @@ namespace NBXplorer
 			}
 		}
 
+
 		public JsonSerializerSettings JsonSerializerSettings
 		{
-			get { return Serializer.Settings; }
+			get
+			{
+				return Serializer.Settings;
+			}
 		}
 
-		public TimeSpan ChainLoadingTimeout { get; set; } = TimeSpan.FromMinutes(15);
+		
 
-		public TimeSpan ChainCacheLoadingTimeout { get; set; } = TimeSpan.FromSeconds(30);
+		public TimeSpan ChainLoadingTimeout
+		{
+			get;
+			set;
+		} = TimeSpan.FromMinutes(15);
+
+		public TimeSpan ChainCacheLoadingTimeout
+		{
+			get;
+			set;
+		} = TimeSpan.FromSeconds(30);
 
 		/// <summary>
 		/// Minimum blocks to keep if pruning is activated
@@ -88,41 +105,10 @@ namespace NBXplorer
 		{
 			return CryptoCode.ToString();
 		}
-
-
-
-		public virtual Task<Transaction> GetTransaction(RPCClient rpcClient, Transaction tx, KeyPathInformation keyInfo)
-		{
-			return Task.FromResult(tx);
-			}
+		
 		public virtual ExplorerClient CreateExplorerClient(Uri uri)
 		{
 			return new ExplorerClient(this, uri);
-		}
-
-		public virtual KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,
-			DerivationFeature derivationFeature, KeyPath keyPath)
-		{
-			return new KeyPathInformation()
-			{
-				ScriptPubKey = derivation.ScriptPubKey,
-				Redeem = derivation.Redeem,
-				TrackedSource = trackedSource,
-				DerivationStrategy = trackedSource is DerivationSchemeTrackedSource derivationSchemeTrackedSource
-					? derivationSchemeTrackedSource.DerivationStrategy
-					: null,
-				Feature = derivationFeature,
-				KeyPath = keyPath
-			};
-		}
-
-		public virtual KeyPathInformation GetKeyPathInformation(IDestination derivation)
-		{
-			return new KeyPathInformation()
-			{
-				ScriptPubKey = derivation.ScriptPubKey,
-				TrackedSource = (TrackedSource) derivation
-			};
 		}
 	}
 }

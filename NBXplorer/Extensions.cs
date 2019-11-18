@@ -28,7 +28,6 @@ using Microsoft.AspNetCore.Authentication;
 using NBXplorer.Authentication;
 using NBitcoin.DataEncoders;
 using System.Text.RegularExpressions;
-using NBitcoin.Altcoins.Elements;
 using NBXplorer.MessageBrokers;
 using NBitcoin.Protocol;
 
@@ -79,7 +78,7 @@ namespace NBXplorer
 			}
 			return null;
 		}
-		
+
 		internal static KeyPathInformation AddAddress(this KeyPathInformation keyPathInformation, Network network)
 		{
 			if(keyPathInformation.Address == null)
