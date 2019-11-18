@@ -11,6 +11,7 @@ namespace NBXplorer.DerivationStrategy
 	public class P2SHDerivationStrategy : DerivationStrategyBase
 	{
 		bool addSuffix;
+
 		internal P2SHDerivationStrategy(DerivationStrategyBase inner, bool addSuffix)
 		{
 			if(inner == null)

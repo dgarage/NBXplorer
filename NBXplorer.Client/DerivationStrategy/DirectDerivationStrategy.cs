@@ -16,6 +16,7 @@ namespace NBXplorer.DerivationStrategy
 			{
 				return _Root;
 			}
+			
 		}
 		public bool Segwit
 		{
