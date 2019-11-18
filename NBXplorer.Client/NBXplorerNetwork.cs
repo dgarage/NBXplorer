@@ -17,6 +17,7 @@ namespace NBXplorer
 			NBitcoinNetwork = networkSet.GetNetwork(networkType);
 			CryptoCode = networkSet.CryptoCode;
 			DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(networkType);
+			DerivationStrategyFactory = derivationStrategyFactory;
 		}
 		public Network NBitcoinNetwork
 		{
