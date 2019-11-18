@@ -17,7 +17,6 @@ using Microsoft.AspNetCore.Http.Features;
 using NBXplorer.Filters;
 using NBXplorer.Logging;
 using Microsoft.AspNetCore.Authentication;
-using NBitcoin;
 using NBXplorer.Authentication;
 #if NETCOREAPP21
 using IWebHostEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;

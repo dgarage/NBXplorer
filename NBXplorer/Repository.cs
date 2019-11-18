@@ -392,20 +392,10 @@ namespace NBXplorer
 			return Task.FromResult(transaction);
 		}
 
-		protected virtual KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,
+		protected KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,
 			DerivationFeature derivationFeature, KeyPath keyPath)
 		{
-			return new KeyPathInformation()
-			{
-				ScriptPubKey = derivation.ScriptPubKey,
-				Redeem = derivation.Redeem,
-				TrackedSource = trackedSource,
-				DerivationStrategy = trackedSource is DerivationSchemeTrackedSource derivationSchemeTrackedSource
-					? derivationSchemeTrackedSource.DerivationStrategy
-					: null,
-				Feature = derivationFeature,
-				KeyPath = keyPath
-			};
+			return  new KeyPathInformation(derivation, (trackedSource as DerivationSchemeTrackedSource), derivationFeature, keyPath,  _Network);
 		}
 
 		protected KeyPathInformation GetKeyPathInformation(IDestination derivation)
