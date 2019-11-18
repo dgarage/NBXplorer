@@ -1199,11 +1199,11 @@ namespace NBXplorer.Tests
 			Assert.Contains(txid, txs.ConfirmedTransactions.Transactions.Select(t => t.TransactionId).ToArray());
 		}
 
-		private static TransactionInformation AssertExist(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid)
+		private static TransactionInformation AssertExist(ServerTester tester, DerivationStrategyBase pubkey, uint256 txid, bool shouldBePruned)
 		{
-			return AssertExist(tester, new DerivationSchemeTrackedSource(pubkey), txid);
+			return AssertExist(tester, new DerivationSchemeTrackedSource(pubkey), txid, shouldBePruned);
 		}
-		private static TransactionInformation AssertExist(ServerTester tester, TrackedSource pubkey, uint256 txid)
+		private static TransactionInformation AssertExist(ServerTester tester, TrackedSource pubkey, uint256 txid, bool shouldBePruned)
 		{
 			int retry = 0;
 			TransactionInformation tx = null;
@@ -1221,6 +1221,10 @@ namespace NBXplorer.Tests
 					break;
 				Assert.False(true, $"Transaction {txid} should exists");
 			}
+			if (shouldBePruned && tx.Transaction != null)
+				Assert.False(true, $"Transaction {txid} should be pruned");
+			if (!shouldBePruned && tx.Transaction == null)
+				Assert.False(true, $"Transaction {txid} should not be pruned");
 			return tx;
 		}
 
@@ -1736,8 +1740,8 @@ namespace NBXplorer.Tests
 				var tx2 = tester.SendToAddress(address, Money.Coins(0.6m));
 				tester.Notifications.WaitForTransaction(address, tx2);
 				tester.RPC.EnsureGenerate(1);
-				AssertExist(tester, addressSource, tx2);
-				AssertExist(tester, pubkey2, tx2);
+				AssertExist(tester, addressSource, tx2, false);
+				AssertExist(tester, pubkey2, tx2, false);
 				utxo = tester.Client.GetUTXOs(addressSource);
 				utxo2 = tester.Client.GetUTXOs(pubkey2);
 				Assert.NotEmpty(utxo.Confirmed.UTXOs);
@@ -2727,7 +2731,7 @@ namespace NBXplorer.Tests
 				// W00t! let's scan and see if it now appear in the UTXO
 				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
 				var info = WaitScanFinish(tester.Client, pubkey);
-				AssertPruned(tester, pubkey, txId);
+				AssertExist(tester, pubkey, txId, true);
 				Assert.Equal(100, info.Progress.CurrentBatchProgress);
 				Assert.Equal(100, info.Progress.OverallProgress);
 				Assert.Equal(1, info.Progress.Found);
@@ -2760,13 +2764,13 @@ namespace NBXplorer.Tests
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
 				Logs.Tester.LogInformation($"It should be indexed an unpruned");
-				AssertNotPruned(tester, pubkey, txId2);
+				AssertExist(tester, pubkey, txId2, false);
 
 				Logs.Tester.LogInformation($"It should be indexed an unpruned, even after a Scan happen");
 				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
 				info = WaitScanFinish(tester.Client, pubkey);
 				Assert.Equal(2, info.Progress.Found);
-				AssertNotPruned(tester, pubkey, txId2);
+				AssertExist(tester, pubkey, txId2, false);
 
 				Logs.Tester.LogInformation($"So finally we should have 2 UTXO, on 0/50 and 0/51");
 				utxo = tester.Client.GetUTXOs(pubkey);
@@ -2790,7 +2794,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(2, tx.Outputs.Count);
 				Assert.True(tester.Client.Broadcast(tx).Success);
 				tester.RPC.EnsureGenerate(1);
-				AssertNotPruned(tester, pubkey, tx.GetHash());
+				AssertExist(tester, pubkey, tx.GetHash(), false);
 				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
 				info = WaitScanFinish(tester.Client, pubkey);
 				Assert.Equal(2, info.Progress.Found);
