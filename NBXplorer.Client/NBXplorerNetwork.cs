@@ -2,6 +2,10 @@
 using NBXplorer.DerivationStrategy;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace NBXplorer
 {
@@ -13,9 +17,7 @@ namespace NBXplorer
 			NBitcoinNetwork = networkSet.GetNetwork(networkType);
 			CryptoCode = networkSet.CryptoCode;
 			DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(networkType);
-			DerivationStrategyFactory = derivationStrategyFactory;
 		}
-
 		public Network NBitcoinNetwork
 		{
 			get;
@@ -37,6 +39,7 @@ namespace NBXplorer
 			get;
 			private set;
 		}
+
 		public DerivationStrategy.DerivationStrategyFactory DerivationStrategyFactory
 		{
 			get;
@@ -56,7 +59,6 @@ namespace NBXplorer
 
 
 		private Serializer _Serializer;
-
 		public Serializer Serializer
 		{
 			get
@@ -66,14 +68,28 @@ namespace NBXplorer
 			}
 		}
 
+
 		public JsonSerializerSettings JsonSerializerSettings
 		{
-			get { return Serializer.Settings; }
+			get
+			{
+				return Serializer.Settings;
+			}
 		}
 
-		public TimeSpan ChainLoadingTimeout { get; set; } = TimeSpan.FromMinutes(15);
+		
 
-		public TimeSpan ChainCacheLoadingTimeout { get; set; } = TimeSpan.FromSeconds(30);
+		public TimeSpan ChainLoadingTimeout
+		{
+			get;
+			set;
+		} = TimeSpan.FromMinutes(15);
+
+		public TimeSpan ChainCacheLoadingTimeout
+		{
+			get;
+			set;
+		} = TimeSpan.FromSeconds(30);
 
 		/// <summary>
 		/// Minimum blocks to keep if pruning is activated

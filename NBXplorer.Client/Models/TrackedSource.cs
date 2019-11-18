@@ -10,7 +10,7 @@ namespace NBXplorer.Models
 {
 	public abstract class TrackedSource
 	{
-		public static bool TryParse(string str, out TrackedSource trackedSource, NBXplorerNetwork network)
+		public static bool TryParse(string str, out TrackedSource trackedSource, Network network)
 		{
 			if (str == null)
 				throw new ArgumentNullException(nameof(str));
@@ -26,7 +26,7 @@ namespace NBXplorer.Models
 			}
 			else if (strSpan.StartsWith("ADDRESS:".AsSpan(), StringComparison.Ordinal))
 			{
-				if (!AddressTrackedSource.TryParse(strSpan, out var addressTrackedSource, network.NBitcoinNetwork))
+				if (!AddressTrackedSource.TryParse(strSpan, out var addressTrackedSource, network))
 					return false;
 				trackedSource = addressTrackedSource;
 			}
@@ -154,7 +154,7 @@ namespace NBXplorer.Models
 
 		public DerivationStrategy.DerivationStrategyBase DerivationStrategy { get; }
 
-		public static bool TryParse(ReadOnlySpan<char> strSpan, out DerivationSchemeTrackedSource derivationSchemeTrackedSource, NBXplorerNetwork network)
+		public static bool TryParse(ReadOnlySpan<char> strSpan, out DerivationSchemeTrackedSource derivationSchemeTrackedSource, Network network)
 		{
 			if (strSpan == null)
 				throw new ArgumentNullException(nameof(strSpan));
@@ -165,7 +165,7 @@ namespace NBXplorer.Models
 				return false;
 			try
 			{
-				var factory = network.DerivationStrategyFactory;
+				var factory = new DerivationStrategy.DerivationStrategyFactory(network);
 				var derivationScheme = factory.Parse(strSpan.Slice("DERIVATIONSCHEME:".Length).ToString());
 				derivationSchemeTrackedSource = new DerivationSchemeTrackedSource(derivationScheme);
 				return true;

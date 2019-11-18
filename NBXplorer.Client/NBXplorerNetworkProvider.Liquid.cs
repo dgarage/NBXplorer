@@ -34,7 +34,7 @@ namespace NBXplorer
 		
 		public class LiquidNBXplorerNetwork : NBXplorerNetwork
 		{
-			public LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType, DerivationStrategyFactory derivationStrategyFactory = null) : base(networkSet, networkType, derivationStrategyFactory)
+			public LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType) : base(networkSet, networkType)
 			{
 			}
 

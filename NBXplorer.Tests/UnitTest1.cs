@@ -33,11 +33,6 @@ namespace NBXplorer.Tests
 			return new NBXplorerNetwork(network.NetworkSet, network.NetworkType, new DerivationStrategyFactory(network));
 		}
 
-		private NBXplorerNetwork GetNetwork(Network network)
-		{
-			return new NBXplorerNetwork(network.NetworkSet, network.NetworkType, new DerivationStrategyFactory(network));
-		}
-
 		[Fact]
 		public void CanFixedSizeCache()
 		{

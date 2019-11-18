@@ -494,7 +494,7 @@ namespace NBXplorer
 							}
 							catch (OperationCanceledException) when (!handshaked && handshakeTimeout.IsCancellationRequested)
 							{
-								Logs.Explorer.LogWarning($"{Network.CryptoCode}: The initial handshake failed, your NBXplorer server might not be whitelisted by your node," +
+								Logs.Explorer.LogWarning($"{Network.CryptoCode}: The initial hanshake failed, your NBXplorer server might not be whitelisted by your node," +
 										$" if your bitcoin node is on the same machine as NBXplorer, you should add \"whitelist=127.0.0.1\" to the configuration file of your node. (Or use whitebind)");
 								throw;
 							}
