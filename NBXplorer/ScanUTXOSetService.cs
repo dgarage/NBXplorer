@@ -303,7 +303,7 @@ namespace NBXplorer
 						  {
 							  var derivation = lineDerivation.Derive((uint)index);
 							  var info = new KeyPathInformation(derivation, derivationStrategy, feature,
-								  keyPathTemplate.GetKeyPath(index, false), workItemNetwork);
+								  keyPathTemplate.GetKeyPath(index, false), network);
 							  items.Descriptors.Add(new ScanTxoutSetObject(ScanTxoutDescriptor.Raw(info.ScriptPubKey)));
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
 							  return info;
