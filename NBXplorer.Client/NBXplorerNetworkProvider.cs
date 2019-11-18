@@ -29,7 +29,7 @@ namespace NBXplorer
 			InitChaincoin(networkType);
 			foreach(var chain in _Networks.Values)
 			{
-				chain.DerivationStrategyFactory = new DerivationStrategy.DerivationStrategyFactory(chain.NBitcoinNetwork);
+				chain.DerivationStrategyFactory ??= new DerivationStrategy.DerivationStrategyFactory(chain.NBitcoinNetwork);
 			}
 		}
 

@@ -133,12 +133,11 @@ namespace NBXplorer.Tests
 				.Build();
 
 			RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(CryptoCode);
-			var nbxnetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
-			Network = nbxnetwork.NBitcoinNetwork;
+			NBXplorerNetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
 			var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 			Host.Start();
 			Configuration = conf;
-			_Client = new ExplorerClient(nbxnetwork, Address);
+			_Client = NBXplorerNetwork.CreateExplorerClient(Address);
 			_Client.SetCookieAuth(Path.Combine(conf.DataDir, ".cookie"));
 			Notifications = _Client.CreateLongPollingNotificationSession();
 		}
@@ -216,6 +215,13 @@ namespace NBXplorer.Tests
 		}
 
 		public Network Network
+		{
+			get
+			{
+				return NBXplorerNetwork.NBitcoinNetwork;
+			}
+		}
+		public NBXplorerNetwork NBXplorerNetwork
 		{
 			get;
 			internal set;
@@ -321,7 +327,7 @@ namespace NBXplorer.Tests
 			pubKey = pubKey ?? new ExtKey().Neuter();
 			string suffix = this.RPC.Capabilities.SupportSegwit ? "" : "-[legacy]";
 			suffix += p2sh ? "-[p2sh]" : "";
-			return new DerivationStrategyFactory(this.Network).Parse($"{pubKey.ToString(this.Network)}{suffix}");
+			return NBXplorerNetwork.DerivationStrategyFactory.Parse($"{pubKey.ToString(this.Network)}{suffix}");
 		}
 
 		public bool RPCStringAmount

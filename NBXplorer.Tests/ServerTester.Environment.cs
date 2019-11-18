@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using NBitcoin;
 
 namespace NBXplorer.Tests
 {
@@ -76,7 +77,7 @@ namespace NBXplorer.Tests
 
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_18_0;
-			Network = NBitcoin.Network.RegTest;
+			NBXplorerNetwork = new NBXplorerNetwork(Network.RegTest.NetworkSet, NetworkType.Regtest);
 		}
 	}
 }

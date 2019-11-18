@@ -11,11 +11,13 @@ namespace NBXplorer
 {
 	public class NBXplorerNetwork
 	{
-		public NBXplorerNetwork(INetworkSet networkSet, NBitcoin.NetworkType networkType)
+		public NBXplorerNetwork(INetworkSet networkSet, NetworkType networkType,
+			DerivationStrategyFactory derivationStrategyFactory = null)
 		{
 			NBitcoinNetwork = networkSet.GetNetwork(networkType);
 			CryptoCode = networkSet.CryptoCode;
 			DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(networkType);
+			DerivationStrategyFactory = derivationStrategyFactory;
 		}
 		public Network NBitcoinNetwork
 		{
@@ -102,6 +104,11 @@ namespace NBXplorer
 		public override string ToString()
 		{
 			return CryptoCode.ToString();
+		}
+		
+		public virtual ExplorerClient CreateExplorerClient(Uri uri)
+		{
+			return new ExplorerClient(this, uri);
 		}
 	}
 }

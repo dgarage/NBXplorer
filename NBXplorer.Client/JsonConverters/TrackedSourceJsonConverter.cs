@@ -11,12 +11,12 @@ namespace NBXplorer.JsonConverters
 {
 	public class TrackedSourceJsonConverter : JsonConverter
 	{
-		public TrackedSourceJsonConverter(Network network)
+		public TrackedSourceJsonConverter(NBXplorerNetwork network)
 		{
 			Network = network;
 		}
 
-		public Network Network { get; }
+		public NBXplorerNetwork Network { get; }
 
 		public override bool CanConvert(Type objectType)
 		{
