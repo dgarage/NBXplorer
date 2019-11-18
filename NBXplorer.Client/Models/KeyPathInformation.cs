@@ -13,14 +13,14 @@ namespace NBXplorer.Models
 		{
 
 		}
-		public KeyPathInformation(KeyPathTemplates keyPathTemplates, KeyPath keyPath, DerivationStrategyBase derivationStrategy, NBXplorerNetwork network)
+		public KeyPathInformation(DerivationFeature feature, KeyPath keyPath, DerivationStrategyBase derivationStrategy, NBXplorerNetwork network)
 		{
 			var derivation = derivationStrategy.GetDerivation(keyPath);
 			ScriptPubKey = derivation.ScriptPubKey;
 			Redeem = derivation.Redeem;
 			TrackedSource = new DerivationSchemeTrackedSource(derivationStrategy);
 			DerivationStrategy = derivationStrategy;
-			Feature = keyPathTemplates.GetDerivationFeature(keyPath);
+			Feature = feature;
 			KeyPath = keyPath;
 			Address = network.CreateAddress(derivationStrategy, keyPath, ScriptPubKey);
 		}

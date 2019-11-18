@@ -417,15 +417,11 @@ namespace NBXplorer
 			{
 				var index = highestGenerated + i + 1;
 				var derivation = feature.Derive((uint)index);
-				var info = new KeyPathInformation()
-				{
-					ScriptPubKey = derivation.ScriptPubKey,
-					Redeem = derivation.Redeem,
-					TrackedSource = new DerivationSchemeTrackedSource(strategy),
-					DerivationStrategy = strategy,
-					Feature = derivationFeature,
-					KeyPath = keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false)
-				};
+				var info = new KeyPathInformation(
+					derivationFeature,
+					keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false),
+					strategy,
+					Network);
 				keyPathInformations[i] = info;
 			});
 			for (int i = 0; i < toGenerate; i++)
@@ -502,7 +498,8 @@ namespace NBXplorer
 				var info = new KeyPathInformation()
 				{
 					ScriptPubKey = address.ScriptPubKey,
-					TrackedSource = (TrackedSource)address
+					TrackedSource = (TrackedSource)address,
+					Address = (address as BitcoinAddress) ?? address.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork)
 				};
 				var bytes = ToBytes(info);
 				GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
@@ -1199,7 +1196,7 @@ namespace NBXplorer
 						{
 							foreach (var kv in value.KnownKeyPathMapping)
 							{
-								var info = new KeyPathInformation(keyPathTemplates, kv.Value, s.DerivationStrategy, Network);
+								var info = new KeyPathInformation(keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, s.DerivationStrategy, Network);
 								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var index = info.GetIndex();

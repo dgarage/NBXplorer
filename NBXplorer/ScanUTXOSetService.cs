@@ -290,7 +290,7 @@ namespace NBXplorer
 			}).ToArray());
 		}
 
-		private ScannedItems GetScannedItems(ScanUTXOWorkItem workItem, ScanUTXOProgress progress)
+		private ScannedItems GetScannedItems(ScanUTXOWorkItem workItem, ScanUTXOProgress progress, NBXplorerNetwork network)
 		{
 			var items = new ScannedItems();
 			var derivationStrategy = workItem.DerivationStrategy;
@@ -302,15 +302,11 @@ namespace NBXplorer
 						  .Select(index =>
 						  {
 							  var derivation = lineDerivation.Derive((uint)index);
-							  var info = new KeyPathInformation()
-							  {
-								  ScriptPubKey = derivation.ScriptPubKey,
-								  Redeem = derivation.Redeem,
-								  TrackedSource = derivationStrategy,
-								  DerivationStrategy = derivationStrategy.DerivationStrategy,
-								  Feature = feature,
-								  KeyPath = keyPathTemplate.GetKeyPath(index, false)
-							  };
+							  var info = new KeyPathInformation(
+								  feature,
+								  keyPathTemplate.GetKeyPath(index, false),
+								  derivationStrategy.DerivationStrategy,
+								  network);
 							  items.Descriptors.Add(new ScanTxoutSetObject(ScanTxoutDescriptor.Raw(info.ScriptPubKey)));
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
 							  return info;
