@@ -155,7 +155,7 @@ namespace NBXplorer
 						}
 						workItem.State.Progress.UpdateRemainingBatches(workItem.Options.GapLimit);
 						workItem.State.Status = ScanUTXOStatus.Pending;
-						var scannedItems = GetScannedItems(workItem, workItem.State.Progress);
+						var scannedItems = GetScannedItems(workItem, workItem.State.Progress, workItem.Network);
 						var scanning = rpc.StartScanTxoutSetAsync(scannedItems.Descriptors.ToArray());
 
 						while (true)
@@ -199,7 +199,7 @@ namespace NBXplorer
 									}
 									else
 									{
-										scannedItems = GetScannedItems(workItem, progressObj);
+										scannedItems = GetScannedItems(workItem, progressObj, workItem.Network);
 										workItem.State.Progress = progressObj;
 										scanning = rpc.StartScanTxoutSetAsync(scannedItems.Descriptors.ToArray());
 									}
