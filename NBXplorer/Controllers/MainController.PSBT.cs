@@ -274,11 +274,16 @@ namespace NBXplorer.Controllers
 		{
 			return !((input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness);
 		}
+		static bool NotFinalized(PSBTInput input)
+		{
+			return !input.IsFinalized();
+		}
 
 		private static async Task UpdateInputsUTXO(UpdatePSBTRequest update, Repository repo, BitcoinDWaiter rpc)
 		{
 			await Task.WhenAll(update.PSBT.Inputs
 							.Where(NeedNonWitnessUtxo)
+							.Where(NotFinalized)
 							.Select(async (input) =>
 							{
 								// If this is not segwit, or we are unsure of it, let's try to grab from our saved transactions
@@ -306,6 +311,7 @@ namespace NBXplorer.Controllers
 				var batch = rpc.RPC.PrepareBatch();
 				var getTransactions = Task.WhenAll(update.PSBT.Inputs
 					.Where(NeedNonWitnessUtxo)
+					.Where(NotFinalized)
 					.Where(input => input.NonWitnessUtxo == null)
 					.Select(async input =>
 				   {
