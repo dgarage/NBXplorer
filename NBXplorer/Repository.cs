@@ -1203,7 +1203,8 @@ namespace NBXplorer
 						{
 							foreach (var kv in value.KnownKeyPathMapping)
 							{
-								var info = new KeyPathInformation(keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, s.DerivationStrategy, Network);
+								var derivation =  s.DerivationStrategy.GetDerivation(kv.Value);
+								var info = new KeyPathInformation(derivation, s, keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, _Network);
 								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var index = info.GetIndex();
