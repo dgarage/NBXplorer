@@ -23,15 +23,14 @@ namespace NBXplorer.MessageBrokers
 		IBrokerClient _senderBlock = null;
 		IBrokerClient _senderTransactions = null;
 		ExplorerConfiguration _config;
-		JsonSerializerSettings _serializerSettings;
 
-		public BrokerHostedService(BitcoinDWaiters waiters, ChainProvider chainProvider, EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, MvcNewtonsoftJsonOptions jsonOptions)
+		public BrokerHostedService(BitcoinDWaiters waiters, ChainProvider chainProvider, EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, NBXplorerNetworkProvider networks)
 		{
 			_EventAggregator = eventAggregator;
+			Networks = networks;
 			ChainProvider = chainProvider;
 			Waiters = waiters;
 			_config = config.Value;
-			_serializerSettings = jsonOptions.SerializerSettings;
 		}
 
 		public Task StartAsync(CancellationToken cancellationToken)
@@ -83,12 +82,12 @@ namespace NBXplorer.MessageBrokers
 
 		private IBrokerClient CreateAzureQueue(string connnectionString, string queueName)
 		{
-			return new AzureBroker(new QueueClient(connnectionString, queueName), _serializerSettings);
+			return new AzureBroker(new QueueClient(connnectionString, queueName), Networks);
 		}
 
 		private IBrokerClient CreateAzureTopic(string connectionString, string topicName)
 		{
-			return new AzureBroker(new TopicClient(connectionString, topicName), _serializerSettings);
+			return new AzureBroker(new TopicClient(connectionString, topicName), Networks);
 		}
 
 		public async Task StopAsync(CancellationToken cancellationToken)
@@ -102,6 +101,7 @@ namespace NBXplorer.MessageBrokers
 		{
 			get; set;
 		}
+		public NBXplorerNetworkProvider Networks { get; }
 		public BitcoinDWaiters Waiters
 		{
 			get; set;

@@ -42,7 +42,7 @@ namespace NBXplorer.MessageBrokers
 
 		public async Task Send(NewBlockEvent blockEvent)
 		{
-			string jsonMsg = blockEvent.ToJson(Networks.GetFromCryptoCode(transactionEvent.CryptoCode).JsonSerializerSettings);
+			string jsonMsg = blockEvent.ToJson(Networks.GetFromCryptoCode(blockEvent.CryptoCode).JsonSerializerSettings);
 			var bytes = UTF8.GetBytes(jsonMsg);
 			var message = new Message(bytes);
 			message.MessageId = blockEvent.Hash.ToString();
