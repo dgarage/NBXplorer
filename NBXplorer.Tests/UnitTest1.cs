@@ -1054,10 +1054,6 @@ namespace NBXplorer.Tests
 					await subscriptionClient.CompleteAsync(m.SystemProperties.LockToken);
 				}, messageHandlerOptions);
 
-				//Configure JSON custom serialization
-				JsonSerializerSettings settings = new JsonSerializerSettings();
-				new Serializer(tester.Client.Network).ConfigureSerializer(settings);
-
 				//Test Service Bus Queue
 				//Retry 10 times 
 				var retryPolicy = new RetryExponential(new TimeSpan(0, 0, 0, 0, 500), new TimeSpan(0, 0, 1), 10);
@@ -1083,6 +1079,15 @@ namespace NBXplorer.Tests
 				msg = await messageReceiver.ReceiveAsync();
 
 				Assert.True(msg != null, $"No message received on Azure Service Bus Transaction Queue : {AzureServiceBusTestConfig.NewTransactionQueue} after 10 read attempts.");
+
+				var isCrptoCodeExist = msg.UserProperties.TryGetValue("CryptoCode", out object cryptoCode);
+				Assert.True(isCrptoCodeExist, "No crypto code information in user properties.");
+				Assert.Equal(tester.Client.Network.CryptoCode, (string)cryptoCode);
+
+				//Configure JSON custom serialization
+				NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode((string)cryptoCode); 
+				JsonSerializerSettings settings = new JsonSerializerSettings();
+				new Serializer(networkForDeserializion).ConfigureSerializer(settings);
 
 				var txEventQ = JsonConvert.DeserializeObject<NewTransactionEvent>(Encoding.UTF8.GetString(msg.Body), settings);
 				Assert.Equal(txEventQ.DerivationStrategy, pubkey);
