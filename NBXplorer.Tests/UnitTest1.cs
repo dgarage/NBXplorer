@@ -15,6 +15,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NBitcoin.Altcoins.Elements;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -2862,6 +2863,63 @@ namespace NBXplorer.Tests
 			Assert.Equal(path1, KeyPathTemplate.Parse(template).GetKeyPath(0).ToString());
 			Assert.Equal(path2, KeyPathTemplate.Parse(template).GetKeyPath(1).ToString());
 		}
+
+		[Fact]
+		public async Task ElementsTests()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				if (tester.Network.NetworkSet != NBitcoin.Altcoins.Liquid.Instance)
+				{
+					return;
+				}
+				var userExtKey = new ExtKey();
+				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
+				{
+					ScriptPubKeyType = ScriptPubKeyType.Segwit
+				});
+				await tester.Client.TrackAsync(userDerivationScheme, Cancel);
+				
+				//test: Elements shouldgenerate blinded addresses by default
+				var address =
+					Assert.IsType<BitcoinBlindedAddress>(tester.Client.GetUnused(userDerivationScheme,
+						DerivationFeature.Deposit).Address);
+
+
+				using (var session = await tester.Client.CreateWebsocketNotificationSessionAsync(Timeout))
+				{
+					await session.ListenAllTrackedSourceAsync(cancellation: Timeout);
+
+					//test: Client should return Elements transaction types when event is published
+					var evtTask = session.NextEventAsync(Timeout);
+					var txid = await tester.SendToAddressAsync(address, Money.Coins(1.0m));
+
+					var evt = await evtTask;
+					var tx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
+						.TransactionData.Transaction));
+
+					//test: Elements should try to unblind transaction upon detection
+					foreach (var txOutput in tx.Outputs)
+					{
+						var elementsTxOut = Assert.IsAssignableFrom<ElementsTxOut>(txOutput);
+						Assert.NotNull(elementsTxOut.Value);
+					}
+					
+					//test: Get Transaction should give an ElementsTransaction
+					Assert.IsAssignableFrom<ElementsTransaction>((await tester.Client.GetTransactionAsync(txid)).Transaction);
+					
+					//test: receive a tx to deriv scheme but to a confidential address with a different blinding key than our derivation method 
+					evtTask = session.NextEventAsync(Timeout);
+					await tester.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
+					evt = await evtTask;
+					var unblindabletx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
+						.TransactionData.Transaction));
+
+					Assert.Contains(unblindabletx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value == null);
+				}
+			}
+		}
+
 
 		[Fact]
 		public async Task CanGenerateWallet()
