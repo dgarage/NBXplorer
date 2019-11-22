@@ -37,6 +37,7 @@ namespace NBXplorer.MessageBrokers
 			ValidateMessageId(msgIdHash);
 			message.MessageId = msgIdHash;
 			message.ContentType = transactionEvent.GetType().ToString();
+			message.UserProperties.Add("CryptoCode", transactionEvent.CryptoCode);
 			await Client.SendAsync(message);
 		}
 
@@ -47,6 +48,7 @@ namespace NBXplorer.MessageBrokers
 			var message = new Message(bytes);
 			message.MessageId = blockEvent.Hash.ToString();
 			message.ContentType = blockEvent.GetType().ToString();
+			message.UserProperties.Add("CryptoCode", blockEvent.CryptoCode);			
 			await Client.SendAsync(message);
 		}
 
