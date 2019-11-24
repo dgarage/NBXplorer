@@ -71,7 +71,16 @@ namespace NBXplorer.Controllers
 				{
 					txBuilder.Send(dest.Destination, dest.Amount);
 					if (dest.SubstractFees)
-						txBuilder.SubtractFees();
+					{
+						try
+						{
+							txBuilder.SubtractFees();
+						}
+						catch
+						{
+							throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "You can't substract fee on this destination, because not enough money was sent to it"));
+						}
+					}
 				}
 			}
 			(Script ScriptPubKey, KeyPath KeyPath) change = (null, null);
