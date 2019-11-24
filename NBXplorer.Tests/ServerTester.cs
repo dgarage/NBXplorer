@@ -115,6 +115,11 @@ namespace NBXplorer.Tests
 			keyValues.Add(("asbblockt", AzureServiceBusTestConfig.NewBlockTopic));
 			keyValues.Add(("asbtrant", AzureServiceBusTestConfig.NewTransactionTopic));
 
+			keyValues.Add(("rmqhost", RabbitMqTestConfig.RabbitMqHostName));
+			keyValues.Add(("rmquser", RabbitMqTestConfig.RabbitMqUsername));
+			keyValues.Add(("rmqpass", RabbitMqTestConfig.RabbitMqPassword));
+			keyValues.Add(("rmqtranex", RabbitMqTestConfig.RabbitMqTransactionExchange));
+
 			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }
 			.Concat(new[] { $"--{CryptoCode.ToLowerInvariant()}hastxindex" })).ToArray();
 			Host = new WebHostBuilder()

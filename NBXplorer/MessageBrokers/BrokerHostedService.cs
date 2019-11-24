@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using NBXplorer.Configuration;
 using NBXplorer.Logging;
 using Newtonsoft.Json;
+using RabbitMQ.Client;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -64,6 +65,19 @@ namespace NBXplorer.MessageBrokers
 				if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusTransactionTopic))
 					brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusTransactionTopic));
 			}
+			if(!string.IsNullOrEmpty(_config.RabbitMqHostName) && 
+				!string.IsNullOrEmpty(_config.RabbitMqUsername) && 
+				!string.IsNullOrEmpty(_config.RabbitMqPassword)) 
+			{
+				if(!string.IsNullOrEmpty(_config.RabbitMqTransactionExchange)) 
+				{
+					brokers.Add(CreateRabbitMqExchange(
+						rabbitMqHostName: _config.RabbitMqHostName, 
+						rabbitMqUsername: _config.RabbitMqUsername,
+						rabbitMqPassword: _config.RabbitMqPassword,
+						newTransactionExchange: _config.RabbitMqTransactionExchange));
+				}
+			}
 			return new CompositeBroker(brokers);
 		}
 
@@ -88,6 +102,13 @@ namespace NBXplorer.MessageBrokers
 		private IBrokerClient CreateAzureTopic(string connectionString, string topicName)
 		{
 			return new AzureBroker(new TopicClient(connectionString, topicName), Networks);
+		}
+
+		private IBrokerClient CreateRabbitMqExchange(string rabbitMqHostName, string rabbitMqUsername, string rabbitMqPassword, string newTransactionExchange)
+		{
+			return new RabbitMqBroker(
+				new ConnectionFactory() { HostName = rabbitMqHostName, UserName = rabbitMqUsername, Password = rabbitMqPassword }.CreateConnection(), 
+				newTransactionExchange, Networks);
 		}
 
 		public async Task StopAsync(CancellationToken cancellationToken)

@@ -177,6 +177,11 @@ namespace NBXplorer.Configuration
 			AzureServiceBusBlockTopic = config.GetOrDefault<string>("asbblockt", "");
 			AzureServiceBusTransactionTopic = config.GetOrDefault<string>("asbtrant", "");
 
+			RabbitMqHostName = config.GetOrDefault<string>("rmqhost", "");
+			RabbitMqUsername = config.GetOrDefault<string>("rmquser", "");
+			RabbitMqPassword = config.GetOrDefault<string>("rmqpass", "");
+			RabbitMqTransactionExchange = config.GetOrDefault<string>("rmqtranex", "");
+
 			return this;
 		}
 
@@ -232,6 +237,12 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+
+		public string RabbitMqHostName { get; set; }
+        public string RabbitMqUsername { get; set; }
+        public string RabbitMqPassword { get; set; }
+        public string RabbitMqTransactionExchange { get; set; }
+
 		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
-	}
+    }
 }
