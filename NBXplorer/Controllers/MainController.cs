@@ -765,7 +765,7 @@ namespace NBXplorer.Controllers
 			var network = this.GetNetwork(cryptoCode, true);
 			var waiter = this.Waiters.GetWaiter(network);
 			if (!waiter.RPC.Capabilities.SupportScanUTXOSet)
-				throw new NBXplorerError(405, "scanutxoset-not-suported", "ScanUTXOSet is not supported for this currency").AsException();
+				throw new NBXplorerError(405, "scanutxoset-not-supported", "ScanUTXOSet is not supported for this currency").AsException();
 
 			ScanUTXOSetOptions options = new ScanUTXOSetOptions();
 			if (batchSize != null)
@@ -985,9 +985,58 @@ namespace NBXplorer.Controllers
 			if (!network.NBitcoinNetwork.Consensus.SupportSegwit && request.ScriptPubKeyType != ScriptPubKeyType.Legacy)
 				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
 
-			var repo = RepositoryProvider.GetRepository(network);
 			var mnemonic = new Mnemonic(request.WordList, request.WordCount.Value);
-			var masterKey = mnemonic.DeriveExtKey(request.Passphrase).GetWif(network.NBitcoinNetwork);
+			var result = await ImportWallet(network, new ImportWalletRequest()
+			{
+				Mnemonic = mnemonic,
+				Passphrase = request.Passphrase,
+				AccountNumber = request.AccountNumber,
+				SavePrivateKeys = request.SavePrivateKeys,
+				ScriptPubKeyType = request.ScriptPubKeyType,
+				ImportKeysToRPC = request.ImportKeysToRPC
+			});
+			
+			return Json(new GenerateWalletResponse()
+			{
+				MasterHDKey = result.MasterHDKey,
+				AccountHDKey = result.AccountHDKey,
+				AccountKeyPath = result.AccountKeyPath,
+				DerivationScheme = result.DerivationScheme,
+				Mnemonic = mnemonic,
+				Passphrase = request.Passphrase ?? string.Empty,
+				WordCount = request.WordCount.Value,
+				WordList = request.WordList
+			}, network.Serializer.Settings);
+		}
+		
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations/import")]
+		public async Task<IActionResult> ImportWallet(string cryptoCode, [FromBody] ImportWalletRequest request)
+		{
+			if (request == null)
+				throw new NBXplorerException(new NBXplorerError(400, "body-missing", "You must specify the wallet data you wish to import"));
+			if (request.Mnemonic == null)
+				throw new NBXplorerException(new NBXplorerError(400, "mnemonic-missing", "You must specify 'mnemonic'"));
+			var network = GetNetwork(cryptoCode, request.ImportKeysToRPC);
+			if (network.CoinType == null)
+				// Don't document, only shitcoins nobody use goes into this
+				throw new NBXplorerException(new NBXplorerError(400, "not-supported", "This feature is not supported for this coin because we don't have CoinType information"));
+			
+			request.ScriptPubKeyType ??= ScriptPubKeyType.Segwit;
+			if (request.ScriptPubKeyType is null)
+			{
+				request.ScriptPubKeyType = network.NBitcoinNetwork.Consensus.SupportSegwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy;
+			}
+			if (!network.NBitcoinNetwork.Consensus.SupportSegwit && request.ScriptPubKeyType != ScriptPubKeyType.Legacy)
+				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
+			
+			return Json(await ImportWallet(network, request), network.Serializer.Settings);
+		}
+
+		private async Task<ImportWalletResponse> ImportWallet(NBXplorerNetwork network ,ImportWalletRequest request)
+		{
+			var repo = RepositoryProvider.GetRepository(network);
+			var masterKey = request.Mnemonic.DeriveExtKey(request.Passphrase).GetWif(network.NBitcoinNetwork);
 			var keyPath = GetDerivationKeyPath(request.ScriptPubKeyType.Value, request.AccountNumber, network);
 			var accountKey = masterKey.Derive(keyPath);
 			DerivationStrategyBase derivation = network.DerivationStrategyFactory.CreateDirectDerivationStrategy(accountKey.Neuter(), new DerivationStrategyOptions()
@@ -1000,29 +1049,25 @@ namespace NBXplorer.Controllers
 			if (request.SavePrivateKeys)
 			{
 				saveMetadata.AddRange(
-				new[] {
-					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Mnemonic, mnemonic.ToString()),
-					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterHDKey, masterKey),
-					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountHDKey, accountKey)
-				});
+					new[] {
+						repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Mnemonic, request.Mnemonic.ToString()),
+						repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterHDKey, masterKey),
+						repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountHDKey, accountKey)
+					});
 			}
 
 			var accountKeyPath = new RootedKeyPath(masterKey.GetPublicKey().GetHDFingerPrint(), keyPath);
 			saveMetadata.Add(repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountKeyPath, accountKeyPath));
 			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, request.ImportKeysToRPC.ToString()));
 			await Task.WhenAll(saveMetadata.ToArray());
-			await TrackWallet(cryptoCode, derivation, null);
-			return Json(new GenerateWalletResponse()
+			await TrackWallet(network.CryptoCode, derivation, null);
+			return new ImportWalletResponse()
 			{
 				MasterHDKey = masterKey,
 				AccountHDKey = accountKey,
 				AccountKeyPath = accountKeyPath,
-				DerivationScheme = derivation,
-				Mnemonic = mnemonic.ToString(),
-				Passphrase = request.Passphrase ?? string.Empty,
-				WordCount = request.WordCount.Value,
-				WordList = request.WordList
-			}, network.Serializer.Settings);
+				DerivationScheme = derivation
+			};
 		}
 
 		private KeyPath GetDerivationKeyPath(ScriptPubKeyType scriptPubKeyType, int accountNumber, NBXplorerNetwork network)

@@ -2873,7 +2873,7 @@ namespace NBXplorer.Tests
 				Assert.NotNull(wallet.Mnemonic);
 				Assert.NotNull(wallet.Passphrase);
 				Assert.NotNull(wallet.WordList);
-				var rootKey = new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase);
+				var rootKey = wallet.Mnemonic.DeriveExtKey(wallet.Passphrase);
 				Assert.Equal(new RootedKeyPath(rootKey.GetPublicKey().GetHDFingerPrint(), new KeyPath("84'/1'/0'")), wallet.AccountKeyPath);
 				Assert.Equal(WordCount.Twelve, wallet.WordCount);
 				Assert.Equal(rootKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString(),
@@ -2926,7 +2926,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(new RootedKeyPath(wallet.MasterHDKey.GetPublicKey().GetHDFingerPrint(), new KeyPath("49'/1'/2'")), wallet.AccountKeyPath);
 				Assert.Equal(Wordlist.French.ToString(), wallet.WordList.ToString());
 				Assert.Equal(WordCount.Fifteen, wallet.WordCount);
-				var masterKey = new Mnemonic(wallet.Mnemonic, wallet.WordList).DeriveExtKey(wallet.Passphrase);
+				var masterKey = new Mnemonic(wallet.Mnemonic.ToString(), wallet.WordList).DeriveExtKey(wallet.Passphrase);
 				Assert.Equal(masterKey.GetPublicKey().GetHDFingerPrint(), wallet.AccountKeyPath.MasterFingerprint);
 				Assert.Equal(masterKey.GetWif(tester.Network), wallet.MasterHDKey);
 				Assert.Equal(masterKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString() + "-[p2sh]",
@@ -2952,7 +2952,111 @@ namespace NBXplorer.Tests
 				Assert.Equal(wallet.MasterHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.MasterHDKey));
 				Assert.Equal(wallet.AccountKeyPath, await tester.Client.GetMetadataAsync<RootedKeyPath>(wallet.DerivationScheme, WellknownMetadataKeys.AccountKeyPath));
 				Assert.Equal(wallet.AccountHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.AccountHDKey));
-				Assert.Equal(wallet.Mnemonic, await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.Mnemonic));
+				Assert.Equal(wallet.Mnemonic.ToString(), await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.Mnemonic));
+				Assert.Equal("True", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
+
+				Logs.Tester.LogInformation("Let's check if psbt are properly rooted automatically");
+				var txid = await tester.SendToAddressAsync(firstGenerated.Address, Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);
+				var psbtResponse = await tester.Client.CreatePSBTAsync(wallet.DerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations = new List<CreatePSBTDestination>()
+					{
+						new CreatePSBTDestination()
+						{
+							Amount = Money.Coins(1.0m),
+							Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
+							SubstractFees = true,
+							SweepAll = true
+						}
+					},
+					FeePreference = new FeePreference()
+					{
+						FallbackFeeRate = new FeeRate(1.0m)
+					}
+				});
+
+				var input = psbtResponse.PSBT.Inputs[0].HDKeyPaths.Single();
+				Assert.Equal(wallet.AccountKeyPath.Derive(new KeyPath("0/0")).KeyPath, input.Value.KeyPath);
+				Assert.Equal(wallet.AccountKeyPath.MasterFingerprint, input.Value.MasterFingerprint);
+				Assert.Equal(firstGenerated.ScriptPubKey, input.Key.GetScriptPubKey(ScriptPubKeyType.SegwitP2SH));
+			}
+		}
+		
+		
+		[Fact]
+		public async Task CanImportWallet()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				Logs.Tester.LogInformation("let's verify that importing a wallet matches the params generated when generating a wallet with the same seed");
+				var generatedWallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest());
+				
+				var importedWallet = await tester.Client.ImportWalletAsync(new ImportWalletRequest()
+				{
+					Mnemonic = generatedWallet.Mnemonic,
+					Passphrase = generatedWallet.Passphrase
+					
+				});
+				
+				Assert.Equal(generatedWallet.DerivationScheme, importedWallet.DerivationScheme);
+				Assert.Equal(generatedWallet.AccountKeyPath, importedWallet.AccountKeyPath);
+				Assert.Equal(generatedWallet.AccountHDKey, importedWallet.AccountHDKey);
+				Assert.Equal(generatedWallet.MasterHDKey, importedWallet.MasterHDKey);
+
+
+				Logs.Tester.LogInformation("Let's make sure our parameters are not ignored");
+				var importWalletRequest = new ImportWalletRequest()
+				{
+					ImportKeysToRPC = true,
+					Passphrase = "hello",
+					ScriptPubKeyType = ScriptPubKeyType.SegwitP2SH,
+					Mnemonic = new Mnemonic(Wordlist.English),
+					AccountNumber = 2,
+					SavePrivateKeys = true
+				};
+				var wallet  = await tester.Client.ImportWalletAsync(importWalletRequest);
+
+				foreach (var metadata in new[]
+				{
+					WellknownMetadataKeys.AccountHDKey,
+					WellknownMetadataKeys.Mnemonic,
+					WellknownMetadataKeys.MasterHDKey,
+					WellknownMetadataKeys.AccountKeyPath,
+					WellknownMetadataKeys.ImportAddressToRPC
+				})
+				{
+					Assert.NotNull(await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, metadata));
+				}
+
+				Assert.Equal(new RootedKeyPath(wallet.MasterHDKey.GetPublicKey().GetHDFingerPrint(), new KeyPath("49'/1'/2'")), wallet.AccountKeyPath);
+				var masterKey = importWalletRequest.Mnemonic.DeriveExtKey(importWalletRequest.Passphrase);
+				Assert.Equal(masterKey.GetPublicKey().GetHDFingerPrint(), wallet.AccountKeyPath.MasterFingerprint);
+				Assert.Equal(masterKey.GetWif(tester.Network), wallet.MasterHDKey);
+				Assert.Equal(masterKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString() + "-[p2sh]",
+					wallet.DerivationScheme.ToString());
+				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Client.Network);
+				Assert.Equal(wallet.DerivationScheme.GetExtPubKeys().Single().PubKey, wallet.AccountHDKey.GetPublicKey());
+				Logs.Tester.LogInformation("Let's assert it is tracked");
+				var firstKeyInfo = repo.GetKeyInformation(wallet.DerivationScheme.GetChild(new KeyPath("0/0")).GetDerivation().ScriptPubKey);
+				Assert.NotNull(firstKeyInfo);
+				var firstGenerated = await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
+				Assert.Equal(firstKeyInfo.ScriptPubKey, firstGenerated.ScriptPubKey);
+				await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
+
+				Logs.Tester.LogInformation($"Let's assert it is tracked by RPC {firstKeyInfo.Address}");
+				var waiter = tester.GetService<BitcoinDWaiters>().GetWaiter(tester.Client.Network);
+				await Task.Delay(1000);
+				var rpcAddressInfo = await waiter.RPC.GetAddressInfoAsync(firstKeyInfo.Address);
+				Assert.True(rpcAddressInfo.IsMine);
+				Assert.False(rpcAddressInfo.IsWatchOnly);
+
+
+				Logs.Tester.LogInformation("Let's test the metadata are correct");
+				Assert.Equal(wallet.MasterHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.MasterHDKey));
+				Assert.Equal(wallet.AccountKeyPath, await tester.Client.GetMetadataAsync<RootedKeyPath>(wallet.DerivationScheme, WellknownMetadataKeys.AccountKeyPath));
+				Assert.Equal(wallet.AccountHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.AccountHDKey));
+				Assert.Equal(importWalletRequest.Mnemonic.ToString(), await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.Mnemonic));
 				Assert.Equal("True", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
 
 				Logs.Tester.LogInformation("Let's check if psbt are properly rooted automatically");
