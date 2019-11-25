@@ -55,6 +55,7 @@ namespace NBXplorer.Configuration
 			app.Option("--rmquser", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
 			app.Option("--rmqpass", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
 			app.Option("--rmqtranex", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
+			app.Option("--rmqblockex", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
 
 			app.Option("--customkeypathtemplate", $"Define an additional derivation path tracked by NBXplorer (Format: m/1/392/*/29, default: empty)", CommandOptionType.SingleValue);
 			app.Option("--maxgapsize", $"The maximum gap address count on which the explorer will track derivation schemes (default: 30)", CommandOptionType.SingleValue);

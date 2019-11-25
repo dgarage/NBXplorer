@@ -1,0 +1,61 @@
+version: "3"
+
+services:
+  nbxplorer:
+    restart: always
+    ports: 
+      - 32838:32838
+    build:
+      context: .
+    environment:
+      NBXPLORER_NETWORK: ${NBITCOIN_NETWORK:-regtest}
+      NBXPLORER_BIND: 0.0.0.0:32838
+      NBXPLORER_NOAUTH: 1
+      NBXPLORER_CHAINS: "btc"
+      NBXPLORER_BTCRPCURL: http://bitcoind:43782/
+      NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
+      NBXPLORER_rmqhost: rabbitmq
+      NBXPLORER_rmquser: guest
+      NBXPLORER_rmqpass: guest
+      NBXPLORER_rmqtranex: NewTransaction
+      NBXPLORER_rmqblockex: NewBlock
+    volumes:
+      - "nbxplorer_datadir:/datadir"
+      - "bitcoin_datadir:/root/.bitcoin"
+    links:
+      - bitcoind
+      - rabbitmq
+
+  bitcoind:
+    restart: always
+    container_name: btcpayserver_bitcoind
+    image: btcpayserver/bitcoin:0.18.0-1
+    environment:
+      BITCOIN_NETWORK: ${NBITCOIN_NETWORK:-regtest}
+      BITCOIN_EXTRA_ARGS: |
+        rpcport=43782
+        rpcbind=0.0.0.0:43782
+        port=39388
+        whitelist=0.0.0.0/0
+    expose:
+    - "43782"
+    - "39388"
+    volumes:
+    - "bitcoin_datadir:/data"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      "RABBITMQ_DEFAULT_PASS": "guest"
+      "RABBITMQ_DEFAULT_USER": "guest"
+      "RABBITMQ_DEFAULT_VHOST": "/"
+    ports:
+      - 4369:4369
+      - 5671:5671
+      - 5672:5672
+      - 15672:15672
+    
+volumes:
+  nbxplorer_datadir: 
+  bitcoin_datadir: 

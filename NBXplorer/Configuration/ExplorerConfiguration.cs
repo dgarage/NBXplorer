@@ -181,6 +181,7 @@ namespace NBXplorer.Configuration
 			RabbitMqUsername = config.GetOrDefault<string>("rmquser", "");
 			RabbitMqPassword = config.GetOrDefault<string>("rmqpass", "");
 			RabbitMqTransactionExchange = config.GetOrDefault<string>("rmqtranex", "");
+			RabbitMqBlockExchange = config.GetOrDefault<string>("rmqblockex", "");
 
 			return this;
 		}
@@ -242,6 +243,7 @@ namespace NBXplorer.Configuration
         public string RabbitMqUsername { get; set; }
         public string RabbitMqPassword { get; set; }
         public string RabbitMqTransactionExchange { get; set; }
+        public string RabbitMqBlockExchange { get; set; }
 
 		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
     }

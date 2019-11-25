@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Unicode;
 using System.Threading.Tasks;
@@ -9,34 +11,59 @@ namespace NBXplorer.MessageBrokers
 {
     internal class RabbitMqBroker : IBrokerClient
     {
-        private string NewTransactionExchange;
+        private readonly NBXplorerNetworkProvider Networks;
+        private readonly ConnectionFactory ConnectionFactory;
+        private readonly string NewTransactionExchange;
+        private readonly string NewBlockExchange;
+        
         private IConnection Connection;
         private IModel Channel;
 
-        public RabbitMqBroker(IConnection connection, string newTransactionExchange, NBXplorerNetworkProvider networks)
+        public RabbitMqBroker(
+            NBXplorerNetworkProvider networks, ConnectionFactory connectionFactory, 
+            string newTransactionExchange, string newBlockExchange)
         {
-            Connection = connection;
-            NewTransactionExchange = newTransactionExchange;
             Networks = networks;
-            Channel = connection.CreateModel();
+            ConnectionFactory = connectionFactory;
+            NewTransactionExchange = newTransactionExchange;
+            NewBlockExchange = newBlockExchange;
         }
 
-        public NBXplorerNetworkProvider Networks { get; }
+        private void CheckAndOpenConnection()
+        {
+            if(Channel == null) 
+            {
+                Connection = ConnectionFactory.CreateConnection();
+                Channel = Connection.CreateModel();
+            }
+        }
 
         Task IBrokerClient.Close()
         {
-            throw new System.NotImplementedException();
+            if(Connection != null && Connection.IsOpen)
+                Connection.Close();
+            if(Channel != null && Channel.IsOpen)
+                Channel.Close();
+
+            return Task.CompletedTask;
         }
 
         Task IBrokerClient.Send(NewTransactionEvent transactionEvent)
         {
+            CheckAndOpenConnection();
+
             string jsonMsg = transactionEvent.ToJson(Networks.GetFromCryptoCode(transactionEvent.CryptoCode).JsonSerializerSettings);
             var body = Encoding.UTF8.GetBytes(jsonMsg);
             
             var conf = (transactionEvent.BlockId == null ? "unconfirmed" : "confirmed");
             var routingKey = $"transactions.{transactionEvent.CryptoCode}.{conf}";
             
+            string msgIdHash = HashMessageId($"{transactionEvent.TrackedSource}-{transactionEvent.TransactionData.Transaction.GetHash()}-{(transactionEvent.TransactionData.BlockId?.ToString() ?? string.Empty)}");
+			ValidateMessageId(msgIdHash);
+
             IBasicProperties props = Channel.CreateBasicProperties();
+            props.MessageId = msgIdHash;
+            props.ContentType = typeof(NewTransactionEvent).ToString();
             props.Headers = new Dictionary<string, object>();
             props.Headers.Add("CryptoCode", transactionEvent.CryptoCode);
 
@@ -51,21 +78,45 @@ namespace NBXplorer.MessageBrokers
 
         Task IBrokerClient.Send(NewBlockEvent blockEvent)
         {
+            CheckAndOpenConnection();
+
             string jsonMsg = blockEvent.ToJson(Networks.GetFromCryptoCode(blockEvent.CryptoCode).JsonSerializerSettings);
             var body = Encoding.UTF8.GetBytes(jsonMsg);
 
-            // TODO: Add routing key for crypto code
+            var routingKey = $"blocks.{blockEvent.CryptoCode}";
             
             IBasicProperties props = Channel.CreateBasicProperties();
+            props.MessageId = blockEvent.Hash.ToString();
+            props.ContentType = typeof(NewBlockEvent).ToString();
+            props.Headers = new Dictionary<string, object>();
             props.Headers.Add("CryptoCode", blockEvent.CryptoCode);
 
             Channel.BasicPublish(
-                exchange: NewTransactionExchange, 
-                routingKey: blockEvent.CryptoCode,
-                basicProperties: null, 
+                exchange: NewBlockExchange, 
+                routingKey: routingKey,
+                basicProperties: props, 
                 body: body);
 
             return Task.CompletedTask;
         }
+
+        const int MaxMessageIdLength = 128;
+        private string HashMessageId(string messageId)
+		{
+			HashAlgorithm algorithm = SHA256.Create();
+			return Encoding.UTF8.GetString( algorithm.ComputeHash(Encoding.UTF8.GetBytes(messageId)));
+		}
+
+		private void ValidateMessageId(string messageId)
+		{
+			if (string.IsNullOrEmpty(messageId) )
+			{
+				throw new ArgumentException("MessageIdIsNullOrEmpty");
+			}
+			else if (messageId.Length > MaxMessageIdLength)
+			{
+				throw new ArgumentException($"MessageIdIsOverMaxLength ({MaxMessageIdLength}) :  {messageId} ");
+			}
+		}
     }
 }

@@ -119,6 +119,7 @@ namespace NBXplorer.Tests
 			keyValues.Add(("rmquser", RabbitMqTestConfig.RabbitMqUsername));
 			keyValues.Add(("rmqpass", RabbitMqTestConfig.RabbitMqPassword));
 			keyValues.Add(("rmqtranex", RabbitMqTestConfig.RabbitMqTransactionExchange));
+			keyValues.Add(("rmqblockex", RabbitMqTestConfig.RabbitMqBlockExchange));
 
 			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }
 			.Concat(new[] { $"--{CryptoCode.ToLowerInvariant()}hastxindex" })).ToArray();

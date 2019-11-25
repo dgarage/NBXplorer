@@ -7,7 +7,7 @@
 		public static string RabbitMqUsername => "guest";
 		public static string RabbitMqPassword => "guest";
 
-		public static string NewBlockExchange => "NewBlock";
+		public static string RabbitMqBlockExchange => "NewBlock";
 		public static string RabbitMqTransactionExchange => "NewTransaction";
     }
 

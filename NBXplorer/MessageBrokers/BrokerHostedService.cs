@@ -75,7 +75,8 @@ namespace NBXplorer.MessageBrokers
 						rabbitMqHostName: _config.RabbitMqHostName, 
 						rabbitMqUsername: _config.RabbitMqUsername,
 						rabbitMqPassword: _config.RabbitMqPassword,
-						newTransactionExchange: _config.RabbitMqTransactionExchange));
+						newTransactionExchange: _config.RabbitMqTransactionExchange,
+						newBlockExchange: string.Empty));
 				}
 			}
 			return new CompositeBroker(brokers);
@@ -91,6 +92,21 @@ namespace NBXplorer.MessageBrokers
 				if (!string.IsNullOrWhiteSpace(_config.AzureServiceBusBlockTopic))
 					brokers.Add(CreateAzureTopic(_config.AzureServiceBusConnectionString, _config.AzureServiceBusBlockTopic));
 			}
+
+			if(!string.IsNullOrEmpty(_config.RabbitMqHostName) && 
+				!string.IsNullOrEmpty(_config.RabbitMqUsername) && 
+				!string.IsNullOrEmpty(_config.RabbitMqPassword)) 
+			{
+				if(!string.IsNullOrEmpty(_config.RabbitMqBlockExchange)) 
+				{
+					brokers.Add(CreateRabbitMqExchange(
+						rabbitMqHostName: _config.RabbitMqHostName, 
+						rabbitMqUsername: _config.RabbitMqUsername,
+						rabbitMqPassword: _config.RabbitMqPassword,
+						newTransactionExchange: string.Empty,
+						newBlockExchange: _config.RabbitMqBlockExchange));
+				}
+			}
 			return new CompositeBroker(brokers);
 		}
 
@@ -104,11 +120,14 @@ namespace NBXplorer.MessageBrokers
 			return new AzureBroker(new TopicClient(connectionString, topicName), Networks);
 		}
 
-		private IBrokerClient CreateRabbitMqExchange(string rabbitMqHostName, string rabbitMqUsername, string rabbitMqPassword, string newTransactionExchange)
+		private IBrokerClient CreateRabbitMqExchange(
+			string rabbitMqHostName, string rabbitMqUsername, string rabbitMqPassword, 
+			string newTransactionExchange, string newBlockExchange)
 		{
 			return new RabbitMqBroker(
-				new ConnectionFactory() { HostName = rabbitMqHostName, UserName = rabbitMqUsername, Password = rabbitMqPassword }.CreateConnection(), 
-				newTransactionExchange, Networks);
+				Networks,
+				new ConnectionFactory() { HostName = rabbitMqHostName, UserName = rabbitMqUsername, Password = rabbitMqPassword }, 
+				newTransactionExchange, newBlockExchange );
 		}
 
 		public async Task StopAsync(CancellationToken cancellationToken)
