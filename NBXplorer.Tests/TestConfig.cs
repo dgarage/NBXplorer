@@ -4,6 +4,7 @@
 	{
 		//Put your rabbit mq settings here
 		public static string RabbitMqHostName => "localhost";
+		public static string RabbitMqVirtualHost => "/";
 		public static string RabbitMqUsername => "guest";
 		public static string RabbitMqPassword => "guest";
 

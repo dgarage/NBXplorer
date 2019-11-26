@@ -178,6 +178,7 @@ namespace NBXplorer.Configuration
 			AzureServiceBusTransactionTopic = config.GetOrDefault<string>("asbtrant", "");
 
 			RabbitMqHostName = config.GetOrDefault<string>("rmqhost", "");
+			RabbitMqVirtualHost = config.GetOrDefault<string>("rmqvirtual", "");
 			RabbitMqUsername = config.GetOrDefault<string>("rmquser", "");
 			RabbitMqPassword = config.GetOrDefault<string>("rmqpass", "");
 			RabbitMqTransactionExchange = config.GetOrDefault<string>("rmqtranex", "");
@@ -240,6 +241,7 @@ namespace NBXplorer.Configuration
 		}
 
 		public string RabbitMqHostName { get; set; }
+        public string RabbitMqVirtualHost { get; set; }
         public string RabbitMqUsername { get; set; }
         public string RabbitMqPassword { get; set; }
         public string RabbitMqTransactionExchange { get; set; }

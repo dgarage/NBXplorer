@@ -114,8 +114,8 @@ namespace NBXplorer.Tests
 			keyValues.Add(("asbtranq", AzureServiceBusTestConfig.NewTransactionQueue));
 			keyValues.Add(("asbblockt", AzureServiceBusTestConfig.NewBlockTopic));
 			keyValues.Add(("asbtrant", AzureServiceBusTestConfig.NewTransactionTopic));
-
 			keyValues.Add(("rmqhost", RabbitMqTestConfig.RabbitMqHostName));
+			keyValues.Add(("rmqvirtual", RabbitMqTestConfig.RabbitMqVirtualHost));			
 			keyValues.Add(("rmquser", RabbitMqTestConfig.RabbitMqUsername));
 			keyValues.Add(("rmqpass", RabbitMqTestConfig.RabbitMqPassword));
 			keyValues.Add(("rmqtranex", RabbitMqTestConfig.RabbitMqTransactionExchange));

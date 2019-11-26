@@ -72,9 +72,10 @@ namespace NBXplorer.MessageBrokers
 				if(!string.IsNullOrEmpty(_config.RabbitMqTransactionExchange)) 
 				{
 					brokers.Add(CreateRabbitMqExchange(
-						rabbitMqHostName: _config.RabbitMqHostName, 
-						rabbitMqUsername: _config.RabbitMqUsername,
-						rabbitMqPassword: _config.RabbitMqPassword,
+						hostName: _config.RabbitMqHostName,
+						virtualHost: _config.RabbitMqVirtualHost,
+						username: _config.RabbitMqUsername,
+						password: _config.RabbitMqPassword,
 						newTransactionExchange: _config.RabbitMqTransactionExchange,
 						newBlockExchange: string.Empty));
 				}
@@ -100,9 +101,10 @@ namespace NBXplorer.MessageBrokers
 				if(!string.IsNullOrEmpty(_config.RabbitMqBlockExchange)) 
 				{
 					brokers.Add(CreateRabbitMqExchange(
-						rabbitMqHostName: _config.RabbitMqHostName, 
-						rabbitMqUsername: _config.RabbitMqUsername,
-						rabbitMqPassword: _config.RabbitMqPassword,
+						hostName: _config.RabbitMqHostName,
+						virtualHost: _config.RabbitMqVirtualHost,
+						username: _config.RabbitMqUsername,
+						password: _config.RabbitMqPassword,
 						newTransactionExchange: string.Empty,
 						newBlockExchange: _config.RabbitMqBlockExchange));
 				}
@@ -121,12 +123,15 @@ namespace NBXplorer.MessageBrokers
 		}
 
 		private IBrokerClient CreateRabbitMqExchange(
-			string rabbitMqHostName, string rabbitMqUsername, string rabbitMqPassword, 
+			string hostName, string virtualHost, 
+			string username, string password, 
 			string newTransactionExchange, string newBlockExchange)
 		{
 			return new RabbitMqBroker(
 				Networks,
-				new ConnectionFactory() { HostName = rabbitMqHostName, UserName = rabbitMqUsername, Password = rabbitMqPassword }, 
+				new ConnectionFactory() { 
+					HostName = hostName, VirtualHost = virtualHost,
+					UserName = username, Password = password }, 
 				newTransactionExchange, newBlockExchange );
 		}
 

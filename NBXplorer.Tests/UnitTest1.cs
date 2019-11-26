@@ -1120,6 +1120,7 @@ namespace NBXplorer.Tests
 				// RabbitMq connection
 				var factory = new ConnectionFactory() { 
                     HostName = RabbitMqTestConfig.RabbitMqHostName,
+					VirtualHost = RabbitMqTestConfig.RabbitMqVirtualHost,
                     UserName = RabbitMqTestConfig.RabbitMqUsername,
                     Password = RabbitMqTestConfig.RabbitMqPassword };
                 IConnection connection = factory.CreateConnection();
@@ -1207,6 +1208,7 @@ namespace NBXplorer.Tests
 				// RabbitMq connection
 				var factory = new ConnectionFactory() { 
                     HostName = RabbitMqTestConfig.RabbitMqHostName,
+					VirtualHost = RabbitMqTestConfig.RabbitMqVirtualHost,
                     UserName = RabbitMqTestConfig.RabbitMqUsername,
                     Password = RabbitMqTestConfig.RabbitMqPassword };
                 IConnection connection = factory.CreateConnection();
