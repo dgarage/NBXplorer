@@ -52,6 +52,7 @@ namespace NBXplorer.Configuration
 			app.Option("--asbtrant", "[For Azure Service Bus] Name of Topic to push new transaction message to. Leave blank to turn off", CommandOptionType.SingleValue);
 
 			app.Option("--rmqhost", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
+			app.Option("--rmqvirtual", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
 			app.Option("--rmquser", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
 			app.Option("--rmqpass", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
 			app.Option("--rmqtranex", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);

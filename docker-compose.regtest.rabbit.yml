@@ -15,6 +15,7 @@ services:
       NBXPLORER_BTCRPCURL: http://bitcoind:43782/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
       NBXPLORER_rmqhost: rabbitmq
+      NBXPLORER_rmqvirtual: / 
       NBXPLORER_rmquser: guest
       NBXPLORER_rmqpass: guest
       NBXPLORER_rmqtranex: NewTransaction
