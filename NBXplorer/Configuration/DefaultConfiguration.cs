@@ -51,12 +51,12 @@ namespace NBXplorer.Configuration
 			app.Option("--asbblockt", "[For Azure Service Bus] Name of Topic to push new block message to. Leave blank to turn off", CommandOptionType.SingleValue);
 			app.Option("--asbtrant", "[For Azure Service Bus] Name of Topic to push new transaction message to. Leave blank to turn off", CommandOptionType.SingleValue);
 
-			app.Option("--rmqhost", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--rmqvirtual", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--rmquser", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--rmqpass", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--rmqtranex", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--rmqblockex", "[For RabbitMq] TODO. Leave blank to turn off", CommandOptionType.SingleValue);
+			app.Option("--rmqhost", "[For RabbitMq] RabbitMq host name. Leave blank to turn off", CommandOptionType.SingleValue);
+			app.Option("--rmquser", "[For RabbitMq] RabbitMq username. Leave blank to turn off", CommandOptionType.SingleValue);
+			app.Option("--rmqpass", "[For RabbitMq] RabbitMq password. Leave blank to turn off", CommandOptionType.SingleValue);
+			app.Option("--rmqvirtual", "[For RabbitMq] RabbitMq virtual host.", CommandOptionType.SingleValue);
+			app.Option("--rmqtranex", "[For RabbitMq] Name of exchange to push transaction messages.", CommandOptionType.SingleValue);
+			app.Option("--rmqblockex", "[For RabbitMq] Name of exchange to push block messages.", CommandOptionType.SingleValue);
 
 			app.Option("--customkeypathtemplate", $"Define an additional derivation path tracked by NBXplorer (Format: m/1/392/*/29, default: empty)", CommandOptionType.SingleValue);
 			app.Option("--maxgapsize", $"The maximum gap address count on which the explorer will track derivation schemes (default: 30)", CommandOptionType.SingleValue);
