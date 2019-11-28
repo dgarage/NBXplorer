@@ -36,20 +36,7 @@ services:
     - "39388"
     volumes:
     - "bitcoin_datadir:/data"
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    hostname: rabbitmq
-    environment:
-      "RABBITMQ_DEFAULT_PASS": "guest"
-      "RABBITMQ_DEFAULT_USER": "guest"
-      "RABBITMQ_DEFAULT_VHOST": "/"
-    ports:
-      - 4369:4369
-      - 5671:5671
-      - 5672:5672
-      - 15672:15672
-    
+ 
 volumes:
   nbxplorer_datadir: 
   bitcoin_datadir: 
