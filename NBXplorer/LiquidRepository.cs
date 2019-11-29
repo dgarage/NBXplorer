@@ -1,10 +1,13 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DBriize;
 using NBitcoin;
 using NBitcoin.Altcoins.Elements;
+using NBXplorer.Altcoins.Liquid;
 using NBitcoin.RPC;
 using NBXplorer.Models;
+using System;
 
 namespace NBXplorer
 {
@@ -18,24 +21,202 @@ namespace NBXplorer
 			_rpcClient = rpcClient;
 		}
 
-		protected override async Task<Transaction> GetTransaction(Transaction tx,
-			KeyPathInformation keyInfo)
+		class ElementsTrackedTransaction : TrackedTransaction
 		{
-			if (!(keyInfo.Address is BitcoinBlindedAddress bitcoinBlindedAddress) ||
-			    !(tx is ElementsTransaction elementsTransaction)) return await base.GetTransaction(tx, keyInfo);
+			public ElementsTrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource, IEnumerable<Coin> receivedCoins, Dictionary<Script, KeyPath> knownScriptMapping) :
+				base(key, trackedSource, receivedCoins, knownScriptMapping)
+			{
+				ClearCoinValues();
+				Unblind(receivedCoins, false);
+			}
+			public ElementsTrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource, Transaction transaction, Dictionary<Script, KeyPath> knownScriptMapping) :
+				base(key, trackedSource, transaction, knownScriptMapping)
+			{
+				ClearCoinValues();
+				Unblind(transaction.Outputs.AsCoins(), false);
+			}
 
-			var privateKey =
-				NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(
-					keyInfo.DerivationStrategy, keyInfo.KeyPath);
-			return await _rpcClient.UnblindTransaction(new List<UnblindTransactionBlindingAddressKey>()
+			private void ClearCoinValues()
+			{
+				foreach (var coin in ReceivedCoins.OfType<Coin>())
 				{
-					new UnblindTransactionBlindingAddressKey()
+					coin.Amount = null;
+				}
+			}
+
+			public override ITrackedTransactionSerializable CreateBitcoinSerializable()
+			{
+				return new ElementsTransactionMatchData(this);
+			}
+
+			public void Unblind(ElementsTransaction unblindedTransaction, bool saveUnblindData)
+			{
+				Unblind(unblindedTransaction.Outputs.AsCoins(), saveUnblindData);
+			}
+
+			public void Unblind(IEnumerable<ICoin> unblindedCoins, bool saveUnblindData)
+			{
+				foreach (var coin in unblindedCoins)
+				{
+					AssetMoney assetMoney = null;
+					if (coin is AssetCoin assetCoin)
 					{
-						Address = bitcoinBlindedAddress,
-						BlindingKey = privateKey
+						assetMoney = assetCoin.Money;
 					}
-				},
-				elementsTransaction, Network.NBitcoinNetwork);
+					if (coin.TxOut is ElementsTxOut elementsTxOut &&
+						elementsTxOut.Asset.AssetId != null &&
+						elementsTxOut.Value != null)
+					{
+						assetMoney = new AssetMoney(elementsTxOut.Asset.AssetId, elementsTxOut.Value.Satoshi);
+					}
+					if (assetMoney != null &&
+						this.ReceivedCoins.TryGetValue(coin, out var existingCoin) &&
+						existingCoin is Coin c)
+					{
+						if (saveUnblindData)
+							Unblinded.TryAdd((int)existingCoin.Outpoint.N, assetMoney);
+						this.ReceivedCoins.Remove(existingCoin);
+						this.ReceivedCoins.Add(new AssetCoin(assetMoney, existingCoin));
+					}
+				}
+			}
+			public void Unblind(IEnumerable<ElementsTransactionMatchData.UnblindData> unblindData)
+			{
+				var hiddenCoins = ReceivedCoins.OfType<Coin>().ToList();
+				foreach (var unblind in unblindData)
+				{
+					foreach (var c in hiddenCoins)
+					{
+						if (c.Outpoint.N == unblind.Index)
+						{
+							this.ReceivedCoins.Remove(c);
+							var money = new AssetMoney(unblind.AssetId, unblind.Value);
+							this.ReceivedCoins.Add(new AssetCoin(money, c));
+							this.Unblinded.Add(unblind.Index, money);
+						}
+					}
+				}
+			}
+			public Dictionary<int, AssetMoney> Unblinded = new Dictionary<int, AssetMoney>();
+		}
+		class ElementsTransactionMatchData : TrackedTransaction.TransactionMatchData
+		{
+			internal class UnblindData : IBitcoinSerializable
+			{
+
+				long _Value;
+				public long Value
+				{
+					get
+					{
+						return _Value;
+					}
+					set
+					{
+						_Value = value;
+					}
+				}
+
+				uint256 _AssetId;
+				public uint256 AssetId
+				{
+					get
+					{
+						return _AssetId;
+					}
+					set
+					{
+						_AssetId = value;
+					}
+				}
+
+				int _Index;
+				public int Index
+				{
+					get
+					{
+						return _Index;
+					}
+					set
+					{
+						_Index = value;
+					}
+				}
+
+				public void ReadWrite(BitcoinStream stream)
+				{
+					stream.ReadWrite(ref _Index);
+					stream.ReadWrite(ref _AssetId);
+					stream.ReadWrite(ref _Value);
+				}
+			}
+
+
+			List<UnblindData> _UnblindData = new List<UnblindData>();
+			internal List<UnblindData> Unblind
+			{
+				get
+				{
+					return _UnblindData;
+				}
+				set
+				{
+					_UnblindData = value;
+				}
+			}
+			public ElementsTransactionMatchData(TrackedTransactionKey key): base(key)
+			{
+
+			}
+			public ElementsTransactionMatchData(TrackedTransaction trackedTransaction) : base(trackedTransaction)
+			{
+
+			}
+
+			public override void ReadWrite(BitcoinStream stream)
+			{
+				base.ReadWrite(stream);
+				stream.ReadWrite(ref _UnblindData);
+			}
+		}
+
+		protected override async Task AfterMatch(TrackedTransaction tx)
+		{
+			if (tx.TrackedSource is DerivationSchemeTrackedSource ts &&
+				tx.Transaction is ElementsTransaction elementsTransaction &&
+				tx is ElementsTrackedTransaction elementsTracked)
+			{
+				var unblinded = await _rpcClient.UnblindTransaction(
+					tx.KnownKeyPathMapping
+					.Select(kv => (KeyPath: kv.Value, 
+								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.Value),
+								   UnconfidentialAddress: kv.Key.GetDestinationAddress(Network.NBitcoinNetwork)))
+					.Select(o => new UnblindTransactionBlindingAddressKey()
+					{
+						Address = o.UnconfidentialAddress.AddBlindingKey(o.BlindingKey.PubKey),
+						BlindingKey = o.BlindingKey
+					}).ToList(), elementsTransaction, Network.NBitcoinNetwork);
+				elementsTracked.Unblind(unblinded, true);
+			}
+		}
+
+		public override TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, Transaction tx, Dictionary<Script, KeyPath> knownScriptMapping)
+		{
+			return new ElementsTrackedTransaction(transactionKey, trackedSource, tx, knownScriptMapping);
+		}
+		public override TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, IEnumerable<Coin> coins, Dictionary<Script, KeyPath> knownScriptMapping)
+		{
+			return new ElementsTrackedTransaction(transactionKey, trackedSource, coins, knownScriptMapping);
+		}
+		public override TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, ITrackedTransactionSerializable tx)
+		{
+			var trackedTransaction = (ElementsTrackedTransaction)base.CreateTrackedTransaction(trackedSource, tx);
+			trackedTransaction.Unblind(((ElementsTransactionMatchData)tx).Unblind);
+			return trackedTransaction;
+		}
+		protected override ITrackedTransactionSerializable CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey trackedTransactionKey)
+		{
+			return new ElementsTransactionMatchData(trackedTransactionKey);
 		}
 	}
 }

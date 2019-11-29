@@ -22,7 +22,7 @@ namespace NBXplorer.Tests
 
 			public TrackedTransaction Build()
 			{
-				var tx = new TrackedTransaction(new TrackedTransactionKey(_TransactionId, _BlockId, true), _Parent._TrackedSource)
+				var tx = new TrackedTransaction(new TrackedTransactionKey(_TransactionId, _BlockId, true), _Parent._TrackedSource, null as Coin[], null)
 				{
 					Inserted = _TimeStamp,
 					FirstSeen = _TimeStamp
