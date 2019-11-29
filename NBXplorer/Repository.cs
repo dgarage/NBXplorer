@@ -743,10 +743,9 @@ namespace NBXplorer
 
 		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, CancellationToken cancellation = default)
 		{
-
-			bool needUpdate = false;
 			Dictionary<uint256, long> firstSeenList = new Dictionary<uint256, long>();
-
+			HashSet<TransactionMatchData> needRemove = new HashSet<TransactionMatchData>();
+			HashSet<TransactionMatchData> needUpdate = new HashSet<TransactionMatchData>();
 			var transactions = await _TxContext.DoAsync(tx =>
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
@@ -760,10 +759,8 @@ namespace NBXplorer
 					TransactionMatchData data = new TransactionMatchData(TrackedTransactionKey.Parse(row.Key));
 					data.ReadWrite(bs);
 					result.Add(data);
-
-					if (data.NeedUpdate)
-						needUpdate = true;
-
+					if (data.KnownKeyPathMapping == null)
+						needUpdate.Add(data);
 					long firstSeen;
 					if (firstSeenList.TryGetValue(data.Key.TxId, out firstSeen))
 					{
@@ -792,14 +789,13 @@ namespace NBXplorer
 							 tx.Key.TxId == previousConfirmed.Key.TxId &&
 							 tx.Key.BlockHash == previousConfirmed.Key.BlockHash)
 					{
-						needUpdate = true;
-						tx.NeedRemove = true;
+						needRemove.Add(tx);
 
 						foreach (var kv in tx.KnownKeyPathMapping)
 						{
 							// The pruned transaction has more info about owned utxo than the unpruned, we need to update the unpruned
 							if (previousConfirmed.KnownKeyPathMapping.TryAdd(kv.Key, kv.Value))
-								previousConfirmed.NeedUpdate = true;
+								needUpdate.Add(previousConfirmed);
 						}
 					}
 					else
@@ -810,15 +806,14 @@ namespace NBXplorer
 
 				if (tx.FirstSeenTickCount != firstSeenList[tx.Key.TxId])
 				{
-					needUpdate = true;
-					tx.NeedUpdate = true;
+					needUpdate.Add(tx);
 					tx.FirstSeenTickCount = firstSeenList[tx.Key.TxId];
 				}
 			}
-			if (needUpdate)
+			if (needUpdate.Count != 0 || needRemove.Count != 0)
 			{
 				// This is legacy data, need an update
-				foreach (var data in transactions.Where(t => t.NeedUpdate && t.KnownKeyPathMapping == null))
+				foreach (var data in needUpdate.Where(t => t.KnownKeyPathMapping == null))
 				{
 					data.KnownKeyPathMapping = (await this.GetMatches(data.Transaction, data.Key.BlockHash, DateTimeOffset.UtcNow, false))
 											  .Where(m => m.TrackedSource.Equals(trackedSource))
@@ -830,11 +825,11 @@ namespace NBXplorer
 				_TxContext.DoAsync(tx =>
 				{
 					var table = GetTransactionsIndex(tx, trackedSource);
-					foreach (var data in transactions.Where(t => t.NeedUpdate))
+					foreach (var data in needUpdate.Where(t => !needRemove.Contains(t)))
 					{
 						table.Insert(data.GetRowKey(), data.ToBytes());
 					}
-					foreach (var data in transactions.Where(t => t.NeedRemove))
+					foreach (var data in needRemove)
 					{
 						table.RemoveKey(data.Key.ToString());
 					}
@@ -842,7 +837,7 @@ namespace NBXplorer
 				});
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 			}
-			return transactions.Where(tt => !tt.NeedRemove).Select(c => c.ToTrackedTransaction(trackedSource)).ToArray();
+			return transactions.Where(tt => !needRemove.Contains(tt)).Select(c => c.ToTrackedTransaction(trackedSource)).ToArray();
 		}
 
 		public class TransactionMiniKeyInformation : IBitcoinSerializable
@@ -1076,12 +1071,6 @@ namespace NBXplorer
 				}
 			}
 
-			public bool NeedUpdate
-			{
-				get; set;
-			}
-			public bool NeedRemove { get; internal set; }
-
 			public void ReadWrite(BitcoinStream stream)
 			{
 				if (Key.IsPruned)
@@ -1098,10 +1087,6 @@ namespace NBXplorer
 					// We always with FirstSeenTickCount to be at least TickCount
 					if (!stream.Serializing)
 						_FirstSeenTickCount = _TickCount;
-				}
-				else
-				{
-					NeedUpdate = true;
 				}
 				if (stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 				{
@@ -1122,17 +1107,9 @@ namespace NBXplorer
 						}
 					}
 				}
-				else
-				{
-					NeedUpdate = true;
-				}
 				if (stream.Serializing || stream.Inner.Position != stream.Inner.Length)
 				{
 					stream.ReadWrite(ref _FirstSeenTickCount);
-				}
-				else
-				{
-					NeedUpdate = true;
 				}
 			}
 
