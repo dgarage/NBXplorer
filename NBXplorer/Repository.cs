@@ -84,9 +84,9 @@ namespace NBXplorer
 		public async Task StartAsync()
 		{
 			await Task.WhenAll(_Repositories.Select(kv => kv.Value.StartAsync()).ToArray());
-			foreach	(var repo in _Repositories.Select(kv => kv.Value))
+			foreach (var repo in _Repositories.Select(kv => kv.Value))
 			{
-				if(GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
+				if (GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
 				{
 					Logs.Configuration.LogInformation($"{repo.Network.CryptoCode}: Rescanning the chain...");
 					await repo.SetIndexProgress(null);
@@ -388,22 +388,6 @@ namespace NBXplorer
 			});
 		}
 
-		protected KeyPathInformation GetKeyPathInformation(Derivation derivation, TrackedSource trackedSource,
-			DerivationFeature derivationFeature, KeyPath keyPath)
-		{
-			return  new KeyPathInformation(derivation, (trackedSource as DerivationSchemeTrackedSource), derivationFeature, keyPath,  _Network);
-		}
-
-		protected KeyPathInformation GetKeyPathInformation(IDestination derivation)
-		{
-			var src = (TrackedSource) derivation;
-			return new KeyPathInformation()
-			{
-				ScriptPubKey = derivation.ScriptPubKey,
-				TrackedSource = src
-			};
-		}
-
 		int GetAddressToGenerateCount(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
 			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
@@ -426,11 +410,13 @@ namespace NBXplorer
 			Parallel.For(0, toGenerate, i =>
 			{
 				var index = highestGenerated + i + 1;
-				var derivation = feature.Derive((uint) index);
-				keyPathInformations[i] = GetKeyPathInformation(derivation,
+				var derivation = feature.Derive((uint)index);
+				var info = new KeyPathInformation(derivation,
 					new DerivationSchemeTrackedSource(strategy),
 					derivationFeature,
-					keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false));
+					keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false),
+					Network);
+				keyPathInformations[i] = info;
 			});
 			for (int i = 0; i < toGenerate; i++)
 			{
@@ -503,7 +489,13 @@ namespace NBXplorer
 		{
 			return _TxContext.DoAsync((tx) =>
 			{
-				var bytes = ToBytes(GetKeyPathInformation(address));
+				var info = new KeyPathInformation()
+				{
+					ScriptPubKey = address.ScriptPubKey,
+					TrackedSource = (TrackedSource)address,
+					Address = (address as BitcoinAddress) ?? address.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork)
+				};
+				var bytes = ToBytes(info);
 				GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
 				tx.Commit();
 			});
@@ -846,7 +838,7 @@ namespace NBXplorer
 				tx.Commit();
 			});
 		}
-		public async Task<TMetadata> GetMetadata<TMetadata>(TrackedSource source, string key) where TMetadata: class
+		public async Task<TMetadata> GetMetadata<TMetadata>(TrackedSource source, string key) where TMetadata : class
 		{
 			return await _TxContext.DoAsync(tx =>
 			{
@@ -877,7 +869,7 @@ namespace NBXplorer
 						{
 							foreach (var kv in value.KnownKeyPathMapping)
 							{
-								var derivation =  s.DerivationStrategy.GetDerivation(kv.Value);
+								var derivation = s.DerivationStrategy.GetDerivation(kv.Value);
 								var info = new KeyPathInformation(derivation, s, keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, _Network);
 								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
