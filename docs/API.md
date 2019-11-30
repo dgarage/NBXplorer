@@ -34,6 +34,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Manual pruning](#pruning)
 * [Generate a wallet](#wallet)
 * [Health check](#health)
+* [Liquid integration](#liquid)
 
 ## <a name="configuration"></a>Configuration
 
@@ -204,6 +205,8 @@ Returns:
   }
 }
 ```
+
+Note for liquid, `balanceChange` is an array of [AssetMoney](#liquid).
 
 ## <a name="address-transactions"></a>Query transactions associated to a specific address
 
@@ -1104,3 +1107,32 @@ A endpoint that can be used without the need for [authentication](#auth) which w
 HTTP GET /health
 
 It will output the state for each nodes in JSON, whose format might change in the future.
+
+## <a name="liquid"></a>Liquid integration
+
+NBXplorer supports liquid, the API is the same as all the other coins, except for the following:
+
+* All references to `value` which normally contains an integer of the amount of the altcoin will instead output a JSON Object of type `AssetMoney`.
+* [When listing the transaction of a derivation scheme](#transactions), the `balanceChange` elements is instead a `JSON array of AssetMoney`.
+* [Get a new unused address](#unused) returns a confidential address. (See note below)
+* [Create Partially Signed Bitcoin Transaction](#psbt) is not supported.
+* [Update Partially Signed Bitcoin Transaction](#updatepsbt) is not supported
+* [Scan UTXO Set](#scanUtxoSet) is not supported.
+* Any sort of recovery is not supported.
+
+The `AssetMoney` JSON format is:
+
+```json
+{
+	"assetId": "abc",
+	"value": 123
+}
+```
+
+The blinding key of the confidential address is derived directly from the `derivationScheme`.
+If the `scriptPubKey` `0/2` is generated, the blinding private key used by NBXplorer is the SHA256 of the scriptPubKey at `0/2/0`.
+
+In order to send in and out of liquid, we advise you to rely on the RPC command line interface of the liquid deamon.
+For doing this you need to [Generate a wallet](#wallet) with `importAddressToRPC` and `savePrivateKeys` set to `true`.
+
+Be careful to not expose your NBXplorer server on internet, your private keys can be [retrieved trivially](#getmetadata).
