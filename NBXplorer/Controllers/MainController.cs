@@ -614,7 +614,15 @@ namespace NBXplorer.Controllers
 					if (txId != null && txId == txInfo.TransactionId)
 						fetchedTransactionInfo = txInfo;
 
-					txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).OfType<Money>().Sum() - txInfo.Inputs.Select(o => o.Value).OfType<Money>().Sum();
+					if (network.NBitcoinNetwork.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
+					{
+						txInfo.BalanceChange = new MoneyBag(txInfo.Outputs.Select(o => o.Value).OfType<AssetMoney>().ToArray())
+												- new MoneyBag(txInfo.Inputs.Select(o => o.Value).OfType<AssetMoney>().ToArray());
+					}
+					else
+					{
+						txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).OfType<Money>().Sum() - txInfo.Inputs.Select(o => o.Value).OfType<Money>().Sum();
+					}
 				}
 				item.TxSet.Transactions.Reverse(); // So the youngest transaction is generally first
 			}

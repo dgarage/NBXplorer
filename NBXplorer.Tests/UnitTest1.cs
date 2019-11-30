@@ -2905,11 +2905,13 @@ namespace NBXplorer.Tests
 
 					// but not the transaction itself
 					var tx = Assert.IsAssignableFrom<ElementsTransaction>(evt.TransactionData.Transaction);
+					Assert.Equal(txid, tx.GetHash());
 					var elementsTxOut = Assert.IsAssignableFrom<ElementsTxOut>(tx.Outputs[output.Index]);
 					Assert.Null(elementsTxOut.Value);
 					//test: Get Transaction should give an ElementsTransaction
-					Assert.IsAssignableFrom<ElementsTransaction>((await tester.Client.GetTransactionAsync(txid)).Transaction);
-					
+					tx = Assert.IsAssignableFrom<ElementsTransaction>((await tester.Client.GetTransactionAsync(txid)).Transaction);
+					Assert.Equal(txid, tx.GetHash());
+
 					//test: receive a tx to deriv scheme but to a confidential address with a different blinding key than our derivation method 
 					evtTask = session.NextEventAsync(Timeout);
 					await tester.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
@@ -2922,6 +2924,11 @@ namespace NBXplorer.Tests
 					//test: The ouptut of the event should have null value
 					output = Assert.Single(evt.Outputs);
 					Assert.Null(output.Value);
+
+					var txInfos = tester.Client.GetTransactions(userDerivationScheme).UnconfirmedTransactions.Transactions;
+					var assetMoney2 = Assert.IsType<AssetMoney>(Assert.Single(Assert.IsType<MoneyBag>(txInfos[1].BalanceChange)));
+					Assert.Empty(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange));
+					Assert.Equal(assetMoney, assetMoney2);
 				}
 			}
 		}

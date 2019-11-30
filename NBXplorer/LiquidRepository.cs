@@ -168,9 +168,10 @@ namespace NBXplorer
 			{
 
 			}
-			public ElementsTransactionMatchData(TrackedTransaction trackedTransaction) : base(trackedTransaction)
+			public ElementsTransactionMatchData(ElementsTrackedTransaction trackedTransaction) : base(trackedTransaction)
 			{
-
+				foreach (var unblind in trackedTransaction.Unblinded)
+					_UnblindData.Add(new UnblindData() { Index = unblind.Key, AssetId = unblind.Value.AssetId, Value = unblind.Value.Quantity });
 			}
 
 			public override void ReadWrite(BitcoinStream stream)
@@ -186,23 +187,17 @@ namespace NBXplorer
 				tx.Transaction is ElementsTransaction elementsTransaction &&
 				tx is ElementsTrackedTransaction elementsTracked)
 			{
-				try
-				{
-					var unblinded = await _rpcClient.UnblindTransaction(
-						tx.KnownKeyPathMapping
-						.Select(kv => (KeyPath: kv.Value,
-									   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.Value),
-									   UnconfidentialAddress: kv.Key.GetDestinationAddress(Network.NBitcoinNetwork)))
-						.Select(o => new UnblindTransactionBlindingAddressKey()
-						{
-							Address = o.UnconfidentialAddress.AddBlindingKey(o.BlindingKey.PubKey),
-							BlindingKey = o.BlindingKey
-						}).ToList(), elementsTransaction, Network.NBitcoinNetwork);
-					elementsTracked.Unblind(unblinded, true);
-				}
-				catch (Exception ex)
-				{
-				}
+				var unblinded = await _rpcClient.UnblindTransaction(
+					tx.KnownKeyPathMapping
+					.Select(kv => (KeyPath: kv.Value,
+								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.Value),
+								   UnconfidentialAddress: kv.Key.GetDestinationAddress(Network.NBitcoinNetwork)))
+					.Select(o => new UnblindTransactionBlindingAddressKey()
+					{
+						Address = o.UnconfidentialAddress.AddBlindingKey(o.BlindingKey.PubKey),
+						BlindingKey = o.BlindingKey
+					}).ToList(), elementsTransaction, Network.NBitcoinNetwork);
+				elementsTracked.Unblind(unblinded, true);
 			}
 		}
 

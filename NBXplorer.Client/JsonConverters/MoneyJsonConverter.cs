@@ -16,27 +16,38 @@ namespace NBXplorer.JsonConverters
 			return typeof(IMoney).GetTypeInfo().IsAssignableFrom(objectType.GetTypeInfo());
 		}
 
+		class AssetCoinJson
+		{
+			public uint256 AssetId { get; set; }
+			public long? Value { get; set; }
+			public AssetMoney ToAssetMoney(string path)
+			{
+				if (AssetId == null)
+					throw new JsonObjectException("'assetId' is missing", path);
+				if (Value is null)
+					throw new JsonObjectException("'value' is missing", path);
+				return new AssetMoney(AssetId, Value.Value);
+			}
+		}
+
 		public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
 		{
 			try
 			{
 				if (reader.TokenType == JsonToken.Null)
 					return null;
-				AssertJsonType(reader, new[] { JsonToken.Integer, JsonToken.String });
+				AssertJsonType(reader, new[] { JsonToken.Integer, JsonToken.StartObject, JsonToken.StartArray });
 				if (reader.TokenType == JsonToken.Integer)
 				{
 					return new Money((long)reader.Value);
 				}
+				else if (reader.TokenType == JsonToken.StartObject)
+				{
+					return serializer.Deserialize<AssetCoinJson>(reader).ToAssetMoney(reader.Path);
+				}
 				else
 				{
-					var splitted = ((string)reader.Value).Split(':');
-					if (splitted.Length == 2 &&
-						uint256.TryParse(splitted[0], out var assetId) &&
-						long.TryParse(splitted[1], out var quantity))
-					{
-						return new AssetMoney(assetId, quantity);
-					}
-					throw new JsonObjectException("Invalid asset money, format should be \"assetid:quantity\"", reader);
+					return new MoneyBag(serializer.Deserialize<AssetCoinJson[]>(reader).Select(c => c.ToAssetMoney(reader.Path)).ToArray());
 				}
 			}
 			catch (InvalidCastException)
@@ -50,8 +61,13 @@ namespace NBXplorer.JsonConverters
 			if (value is Money v)
 				writer.WriteValue(v.Satoshi);
 			else if (value is AssetMoney av)
-				writer.WriteValue($"{av.AssetId}:{av.Quantity}");
-
+			{
+				serializer.Serialize(writer, new AssetCoinJson() { Value = av.Quantity, AssetId = av.AssetId });
+			}
+			else if (value is MoneyBag mb)
+			{
+				serializer.Serialize(writer, mb.OfType<AssetMoney>().Select(av2 => new AssetCoinJson() { Value = av2.Quantity, AssetId = av2.AssetId }).ToArray());
+			}
 		}
 		static void AssertJsonType(JsonReader reader, JsonToken[] anyExpectedTypes)
 		{
