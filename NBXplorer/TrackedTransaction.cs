@@ -8,7 +8,7 @@ using NBXplorer.Models;
 using static NBXplorer.Repository;
 
 namespace NBXplorer{
-	public class TrackedTransaction
+	public partial class TrackedTransaction
 	{
 		class CoinOutpointEqualityComparer : IEqualityComparer<Coin>
 		{
