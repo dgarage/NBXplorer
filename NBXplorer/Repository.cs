@@ -16,6 +16,7 @@ using NBitcoin.RPC;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using Newtonsoft.Json.Linq;
+using static NBXplorer.TrackedTransaction;
 
 namespace NBXplorer
 {
@@ -898,7 +899,7 @@ namespace NBXplorer
 						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
 						var data = value.CreateBitcoinSerializable();
 						bs.ReadWrite(data);
-						table.Insert(value.Key.ToString(), ms.ToArrayEfficient());
+						table.Insert(data.Key.ToString(), ms.ToArrayEfficient());
 					}
 				}
 				tx.Commit();
