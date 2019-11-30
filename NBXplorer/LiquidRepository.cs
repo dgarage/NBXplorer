@@ -70,8 +70,7 @@ namespace NBXplorer
 						assetMoney = new AssetMoney(elementsTxOut.Asset.AssetId, elementsTxOut.Value.Satoshi);
 					}
 					if (assetMoney != null &&
-						this.ReceivedCoins.TryGetValue(coin, out var existingCoin) &&
-						existingCoin is Coin c)
+						TryGetReceivedCoinByIndex((int)coin.Outpoint.N) is Coin existingCoin)
 					{
 						if (saveUnblindData)
 							Unblinded.TryAdd((int)existingCoin.Outpoint.N, assetMoney);
@@ -80,20 +79,21 @@ namespace NBXplorer
 					}
 				}
 			}
+
+			ICoin TryGetReceivedCoinByIndex(int index)
+			{
+				return this.ReceivedCoins.FirstOrDefault(r => r.Outpoint.N == index);
+			}
 			public void Unblind(IEnumerable<ElementsTransactionMatchData.UnblindData> unblindData)
 			{
-				var hiddenCoins = ReceivedCoins.OfType<Coin>().ToList();
 				foreach (var unblind in unblindData)
 				{
-					foreach (var c in hiddenCoins)
+					if (TryGetReceivedCoinByIndex(unblind.Index) is Coin existingCoin)
 					{
-						if (c.Outpoint.N == unblind.Index)
-						{
-							this.ReceivedCoins.Remove(c);
-							var money = new AssetMoney(unblind.AssetId, unblind.Value);
-							this.ReceivedCoins.Add(new AssetCoin(money, c));
-							this.Unblinded.Add(unblind.Index, money);
-						}
+						this.ReceivedCoins.Remove(existingCoin);
+						var money = new AssetMoney(unblind.AssetId, unblind.Value);
+						this.ReceivedCoins.Add(new AssetCoin(money, existingCoin));
+						this.Unblinded.Add(unblind.Index, money);
 					}
 				}
 			}
@@ -164,7 +164,7 @@ namespace NBXplorer
 					_UnblindData = value;
 				}
 			}
-			public ElementsTransactionMatchData(TrackedTransactionKey key): base(key)
+			public ElementsTransactionMatchData(TrackedTransactionKey key) : base(key)
 			{
 
 			}
@@ -186,17 +186,23 @@ namespace NBXplorer
 				tx.Transaction is ElementsTransaction elementsTransaction &&
 				tx is ElementsTrackedTransaction elementsTracked)
 			{
-				var unblinded = await _rpcClient.UnblindTransaction(
-					tx.KnownKeyPathMapping
-					.Select(kv => (KeyPath: kv.Value, 
-								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.Value),
-								   UnconfidentialAddress: kv.Key.GetDestinationAddress(Network.NBitcoinNetwork)))
-					.Select(o => new UnblindTransactionBlindingAddressKey()
-					{
-						Address = o.UnconfidentialAddress.AddBlindingKey(o.BlindingKey.PubKey),
-						BlindingKey = o.BlindingKey
-					}).ToList(), elementsTransaction, Network.NBitcoinNetwork);
-				elementsTracked.Unblind(unblinded, true);
+				try
+				{
+					var unblinded = await _rpcClient.UnblindTransaction(
+						tx.KnownKeyPathMapping
+						.Select(kv => (KeyPath: kv.Value,
+									   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.Value),
+									   UnconfidentialAddress: kv.Key.GetDestinationAddress(Network.NBitcoinNetwork)))
+						.Select(o => new UnblindTransactionBlindingAddressKey()
+						{
+							Address = o.UnconfidentialAddress.AddBlindingKey(o.BlindingKey.PubKey),
+							BlindingKey = o.BlindingKey
+						}).ToList(), elementsTransaction, Network.NBitcoinNetwork);
+					elementsTracked.Unblind(unblinded, true);
+				}
+				catch (Exception ex)
+				{
+				}
 			}
 		}
 

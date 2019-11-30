@@ -2894,28 +2894,34 @@ namespace NBXplorer.Tests
 					var evtTask = session.NextEventAsync(Timeout);
 					var txid = await tester.SendToAddressAsync(address, Money.Coins(1.0m));
 
-					var evt = await evtTask;
-					var tx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
-						.TransactionData.Transaction));
+					var evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 
-					//test: Elements should try to unblind transaction upon detection
-					foreach (var txOutput in tx.Outputs)
-					{
-						var elementsTxOut = Assert.IsAssignableFrom<ElementsTxOut>(txOutput);
-						Assert.NotNull(elementsTxOut.Value);
-					}
-					
+
+					//test: Elements should have unblinded the outputs
+					var output = Assert.Single(evt.Outputs);
+					var assetMoney = Assert.IsType<AssetMoney>(output.Value);
+					Assert.Equal(Money.Coins(1.0m).Satoshi, assetMoney.Quantity);
+					Assert.NotNull(assetMoney.AssetId);
+
+					// but not the transaction itself
+					var tx = Assert.IsAssignableFrom<ElementsTransaction>(evt.TransactionData.Transaction);
+					var elementsTxOut = Assert.IsAssignableFrom<ElementsTxOut>(tx.Outputs[output.Index]);
+					Assert.Null(elementsTxOut.Value);
 					//test: Get Transaction should give an ElementsTransaction
 					Assert.IsAssignableFrom<ElementsTransaction>((await tester.Client.GetTransactionAsync(txid)).Transaction);
 					
 					//test: receive a tx to deriv scheme but to a confidential address with a different blinding key than our derivation method 
 					evtTask = session.NextEventAsync(Timeout);
 					await tester.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
-					evt = await evtTask;
+					evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 					var unblindabletx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
 						.TransactionData.Transaction));
 
 					Assert.Contains(unblindabletx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value == null);
+
+					//test: The ouptut of the event should have null value
+					output = Assert.Single(evt.Outputs);
+					Assert.Null(output.Value);
 				}
 			}
 		}
