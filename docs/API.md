@@ -320,6 +320,7 @@ Returns:
   "total": 210000000
 }
 ```
+Note for liquid, the values are array of [AssetMoney](#liquid).
 
 ## <a name="gettransaction"></a>Get a transaction
 
@@ -1131,6 +1132,7 @@ NBXplorer supports liquid, the API is the same as all the other coins, except fo
 
 * All references to `value` which normally contains an integer of the amount of the altcoin will instead output a JSON Object of type `AssetMoney`.
 * [When listing the transaction of a derivation scheme](#transactions), the `balanceChange` elements is instead a `JSON array of AssetMoney`.
+* [Get Balance](#balance) returns values as `JSON array of AssetMoney`.
 * [Get a new unused address](#unused) returns a confidential address. (See note below)
 * [Create Partially Signed Bitcoin Transaction](#psbt) is not supported.
 * [Update Partially Signed Bitcoin Transaction](#updatepsbt) is not supported

@@ -827,13 +827,20 @@ namespace NBXplorer.Controllers
 				Confirmed = CalculateBalance(network, transactions.ConfirmedTransactions),
 				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions)
 			};
-			balance.Total = balance.Confirmed + balance.Unconfirmed;
+			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
 			return Json(balance, jsonResult.SerializerSettings);
 		}
 
-		private Money CalculateBalance(NBXplorerNetwork network, TransactionInformationSet transactions)
+		private IMoney CalculateBalance(NBXplorerNetwork network, TransactionInformationSet transactions)
 		{
-			return transactions.Transactions.Select(t => t.BalanceChange).Sum();
+			if (network.NBitcoinNetwork.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
+			{
+				return new MoneyBag(transactions.Transactions.Select(t => t.BalanceChange).ToArray());
+			}
+			else
+			{
+				return transactions.Transactions.Select(t => t.BalanceChange).OfType<Money>().Sum();
+			}
 		}
 
 		[HttpGet]

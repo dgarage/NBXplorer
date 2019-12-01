@@ -2945,6 +2945,9 @@ namespace NBXplorer.Tests
 					// expect the second 2.0 to not be unblindable by RPC
 					// but because RPC originated this transaction, it can unblind it without knowing the blinding key
 					Assert.Equal(3.0m, receivedMoney);
+
+					var balance = tester.Client.GetBalance(userDerivationScheme);
+					Assert.Equal(assetMoney, balance.Total);
 				}
 			}
 		}
