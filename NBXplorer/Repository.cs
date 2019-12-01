@@ -2,10 +2,7 @@
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
-using NBitcoin.Crypto;
-using NBitcoin.JsonConverters;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -14,15 +11,10 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using System.Threading.Tasks;
 using System.Threading;
-using NBitcoin.DataEncoders;
-using DBriize.Utils;
-using System.Runtime.Serialization;
-using Newtonsoft.Json;
-using DBriize.Exceptions;
+using NBitcoin.Altcoins;
+using NBitcoin.RPC;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
-using static NBXplorer.RepositoryProvider;
-using static NBXplorer.Repository;
 using Newtonsoft.Json.Linq;
 using static NBXplorer.TrackedTransaction;
 
@@ -76,7 +68,7 @@ namespace NBXplorer
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					var repo = new Repository(_Engine, net, keyPathTemplates);
+					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
@@ -92,9 +84,9 @@ namespace NBXplorer
 		public async Task StartAsync()
 		{
 			await Task.WhenAll(_Repositories.Select(kv => kv.Value.StartAsync()).ToArray());
-			foreach	(var repo in _Repositories.Select(kv => kv.Value))
+			foreach (var repo in _Repositories.Select(kv => kv.Value))
 			{
-				if(GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
+				if (GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
 				{
 					Logs.Configuration.LogInformation($"{repo.Network.CryptoCode}: Rescanning the chain...");
 					await repo.SetIndexProgress(null);
@@ -310,7 +302,7 @@ namespace NBXplorer
 			return new Index(tx, $"{_Suffix}Events", string.Empty);
 		}
 
-		NBXplorerNetwork _Network;
+		protected NBXplorerNetwork _Network;
 		private readonly KeyPathTemplates keyPathTemplates;
 
 		public NBXplorerNetwork Network
@@ -376,7 +368,7 @@ namespace NBXplorer
 
 		public Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
-			return _TxContext.DoAsync<KeyPathInformation>((tx) =>
+			return _TxContext.DoAsync((tx) =>
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
@@ -384,6 +376,7 @@ namespace NBXplorer
 				var rows = availableTable.SelectForwardSkip(n);
 				if (rows.Length == 0)
 					return null;
+
 				var keyInfo = ToObject<KeyPathInformation>(rows[0].Value).AddAddress(Network.NBitcoinNetwork);
 				if (reserve)
 				{
@@ -418,10 +411,10 @@ namespace NBXplorer
 			{
 				var index = highestGenerated + i + 1;
 				var derivation = feature.Derive((uint)index);
-				var info = new KeyPathInformation(
+				var info = new KeyPathInformation(derivation,
+					new DerivationSchemeTrackedSource(strategy),
 					derivationFeature,
 					keyPathTemplates.GetKeyPathTemplate(derivationFeature).GetKeyPath(index, false),
-					strategy,
 					Network);
 				keyPathInformations[i] = info;
 			});
@@ -685,6 +678,7 @@ namespace NBXplorer
 		{
 			get; private set;
 		}
+
 		private T ToObject<T>(byte[] value)
 		{
 			var result = Serializer.ToObject<T>(Unzip(value));
@@ -738,23 +732,21 @@ namespace NBXplorer
 		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, CancellationToken cancellation = default)
 		{
 			Dictionary<uint256, long> firstSeenList = new Dictionary<uint256, long>();
-			HashSet<TransactionMatchData> needRemove = new HashSet<TransactionMatchData>();
-			HashSet<TransactionMatchData> needUpdate = new HashSet<TransactionMatchData>();
+			HashSet<ITrackedTransactionSerializable> needRemove = new HashSet<ITrackedTransactionSerializable>();
+			HashSet<ITrackedTransactionSerializable> needUpdate = new HashSet<ITrackedTransactionSerializable>();
 			var transactions = await _TxContext.DoAsync(tx =>
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
 				tx.ValuesLazyLoadingIsOn = false;
-				var result = new List<TransactionMatchData>();
+				var result = new List<ITrackedTransactionSerializable>();
 				foreach (var row in table.SelectForwardSkip(0, txId?.ToString()))
 				{
 					MemoryStream ms = new MemoryStream(row.Value);
 					BitcoinStream bs = new BitcoinStream(ms, false);
 					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-					TransactionMatchData data = new TransactionMatchData(TrackedTransactionKey.Parse(row.Key));
+					var data = CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey.Parse(row.Key));
 					data.ReadWrite(bs);
 					result.Add(data);
-					if (data.KnownKeyPathMapping == null)
-						needUpdate.Add(data);
 					long firstSeen;
 					if (firstSeenList.TryGetValue(data.Key.TxId, out firstSeen))
 					{
@@ -770,7 +762,7 @@ namespace NBXplorer
 				return result;
 			}, cancellation);
 
-			TransactionMatchData previousConfirmed = null;
+			ITrackedTransactionSerializable previousConfirmed = null;
 			foreach (var tx in transactions)
 			{
 				if (tx.Key.BlockHash != null)
@@ -806,14 +798,6 @@ namespace NBXplorer
 			}
 			if (needUpdate.Count != 0 || needRemove.Count != 0)
 			{
-				// This is legacy data, need an update
-				foreach (var data in needUpdate.Where(t => t.KnownKeyPathMapping == null))
-				{
-					data.KnownKeyPathMapping = (await this.GetMatches(data.Transaction, data.Key.BlockHash, DateTimeOffset.UtcNow, false))
-											  .Where(m => m.TrackedSource.Equals(trackedSource))
-											  .Select(m => m.KnownKeyPathMapping)
-											  .First();
-				}
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				// This can be eventually consistent, let's not waste one round trip waiting for this
 				_TxContext.DoAsync(tx =>
@@ -831,7 +815,15 @@ namespace NBXplorer
 				});
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 			}
-			return transactions.Where(tt => !needRemove.Contains(tt)).Select(c => c.ToTrackedTransaction(trackedSource)).ToArray();
+			return transactions.Where(tt => !needRemove.Contains(tt)).Select(c => ToTrackedTransaction(c, trackedSource)).ToArray();
+		}
+
+		TrackedTransaction ToTrackedTransaction(ITrackedTransactionSerializable tx, TrackedSource trackedSource)
+		{
+			var trackedTransaction = CreateTrackedTransaction(trackedSource, tx);
+			trackedTransaction.Inserted = tx.TickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)tx.TickCount, TimeSpan.Zero);
+			trackedTransaction.FirstSeen = tx.FirstSeenTickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)tx.FirstSeenTickCount, TimeSpan.Zero);
+			return trackedTransaction;
 		}
 
 		public async Task SaveMetadata<TMetadata>(TrackedSource source, string key, TMetadata value) where TMetadata : class
@@ -846,7 +838,7 @@ namespace NBXplorer
 				tx.Commit();
 			});
 		}
-		public async Task<TMetadata> GetMetadata<TMetadata>(TrackedSource source, string key) where TMetadata: class
+		public async Task<TMetadata> GetMetadata<TMetadata>(TrackedSource source, string key) where TMetadata : class
 		{
 			return await _TxContext.DoAsync(tx =>
 			{
@@ -877,7 +869,8 @@ namespace NBXplorer
 						{
 							foreach (var kv in value.KnownKeyPathMapping)
 							{
-								var info = new KeyPathInformation(keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, s.DerivationStrategy, Network);
+								var derivation = s.DerivationStrategy.GetDerivation(kv.Value);
+								var info = new KeyPathInformation(derivation, s, keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, _Network);
 								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var index = info.GetIndex();
@@ -896,7 +889,7 @@ namespace NBXplorer
 						var ms = new MemoryStream();
 						BitcoinStream bs = new BitcoinStream(ms, true);
 						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-						TransactionMatchData data = new TransactionMatchData(value);
+						var data = value.CreateBitcoinSerializable();
 						bs.ReadWrite(data);
 						table.Insert(data.Key.ToString(), ms.ToArrayEfficient());
 					}
@@ -1026,15 +1019,12 @@ namespace NBXplorer
 						var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
 						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 						{
-							match = new TrackedTransaction(
+							match = CreateTrackedTransaction(keyInfo.TrackedSource,
 								new TrackedTransactionKey(tx.GetHash(), blockId, false),
-								keyInfo.TrackedSource,
 								tx,
-								new Dictionary<Script, KeyPath>())
-							{
-								FirstSeen = now,
-								Inserted = now
-							};
+								new Dictionary<Script, KeyPath>());
+							match.FirstSeen = now;
+							match.Inserted = now;
 							matches.Add(matchesGroupingKey, match);
 						}
 						if (keyInfo.KeyPath != null)
@@ -1045,6 +1035,7 @@ namespace NBXplorer
 			foreach (var m in matches.Values)
 			{
 				m.KnownKeyPathMappingUpdated();
+				await AfterMatch(m);
 			}
 
 			foreach (var tx in txs)
@@ -1056,6 +1047,28 @@ namespace NBXplorer
 				}
 			}
 			return matches.Values.Count == 0 ? Array.Empty<TrackedTransaction>() : matches.Values.ToArray();
+		}
+		public virtual TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, Transaction tx, Dictionary<Script, KeyPath> knownScriptMapping)
+		{
+			return new TrackedTransaction(transactionKey, trackedSource, tx, knownScriptMapping);
+		}
+		public virtual TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, IEnumerable<Coin> coins, Dictionary<Script, KeyPath> knownScriptMapping)
+		{
+			return new TrackedTransaction(transactionKey, trackedSource, coins, knownScriptMapping);
+		}
+		public virtual TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, ITrackedTransactionSerializable tx)
+		{
+			return tx.Key.IsPruned
+						? CreateTrackedTransaction(trackedSource, tx.Key, tx.GetCoins(), tx.KnownKeyPathMapping)
+						: CreateTrackedTransaction(trackedSource, tx.Key, tx.Transaction, tx.KnownKeyPathMapping);
+		}
+		protected virtual ITrackedTransactionSerializable CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey trackedTransactionKey)
+		{
+			return new TrackedTransaction.TransactionMatchData(trackedTransactionKey);
+		}
+		protected virtual Task AfterMatch(TrackedTransaction tx)
+		{
+			return Task.CompletedTask;
 		}
 	}
 }

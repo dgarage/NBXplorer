@@ -25,6 +25,7 @@ using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Diagnostics;
+using NBitcoin.Altcoins.Elements;
 
 namespace NBXplorer.Controllers
 {
@@ -150,6 +151,11 @@ namespace NBXplorer.Controllers
 				else
 				{
 					await rpc.ImportAddressAsync(result.Address, null, false);
+				}
+				if (repository is LiquidRepository && result.Address is BitcoinBlindedAddress bitcoinBlindedAddress)
+				{
+					var blindingkey = NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategyBase, result.KeyPath);
+					_ = await rpc.ImportBlindingKey(bitcoinBlindedAddress, blindingkey);
 				}
 			}
 			catch (Exception ex)
@@ -614,7 +620,15 @@ namespace NBXplorer.Controllers
 					if (txId != null && txId == txInfo.TransactionId)
 						fetchedTransactionInfo = txInfo;
 
-					txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).Sum() - txInfo.Inputs.Select(o => o.Value).Sum();
+					if (network.NBitcoinNetwork.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
+					{
+						txInfo.BalanceChange = new MoneyBag(txInfo.Outputs.Select(o => o.Value).OfType<AssetMoney>().ToArray())
+												- new MoneyBag(txInfo.Inputs.Select(o => o.Value).OfType<AssetMoney>().ToArray());
+					}
+					else
+					{
+						txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).OfType<Money>().Sum() - txInfo.Inputs.Select(o => o.Value).OfType<Money>().Sum();
+					}
 				}
 				item.TxSet.Transactions.Reverse(); // So the youngest transaction is generally first
 			}
@@ -814,13 +828,20 @@ namespace NBXplorer.Controllers
 				Confirmed = CalculateBalance(network, transactions.ConfirmedTransactions),
 				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions)
 			};
-			balance.Total = balance.Confirmed + balance.Unconfirmed;
+			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
 			return Json(balance, jsonResult.SerializerSettings);
 		}
 
-		private Money CalculateBalance(NBXplorerNetwork network, TransactionInformationSet transactions)
+		private IMoney CalculateBalance(NBXplorerNetwork network, TransactionInformationSet transactions)
 		{
-			return transactions.Transactions.Select(t => t.BalanceChange).Sum();
+			if (network.NBitcoinNetwork.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
+			{
+				return new MoneyBag(transactions.Transactions.Select(t => t.BalanceChange).ToArray());
+			}
+			else
+			{
+				return transactions.Transactions.Select(t => t.BalanceChange).OfType<Money>().Sum();
+			}
 		}
 
 		[HttpGet]

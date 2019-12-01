@@ -15,6 +15,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NBitcoin.Altcoins.Elements;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -27,7 +28,7 @@ namespace NBXplorer.Tests
 			Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
 			Logs.LogProvider = new XUnitLogProvider(helper);
 		}
-		
+
 		private NBXplorerNetwork GetNetwork(Network network)
 		{
 			return new NBXplorerNetwork(network.NetworkSet, network.NetworkType, new DerivationStrategyFactory(network));
@@ -1807,7 +1808,7 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(2, utxo.Unconfirmed.UTXOs.Count);
 				Assert.IsType<Coin>(utxo.Unconfirmed.UTXOs[0].AsCoin(pubkey));
-				Assert.Equal(Money.Coins(0.6m) + Money.Coins(0.15m), utxo.Unconfirmed.UTXOs[0].Value + utxo.Unconfirmed.UTXOs[1].Value);
+				Assert.Equal(Money.Coins(0.6m) + Money.Coins(0.15m), utxo.Unconfirmed.UTXOs[0].Value.Add(utxo.Unconfirmed.UTXOs[1].Value));
 				Assert.Empty(utxo.Unconfirmed.SpentOutpoints);
 			}
 		}
@@ -2402,7 +2403,7 @@ namespace NBXplorer.Tests
 
 		private static AnnotatedTransaction CreateRandomAnnotatedTransaction(DerivationSchemeTrackedSource trackedSource, int? height = null, int? seen = null)
 		{
-			var a = new AnnotatedTransaction(height, new TrackedTransaction(new TrackedTransactionKey(RandomUtils.GetUInt256(), null, true), trackedSource), true);
+			var a = new AnnotatedTransaction(height, new TrackedTransaction(new TrackedTransactionKey(RandomUtils.GetUInt256(), null, true), trackedSource, null as Coin[], null), true);
 			if (seen is int v)
 			{
 				a.Record.FirstSeen = NBitcoin.Utils.UnixTimeToDateTime(v);
@@ -2869,6 +2870,88 @@ namespace NBXplorer.Tests
 			Assert.Equal(path1, KeyPathTemplate.Parse(template).GetKeyPath(0).ToString());
 			Assert.Equal(path2, KeyPathTemplate.Parse(template).GetKeyPath(1).ToString());
 		}
+
+		[Fact]
+		public async Task ElementsTests()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				if (tester.Network.NetworkSet != NBitcoin.Altcoins.Liquid.Instance)
+				{
+					return;
+				}
+				var userDerivationScheme = tester.Client.GenerateWallet(new GenerateWalletRequest()
+				{
+					SavePrivateKeys = true,
+					ImportKeysToRPC= true
+				}).DerivationScheme;
+				await tester.Client.TrackAsync(userDerivationScheme, Cancel);
+				
+				//test: Elements shouldgenerate blinded addresses by default
+				var address =
+					Assert.IsType<BitcoinBlindedAddress>(tester.Client.GetUnused(userDerivationScheme,
+						DerivationFeature.Deposit).Address);
+
+
+				using (var session = await tester.Client.CreateWebsocketNotificationSessionAsync(Timeout))
+				{
+					await session.ListenAllTrackedSourceAsync(cancellation: Timeout);
+
+					//test: Client should return Elements transaction types when event is published
+					var evtTask = session.NextEventAsync(Timeout);
+					var txid = await tester.SendToAddressAsync(address, Money.Coins(1.0m));
+
+					var evt = Assert.IsType<NewTransactionEvent>(await evtTask);
+
+
+					//test: Elements should have unblinded the outputs
+					var output = Assert.Single(evt.Outputs);
+					var assetMoney = Assert.IsType<AssetMoney>(output.Value);
+					Assert.Equal(Money.Coins(1.0m).Satoshi, assetMoney.Quantity);
+					Assert.NotNull(assetMoney.AssetId);
+
+					// but not the transaction itself
+					var tx = Assert.IsAssignableFrom<ElementsTransaction>(evt.TransactionData.Transaction);
+					Assert.Equal(txid, tx.GetHash());
+					var elementsTxOut = Assert.IsAssignableFrom<ElementsTxOut>(tx.Outputs[output.Index]);
+					Assert.Null(elementsTxOut.Value);
+					//test: Get Transaction should give an ElementsTransaction
+					tx = Assert.IsAssignableFrom<ElementsTransaction>((await tester.Client.GetTransactionAsync(txid)).Transaction);
+					Assert.Equal(txid, tx.GetHash());
+
+					//test: receive a tx to deriv scheme but to a confidential address with a different blinding key than our derivation method 
+					evtTask = session.NextEventAsync(Timeout);
+					txid = await tester.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
+					evt = Assert.IsType<NewTransactionEvent>(await evtTask);
+					var unblindabletx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
+						.TransactionData.Transaction));
+					Assert.Equal(txid, unblindabletx.GetHash());
+					Assert.Contains(unblindabletx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value == null);
+
+					//test: The ouptut of the event should have null value
+					output = Assert.Single(evt.Outputs);
+					Assert.Null(output.Value);
+
+					var txInfos = tester.Client.GetTransactions(userDerivationScheme).UnconfirmedTransactions.Transactions;
+					var assetMoney2 = Assert.IsType<AssetMoney>(Assert.Single(Assert.IsType<MoneyBag>(txInfos[1].BalanceChange)));
+					Assert.Empty(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange));
+					Assert.Equal(assetMoney, assetMoney2);
+
+					tester.RPC.Generate(6);
+					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString());
+					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
+					// Assert.Equal(1.0m, receivedMoney);
+					// Note that you would expect to have only 1.0 here because you would
+					// expect the second 2.0 to not be unblindable by RPC
+					// but because RPC originated this transaction, it can unblind it without knowing the blinding key
+					Assert.Equal(3.0m, receivedMoney);
+
+					var balance = tester.Client.GetBalance(userDerivationScheme);
+					Assert.Equal(assetMoney, balance.Total);
+				}
+			}
+		}
+
 
 		[Fact]
 		public async Task CanGenerateWallet()

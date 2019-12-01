@@ -193,15 +193,7 @@ namespace NBXplorer
 				}
 				stream.ReadWrite(ref _FirstSeenTickCount);
 			}
-			public TrackedTransaction ToTrackedTransaction(TrackedSource trackedSource)
-			{
-				var trackedTransaction = Key.IsPruned
-										? new TrackedTransaction(Key, trackedSource, GetCoins(), KnownKeyPathMapping)
-										: new TrackedTransaction(Key, trackedSource, Transaction, KnownKeyPathMapping);
-				trackedTransaction.Inserted = TickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)TickCount, TimeSpan.Zero);
-				trackedTransaction.FirstSeen = FirstSeenTickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)FirstSeenTickCount, TimeSpan.Zero);
-				return trackedTransaction;
-			}
+
 			public virtual IEnumerable<Coin> GetCoins()
 			{
 				foreach (var coinData in _CoinsData)
@@ -285,7 +277,7 @@ namespace NBXplorer
 		TrackedTransactionKey Key { get; }
 		IEnumerable<Coin> GetCoins();
 		long FirstSeenTickCount { get; set; }
-		long TickCount { get; }
+		long TickCount { get;  }
 		Transaction Transaction { get; }
 		Dictionary<Script, KeyPath> KnownKeyPathMapping { get; }
 	}

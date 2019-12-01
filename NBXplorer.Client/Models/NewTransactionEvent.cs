@@ -61,6 +61,6 @@ namespace NBXplorer.Models
 		public KeyPath KeyPath { get; set; }
 		public Script ScriptPubKey { get; set; }
 		public int Index { get; set; }
-		public Money Value { get; set; }
+		public IMoney Value { get; set; }
 	}
 }
