@@ -1045,7 +1045,8 @@ Request:
 ```json
 {
   "accountNumber": 2,
-  "wordList": "French",
+  "wordList": "French",  
+  "existingMnemonic": "musicien sinistre divertir réussir louve alliage péplum innocent filmer stipuler chignon utopie effusion heureux légal",
   "wordCount": 15,
   "scriptPubKeyType": "SegwitP2SH",
   "passphrase": "hello",
@@ -1055,6 +1056,7 @@ Request:
 ```
 
 * `accountNumber`: Optional, the account number used for determining the keypath that NBXplorer will track, see `accountKeyPath` in the response. (Default: `0`)
+* `existingMnemonic`: Optional, an existing [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) mnemonic seed to import instead of generating.
 * `wordList`: Optional, the [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) wordlist to use when generating the mnemonic, available: English, French, Japanese, Spanish, ChineseSimplified (Defaut: `English`)
 * `wordCount`: Optional, the [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) word count in the mnemonic (Default: `12`)
 * `scriptPubKeyType`: Optional, the type of scriptPubKey (address) to generate, available: Legacy, Segwit, SegwitP2SH (Default: `Segwit` or `Legacy` if `cryptoCode` does not support segwit)

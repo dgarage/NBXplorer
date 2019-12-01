@@ -4,12 +4,14 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using NBXplorer.JsonConverters;
 
 namespace NBXplorer.Models
 {
 	public class GenerateWalletResponse
 	{
-		public string Mnemonic { get; set; }
+		[JsonConverter(typeof(MnemonicConverter))]
+		public Mnemonic Mnemonic { get; set; }
 		public string Passphrase { get; set; }
 		[JsonConverter(typeof(NBXplorer.JsonConverters.WordlistJsonConverter))]
 		public NBitcoin.Wordlist WordList { get; set; }
