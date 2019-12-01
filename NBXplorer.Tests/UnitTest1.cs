@@ -258,12 +258,19 @@ namespace NBXplorer.Tests
 				var txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
 				var utxos = tester.Client.GetUTXOs(userDerivationScheme);
+				tester.RPC.Generate(1);
+				tester.Notifications.WaitForBlocks();
 
 				// Send 1 more BTC
 				newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
-				txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
+				txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.1m));
 				tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
 				utxos = tester.Client.GetUTXOs(userDerivationScheme);
+
+				var balance = tester.Client.GetBalance(userDerivationScheme);
+				Assert.Equal(Money.Coins(1.0m), balance.Confirmed);
+				Assert.Equal(Money.Coins(1.1m), balance.Unconfirmed);
+				Assert.Equal(Money.Coins(2.1m), balance.Total);
 
 				utxos = tester.Client.GetUTXOs(userDerivationScheme);
 				Assert.Equal(2, utxos.GetUnspentCoins().Length);

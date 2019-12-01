@@ -794,6 +794,36 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balance")]
+		[Route("cryptos/{cryptoCode}/addresses/{address}/balance")]
+		public async Task<IActionResult> GetBalance(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme,
+			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
+			BitcoinAddress address)
+		{
+			var getTransactionsResult = await GetTransactions(cryptoCode, derivationScheme, address);
+			var jsonResult = getTransactionsResult as JsonResult;
+			var transactions = jsonResult?.Value as GetTransactionsResponse;
+			if (transactions == null)
+				return getTransactionsResult;
+
+			var network = this.GetNetwork(cryptoCode, false);
+			var balance = new GetBalanceResponse()
+			{
+				Confirmed = CalculateBalance(network, transactions.ConfirmedTransactions),
+				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions)
+			};
+			balance.Total = balance.Confirmed + balance.Unconfirmed;
+			return Json(balance, jsonResult.SerializerSettings);
+		}
+
+		private Money CalculateBalance(NBXplorerNetwork network, TransactionInformationSet transactions)
+		{
+			return transactions.Transactions.Select(t => t.BalanceChange).Sum();
+		}
+
+		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}/utxos")]
 		public async Task<IActionResult> GetUTXOs(

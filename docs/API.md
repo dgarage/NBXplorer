@@ -14,6 +14,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Query transactions associated to a Derivation Scheme](#transactions)
 * [Query transactions associated to a specific address](#address-transactions)
 * [Query a single transaction associated to a address or derivation scheme](#singletransaction)
+* [Get current balance](#balance)
 * [Get a transaction](#gettransaction)
 * [Get connection status to the chain](#status)
 * [Get a new unused address](#unused)
@@ -300,6 +301,20 @@ Returns:
     "inputs": [],
     "timestamp": 1540381889,
     "balanceChange": 100000000
+}
+```
+
+## <a name="balance"></a>Get current balance
+
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balance
+
+Returns:
+
+```json
+{
+  "unconfirmed": 110000000,
+  "confirmed": 100000000,
+  "total": 210000000
 }
 ```
 
