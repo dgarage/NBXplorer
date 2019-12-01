@@ -25,6 +25,7 @@ using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Diagnostics;
+using NBitcoin.Altcoins.Elements;
 
 namespace NBXplorer.Controllers
 {
@@ -151,10 +152,10 @@ namespace NBXplorer.Controllers
 				{
 					await rpc.ImportAddressAsync(result.Address, null, false);
 				}
-				if (repository is LiquidRepository liquidRepository && result.Address is NBitcoin.Altcoins.Elements.BitcoinBlindedAddress)
+				if (repository is LiquidRepository && result.Address is BitcoinBlindedAddress bitcoinBlindedAddress)
 				{
-					var blindingkey = NBXplorer.NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategyBase, result.KeyPath);
-					var resultt = await rpc.SendCommandAsync("importblindingkey", result.Address.ToString(), blindingkey.ToHex());
+					var blindingkey = NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategyBase, result.KeyPath);
+					_ = await rpc.ImportBlindingKey(bitcoinBlindedAddress, blindingkey);
 				}
 			}
 			catch (Exception ex)
