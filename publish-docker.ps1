@@ -5,5 +5,5 @@ git merge master
 git checkout master
 git tag -d "stable"
 git tag -a "stable" -m "stable"
-git push origin "$ver"
+git push origin "v$ver"
 git push --force origin stable
