@@ -1131,6 +1131,7 @@ It will output the state for each nodes in JSON, whose format might change in th
 NBXplorer supports liquid, the API is the same as all the other coins, except for the following:
 
 * All references to `value` which normally contains an integer of the amount of the altcoin will instead output a JSON Object of type `AssetMoney`.
+* If NBXplorer is unable to unblind a value, then the value will be `null`.
 * [When listing the transaction of a derivation scheme](#transactions), the `balanceChange` elements is instead a `JSON array of AssetMoney`.
 * [Get Balance](#balance) returns values as `JSON array of AssetMoney`.
 * [Get a new unused address](#unused) returns a confidential address. (See note below)
