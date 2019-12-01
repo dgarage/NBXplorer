@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using NBXplorer.JsonConverters;
 
 namespace NBXplorer.Models
 {
@@ -20,5 +21,10 @@ namespace NBXplorer.Models
 		[JsonConverter(typeof(NBitcoin.JsonConverters.KeyPathJsonConverter))]
 		public NBitcoin.RootedKeyPath AccountKeyPath { get; set; }
 		public DerivationStrategyBase DerivationScheme { get; set; }
+
+		public Mnemonic GetMnemonic()
+		{
+			return new Mnemonic(Mnemonic, WordList);
+		}
 	}
 }

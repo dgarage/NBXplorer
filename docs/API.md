@@ -14,6 +14,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Query transactions associated to a Derivation Scheme](#transactions)
 * [Query transactions associated to a specific address](#address-transactions)
 * [Query a single transaction associated to a address or derivation scheme](#singletransaction)
+* [Get current balance](#balance)
 * [Get a transaction](#gettransaction)
 * [Get connection status to the chain](#status)
 * [Get a new unused address](#unused)
@@ -34,6 +35,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Manual pruning](#pruning)
 * [Generate a wallet](#wallet)
 * [Health check](#health)
+* [Liquid integration](#liquid)
 
 ## <a name="configuration"></a>Configuration
 
@@ -205,6 +207,8 @@ Returns:
 }
 ```
 
+Note for liquid, `balanceChange` is an array of [AssetMoney](#liquid).
+
 ## <a name="address-transactions"></a>Query transactions associated to a specific address
 
 Query all transactions of a tracked address. (Only work if you called the Track operation on this specific address)
@@ -302,6 +306,21 @@ Returns:
     "balanceChange": 100000000
 }
 ```
+
+## <a name="balance"></a>Get current balance
+
+HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balance
+
+Returns:
+
+```json
+{
+  "unconfirmed": 110000000,
+  "confirmed": 100000000,
+  "total": 210000000
+}
+```
+Note for liquid, the values are array of [AssetMoney](#liquid).
 
 ## <a name="gettransaction"></a>Get a transaction
 
@@ -1045,7 +1064,8 @@ Request:
 ```json
 {
   "accountNumber": 2,
-  "wordList": "French",
+  "wordList": "French",  
+  "existingMnemonic": "musicien sinistre divertir réussir louve alliage péplum innocent filmer stipuler chignon utopie effusion heureux légal",
   "wordCount": 15,
   "scriptPubKeyType": "SegwitP2SH",
   "passphrase": "hello",
@@ -1055,6 +1075,7 @@ Request:
 ```
 
 * `accountNumber`: Optional, the account number used for determining the keypath that NBXplorer will track, see `accountKeyPath` in the response. (Default: `0`)
+* `existingMnemonic`: Optional, an existing [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) mnemonic seed to import instead of generating.
 * `wordList`: Optional, the [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) wordlist to use when generating the mnemonic, available: English, French, Japanese, Spanish, ChineseSimplified (Defaut: `English`)
 * `wordCount`: Optional, the [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) word count in the mnemonic (Default: `12`)
 * `scriptPubKeyType`: Optional, the type of scriptPubKey (address) to generate, available: Legacy, Segwit, SegwitP2SH (Default: `Segwit` or `Legacy` if `cryptoCode` does not support segwit)
@@ -1104,3 +1125,34 @@ A endpoint that can be used without the need for [authentication](#auth) which w
 HTTP GET /health
 
 It will output the state for each nodes in JSON, whose format might change in the future.
+
+## <a name="liquid"></a>Liquid integration
+
+NBXplorer supports liquid, the API is the same as all the other coins, except for the following:
+
+* All references to `value` which normally contains an integer of the amount of the altcoin will instead output a JSON Object of type `AssetMoney`.
+* If NBXplorer is unable to unblind a value, then the value will be `null`.
+* [When listing the transaction of a derivation scheme](#transactions), the `balanceChange` elements is instead a `JSON array of AssetMoney`.
+* [Get Balance](#balance) returns values as `JSON array of AssetMoney`.
+* [Get a new unused address](#unused) returns a confidential address. (See note below)
+* [Create Partially Signed Bitcoin Transaction](#psbt) is not supported.
+* [Update Partially Signed Bitcoin Transaction](#updatepsbt) is not supported
+* [Scan UTXO Set](#scanUtxoSet) is not supported.
+* Any sort of recovery is not supported.
+
+The `AssetMoney` JSON format is:
+
+```json
+{
+	"assetId": "abc",
+	"value": 123
+}
+```
+
+The blinding key of the confidential address is derived directly from the `derivationScheme`.
+If the `scriptPubKey` `0/2` is generated, the blinding private key used by NBXplorer is the SHA256 of the scriptPubKey at `0/2/0`.
+
+In order to send in and out of liquid, we advise you to rely on the RPC command line interface of the liquid deamon.
+For doing this you need to [Generate a wallet](#wallet) with `importAddressToRPC` and `savePrivateKeys` set to `true`.
+
+Be careful to not expose your NBXplorer server on internet, your private keys can be [retrieved trivially](#getmetadata).

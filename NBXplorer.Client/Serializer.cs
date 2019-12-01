@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
@@ -22,14 +23,23 @@ namespace NBXplorer
 
 		public void ConfigureSerializer(JsonSerializerSettings settings)
 		{
-			if(settings == null)
+			if (settings == null)
 				throw new ArgumentNullException(nameof(settings));
 			NBitcoin.JsonConverters.Serializer.RegisterFrontConverters(settings, Network);
-			if (Network != null)
+			if (_Network != null)
 			{
 				settings.Converters.Insert(0, new JsonConverters.CachedSerializer(_Network));
 			}
+			ReplaceConverter<NBitcoin.JsonConverters.MoneyJsonConverter>(settings, new NBXplorer.JsonConverters.MoneyJsonConverter());
 			settings.Converters.Insert(0, new JsonConverters.FeeRateJsonConverter());
+		}
+
+		private static void ReplaceConverter<T>(JsonSerializerSettings settings, JsonConverter jsonConverter) where T : JsonConverter
+		{
+			var moneyConverter = settings.Converters.OfType<T>().Single();
+			var index = settings.Converters.IndexOf(moneyConverter);
+			settings.Converters.RemoveAt(index);
+			settings.Converters.Insert(index, new NBXplorer.JsonConverters.MoneyJsonConverter());
 		}
 
 		public T ToObject<T>(string str)

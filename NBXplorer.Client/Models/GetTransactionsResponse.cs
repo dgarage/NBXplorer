@@ -89,7 +89,7 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
-		public Money BalanceChange
+		public IMoney BalanceChange
 		{
 			get;
 			set;

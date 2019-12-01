@@ -25,6 +25,7 @@ using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Diagnostics;
+using NBitcoin.Altcoins.Elements;
 
 namespace NBXplorer.Controllers
 {
@@ -139,10 +140,15 @@ namespace NBXplorer.Controllers
 			try
 			{
 				var ts = new DerivationSchemeTrackedSource(strategyBase);
+				var rpc = Waiters.GetWaiter(repository.Network).RPC;
+				if (repository is LiquidRepository && result.Address is BitcoinBlindedAddress bitcoinBlindedAddress)
+				{
+					var blindingkey = NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategyBase, result.KeyPath);
+					_ = await rpc.ImportBlindingKey(bitcoinBlindedAddress, blindingkey);
+				}
 				var shouldImportRPC = (await repository.GetMetadata<string>(ts, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
 				if (!shouldImportRPC)
 					return;
-				var rpc = Waiters.GetWaiter(repository.Network).RPC;
 				if (await repository.GetMetadata<BitcoinExtKey>(ts, WellknownMetadataKeys.AccountHDKey) is BitcoinExtKey accountKey)
 				{
 					await rpc.ImportPrivKeyAsync(accountKey.Derive(result.KeyPath).PrivateKey.GetWif(result.Address.Network), null, false);
@@ -614,7 +620,15 @@ namespace NBXplorer.Controllers
 					if (txId != null && txId == txInfo.TransactionId)
 						fetchedTransactionInfo = txInfo;
 
-					txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).Sum() - txInfo.Inputs.Select(o => o.Value).Sum();
+					if (network.NBitcoinNetwork.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
+					{
+						txInfo.BalanceChange = new MoneyBag(txInfo.Outputs.Select(o => o.Value).OfType<AssetMoney>().ToArray())
+												- new MoneyBag(txInfo.Inputs.Select(o => o.Value).OfType<AssetMoney>().ToArray());
+					}
+					else
+					{
+						txInfo.BalanceChange = txInfo.Outputs.Select(o => o.Value).OfType<Money>().Sum() - txInfo.Inputs.Select(o => o.Value).OfType<Money>().Sum();
+					}
 				}
 				item.TxSet.Transactions.Reverse(); // So the youngest transaction is generally first
 			}
@@ -791,6 +805,43 @@ namespace NBXplorer.Controllers
 			if (info == null)
 				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
 			return Json(info, network.Serializer.Settings);
+		}
+
+		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balance")]
+		[Route("cryptos/{cryptoCode}/addresses/{address}/balance")]
+		public async Task<IActionResult> GetBalance(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme,
+			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
+			BitcoinAddress address)
+		{
+			var getTransactionsResult = await GetTransactions(cryptoCode, derivationScheme, address);
+			var jsonResult = getTransactionsResult as JsonResult;
+			var transactions = jsonResult?.Value as GetTransactionsResponse;
+			if (transactions == null)
+				return getTransactionsResult;
+
+			var network = this.GetNetwork(cryptoCode, false);
+			var balance = new GetBalanceResponse()
+			{
+				Confirmed = CalculateBalance(network, transactions.ConfirmedTransactions),
+				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions)
+			};
+			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
+			return Json(balance, jsonResult.SerializerSettings);
+		}
+
+		private IMoney CalculateBalance(NBXplorerNetwork network, TransactionInformationSet transactions)
+		{
+			if (network.NBitcoinNetwork.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
+			{
+				return new MoneyBag(transactions.Transactions.Select(t => t.BalanceChange).ToArray());
+			}
+			else
+			{
+				return transactions.Transactions.Select(t => t.BalanceChange).OfType<Money>().Sum();
+			}
 		}
 
 		[HttpGet]
@@ -986,7 +1037,22 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
 
 			var repo = RepositoryProvider.GetRepository(network);
-			var mnemonic = new Mnemonic(request.WordList, request.WordCount.Value);
+			Mnemonic mnemonic = null;
+			if (request.ExistingMnemonic != null)
+			{
+				try
+				{
+					mnemonic = new Mnemonic(request.ExistingMnemonic, request.WordList);
+				}
+				catch
+				{
+					throw new NBXplorerException(new NBXplorerError(400, "invalid-mnemonic", "Invalid mnemonic words"));
+				}
+			}
+			else
+			{
+				mnemonic = new Mnemonic(request.WordList, request.WordCount.Value);
+			}
 			var masterKey = mnemonic.DeriveExtKey(request.Passphrase).GetWif(network.NBitcoinNetwork);
 			var keyPath = GetDerivationKeyPath(request.ScriptPubKeyType.Value, request.AccountNumber, network);
 			var accountKey = masterKey.Derive(keyPath);

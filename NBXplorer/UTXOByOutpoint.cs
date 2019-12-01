@@ -7,17 +7,17 @@ using System.Threading.Tasks;
 
 namespace NBXplorer
 {
-	internal class UTXOByOutpoint : IEnumerable<KeyValuePair<OutPoint, Coin>>
+	internal class UTXOByOutpoint : IEnumerable<KeyValuePair<OutPoint, ICoin>>
 	{
-		Dictionary<OutPoint, Coin> _Inner;
+		Dictionary<OutPoint, ICoin> _Inner;
 
 		public UTXOByOutpoint(UTXOByOutpoint other)
 		{
-			_Inner = new Dictionary<OutPoint, Coin>(other._Inner);
+			_Inner = new Dictionary<OutPoint, ICoin>(other._Inner);
 		}
 		public UTXOByOutpoint()
 		{
-			_Inner = new Dictionary<OutPoint, Coin>();
+			_Inner = new Dictionary<OutPoint, ICoin>();
 		}
 
 		internal bool ContainsKey(OutPoint outpoint)
@@ -30,12 +30,12 @@ namespace NBXplorer
 			return _Inner.Remove(prevOut);
 		}
 		
-		internal bool TryAdd(OutPoint outpoint, Coin coin)
+		internal bool TryAdd(OutPoint outpoint, ICoin coin)
 		{
 			return _Inner.TryAdd(outpoint, coin);
 		}
 
-		public IEnumerator<KeyValuePair<OutPoint, Coin>> GetEnumerator()
+		public IEnumerator<KeyValuePair<OutPoint, ICoin>> GetEnumerator()
 		{
 			return _Inner.GetEnumerator();
 		}

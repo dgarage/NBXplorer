@@ -13,19 +13,18 @@ namespace NBXplorer.Models
 		{
 
 		}
-		public KeyPathInformation(DerivationFeature feature, KeyPath keyPath, DerivationStrategyBase derivationStrategy, NBXplorerNetwork network)
+		
+		public KeyPathInformation(Derivation derivation, DerivationSchemeTrackedSource derivationStrategy, DerivationFeature feature, KeyPath keyPath, NBXplorerNetwork network)
 		{
-			var derivation = derivationStrategy.GetDerivation(keyPath);
 			ScriptPubKey = derivation.ScriptPubKey;
 			Redeem = derivation.Redeem;
-			TrackedSource = new DerivationSchemeTrackedSource(derivationStrategy);
-			DerivationStrategy = derivationStrategy;
+			TrackedSource = derivationStrategy;
+			DerivationStrategy = derivationStrategy.DerivationStrategy;
 			Feature = feature;
 			KeyPath = keyPath;
-			Address = network.CreateAddress(derivationStrategy, keyPath, ScriptPubKey);
+			Address =  network.CreateAddress(derivationStrategy.DerivationStrategy, keyPath, ScriptPubKey);
 		}
 		public TrackedSource TrackedSource { get; set; }
-
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
 		public DerivationFeature Feature
 		{

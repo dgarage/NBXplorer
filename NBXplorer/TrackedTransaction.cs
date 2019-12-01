@@ -7,10 +7,11 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using static NBXplorer.Repository;
 
-namespace NBXplorer{
-	public class TrackedTransaction
+namespace NBXplorer
+{
+	public partial class TrackedTransaction
 	{
-		class CoinOutpointEqualityComparer : IEqualityComparer<Coin>
+		class CoinOutpointEqualityComparer : IEqualityComparer<ICoin>
 		{
 
 			private static readonly CoinOutpointEqualityComparer _Instance = new CoinOutpointEqualityComparer();
@@ -21,39 +22,19 @@ namespace NBXplorer{
 					return _Instance;
 				}
 			}
-			public bool Equals(Coin x, Coin y)
+			public bool Equals(ICoin x, ICoin y)
 			{
 				return x.Outpoint == y.Outpoint;
 			}
 
-			public int GetHashCode(Coin obj)
+			public int GetHashCode(ICoin obj)
 			{
 				return obj.Outpoint.GetHashCode();
 			}
 		}
-		public TrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource) : this(key, trackedSource, null as Coin[], null as Dictionary<Script,KeyPath>)
-		{
-
-		}
-		public TrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource, IEnumerable<Coin> receivedCoins, IEnumerable<KeyPathInformation> knownScriptMapping)
-			: this(key, trackedSource, receivedCoins, ToDictionary(knownScriptMapping))
-		{
-
-		}
 
 		public TrackedSource TrackedSource { get; }
 
-		private static Dictionary<Script, KeyPath> ToDictionary(IEnumerable<KeyPathInformation> knownScriptMapping)
-		{
-			if (knownScriptMapping == null)
-				return null;
-			var result = new Dictionary<Script, KeyPath>();
-			foreach (var keypathInfo in knownScriptMapping)
-			{
-				result.TryAdd(keypathInfo.ScriptPubKey, keypathInfo.KeyPath);
-			}
-			return result;
-		}
 		public TrackedTransaction(TrackedTransactionKey key, TrackedSource trackedSource, IEnumerable<Coin> receivedCoins, Dictionary<Script, KeyPath> knownScriptMapping)
 		{
 			if (key == null)
@@ -66,7 +47,7 @@ namespace NBXplorer{
 				throw new ArgumentNullException(nameof(trackedSource));
 			TrackedSource = trackedSource;
 			Key = key;
-			if(knownScriptMapping != null)
+			if (knownScriptMapping != null)
 				KnownKeyPathMapping = knownScriptMapping;
 			if (receivedCoins != null)
 				ReceivedCoins.AddRange(receivedCoins);
@@ -83,7 +64,8 @@ namespace NBXplorer{
 				throw new ArgumentNullException(nameof(trackedSource));
 			if (key.IsPruned)
 			{
-				throw new ArgumentException("The key should not be pruned", nameof(key));			}
+				throw new ArgumentException("The key should not be pruned", nameof(key));
+			}
 			Key = key;
 			TrackedSource = trackedSource;
 			Transaction = transaction;
@@ -109,7 +91,7 @@ namespace NBXplorer{
 		}
 
 		public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; } = new Dictionary<Script, KeyPath>();
-		public HashSet<Coin> ReceivedCoins { get; } = new HashSet<Coin>(CoinOutpointEqualityComparer.Instance);
+		public HashSet<ICoin> ReceivedCoins { get; } = new HashSet<ICoin>(CoinOutpointEqualityComparer.Instance);
 		public HashSet<OutPoint> SpentOutpoints { get; } = new HashSet<OutPoint>();
 
 		public Transaction Transaction
@@ -137,19 +119,25 @@ namespace NBXplorer{
 			return this.ReceivedCoins
 							.Select(o => (Index: (int)o.Outpoint.N,
 												   Output: o,
-												   KeyPath: KnownKeyPathMapping.TryGet(o.ScriptPubKey)))
-							.Where(o => o.KeyPath != null || o.Output.ScriptPubKey == (TrackedSource as IDestination)?.ScriptPubKey)
+												   KeyPath: KnownKeyPathMapping.TryGet(o.TxOut.ScriptPubKey)))
+							.Where(o => o.KeyPath != null || o.Output.TxOut.ScriptPubKey == (TrackedSource as IDestination)?.ScriptPubKey)
 							.Select(o => new MatchedOutput()
 							{
 								Index = o.Index,
 								Value = o.Output.Amount,
 								KeyPath = o.KeyPath,
-								ScriptPubKey = o.Output.ScriptPubKey
+								ScriptPubKey = o.Output.TxOut.ScriptPubKey
 							});
+		}
+
+		public virtual ITrackedTransactionSerializable CreateBitcoinSerializable()
+		{
+			return new TransactionMatchData(this);
 		}
 	}
 
-	public class TrackedTransactionKey	{
+	public class TrackedTransactionKey
+	{
 		public uint256 TxId { get; }
 		public uint256 BlockHash { get; }
 

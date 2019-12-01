@@ -129,12 +129,12 @@ namespace NBXplorer.Models
 
 		}
 
-		public UTXO(Coin coin)
+		public UTXO(ICoin coin)
 		{
 			Outpoint = coin.Outpoint;
 			Index = (int)coin.Outpoint.N;
 			TransactionHash = coin.Outpoint.Hash;
-			Value = coin.TxOut.Value;
+			Value = coin.Amount;
 			ScriptPubKey = coin.TxOut.ScriptPubKey;
 		}
 
@@ -152,16 +152,20 @@ namespace NBXplorer.Models
 
 		public Coin AsCoin(DerivationStrategy.DerivationStrategyBase derivationStrategy)
 		{
-			var coin = new Coin(Outpoint, new TxOut(Value, ScriptPubKey));
-			if (derivationStrategy != null)
+			if (Value is Money v)
 			{
-				var derivation = derivationStrategy.GetDerivation(KeyPath);
-				if (derivation.ScriptPubKey != coin.ScriptPubKey)
-					throw new InvalidOperationException($"This Derivation Strategy does not own this coin");
-				if (derivation.Redeem != null)
-					coin = coin.ToScriptCoin(derivation.Redeem);
+				var coin = new Coin(Outpoint, new TxOut(v, ScriptPubKey));
+				if (derivationStrategy != null)
+				{
+					var derivation = derivationStrategy.GetDerivation(KeyPath);
+					if (derivation.ScriptPubKey != coin.ScriptPubKey)
+						throw new InvalidOperationException($"This Derivation Strategy does not own this coin");
+					if (derivation.Redeem != null)
+						coin = coin.ToScriptCoin(derivation.Redeem);
+				}
+				return coin;
 			}
-			return coin;
+			return null;
 		}
 
 		OutPoint _Outpoint = new OutPoint();
@@ -194,8 +198,8 @@ namespace NBXplorer.Models
 		}
 
 
-		Money _Value;
-		public Money Value
+		IMoney _Value;
+		public IMoney Value
 		{
 			get
 			{
