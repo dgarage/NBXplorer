@@ -140,10 +140,15 @@ namespace NBXplorer.Controllers
 			try
 			{
 				var ts = new DerivationSchemeTrackedSource(strategyBase);
+				var rpc = Waiters.GetWaiter(repository.Network).RPC;
+				if (repository is LiquidRepository && result.Address is BitcoinBlindedAddress bitcoinBlindedAddress)
+				{
+					var blindingkey = NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategyBase, result.KeyPath);
+					_ = await rpc.ImportBlindingKey(bitcoinBlindedAddress, blindingkey);
+				}
 				var shouldImportRPC = (await repository.GetMetadata<string>(ts, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
 				if (!shouldImportRPC)
 					return;
-				var rpc = Waiters.GetWaiter(repository.Network).RPC;
 				if (await repository.GetMetadata<BitcoinExtKey>(ts, WellknownMetadataKeys.AccountHDKey) is BitcoinExtKey accountKey)
 				{
 					await rpc.ImportPrivKeyAsync(accountKey.Derive(result.KeyPath).PrivateKey.GetWif(result.Address.Network), null, false);
@@ -151,11 +156,6 @@ namespace NBXplorer.Controllers
 				else
 				{
 					await rpc.ImportAddressAsync(result.Address, null, false);
-				}
-				if (repository is LiquidRepository && result.Address is BitcoinBlindedAddress bitcoinBlindedAddress)
-				{
-					var blindingkey = NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategyBase, result.KeyPath);
-					_ = await rpc.ImportBlindingKey(bitcoinBlindedAddress, blindingkey);
 				}
 			}
 			catch (Exception ex)
