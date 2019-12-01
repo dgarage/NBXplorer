@@ -35,6 +35,11 @@ namespace NBXplorer.MessageBrokers
             {
                 Connection = ConnectionFactory.CreateConnection();
                 Channel = Connection.CreateModel();
+
+                if(!string.IsNullOrEmpty(NewTransactionExchange)) 
+                    Channel.ExchangeDeclare(NewTransactionExchange, ExchangeType.Topic);
+                if(!string.IsNullOrEmpty(NewBlockExchange)) 
+                    Channel.ExchangeDeclare(NewBlockExchange, ExchangeType.Topic);
             }
         }
 
