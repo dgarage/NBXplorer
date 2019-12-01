@@ -10,8 +10,7 @@ namespace NBXplorer.Models
 {
 	public class GenerateWalletResponse
 	{
-		[JsonConverter(typeof(MnemonicConverter))]
-		public Mnemonic Mnemonic { get; set; }
+		public string Mnemonic { get; set; }
 		public string Passphrase { get; set; }
 		[JsonConverter(typeof(NBXplorer.JsonConverters.WordlistJsonConverter))]
 		public NBitcoin.Wordlist WordList { get; set; }
@@ -22,5 +21,10 @@ namespace NBXplorer.Models
 		[JsonConverter(typeof(NBitcoin.JsonConverters.KeyPathJsonConverter))]
 		public NBitcoin.RootedKeyPath AccountKeyPath { get; set; }
 		public DerivationStrategyBase DerivationScheme { get; set; }
+
+		public Mnemonic GetMnemonic()
+		{
+			return new Mnemonic(Mnemonic, WordList);
+		}
 	}
 }

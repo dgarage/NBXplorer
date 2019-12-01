@@ -986,7 +986,22 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
 
 			var repo = RepositoryProvider.GetRepository(network);
-			var mnemonic = request.ExistingMnemonic ?? new Mnemonic(request.WordList, request.WordCount.Value);
+			Mnemonic mnemonic = null;
+			if (request.ExistingMnemonic != null)
+			{
+				try
+				{
+					mnemonic = new Mnemonic(request.ExistingMnemonic, request.WordList);
+				}
+				catch
+				{
+					throw new NBXplorerException(new NBXplorerError(400, "invalid-mnemonic", "Invalid mnemonic words"));
+				}
+			}
+			else
+			{
+				mnemonic = new Mnemonic(request.WordList, request.WordCount.Value);
+			}
 			var masterKey = mnemonic.DeriveExtKey(request.Passphrase).GetWif(network.NBitcoinNetwork);
 			var keyPath = GetDerivationKeyPath(request.ScriptPubKeyType.Value, request.AccountNumber, network);
 			var accountKey = masterKey.Derive(keyPath);
@@ -1018,7 +1033,7 @@ namespace NBXplorer.Controllers
 				AccountHDKey = accountKey,
 				AccountKeyPath = accountKeyPath,
 				DerivationScheme = derivation,
-				Mnemonic = mnemonic,
+				Mnemonic = mnemonic.ToString(),
 				Passphrase = request.Passphrase ?? string.Empty,
 				WordCount = request.WordCount.Value,
 				WordList = request.WordList
