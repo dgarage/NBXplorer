@@ -2,12 +2,15 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using NBXplorer.JsonConverters;
+using NBitcoin;
 
 namespace NBXplorer.Models
 {
 	public class GenerateWalletRequest
 	{
-		public int AccountNumber { get; set; }
+		public int AccountNumber { get; set; }		
+		public string ExistingMnemonic { get; set; }
 		[JsonConverter(typeof(NBXplorer.JsonConverters.WordlistJsonConverter))]
 		public NBitcoin.Wordlist WordList { get; set; }
 		[JsonConverter(typeof(NBXplorer.JsonConverters.WordcountJsonConverter))]

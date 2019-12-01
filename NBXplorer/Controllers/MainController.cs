@@ -807,6 +807,36 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balance")]
+		[Route("cryptos/{cryptoCode}/addresses/{address}/balance")]
+		public async Task<IActionResult> GetBalance(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme,
+			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
+			BitcoinAddress address)
+		{
+			var getTransactionsResult = await GetTransactions(cryptoCode, derivationScheme, address);
+			var jsonResult = getTransactionsResult as JsonResult;
+			var transactions = jsonResult?.Value as GetTransactionsResponse;
+			if (transactions == null)
+				return getTransactionsResult;
+
+			var network = this.GetNetwork(cryptoCode, false);
+			var balance = new GetBalanceResponse()
+			{
+				Confirmed = CalculateBalance(network, transactions.ConfirmedTransactions),
+				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions)
+			};
+			balance.Total = balance.Confirmed + balance.Unconfirmed;
+			return Json(balance, jsonResult.SerializerSettings);
+		}
+
+		private Money CalculateBalance(NBXplorerNetwork network, TransactionInformationSet transactions)
+		{
+			return transactions.Transactions.Select(t => t.BalanceChange).Sum();
+		}
+
+		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}/utxos")]
 		public async Task<IActionResult> GetUTXOs(
@@ -999,7 +1029,22 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
 
 			var repo = RepositoryProvider.GetRepository(network);
-			var mnemonic = new Mnemonic(request.WordList, request.WordCount.Value);
+			Mnemonic mnemonic = null;
+			if (request.ExistingMnemonic != null)
+			{
+				try
+				{
+					mnemonic = new Mnemonic(request.ExistingMnemonic, request.WordList);
+				}
+				catch
+				{
+					throw new NBXplorerException(new NBXplorerError(400, "invalid-mnemonic", "Invalid mnemonic words"));
+				}
+			}
+			else
+			{
+				mnemonic = new Mnemonic(request.WordList, request.WordCount.Value);
+			}
 			var masterKey = mnemonic.DeriveExtKey(request.Passphrase).GetWif(network.NBitcoinNetwork);
 			var keyPath = GetDerivationKeyPath(request.ScriptPubKeyType.Value, request.AccountNumber, network);
 			var accountKey = masterKey.Derive(keyPath);
