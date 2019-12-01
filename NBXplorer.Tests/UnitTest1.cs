@@ -2873,11 +2873,11 @@ namespace NBXplorer.Tests
 				{
 					return;
 				}
-				var userExtKey = new ExtKey();
-				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
+				var userDerivationScheme = tester.Client.GenerateWallet(new GenerateWalletRequest()
 				{
-					ScriptPubKeyType = ScriptPubKeyType.Segwit
-				});
+					SavePrivateKeys = true,
+					ImportKeysToRPC= true
+				}).DerivationScheme;
 				await tester.Client.TrackAsync(userDerivationScheme, Cancel);
 				
 				//test: Elements shouldgenerate blinded addresses by default
@@ -2914,11 +2914,11 @@ namespace NBXplorer.Tests
 
 					//test: receive a tx to deriv scheme but to a confidential address with a different blinding key than our derivation method 
 					evtTask = session.NextEventAsync(Timeout);
-					await tester.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
+					txid = await tester.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
 					evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 					var unblindabletx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
 						.TransactionData.Transaction));
-
+					Assert.Equal(txid, unblindabletx.GetHash());
 					Assert.Contains(unblindabletx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value == null);
 
 					//test: The ouptut of the event should have null value
@@ -2929,6 +2929,11 @@ namespace NBXplorer.Tests
 					var assetMoney2 = Assert.IsType<AssetMoney>(Assert.Single(Assert.IsType<MoneyBag>(txInfos[1].BalanceChange)));
 					Assert.Empty(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange));
 					Assert.Equal(assetMoney, assetMoney2);
+
+					tester.RPC.Generate(6);
+					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString());
+					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
+					Assert.Equal(1.0m, receivedMoney);
 				}
 			}
 		}

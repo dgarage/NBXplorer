@@ -151,6 +151,11 @@ namespace NBXplorer.Controllers
 				{
 					await rpc.ImportAddressAsync(result.Address, null, false);
 				}
+				if (repository is LiquidRepository liquidRepository && result.Address is NBitcoin.Altcoins.Elements.BitcoinBlindedAddress)
+				{
+					var blindingkey = NBXplorer.NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategyBase, result.KeyPath);
+					var resultt = await rpc.SendCommandAsync("importblindingkey", result.Address.ToString(), blindingkey.ToHex());
+				}
 			}
 			catch (Exception ex)
 			{
