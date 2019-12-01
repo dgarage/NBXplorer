@@ -35,6 +35,15 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanCreateNetworkProvider()
+		{
+			foreach (var networkType in Enum.GetValues(typeof(NetworkType)))
+			{
+				_ = new NBXplorerNetworkProvider((NetworkType) networkType);
+			}
+		}
+
+		[Fact]
 		public void CanFixedSizeCache()
 		{
 			FixedSizeCache<uint256, uint256> cache = new FixedSizeCache<uint256, uint256>(2, k => k);
