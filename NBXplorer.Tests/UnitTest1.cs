@@ -2933,7 +2933,11 @@ namespace NBXplorer.Tests
 					tester.RPC.Generate(6);
 					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString());
 					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
-					Assert.Equal(1.0m, receivedMoney);
+					// Assert.Equal(1.0m, receivedMoney);
+					// Note that you would expect to have only 1.0 here because you would
+					// expect the second 2.0 to not be unblindable by RPC
+					// but because RPC originated this transaction, it can unblind it without knowing the blinding key
+					Assert.Equal(3.0m, receivedMoney);
 				}
 			}
 		}
