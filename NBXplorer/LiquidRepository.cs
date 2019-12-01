@@ -187,6 +187,12 @@ namespace NBXplorer
 				tx.Transaction is ElementsTransaction elementsTransaction &&
 				tx is ElementsTrackedTransaction elementsTracked)
 			{
+				foreach (var keyPath in tx.KnownKeyPathMapping)
+				{
+					var blindingkey = NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, keyPath.Value);
+					var address = keyPath.Key.GetDestinationAddress(Network.NBitcoinNetwork).AddBlindingKey(blindingkey.PubKey);
+					await _rpcClient.ImportBlindingKey(address, blindingkey);
+				}
 				var unblinded = await _rpcClient.UnblindTransaction(
 					tx.KnownKeyPathMapping
 					.Select(kv => (KeyPath: kv.Value,

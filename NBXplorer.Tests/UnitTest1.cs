@@ -2947,7 +2947,7 @@ namespace NBXplorer.Tests
 					Assert.Equal(3.0m, receivedMoney);
 
 					var balance = tester.Client.GetBalance(userDerivationScheme);
-					Assert.Equal(assetMoney, balance.Total);
+					Assert.Equal(assetMoney, ((MoneyBag)balance.Total).Single());
 				}
 			}
 		}
