@@ -14,7 +14,7 @@ namespace NBXplorer
 		{
 			if (calculateKey == null)
 				throw new ArgumentNullException(nameof(calculateKey));
-			if (maxElements <= 0)
+			if (maxElements < 0)
 				throw new ArgumentOutOfRangeException(nameof(maxElements));
 			_Elements = new TValue[maxElements];
 			_CalculateKey = calculateKey;
