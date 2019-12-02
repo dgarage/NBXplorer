@@ -34,6 +34,11 @@ init:
 #       build configuration       #
 #---------------------------------#
 before_build:
+
+- docker version && docker-compose version
+- cmd: where docker
+- cmd: run-docker.cmd
+
 - ps: |
       Write-Host "[$env:configuration] STARTED dotnet restore" -foregroundcolor "magenta"
       

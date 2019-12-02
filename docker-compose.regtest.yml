@@ -7,11 +7,12 @@ services:
       - 32838:32838
     build:
       context: .
+      dockerfile: Dockerfile.linuxamd64
     environment:
       NBXPLORER_NETWORK: ${NBITCOIN_NETWORK:-regtest}
       NBXPLORER_BIND: 0.0.0.0:32838
       NBXPLORER_NOAUTH: 1
-      NBXPLORER_CHAINS: "btc,lbtc"
+      NBXPLORER_CHAINS: "btc" # ,lbtc"
       NBXPLORER_BTCRPCURL: http://bitcoind:43782/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
       NBXPLORER_RMQHOST: rabbitmq
@@ -25,7 +26,7 @@ services:
     volumes:
       - "nbxplorer_datadir:/datadir"
       - "bitcoin_datadir:/root/.bitcoin"
-      - "elementsd_liquid_datadir:/root/.elements"
+      # - "elementsd_liquid_datadir:/root/.elements"
     links:
       - bitcoind
       - rabbitmq
@@ -64,35 +65,35 @@ services:
       - 5672:5672
       - 15672:15672
       
-  elementsd-liquid:
-    restart: always
-    container_name: btcpayserver_elementsd_liquid
-    image: btcpayserver/elements:0.18.1.1
-    environment:
-      ELEMENTS_CHAIN: elementsregtest
-      ELEMENTS_EXTRA_ARGS: |
-        mainchainrpcport=43782
-        mainchainrpchost=bitcoind
-        mainchainrpcuser=liquid
-        mainchainrpcpassword=liquid
-        rpcport=19332
-        rpcbind=0.0.0.0:19332
-        rpcauth=liquid:c8bf1a8961d97f224cb21224aaa8235d$$402f4a8907683d057b8c58a42940b6e54d1638322a42986ae28ebb844e603ae6
-        port=19444
-        whitelist=0.0.0.0/0
-        validatepegin=0
-        initialfreecoins=210000000000000
-        con_dyna_deploy_start=99999999999
-    expose:
-      - "19332"
-      - "19444"
-    ports:
-      - "19332:19332"
-      - "19444:19444"
-    volumes:
-      - "elementsd_liquid_datadir:/data"
+  # elementsd-liquid:
+  #   restart: always
+  #   container_name: btcpayserver_elementsd_liquid
+  #   image: btcpayserver/elements:0.18.1.1
+  #   environment:
+  #     ELEMENTS_CHAIN: elementsregtest
+  #     ELEMENTS_EXTRA_ARGS: |
+  #       mainchainrpcport=43782
+  #       mainchainrpchost=bitcoind
+  #       mainchainrpcuser=liquid
+  #       mainchainrpcpassword=liquid
+  #       rpcport=19332
+  #       rpcbind=0.0.0.0:19332
+  #       rpcauth=liquid:c8bf1a8961d97f224cb21224aaa8235d$$402f4a8907683d057b8c58a42940b6e54d1638322a42986ae28ebb844e603ae6
+  #       port=19444
+  #       whitelist=0.0.0.0/0
+  #       validatepegin=0
+  #       initialfreecoins=210000000000000
+  #       con_dyna_deploy_start=99999999999
+  #   expose:
+  #     - "19332"
+  #     - "19444"
+  #   ports:
+  #     - "19332:19332"
+  #     - "19444:19444"
+  #   volumes:
+  #     - "elementsd_liquid_datadir:/data"
     
 volumes:
   nbxplorer_datadir: 
   bitcoin_datadir:
-  elementsd_liquid_datadir: 
+  # elementsd_liquid_datadir: 
