@@ -1022,6 +1022,7 @@ namespace NBXplorer
 			}
 			if (scripts.Count == 0)
 				return Array.Empty<TrackedTransaction>();
+			var keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
 			var keyInformations = await GetKeyInformations(scripts.ToArray());
 			foreach (var keyInfoByScripts in keyInformations)
 			{
@@ -1044,13 +1045,14 @@ namespace NBXplorer
 						}
 						if (keyInfo.KeyPath != null)
 							match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
+						keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
 					}
 				}
 			}
 			foreach (var m in matches.Values)
 			{
 				m.KnownKeyPathMappingUpdated();
-				await AfterMatch(m);
+				await AfterMatch(m, keyPathInformationsByTrackedTransaction[m]);
 			}
 
 			foreach (var tx in txs)
@@ -1081,17 +1083,17 @@ namespace NBXplorer
 		{
 			return new TrackedTransaction.TransactionMatchData(trackedTransactionKey);
 		}
-		protected virtual async Task AfterMatch(TrackedTransaction tx)
+		protected virtual async Task AfterMatch(TrackedTransaction tx, IReadOnlyCollection<KeyPathInformation> keyInfos)
 		{
 			var shouldImportRPC = (await GetMetadata<string>(tx.TrackedSource, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
 			if (!shouldImportRPC)
 				return;
 			var accountKey = await GetMetadata<BitcoinExtKey>(tx.TrackedSource, WellknownMetadataKeys.AccountHDKey);
-			foreach (var keyPath in tx.KnownKeyPathMapping)
+			foreach (var keyInfo in keyInfos)
 			{
 				await ImportAddressToRPC(accountKey,
-					keyPath.Key.GetDestinationAddress(Network.NBitcoinNetwork),
-					keyPath.Value);
+					keyInfo.Address,
+					keyInfo.KeyPath);
 			}
 		}
 
@@ -1111,7 +1113,14 @@ namespace NBXplorer
 			}
 			else
 			{
-				await rpc.ImportAddressAsync(address, null, false);
+				try
+				{
+					await rpc.ImportAddressAsync(address, null, false);
+				}
+				catch (RPCException) // Probably the private key has already been imported
+				{
+
+				}
 			}
 		}
 	}

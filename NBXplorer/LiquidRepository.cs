@@ -181,24 +181,28 @@ namespace NBXplorer
 			}
 		}
 
-		protected override async Task AfterMatch(TrackedTransaction tx)
+		protected override async Task AfterMatch(TrackedTransaction tx, IReadOnlyCollection<KeyPathInformation> keyInfos)
 		{
-			await base.AfterMatch(tx);
+			await base.AfterMatch(tx, keyInfos);
 			if (tx.TrackedSource is DerivationSchemeTrackedSource ts &&
 				tx.Transaction is ElementsTransaction elementsTransaction &&
 				tx is ElementsTrackedTransaction elementsTracked)
 			{
-				var unblinded = await _rpcClient.UnblindTransaction(
-					tx.KnownKeyPathMapping
-					.Select(kv => (KeyPath: kv.Value,
-								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.Value),
-								   UnconfidentialAddress: kv.Key.GetDestinationAddress(Network.NBitcoinNetwork)))
+				var keys = keyInfos
+					.Select(kv => (KeyPath: kv.KeyPath,
+								   Address: kv.Address as BitcoinBlindedAddress,
+								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.KeyPath)))
+					.Where(o => o.Address != null)
 					.Select(o => new UnblindTransactionBlindingAddressKey()
 					{
-						Address = o.UnconfidentialAddress.AddBlindingKey(o.BlindingKey.PubKey),
+						Address = o.Address,
 						BlindingKey = o.BlindingKey
-					}).ToList(), elementsTransaction, Network.NBitcoinNetwork);
-				elementsTracked.Unblind(unblinded, true);
+					}).ToList();
+				if (keys.Count != 0)
+				{
+					var unblinded = await _rpcClient.UnblindTransaction(keys, elementsTransaction, Network.NBitcoinNetwork);
+					elementsTracked.Unblind(unblinded, true);
+				}
 			}
 		}
 
