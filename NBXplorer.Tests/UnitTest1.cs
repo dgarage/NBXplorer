@@ -3042,11 +3042,15 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation($"Let's assert it is tracked by RPC {firstKeyInfo.Address}");
 				var waiter = tester.GetService<BitcoinDWaiters>().GetWaiter(tester.Client.Network);
-				await Task.Delay(1000);
-				var rpcAddressInfo = await waiter.RPC.GetAddressInfoAsync(firstKeyInfo.Address);
-				Assert.True(rpcAddressInfo.IsMine);
-				Assert.False(rpcAddressInfo.IsWatchOnly);
 
+				var txid = await tester.SendToAddressAsync(firstKeyInfo.Address, Money.Coins(1.01m));
+				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);
+
+				var money = await waiter.RPC.GetReceivedByAddressAsync(firstKeyInfo.Address, 0);
+				Assert.Equal(Money.Coins(1.01m), money);
+				var addressInfo = await waiter.RPC.GetAddressInfoAsync(firstKeyInfo.Address);
+				Assert.True(addressInfo.IsMine);
+				Assert.False(addressInfo.IsWatchOnly);
 
 				Logs.Tester.LogInformation("Let's test the metadata are correct");
 				Assert.Equal(wallet.MasterHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.MasterHDKey));
@@ -3056,7 +3060,7 @@ namespace NBXplorer.Tests
 				Assert.Equal("True", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
 
 				Logs.Tester.LogInformation("Let's check if psbt are properly rooted automatically");
-				var txid = await tester.SendToAddressAsync(firstGenerated.Address, Money.Coins(1.0m));
+				txid = await tester.SendToAddressAsync(firstGenerated.Address, Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);
 				var psbtResponse = await tester.Client.CreatePSBTAsync(wallet.DerivationScheme, new CreatePSBTRequest()
 				{

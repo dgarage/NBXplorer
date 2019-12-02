@@ -126,36 +126,11 @@ namespace NBXplorer.Controllers
 					}
 					_ = AddressPoolService.GenerateAddresses(network, strategy, feature);
 				}
-				_ = AddAddressToRPCIfNeeded(repository, result, strategy);
 				return Json(result, network.Serializer.Settings);
 			}
 			catch (NotSupportedException)
 			{
 				throw new NBXplorerError(400, "derivation-not-supported", $"The derivation scheme {feature} is not supported").AsException();
-			}
-		}
-
-		async Task AddAddressToRPCIfNeeded(Repository repository, KeyPathInformation result, DerivationStrategyBase strategyBase)
-		{
-			try
-			{
-				var ts = new DerivationSchemeTrackedSource(strategyBase);
-				var rpc = Waiters.GetWaiter(repository.Network).RPC;
-				var shouldImportRPC = (await repository.GetMetadata<string>(ts, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
-				if (!shouldImportRPC)
-					return;
-				if (await repository.GetMetadata<BitcoinExtKey>(ts, WellknownMetadataKeys.AccountHDKey) is BitcoinExtKey accountKey)
-				{
-					await rpc.ImportPrivKeyAsync(accountKey.Derive(result.KeyPath).PrivateKey.GetWif(result.Address.Network), null, false);
-				}
-				else
-				{
-					await rpc.ImportAddressAsync(result.Address, null, false);
-				}
-			}
-			catch (Exception ex)
-			{
-				Logs.Explorer.LogWarning(ex, "Error while trying to track an address with RPC");
 			}
 		}
 

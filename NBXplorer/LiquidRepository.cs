@@ -16,7 +16,7 @@ namespace NBXplorer
 		private readonly RPCClient _rpcClient;
 
 		internal LiquidRepository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates,
-			RPCClient rpcClient) : base(engine, network, keyPathTemplates)
+			RPCClient rpcClient) : base(engine, network, keyPathTemplates, rpcClient)
 		{
 			_rpcClient = rpcClient;
 		}
@@ -183,6 +183,7 @@ namespace NBXplorer
 
 		protected override async Task AfterMatch(TrackedTransaction tx)
 		{
+			await base.AfterMatch(tx);
 			if (tx.TrackedSource is DerivationSchemeTrackedSource ts &&
 				tx.Transaction is ElementsTransaction elementsTransaction &&
 				tx is ElementsTrackedTransaction elementsTracked)

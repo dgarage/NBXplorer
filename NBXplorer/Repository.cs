@@ -68,7 +68,7 @@ namespace NBXplorer
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates);
+					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
@@ -304,6 +304,7 @@ namespace NBXplorer
 
 		protected NBXplorerNetwork _Network;
 		private readonly KeyPathTemplates keyPathTemplates;
+		private readonly RPCClient rpc;
 
 		public NBXplorerNetwork Network
 		{
@@ -314,12 +315,13 @@ namespace NBXplorer
 		}
 
 		DBriizeTransactionContext _TxContext;
-		internal Repository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates)
+		internal Repository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc)
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			this.keyPathTemplates = keyPathTemplates;
+			this.rpc = rpc;
 			Serializer = new Serializer(_Network);
 			_Network = network;
 			_TxContext = new DBriizeTransactionContext(engine);
@@ -1066,9 +1068,23 @@ namespace NBXplorer
 		{
 			return new TrackedTransaction.TransactionMatchData(trackedTransactionKey);
 		}
-		protected virtual Task AfterMatch(TrackedTransaction tx)
+		protected virtual async Task AfterMatch(TrackedTransaction tx)
 		{
-			return Task.CompletedTask;
+			var shouldImportRPC = (await GetMetadata<string>(tx.TrackedSource, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
+			if (!shouldImportRPC)
+				return;
+			var accountKey = await GetMetadata<BitcoinExtKey>(tx.TrackedSource, WellknownMetadataKeys.AccountHDKey);
+			foreach (var keyPath in tx.KnownKeyPathMapping)
+			{
+				if (accountKey != null)
+				{
+					await rpc.ImportPrivKeyAsync(accountKey.Derive(keyPath.Value).PrivateKey.GetWif(Network.NBitcoinNetwork), null, false);
+				}
+				else
+				{
+					await rpc.ImportAddressAsync(keyPath.Key.GetDestinationAddress(Network.NBitcoinNetwork), null, false);
+				}
+			}
 		}
 	}
 }
