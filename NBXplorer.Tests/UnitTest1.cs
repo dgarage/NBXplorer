@@ -2900,7 +2900,6 @@ namespace NBXplorer.Tests
 					SavePrivateKeys = true,
 					ImportKeysToRPC= true
 				}).DerivationScheme;
-				await tester.Client.TrackAsync(userDerivationScheme, Cancel);
 				
 				//test: Elements shouldgenerate blinded addresses by default
 				var address =
@@ -2952,6 +2951,7 @@ namespace NBXplorer.Tests
 					Assert.Empty(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange));
 					Assert.Equal(assetMoney, assetMoney2);
 
+					Thread.Sleep(1000);
 					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString(), 0);
 					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
 
@@ -2969,6 +2969,12 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = ServerTester.Create())
 			{
+				var cashNode = tester.NodeBuilder.CreateNode(true);
+				cashNode.Sync(tester.Explorer, true);
+				var cashCow = cashNode.CreateRPCClient();
+				tester.SendToAddress(cashCow.GetNewAddress(), Money.Coins(4.0m));
+				tester.RPC.Generate(1);
+
 				Logs.Tester.LogInformation("Let's try default parameters");
 				var wallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest());
 				Assert.NotNull(wallet.Mnemonic);
@@ -3044,7 +3050,7 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation($"Let's assert it is tracked by RPC {firstKeyInfo.Address}");
 				var waiter = tester.GetService<BitcoinDWaiters>().GetWaiter(tester.Client.Network);
 
-				var txid = await tester.SendToAddressAsync(firstKeyInfo.Address, Money.Coins(1.01m));
+				var txid = await cashCow.SendToAddressAsync(firstKeyInfo.Address, Money.Coins(1.01m));
 				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);
 
 				var money = await waiter.RPC.GetReceivedByAddressAsync(firstKeyInfo.Address, 0);

@@ -368,9 +368,9 @@ namespace NBXplorer
 			});
 		}
 
-		public Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
+		public async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
-			return _TxContext.DoAsync((tx) =>
+			var keyInfo = await _TxContext.DoAsync((tx) =>
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
@@ -388,6 +388,8 @@ namespace NBXplorer
 				}
 				return keyInfo;
 			});
+			await ImportAddressToRPC(keyInfo.TrackedSource, keyInfo.Address, keyInfo.KeyPath);
+			return keyInfo;
 		}
 
 		int GetAddressToGenerateCount(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
@@ -1087,14 +1089,29 @@ namespace NBXplorer
 			var accountKey = await GetMetadata<BitcoinExtKey>(tx.TrackedSource, WellknownMetadataKeys.AccountHDKey);
 			foreach (var keyPath in tx.KnownKeyPathMapping)
 			{
-				if (accountKey != null)
-				{
-					await rpc.ImportPrivKeyAsync(accountKey.Derive(keyPath.Value).PrivateKey.GetWif(Network.NBitcoinNetwork), null, false);
-				}
-				else
-				{
-					await rpc.ImportAddressAsync(keyPath.Key.GetDestinationAddress(Network.NBitcoinNetwork), null, false);
-				}
+				await ImportAddressToRPC(accountKey,
+					keyPath.Key.GetDestinationAddress(Network.NBitcoinNetwork),
+					keyPath.Value);
+			}
+		}
+
+		private async Task ImportAddressToRPC(TrackedSource trackedSource, BitcoinAddress address, KeyPath keyPath)
+		{
+			var shouldImportRPC = (await GetMetadata<string>(trackedSource, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
+			if (!shouldImportRPC)
+				return;
+			var accountKey = await GetMetadata<BitcoinExtKey>(trackedSource, WellknownMetadataKeys.AccountHDKey);
+			await ImportAddressToRPC(accountKey, address, keyPath);
+		}
+		private async Task ImportAddressToRPC(BitcoinExtKey accountKey, BitcoinAddress address, KeyPath keyPath)
+		{
+			if (accountKey != null)
+			{
+				await rpc.ImportPrivKeyAsync(accountKey.Derive(keyPath).PrivateKey.GetWif(Network.NBitcoinNetwork), null, false);
+			}
+			else
+			{
+				await rpc.ImportAddressAsync(address, null, false);
 			}
 		}
 	}
