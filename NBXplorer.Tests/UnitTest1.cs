@@ -2889,6 +2889,11 @@ namespace NBXplorer.Tests
 				{
 					return;
 				}
+
+				var cashNode = tester.NodeBuilder.CreateNode(true);
+				cashNode.Sync(tester.Explorer, true);
+				var cashCow = cashNode.CreateRPCClient();
+				tester.SendToAddress(cashCow.GetNewAddress(), Money.Coins(4.0m));
 				var userDerivationScheme = tester.Client.GenerateWallet(new GenerateWalletRequest()
 				{
 					SavePrivateKeys = true,
@@ -2908,7 +2913,7 @@ namespace NBXplorer.Tests
 
 					//test: Client should return Elements transaction types when event is published
 					var evtTask = session.NextEventAsync(Timeout);
-					var txid = await tester.SendToAddressAsync(address, Money.Coins(1.0m));
+					var txid = await cashCow.SendToAddressAsync(address, Money.Coins(1.0m));
 
 					var evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 
@@ -2930,7 +2935,7 @@ namespace NBXplorer.Tests
 
 					//test: receive a tx to deriv scheme but to a confidential address with a different blinding key than our derivation method 
 					evtTask = session.NextEventAsync(Timeout);
-					txid = await tester.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
+					txid = await cashCow.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
 					evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 					var unblindabletx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
 						.TransactionData.Transaction));
@@ -2946,14 +2951,10 @@ namespace NBXplorer.Tests
 					Assert.Empty(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange));
 					Assert.Equal(assetMoney, assetMoney2);
 
-					tester.RPC.Generate(6);
-					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString());
+					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString(), 0);
 					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
-					// Assert.Equal(1.0m, receivedMoney);
-					// Note that you would expect to have only 1.0 here because you would
-					// expect the second 2.0 to not be unblindable by RPC
-					// but because RPC originated this transaction, it can unblind it without knowing the blinding key
-					Assert.Equal(3.0m, receivedMoney);
+
+					Assert.Equal(1.0m, receivedMoney);
 
 					var balance = tester.Client.GetBalance(userDerivationScheme);
 					Assert.Equal(assetMoney, ((MoneyBag)balance.Total).Single());

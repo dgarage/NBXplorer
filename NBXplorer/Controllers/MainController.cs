@@ -141,11 +141,6 @@ namespace NBXplorer.Controllers
 			{
 				var ts = new DerivationSchemeTrackedSource(strategyBase);
 				var rpc = Waiters.GetWaiter(repository.Network).RPC;
-				if (repository is LiquidRepository && result.Address is BitcoinBlindedAddress bitcoinBlindedAddress)
-				{
-					var blindingkey = NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategyBase, result.KeyPath);
-					_ = await rpc.ImportBlindingKey(bitcoinBlindedAddress, blindingkey);
-				}
 				var shouldImportRPC = (await repository.GetMetadata<string>(ts, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
 				if (!shouldImportRPC)
 					return;
