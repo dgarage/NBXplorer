@@ -1138,6 +1138,7 @@ namespace NBXplorer.Tests
 				tester.Client.Track(pubkey);
 
 				Assert.Null(tester.Client.GetMetadata<TestMetadata>(pubkey, "test"));
+				Assert.Null(tester.Client.GetMetadata<TestMetadata>(pubkey, "test"));
 
 				var expected = new TestMetadata() { Message = "hello" };
 				tester.Client.SetMetadata(pubkey, "test", expected);

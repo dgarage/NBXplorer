@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
@@ -23,17 +24,31 @@ namespace NBXplorer
 
 		public bool Contains(TValue obj)
 		{
-			if (object.ReferenceEquals(null, obj))
+			if (_Elements.Length == 0)
+				return false;
+			if (obj is null)
 				throw new ArgumentNullException(paramName: nameof(obj));
 			var objKey = _CalculateKey(obj);
 			TValue existingValue = _Elements[GetIndex(objKey)];
-			if (object.ReferenceEquals(null, existingValue))
+			if (existingValue is null)
 				return false;
 			return _CalculateKey(existingValue).Equals(objKey);
 		}
 
+		public void Remove(TValue obj)
+		{
+			if (_Elements.Length == 0)
+				return;
+			if (obj is null)
+				throw new ArgumentNullException(paramName: nameof(obj));
+			var objKey = _CalculateKey(obj);
+			_Elements[GetIndex(objKey)] = default;
+		}
+
 		public void Add(TValue obj)
 		{
+			if (_Elements.Length == 0)
+				return;
 			_Elements[GetIndex(obj)] = obj;
 		}
 

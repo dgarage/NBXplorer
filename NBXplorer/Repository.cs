@@ -834,14 +834,24 @@ namespace NBXplorer
 			{
 				var table = GetMetadataIndex(tx, source);
 				if (value != null)
+				{
 					table.Insert(key, Zip(Serializer.ToString(value)));
+					_NoMetadataCache.Remove((source, key));
+				}
 				else
+				{
 					table.RemoveKey(key);
+					_NoMetadataCache.Add((source, key));
+				}
 				tx.Commit();
 			});
 		}
+
+		FixedSizeCache<(TrackedSource, String), string> _NoMetadataCache = new FixedSizeCache<(TrackedSource, String), string>(100, (kv) => $"{kv.Item1}:{kv.Item2}");
 		public async Task<TMetadata> GetMetadata<TMetadata>(TrackedSource source, string key) where TMetadata : class
 		{
+			if (_NoMetadataCache.Contains((source, key)))
+				return default;
 			return await _TxContext.DoAsync(tx =>
 			{
 				var table = GetMetadataIndex(tx, source);
@@ -849,6 +859,7 @@ namespace NBXplorer
 				{
 					return Serializer.ToObject<TMetadata>(Unzip(row.Value));
 				}
+				_NoMetadataCache.Add((source, key));
 				return null;
 			});
 		}
