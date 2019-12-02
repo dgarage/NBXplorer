@@ -388,7 +388,10 @@ namespace NBXplorer
 				}
 				return keyInfo;
 			});
-			await ImportAddressToRPC(keyInfo.TrackedSource, keyInfo.Address, keyInfo.KeyPath);
+			if (keyInfo != null)
+			{
+				await ImportAddressToRPC(keyInfo.TrackedSource, keyInfo.Address, keyInfo.KeyPath);
+			}
 			return keyInfo;
 		}
 
