@@ -14,17 +14,14 @@ services:
       NBXPLORER_CHAINS: "btc,lbtc"
       NBXPLORER_BTCRPCURL: http://bitcoind:43782/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
-<<<<<<< HEAD
-      NBXPLORER_rmqhost: rabbitmq
-      NBXPLORER_rmqvirtual: / 
-      NBXPLORER_rmquser: guest
-      NBXPLORER_rmqpass: guest
-      NBXPLORER_rmqtranex: NewTransaction
-      NBXPLORER_rmqblockex: NewBlock
-=======
+      NBXPLORER_RMQHOST: rabbitmq
+      NBXPLORER_RMQVIRTUAL: / 
+      NBXPLORER_RMQUSER: guest
+      NBXPLORER_RMQPASS: guest
+      NBXPLORER_RMQTRANEX: NewTransaction
+      NBXPLORER_RMQBLOCKEX: NewBlock
       NBXPLORER_LBTCRPCURL: http://elementsd-liquid:43783/
       NBXPLORER_LBTCNODEENDPOINT: elementsd-liquid:39389
->>>>>>> f32a2fdba07ee9d8fcd4e69ba6e1d0757ae5080f
     volumes:
       - "nbxplorer_datadir:/datadir"
       - "bitcoin_datadir:/root/.bitcoin"
