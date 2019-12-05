@@ -34,6 +34,12 @@ init:
 #       build configuration       #
 #---------------------------------#
 before_build:
+
+- ps: Write-Host "[$env:configuration] STARTED RabbitMq" -foregroundcolor "magenta"
+- cmd: where docker
+- cmd: docker version && docker-compose version
+- cmd: docker-compose -f docker-compose.regtest.yml up -d rabbitmq
+
 - ps: |
       Write-Host "[$env:configuration] STARTED dotnet restore" -foregroundcolor "magenta"
       
