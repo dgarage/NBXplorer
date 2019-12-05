@@ -36,6 +36,15 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanCreateNetworkProvider()
+		{
+			foreach (var networkType in Enum.GetValues(typeof(NetworkType)))
+			{
+				_ = new NBXplorerNetworkProvider((NetworkType) networkType);
+			}
+		}
+
+		[Fact]
 		public void CanFixedSizeCache()
 		{
 			FixedSizeCache<uint256, uint256> cache = new FixedSizeCache<uint256, uint256>(2, k => k);
@@ -1283,6 +1292,7 @@ namespace NBXplorer.Tests
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
 				tester.Client.Track(pubkey);
 
+				Assert.Null(tester.Client.GetMetadata<TestMetadata>(pubkey, "test"));
 				Assert.Null(tester.Client.GetMetadata<TestMetadata>(pubkey, "test"));
 
 				var expected = new TestMetadata() { Message = "hello" };
@@ -3035,12 +3045,16 @@ namespace NBXplorer.Tests
 				{
 					return;
 				}
+
+				var cashNode = tester.NodeBuilder.CreateNode(true);
+				cashNode.Sync(tester.Explorer, true);
+				var cashCow = cashNode.CreateRPCClient();
+				tester.SendToAddress(cashCow.GetNewAddress(), Money.Coins(4.0m));
 				var userDerivationScheme = tester.Client.GenerateWallet(new GenerateWalletRequest()
 				{
 					SavePrivateKeys = true,
 					ImportKeysToRPC= true
 				}).DerivationScheme;
-				await tester.Client.TrackAsync(userDerivationScheme, Cancel);
 				
 				//test: Elements shouldgenerate blinded addresses by default
 				var address =
@@ -3054,7 +3068,7 @@ namespace NBXplorer.Tests
 
 					//test: Client should return Elements transaction types when event is published
 					var evtTask = session.NextEventAsync(Timeout);
-					var txid = await tester.SendToAddressAsync(address, Money.Coins(1.0m));
+					var txid = await cashCow.SendToAddressAsync(address, Money.Coins(1.0m));
 
 					var evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 
@@ -3076,7 +3090,7 @@ namespace NBXplorer.Tests
 
 					//test: receive a tx to deriv scheme but to a confidential address with a different blinding key than our derivation method 
 					evtTask = session.NextEventAsync(Timeout);
-					txid = await tester.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
+					txid = await cashCow.SendToAddressAsync(new BitcoinBlindedAddress(new Key().PubKey, address.UnblindedAddress), Money.Coins(2.0m));
 					evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 					var unblindabletx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
 						.TransactionData.Transaction));
@@ -3092,14 +3106,11 @@ namespace NBXplorer.Tests
 					Assert.Empty(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange));
 					Assert.Equal(assetMoney, assetMoney2);
 
-					tester.RPC.Generate(6);
-					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString());
+					Thread.Sleep(1000);
+					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString(), 0);
 					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
-					// Assert.Equal(1.0m, receivedMoney);
-					// Note that you would expect to have only 1.0 here because you would
-					// expect the second 2.0 to not be unblindable by RPC
-					// but because RPC originated this transaction, it can unblind it without knowing the blinding key
-					Assert.Equal(3.0m, receivedMoney);
+
+					Assert.Equal(1.0m, receivedMoney);
 
 					var balance = tester.Client.GetBalance(userDerivationScheme);
 					Assert.Equal(assetMoney, ((MoneyBag)balance.Total).Single());
@@ -3113,6 +3124,12 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = ServerTester.Create())
 			{
+				var cashNode = tester.NodeBuilder.CreateNode(true);
+				cashNode.Sync(tester.Explorer, true);
+				var cashCow = cashNode.CreateRPCClient();
+				tester.SendToAddress(cashCow.GetNewAddress(), Money.Coins(4.0m));
+				tester.RPC.Generate(1);
+
 				Logs.Tester.LogInformation("Let's try default parameters");
 				var wallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest());
 				Assert.NotNull(wallet.Mnemonic);
@@ -3187,11 +3204,15 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation($"Let's assert it is tracked by RPC {firstKeyInfo.Address}");
 				var waiter = tester.GetService<BitcoinDWaiters>().GetWaiter(tester.Client.Network);
-				await Task.Delay(1000);
-				var rpcAddressInfo = await waiter.RPC.GetAddressInfoAsync(firstKeyInfo.Address);
-				Assert.True(rpcAddressInfo.IsMine);
-				Assert.False(rpcAddressInfo.IsWatchOnly);
 
+				var txid = await cashCow.SendToAddressAsync(firstKeyInfo.Address, Money.Coins(1.01m));
+				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);
+
+				var money = await waiter.RPC.GetReceivedByAddressAsync(firstKeyInfo.Address, 0);
+				Assert.Equal(Money.Coins(1.01m), money);
+				var addressInfo = await waiter.RPC.GetAddressInfoAsync(firstKeyInfo.Address);
+				Assert.True(addressInfo.IsMine);
+				Assert.False(addressInfo.IsWatchOnly);
 
 				Logs.Tester.LogInformation("Let's test the metadata are correct");
 				Assert.Equal(wallet.MasterHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.MasterHDKey));
@@ -3201,7 +3222,7 @@ namespace NBXplorer.Tests
 				Assert.Equal("True", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
 
 				Logs.Tester.LogInformation("Let's check if psbt are properly rooted automatically");
-				var txid = await tester.SendToAddressAsync(firstGenerated.Address, Money.Coins(1.0m));
+				txid = await tester.SendToAddressAsync(firstGenerated.Address, Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);
 				var psbtResponse = await tester.Client.CreatePSBTAsync(wallet.DerivationScheme, new CreatePSBTRequest()
 				{

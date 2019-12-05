@@ -68,7 +68,7 @@ namespace NBXplorer
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates);
+					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
 					_Repositories.Add(net.CryptoCode, repo);
@@ -304,6 +304,7 @@ namespace NBXplorer
 
 		protected NBXplorerNetwork _Network;
 		private readonly KeyPathTemplates keyPathTemplates;
+		private readonly RPCClient rpc;
 
 		public NBXplorerNetwork Network
 		{
@@ -314,12 +315,13 @@ namespace NBXplorer
 		}
 
 		DBriizeTransactionContext _TxContext;
-		internal Repository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates)
+		internal Repository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc)
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			this.keyPathTemplates = keyPathTemplates;
+			this.rpc = rpc;
 			Serializer = new Serializer(_Network);
 			_Network = network;
 			_TxContext = new DBriizeTransactionContext(engine);
@@ -366,9 +368,9 @@ namespace NBXplorer
 			});
 		}
 
-		public Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
+		public async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
-			return _TxContext.DoAsync((tx) =>
+			var keyInfo = await _TxContext.DoAsync((tx) =>
 			{
 				tx.ValuesLazyLoadingIsOn = false;
 				var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
@@ -386,6 +388,11 @@ namespace NBXplorer
 				}
 				return keyInfo;
 			});
+			if (keyInfo != null)
+			{
+				await ImportAddressToRPC(keyInfo.TrackedSource, keyInfo.Address, keyInfo.KeyPath);
+			}
+			return keyInfo;
 		}
 
 		int GetAddressToGenerateCount(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
@@ -832,14 +839,24 @@ namespace NBXplorer
 			{
 				var table = GetMetadataIndex(tx, source);
 				if (value != null)
+				{
 					table.Insert(key, Zip(Serializer.ToString(value)));
+					_NoMetadataCache.Remove((source, key));
+				}
 				else
+				{
 					table.RemoveKey(key);
+					_NoMetadataCache.Add((source, key));
+				}
 				tx.Commit();
 			});
 		}
+
+		FixedSizeCache<(TrackedSource, String), string> _NoMetadataCache = new FixedSizeCache<(TrackedSource, String), string>(100, (kv) => $"{kv.Item1}:{kv.Item2}");
 		public async Task<TMetadata> GetMetadata<TMetadata>(TrackedSource source, string key) where TMetadata : class
 		{
+			if (_NoMetadataCache.Contains((source, key)))
+				return default;
 			return await _TxContext.DoAsync(tx =>
 			{
 				var table = GetMetadataIndex(tx, source);
@@ -847,6 +864,7 @@ namespace NBXplorer
 				{
 					return Serializer.ToObject<TMetadata>(Unzip(row.Value));
 				}
+				_NoMetadataCache.Add((source, key));
 				return null;
 			});
 		}
@@ -1007,6 +1025,7 @@ namespace NBXplorer
 			}
 			if (scripts.Count == 0)
 				return Array.Empty<TrackedTransaction>();
+			var keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
 			var keyInformations = await GetKeyInformations(scripts.ToArray());
 			foreach (var keyInfoByScripts in keyInformations)
 			{
@@ -1029,13 +1048,14 @@ namespace NBXplorer
 						}
 						if (keyInfo.KeyPath != null)
 							match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
+						keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
 					}
 				}
 			}
 			foreach (var m in matches.Values)
 			{
 				m.KnownKeyPathMappingUpdated();
-				await AfterMatch(m);
+				await AfterMatch(m, keyPathInformationsByTrackedTransaction[m]);
 			}
 
 			foreach (var tx in txs)
@@ -1066,9 +1086,45 @@ namespace NBXplorer
 		{
 			return new TrackedTransaction.TransactionMatchData(trackedTransactionKey);
 		}
-		protected virtual Task AfterMatch(TrackedTransaction tx)
+		protected virtual async Task AfterMatch(TrackedTransaction tx, IReadOnlyCollection<KeyPathInformation> keyInfos)
 		{
-			return Task.CompletedTask;
+			var shouldImportRPC = (await GetMetadata<string>(tx.TrackedSource, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
+			if (!shouldImportRPC)
+				return;
+			var accountKey = await GetMetadata<BitcoinExtKey>(tx.TrackedSource, WellknownMetadataKeys.AccountHDKey);
+			foreach (var keyInfo in keyInfos)
+			{
+				await ImportAddressToRPC(accountKey,
+					keyInfo.Address,
+					keyInfo.KeyPath);
+			}
+		}
+
+		private async Task ImportAddressToRPC(TrackedSource trackedSource, BitcoinAddress address, KeyPath keyPath)
+		{
+			var shouldImportRPC = (await GetMetadata<string>(trackedSource, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
+			if (!shouldImportRPC)
+				return;
+			var accountKey = await GetMetadata<BitcoinExtKey>(trackedSource, WellknownMetadataKeys.AccountHDKey);
+			await ImportAddressToRPC(accountKey, address, keyPath);
+		}
+		private async Task ImportAddressToRPC(BitcoinExtKey accountKey, BitcoinAddress address, KeyPath keyPath)
+		{
+			if (accountKey != null)
+			{
+				await rpc.ImportPrivKeyAsync(accountKey.Derive(keyPath).PrivateKey.GetWif(Network.NBitcoinNetwork), null, false);
+			}
+			else
+			{
+				try
+				{
+					await rpc.ImportAddressAsync(address, null, false);
+				}
+				catch (RPCException) // Probably the private key has already been imported
+				{
+
+				}
+			}
 		}
 	}
 }

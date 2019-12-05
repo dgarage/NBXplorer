@@ -1,7 +1,5 @@
 ﻿using NBitcoin;
-using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace NBXplorer
 {
@@ -54,6 +52,8 @@ namespace NBXplorer
 		Dictionary<string, NBXplorerNetwork> _Networks = new Dictionary<string, NBXplorerNetwork>();
 		private void Add(NBXplorerNetwork network)
 		{
+			if (network.NBitcoinNetwork == null)
+				return;
 			_Networks.Add(network.CryptoCode, network);
 		}
 	}
