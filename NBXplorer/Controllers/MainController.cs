@@ -1038,7 +1038,7 @@ namespace NBXplorer.Controllers
 				saveMetadata.AddRange(
 				new[] {
 					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Mnemonic, mnemonic.ToString()),
-					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Passphrase, mnemonic.ToString()),
+					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Passphrase, request.Passphrase),
 					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterHDKey, masterKey),
 					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountHDKey, accountKey)
 				});
