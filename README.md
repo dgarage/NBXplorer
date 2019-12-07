@@ -48,7 +48,7 @@ Read our [API Specification](docs/API.md), or our the [internal design of NBXplo
 
 ## Prerequisite
 
-* Install [.NET Core SDK v3.0.0 or above](https://www.microsoft.com/net/download)
+* Install [.NET Core SDK v3.1.0 or above](https://www.microsoft.com/net/download)
 * Bitcoin Core instance synched and running (at least 0.16.0).
 
 ## API Specification
@@ -101,7 +101,7 @@ You can check [the sample](docker-compose.regtest.yml) for configuring and compo
 
 ## How to develop on it?
 
-If you are on Windows, I recommend Visual Studio 2017 update 3 (15.3).
+If you are on Windows, I recommend Visual Studio 2017 update 4 (15.4).
 If you are on other platform and want lightweight environment, use [Visual Studio Code](https://code.visualstudio.com/).
 If you are hardcore, you can code on vim.
 
