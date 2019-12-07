@@ -24,15 +24,7 @@ namespace NBXplorer.DerivationStrategy
 			get; set;
 		}
 
-		protected override string StringValue
-		{
-			get
-			{
-				if(addSuffix)
-					return $"{Inner}{GetSuffixOptionsString()}";
-				return Inner.ToString();
-			}
-		}
+		protected override string StringValue => addSuffix ? $"{Inner}{GetSuffixOptionsString()}" : Inner.ToString();
 
 		public override Derivation GetDerivation()
 		{

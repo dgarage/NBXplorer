@@ -11,7 +11,43 @@ namespace NBXplorer.DerivationStrategy
 {
 	public class DerivationStrategyOptions
 	{
-		public ScriptPubKeyType ScriptPubKeyType { get; set; }
+
+		public ScriptPubKeyType ScriptPubKeyType
+		{
+			get
+			{
+				if (AdditionalOptions.TryGetValue("legacy", out var legacy) && legacy)
+				{
+					return ScriptPubKeyType.Legacy;
+				}
+				if (AdditionalOptions.TryGetValue("p2sh", out var p2sh) && p2sh)
+				{
+					return ScriptPubKeyType.SegwitP2SH;
+				}
+				return ScriptPubKeyType.Segwit;
+			}
+			set
+			{
+				switch (value)
+				{
+					case ScriptPubKeyType.Legacy:
+						AdditionalOptions.AddOrReplace("legacy", true);
+						AdditionalOptions.AddOrReplace("p2sh", false);
+						break;
+					case ScriptPubKeyType.Segwit:
+						AdditionalOptions.AddOrReplace("legacy", false);
+						AdditionalOptions.AddOrReplace("p2sh", false);
+						break;
+					case ScriptPubKeyType.SegwitP2SH:
+						AdditionalOptions.AddOrReplace("legacy", false);
+						AdditionalOptions.AddOrReplace("p2sh", true);
+						break;
+					default:
+						throw new ArgumentOutOfRangeException(nameof(value), value, null);
+				}
+			}
+		}
+
 		public Dictionary<string,bool> AdditionalOptions { get; set; } = new Dictionary<string, bool>();
 
 		/// <summary>
