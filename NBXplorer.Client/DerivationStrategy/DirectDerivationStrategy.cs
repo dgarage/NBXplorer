@@ -18,27 +18,20 @@ namespace NBXplorer.DerivationStrategy
 			}
 		}
 
-		public bool Segwit
-		{
-			get;
-			set;
-		}
+		public bool Segwit => DerivationStrategyOptions.ScriptPubKeyType != ScriptPubKeyType.Segwit;
 
 		protected override string StringValue
 		{
 			get
 			{
 				StringBuilder builder = new StringBuilder();
-				builder.Append(_Root.ToString());
-				if(!Segwit)
-				{
-					builder.Append("-[legacy]");
-				}
+				builder.Append(_Root);
+				builder.Append(GetSuffixOptionsString());
 				return builder.ToString();
 			}
 		}
 
-		public DirectDerivationStrategy(BitcoinExtPubKey root)
+		public DirectDerivationStrategy(BitcoinExtPubKey root, DerivationStrategyOptions options) : base(options)
 		{
 			if(root == null)
 				throw new ArgumentNullException(nameof(root));
@@ -52,7 +45,8 @@ namespace NBXplorer.DerivationStrategy
 
 		public override DerivationStrategyBase GetChild(KeyPath keyPath)
 		{
-			return new DirectDerivationStrategy(_Root.ExtPubKey.Derive(keyPath).GetWif(_Root.Network)) { Segwit = Segwit };
+			return new DirectDerivationStrategy(_Root.ExtPubKey.Derive(keyPath).GetWif(_Root.Network),
+				DerivationStrategyOptions);
 		}
 
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()

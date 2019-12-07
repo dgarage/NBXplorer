@@ -4,12 +4,10 @@ using System.Threading.Tasks;
 using DBriize;
 using NBitcoin;
 using NBitcoin.Altcoins.Elements;
-using NBXplorer.Altcoins.Liquid;
 using NBitcoin.RPC;
 using NBXplorer.Models;
-using System;
 
-namespace NBXplorer
+namespace NBXplorer.Altcoins.Liquid
 {
 	public class LiquidRepository : Repository
 	{
@@ -192,7 +190,7 @@ namespace NBXplorer
 					.Select(kv => (KeyPath: kv.KeyPath,
 								   Address: kv.Address as BitcoinBlindedAddress,
 								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.KeyPath)))
-					.Where(o => o.Address != null)
+					.Where(o => o.Address != null && o.BlindingKey != null)
 					.Select(o => new UnblindTransactionBlindingAddressKey()
 					{
 						Address = o.Address,

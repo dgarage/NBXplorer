@@ -12,6 +12,7 @@ namespace NBXplorer.DerivationStrategy
 	public class DerivationStrategyOptions
 	{
 		public ScriptPubKeyType ScriptPubKeyType { get; set; }
+		public Dictionary<string,bool> AdditionalOptions { get; set; } = new Dictionary<string, bool>();
 
 		/// <summary>
 		/// If true, in case of multisig, do not reorder the public keys of an address lexicographically (default: false)
@@ -40,7 +41,6 @@ namespace NBXplorer.DerivationStrategy
 		}
 
 		readonly Regex MultiSigRegex = new Regex("^([0-9]{1,2})-of(-[A-Za-z0-9]+)+$");
-		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
 		public DerivationStrategyBase Parse(string str)
 		{
 			var strategy = ParseCore(str);
@@ -49,14 +49,12 @@ namespace NBXplorer.DerivationStrategy
 
 		private DerivationStrategyBase ParseCore(string str)
 		{
-			bool legacy = false;
-			ReadBool(ref str, "legacy", ref legacy);
+			var additionalOptions = new Dictionary<string,bool>();
+			ReadOptions(ref str, ref additionalOptions);
 
-			bool p2sh = false;
-			ReadBool(ref str, "p2sh", ref p2sh);
-
-			bool keepOrder = false;
-			ReadBool(ref str, "keeporder", ref keepOrder);
+			additionalOptions.TryGetValue("legacy", out var legacy);
+			additionalOptions.TryGetValue("p2sh", out var p2sh);
+			additionalOptions.TryGetValue("keeporder", out var keepOrder);
 
 			if(!legacy && !_Network.Consensus.SupportSegwit)
 				throw new FormatException("Segwit is not supported");
@@ -66,7 +64,8 @@ namespace NBXplorer.DerivationStrategy
 				KeepOrder = keepOrder,
 				ScriptPubKeyType = legacy ? ScriptPubKeyType.Legacy :
 									p2sh ? ScriptPubKeyType.SegwitP2SH :
-									ScriptPubKeyType.Segwit
+									ScriptPubKeyType.Segwit,
+				AdditionalOptions = additionalOptions
 		};
 			var match = MultiSigRegex.Match(str);
 			if(match.Success)
@@ -107,13 +106,13 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey) { Segwit = options.ScriptPubKeyType != ScriptPubKeyType.Legacy };
+			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey, options);
 			if(options.ScriptPubKeyType != ScriptPubKeyType.Legacy && !_Network.Consensus.SupportSegwit)
 				throw new InvalidOperationException("This crypto currency does not support segwit");
 
 			if(options.ScriptPubKeyType == ScriptPubKeyType.SegwitP2SH)
 			{
-				strategy = new P2SHDerivationStrategy(strategy, true);
+				strategy = new P2SHDerivationStrategy(strategy, true, options);
 			}
 			return strategy;
 		}
@@ -140,19 +139,17 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase CreateMultiSigDerivationStrategy(BitcoinExtPubKey[] pubKeys, int sigCount, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options.ScriptPubKeyType == ScriptPubKeyType.Legacy)
-			{
-				LexicographicOrder = !options.KeepOrder
-			};
+			DerivationStrategyBase derivationStrategy =
+				new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options);
 			if(options.ScriptPubKeyType == ScriptPubKeyType.Legacy)
-				return new P2SHDerivationStrategy(derivationStrategy, false);
+				return new P2SHDerivationStrategy(derivationStrategy, false, options);
 
 			if(!_Network.Consensus.SupportSegwit)
 				throw new InvalidOperationException("This crypto currency does not support segwit");
-			derivationStrategy = new P2WSHDerivationStrategy(derivationStrategy);
+			derivationStrategy = new P2WSHDerivationStrategy(derivationStrategy, options);
 			if(options.ScriptPubKeyType == ScriptPubKeyType.SegwitP2SH)
 			{
-				derivationStrategy = new P2SHDerivationStrategy(derivationStrategy, true);
+				derivationStrategy = new P2SHDerivationStrategy(derivationStrategy, true, options);
 			}
 			return derivationStrategy;
 		}
@@ -166,6 +163,20 @@ namespace NBXplorer.DerivationStrategy
 				str = str.Replace("--", "-");
 				if(str.EndsWith("-"))
 					str = str.Substring(0, str.Length - 1);
+			}
+		}
+		
+		private void ReadOptions(ref string str, ref Dictionary<string, bool> additionalOptions)
+		{
+			foreach (Match match in Regex.Matches(str, @"-\[.+\]"))
+			{
+				var key = match.Value.Substring(1)
+					.Replace("[", string.Empty)
+					.Replace("]", string.Empty);
+
+				var value = false;
+				ReadBool(ref str, key, ref value);
+				additionalOptions.AddOrReplace(key, value);
 			}
 		}
 	}

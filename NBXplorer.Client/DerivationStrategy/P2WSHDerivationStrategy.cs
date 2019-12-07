@@ -10,7 +10,7 @@ namespace NBXplorer.DerivationStrategy
 {
 	public class P2WSHDerivationStrategy : DerivationStrategyBase
 	{
-		internal P2WSHDerivationStrategy(DerivationStrategyBase inner)
+		internal P2WSHDerivationStrategy(DerivationStrategyBase inner, DerivationStrategyOptions options) : base(options)
 		{
 			if(inner == null)
 				throw new ArgumentNullException(nameof(inner));
@@ -41,7 +41,7 @@ namespace NBXplorer.DerivationStrategy
 
 		public override DerivationStrategyBase GetChild(KeyPath keyPath)
 		{
-			return new P2WSHDerivationStrategy(Inner.GetChild(keyPath));
+			return new P2WSHDerivationStrategy(Inner.GetChild(keyPath), DerivationStrategyOptions);
 		}
 	}
 }

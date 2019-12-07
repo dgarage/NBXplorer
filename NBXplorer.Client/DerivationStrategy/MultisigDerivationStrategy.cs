@@ -12,10 +12,8 @@ namespace NBXplorer.DerivationStrategy
 {
 	public class MultisigDerivationStrategy : DerivationStrategyBase
 	{
-		public bool LexicographicOrder
-		{
-			get; set;
-		}
+
+		public bool LexicographicOrder => !DerivationStrategyOptions.KeepOrder;
 
 		public int RequiredSignatures
 		{
@@ -37,30 +35,18 @@ namespace NBXplorer.DerivationStrategy
 				builder.Append(RequiredSignatures);
 				builder.Append("-of-");
 				builder.Append(string.Join("-", Keys.Select(k => k.ToString()).ToArray()));
-				if(IsLegacy)
-				{
-					builder.Append("-[legacy]");
-				}
-				if(!LexicographicOrder)
-				{
-					builder.Append("-[keeporder]");
-				}
+				
+				builder.Append(GetSuffixOptionsString());
 				return builder.ToString();
 			}
 		}
 
-		internal MultisigDerivationStrategy(int reqSignature, BitcoinExtPubKey[] keys, bool isLegacy)
+		internal MultisigDerivationStrategy(int reqSignature, BitcoinExtPubKey[] keys, DerivationStrategyOptions options) : base(options)
 		{
 			Keys = keys;
 			RequiredSignatures = reqSignature;
-			LexicographicOrder = true;
-			IsLegacy = isLegacy;
 		}
-
-		public bool IsLegacy
-		{
-			get; private set;
-		}
+		public bool IsLegacy => DerivationStrategyOptions.ScriptPubKeyType == ScriptPubKeyType.Legacy;
 
 		private void WriteBytes(MemoryStream ms, byte[] v)
 		{
@@ -84,10 +70,7 @@ namespace NBXplorer.DerivationStrategy
 
 		public override DerivationStrategyBase GetChild(KeyPath keyPath)
 		{
-			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray(), IsLegacy)
-			{
-				LexicographicOrder = LexicographicOrder
-			};
+			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray(), DerivationStrategyOptions);
 		}
 
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()

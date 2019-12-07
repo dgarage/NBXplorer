@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using NBitcoin.Altcoins;
 using NBitcoin.RPC;
+using NBXplorer.Altcoins.Liquid;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using Newtonsoft.Json.Linq;
