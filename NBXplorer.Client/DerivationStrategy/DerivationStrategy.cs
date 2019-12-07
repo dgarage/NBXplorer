@@ -55,7 +55,8 @@ namespace NBXplorer.DerivationStrategy
 		/// </summary>
 		public bool KeepOrder
 		{
-			get; set;
+			get => AdditionalOptions.TryGetValue("keeporder", out var keeporder) && keeporder;
+			set => AdditionalOptions.AddOrReplace("keeporder", value);
 		}
 	}
 	public class DerivationStrategyFactory
@@ -148,7 +149,7 @@ namespace NBXplorer.DerivationStrategy
 
 			if(options.ScriptPubKeyType == ScriptPubKeyType.SegwitP2SH)
 			{
-				strategy = new P2SHDerivationStrategy(strategy, true, options);
+				strategy = new P2SHDerivationStrategy(strategy, false, options);
 			}
 			return strategy;
 		}

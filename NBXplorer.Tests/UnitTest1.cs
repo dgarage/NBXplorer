@@ -3180,6 +3180,47 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public async Task CanParseAndGenerateDerivStringCorrectly()
+		{
+			using (var tester = ServerTester.Create())
+			{
+
+				var xpub = new Mnemonic(Wordlist.English).DeriveExtKey().Neuter().GetWif(tester.Network).ToString();
+				var segwitDeriv = $"{xpub}";
+				var segwit = tester.Client.Network.DerivationStrategyFactory.Parse(segwitDeriv);
+				Assert.Equal(ScriptPubKeyType.Segwit, segwit.DerivationStrategyOptions.ScriptPubKeyType);
+				Assert.Equal(segwitDeriv, segwit.ToString());
+
+
+				var p2shDeriv = $"{xpub}-[p2sh]";
+				var p2sh = tester.Client.Network.DerivationStrategyFactory.Parse(p2shDeriv);
+				Assert.Equal(ScriptPubKeyType.SegwitP2SH, p2sh.DerivationStrategyOptions.ScriptPubKeyType);
+				Assert.Equal(p2shDeriv, p2sh.ToString());
+
+
+				var legacyDeriv = $"{xpub}-[legacy]";
+				var legacy = tester.Client.Network.DerivationStrategyFactory.Parse(legacyDeriv);
+				Assert.Equal(ScriptPubKeyType.Legacy, legacy.DerivationStrategyOptions.ScriptPubKeyType);
+				Assert.Equal(legacyDeriv, legacy.ToString());
+
+
+				var xpub2 = new Mnemonic(Wordlist.English).DeriveExtKey().Neuter().GetWif(tester.Network).ToString();
+				var multisig = $"2-of-{xpub}-{xpub2}";
+				var multisigDeriv = tester.Client.Network.DerivationStrategyFactory.Parse(multisig);
+				Assert.Equal(ScriptPubKeyType.Segwit, multisigDeriv.DerivationStrategyOptions.ScriptPubKeyType);
+				Assert.Equal(false, multisigDeriv.DerivationStrategyOptions.KeepOrder);
+				Assert.Equal(multisig, multisigDeriv.ToString());
+				
+				var multisigKeeporder = $"{multisig}-[keeporder]";
+				var multisigDerivKeeporder = tester.Client.Network.DerivationStrategyFactory.Parse(multisigKeeporder);
+				Assert.Equal(ScriptPubKeyType.Segwit, multisigDerivKeeporder.DerivationStrategyOptions.ScriptPubKeyType);
+				Assert.Equal(true, multisigDerivKeeporder.DerivationStrategyOptions.KeepOrder);
+				Assert.Equal(multisigKeeporder, multisigDerivKeeporder.ToString());
+			}
+		}
+
+
+		[Fact]
 		public async Task CanGenerateWallet()
 		{
 			using (var tester = ServerTester.Create())
