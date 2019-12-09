@@ -241,10 +241,50 @@ asbcnstr=Your Azure Service Bus Connection string
 asbblockq=Name of queue to send New Block message to
 asbtranq=Name of queue to send New Transaction message to
 asbblockt=Name of topic to send New Block message to
-asbtrant=[Name of queue to send New Transaction message to
+asbtrant=Name of queue to send New Transaction message to
 ```
 
-Payloads are JSON and map to `NewBlockEvent`, `NewTransactionEvent` in the `NBXplorer.Models` namespace. There is no support in NBXplorer client for Azure Service Bus at the current time. You will need to use the `Serializer` in `NBXplorer.Client` to De-serialize the objects or then implement your own JSON de-serializers for the custom types used in the payload.
+### RabbitMq
+Support has been added for RabbitMq as a message broker. Currently 2 exchanges supported;
+
+* New Block
+* New Transaction
+
+Filters can be applied on the client by defining routing keys;  
+
+For transactions;  
+* `transactions.#` to get all transactions.
+* `transactions.[BTC].#` to get all [Bitcoin] transactions.
+* `transactions.[BTC].confirmed` to get only confirmed [Bitcoin] transactions.
+* `transactions.[BTC].unconfirmed` to get only unconfirmed [Bitcoin] transactions.
+* `transactions.*.confirmed` to get all confirmed transactions.
+* `transactions.*.unconfirmed` to get all unconfirmed transactions.
+
+For blocks;    
+* `blocks.#` to get all blocks.
+* `blocks.[BTC]` to get all [Bitcoin] blocks.
+
+To activate RabbitMq mesages you should add following settings to your config file or on the command line.
+
+* rmqhost, rmquser, rmqpass
+
+#### Config Settings
+
+If you use the Configuration file to setup your NBXplorer options:
+
+```ini
+rmqhost= RabbitMq host name
+rmqvirtual= RabbitMq virtual host
+rmquser= RabbitMq username
+rmqpass= RabbitMq password
+rmqtranex= Name of exchange to send transaction messages
+rmqblockex= Name of exchange to send block messages
+```
+
+Payloads are JSON and map to `NewBlockEvent`, `NewTransactionEvent` in the `NBXplorer.Models` namespace. There is no support in NBXplorer client for message borkers at the current time. You will need to use the `Serializer` in `NBXplorer.Client` to de-serialize the objects or then implement your own JSON de-serializers for the custom types used in the payload.  
+
+For configuring serializers you can get crypto code info from `BasicProperties.Headers[CryptoCode]` of RabbitMq messages or `UserProperties[CryptoCode]` of Azure Service Bus messages.  
+Examples can be found in unit tests.
 
 #### Troubleshooting
 If you receive a 401 Unauthorized then your cookie data is not working. Check you are using the current cookie by opening the cookie file again - also check the date/time of the cookie file to ensure it is the latest cookie (generated when you launched NBXplorer).

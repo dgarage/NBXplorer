@@ -14,6 +14,12 @@ services:
       NBXPLORER_CHAINS: "btc,lbtc"
       NBXPLORER_BTCRPCURL: http://bitcoind:43782/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
+      NBXPLORER_RMQHOST: rabbitmq
+      NBXPLORER_RMQVIRTUAL: / 
+      NBXPLORER_RMQUSER: guest
+      NBXPLORER_RMQPASS: guest
+      NBXPLORER_RMQTRANEX: NewTransaction
+      NBXPLORER_RMQBLOCKEX: NewBlock
       NBXPLORER_LBTCRPCURL: http://elementsd-liquid:43783/
       NBXPLORER_LBTCNODEENDPOINT: elementsd-liquid:39389
     volumes:
@@ -22,6 +28,7 @@ services:
       - "elementsd_liquid_datadir:/root/.elements"
     links:
       - bitcoind
+      - rabbitmq
 
   bitcoind:
     restart: always
@@ -43,6 +50,19 @@ services:
       - "39388:39388"
     volumes:
     - "bitcoin_datadir:/data"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      "RABBITMQ_DEFAULT_PASS": "guest"
+      "RABBITMQ_DEFAULT_USER": "guest"
+      "RABBITMQ_DEFAULT_VHOST": "/"
+    ports:
+      - 4369:4369
+      - 5671:5671
+      - 5672:5672
+      - 15672:15672
       
   elementsd-liquid:
     restart: always
