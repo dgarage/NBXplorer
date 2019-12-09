@@ -26,6 +26,8 @@ namespace NBXplorer
 			InitColossus(networkType);
 			InitChaincoin(networkType);
 			InitLiquid(networkType);
+			InitDogeCash(networkType);
+			
 			foreach (var chain in _Networks.Values)
 			{
 				chain.DerivationStrategyFactory ??= new DerivationStrategy.DerivationStrategyFactory(chain.NBitcoinNetwork);
