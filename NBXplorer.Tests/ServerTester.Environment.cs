@@ -79,12 +79,6 @@ namespace NBXplorer.Tests
 			//nodeDownloadData = NodeDownloadData.Elements.v0_18_1_1;
 			//NBXplorerNetwork = new NBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, NetworkType.Regtest);
 			//
-			
-			//CryptoCode = "DOGEC";
-			//nodeDownloadData = NodeDownloadData.DogeCash.v5_1_1;
-			//Network = NBitcoin.Altcoins.DogeCash.Instance.Regtest;
-			//RPCSupportSegwit = false;
-			
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_18_0;
 			NBXplorerNetwork = new NBXplorerNetwork(Network.RegTest.NetworkSet, NetworkType.Regtest);
