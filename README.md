@@ -33,6 +33,7 @@ It currently the following altcoins:
 * Chaincoin 
 * ColossusXT
 * Dash
+* DogeCash
 * Dogecoin
 * Feathercoin
 * Gobyte
