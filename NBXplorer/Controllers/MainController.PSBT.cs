@@ -290,6 +290,8 @@ namespace NBXplorer.Controllers
 
 		private static async Task UpdateInputsUTXO(UpdatePSBTRequest update, Repository repo, BitcoinDWaiter rpc)
 		{
+			if (rpc.Network.CryptoCode == "BCH") // Does not need nonWitnessUTXO
+				return;
 			await Task.WhenAll(update.PSBT.Inputs
 							.Where(NeedNonWitnessUtxo)
 							.Where(NotFinalized)
