@@ -10,6 +10,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NBXplorer.Controllers
@@ -196,8 +197,7 @@ namespace NBXplorer.Controllers
 		{
 			var repo = RepositoryProvider.GetRepository(network);
 			var rpc = Waiters.GetWaiter(network);
-
-			await UpdateInputsUTXO(update, repo, rpc);
+			await UpdateUTXO(update, repo, rpc);
 
 			if (update.DerivationScheme is DerivationStrategyBase)
 			{
@@ -279,22 +279,41 @@ namespace NBXplorer.Controllers
 		}
 
 
-		static bool NeedNonWitnessUtxo(PSBTInput input)
+		static bool NeedUTXO(PSBTInput input)
 		{
-			return !((input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness);
-		}
-		static bool NotFinalized(PSBTInput input)
-		{
-			return !input.IsFinalized();
+			if (input.IsFinalized())
+				return false;
+			var needNonWitnessUTXO = !input.PSBT.Network.Consensus.NeverNeedPreviousTxForSigning &&
+									!((input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness);
+			if (needNonWitnessUTXO)
+				return input.NonWitnessUtxo == null;
+			else
+				return input.WitnessUtxo == null && input.NonWitnessUtxo == null;
 		}
 
-		private static async Task UpdateInputsUTXO(UpdatePSBTRequest update, Repository repo, BitcoinDWaiter rpc)
+		private async Task UpdateUTXO(UpdatePSBTRequest update, Repository repo, BitcoinDWaiter rpc)
 		{
-			if (rpc.Network.CryptoCode == "BCH") // Does not need nonWitnessUTXO
-				return;
+			AnnotatedTransactionCollection txs = null;
+			// First, we check for data in our history
+			foreach (var input in update.PSBT.Inputs.Where(NeedUTXO))
+			{
+				txs = txs ?? await GetAnnotatedTransactions(repo, ChainProvider.GetChain(repo.Network), new DerivationSchemeTrackedSource(update.DerivationScheme));
+				if (txs.GetByTxId(input.PrevOut.Hash) is AnnotatedTransaction tx)
+				{
+					if (!tx.Record.Key.IsPruned)
+					{
+						input.NonWitnessUtxo = tx.Record.Transaction;
+					}
+					else
+					{
+						input.WitnessUtxo = tx.Record.ReceivedCoins.FirstOrDefault(c => c.Outpoint.N == input.Index)?.TxOut;
+					}
+				}
+			}
+
+			// then, we search data in the saved transactions
 			await Task.WhenAll(update.PSBT.Inputs
-							.Where(NeedNonWitnessUtxo)
-							.Where(NotFinalized)
+							.Where(NeedUTXO)
 							.Select(async (input) =>
 							{
 								// If this is not segwit, or we are unsure of it, let's try to grab from our saved transactions
@@ -306,23 +325,14 @@ namespace NBXplorer.Controllers
 										input.NonWitnessUtxo = saved.Transaction;
 									}
 								}
-
-								// Maybe we don't have the saved transaction, but we have the WitnessUTXO from the derivation scheme UTXOs
-								if (input.NonWitnessUtxo == null)
-								{
-									var tx = (await repo.GetTransactions(new DerivationSchemeTrackedSource(update.DerivationScheme), input.PrevOut.Hash)).FirstOrDefault();
-									if (tx != null)
-									{
-										input.NonWitnessUtxo = tx.Transaction;
-									}
-								}
 							}).ToArray());
+
+			// finally, we check with rpc's txindex
 			if (rpc?.RPCAvailable is true && rpc?.HasTxIndex is true)
 			{
 				var batch = rpc.RPC.PrepareBatch();
 				var getTransactions = Task.WhenAll(update.PSBT.Inputs
-					.Where(NeedNonWitnessUtxo)
-					.Where(NotFinalized)
+					.Where(NeedUTXO)
 					.Where(input => input.NonWitnessUtxo == null)
 					.Select(async input =>
 				   {

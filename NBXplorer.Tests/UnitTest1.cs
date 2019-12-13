@@ -1127,8 +1127,10 @@ namespace NBXplorer.Tests
 		[Trait("Broker", "RabbitMq")]
 		public async Task CanSendRabbitMqNewTransactionEventMessage()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.CreateNoAutoStart())
 			{
+				tester.UseRabbitMQ = true;
+				tester.Start();
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
@@ -1215,8 +1217,10 @@ namespace NBXplorer.Tests
 		[Trait("Broker", "RabbitMq")]
 		public async Task CanSendRabbitMqNewBlockEventMessage()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.CreateNoAutoStart())
 			{
+				tester.UseRabbitMQ = true;
+				tester.Start();
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
