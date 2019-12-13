@@ -174,7 +174,8 @@ e.g.
 This tool will only start scanning from the configured `startheight`. (By default, the height of the blockchain during your first run)
 This means that you might not see old payments from your HD key.
 
-If you need to see old payments, you need to configure `startheight` to a specific height of your choice, then run with again with `-rescan`.
+If you need to see old payments, you need to configure `--[crypto]startheight` to a specific height of your choice, then run it again with `--[crypto]rescan`, e.g.    
+`./run.sh --chains=ltc --ltcrescan --ltcstartheight=101`
 
 ## How to query?
 

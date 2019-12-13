@@ -1123,160 +1123,164 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		[Trait("Broker", "RabbitMq")]
-		public async Task CanSendRabbitMqNewTransactionEventMessage()
-		{
-			using (var tester = ServerTester.Create())
-			{
-				tester.Client.WaitServerStarted();
-				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
-				tester.Client.Track(pubkey);
+		//[Fact]
+		//[Trait("Broker", "RabbitMq")]
+		//public async Task CanSendRabbitMqNewTransactionEventMessage()
+		//{
+		//	using (var tester = ServerTester.CreateNoAutoStart())
+		//	{
+		//		tester.UseRabbitMQ = true;
+		//		tester.Start();
+		//		tester.Client.WaitServerStarted();
+		//		var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+		//		var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+		//		tester.Client.Track(pubkey);
 
-				// RabbitMq connection
-				var factory = new ConnectionFactory() { 
-                    HostName = RabbitMqTestConfig.RabbitMqHostName,
-					VirtualHost = RabbitMqTestConfig.RabbitMqVirtualHost,
-                    UserName = RabbitMqTestConfig.RabbitMqUsername,
-                    Password = RabbitMqTestConfig.RabbitMqPassword };
-                IConnection connection = factory.CreateConnection();
-                var channel = connection.CreateModel();
-                channel.ExchangeDeclare(RabbitMqTestConfig.RabbitMqTransactionExchange, ExchangeType.Topic);
+		//		// RabbitMq connection
+		//		var factory = new ConnectionFactory() { 
+  //                  HostName = RabbitMqTestConfig.RabbitMqHostName,
+		//			VirtualHost = RabbitMqTestConfig.RabbitMqVirtualHost,
+  //                  UserName = RabbitMqTestConfig.RabbitMqUsername,
+  //                  Password = RabbitMqTestConfig.RabbitMqPassword };
+  //              IConnection connection = factory.CreateConnection();
+  //              var channel = connection.CreateModel();
+  //              channel.ExchangeDeclare(RabbitMqTestConfig.RabbitMqTransactionExchange, ExchangeType.Topic);
 
-				// Setup a queue for all transactions
-				var allTransactionsQueue = "allTransactions";
-				var allTransactionsRoutingKey = $"transactions.#";
-				channel.QueueDeclare(allTransactionsQueue, true, false, false);
-                channel.QueueBind(allTransactionsQueue, RabbitMqTestConfig.RabbitMqTransactionExchange, allTransactionsRoutingKey);
-				while(channel.BasicGet(allTransactionsQueue, true) != null) {} // Empty the queue
+		//		// Setup a queue for all transactions
+		//		var allTransactionsQueue = "allTransactions";
+		//		var allTransactionsRoutingKey = $"transactions.#";
+		//		channel.QueueDeclare(allTransactionsQueue, true, false, false);
+  //              channel.QueueBind(allTransactionsQueue, RabbitMqTestConfig.RabbitMqTransactionExchange, allTransactionsRoutingKey);
+		//		while(channel.BasicGet(allTransactionsQueue, true) != null) {} // Empty the queue
 
-				// Setup a queue for all [CryptoCode] transactions
-				var allBtcTransactionsQueue = "allBtcTransactions";
-				var allBtcTransactionsRoutingKey = $"transactions.{tester.Client.Network.CryptoCode}.#";
-				channel.QueueDeclare(allBtcTransactionsQueue, true, false, false);
-                channel.QueueBind(allBtcTransactionsQueue, RabbitMqTestConfig.RabbitMqTransactionExchange, allBtcTransactionsRoutingKey);
-				while(channel.BasicGet(allBtcTransactionsQueue, true) != null) {} 
+		//		// Setup a queue for all [CryptoCode] transactions
+		//		var allBtcTransactionsQueue = "allBtcTransactions";
+		//		var allBtcTransactionsRoutingKey = $"transactions.{tester.Client.Network.CryptoCode}.#";
+		//		channel.QueueDeclare(allBtcTransactionsQueue, true, false, false);
+  //              channel.QueueBind(allBtcTransactionsQueue, RabbitMqTestConfig.RabbitMqTransactionExchange, allBtcTransactionsRoutingKey);
+		//		while(channel.BasicGet(allBtcTransactionsQueue, true) != null) {} 
 
-				// Setup a queue for all unconfirmed transactions
-				var allUnConfirmedTransactionsQueue = "allUnConfirmedTransactions";
-				var allUnConfirmedTransactionsRoutingKey = $"transactions.*.unconfirmed";
-				channel.QueueDeclare(allUnConfirmedTransactionsQueue, true, false, false);
-                channel.QueueBind(allUnConfirmedTransactionsQueue, RabbitMqTestConfig.RabbitMqTransactionExchange, allUnConfirmedTransactionsRoutingKey);
-				while(channel.BasicGet(allUnConfirmedTransactionsQueue, true) != null) {} 
+		//		// Setup a queue for all unconfirmed transactions
+		//		var allUnConfirmedTransactionsQueue = "allUnConfirmedTransactions";
+		//		var allUnConfirmedTransactionsRoutingKey = $"transactions.*.unconfirmed";
+		//		channel.QueueDeclare(allUnConfirmedTransactionsQueue, true, false, false);
+  //              channel.QueueBind(allUnConfirmedTransactionsQueue, RabbitMqTestConfig.RabbitMqTransactionExchange, allUnConfirmedTransactionsRoutingKey);
+		//		while(channel.BasicGet(allUnConfirmedTransactionsQueue, true) != null) {} 
 				
-				//Create a new UTXO for our tracked key
-				tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
+		//		//Create a new UTXO for our tracked key
+		//		tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
 
-				await Task.Delay(5000);
+		//		await Task.Delay(5000);
 
-				BasicGetResult result = channel.BasicGet(allTransactionsQueue, true);
-				Assert.True(result != null, $"No message received from RabbitMq Queue : {allTransactionsQueue}.");
-				result = channel.BasicGet(allBtcTransactionsQueue, true);
-				Assert.True(result != null, $"No message received from RabbitMq Queue : {allBtcTransactionsQueue}.");
-				result = channel.BasicGet(allUnConfirmedTransactionsQueue, true);
-				Assert.True(result != null, $"No message received from RabbitMq Queue : {allUnConfirmedTransactionsQueue}.");
+		//		BasicGetResult result = channel.BasicGet(allTransactionsQueue, true);
+		//		Assert.True(result != null, $"No message received from RabbitMq Queue : {allTransactionsQueue}.");
+		//		result = channel.BasicGet(allBtcTransactionsQueue, true);
+		//		Assert.True(result != null, $"No message received from RabbitMq Queue : {allBtcTransactionsQueue}.");
+		//		result = channel.BasicGet(allUnConfirmedTransactionsQueue, true);
+		//		Assert.True(result != null, $"No message received from RabbitMq Queue : {allUnConfirmedTransactionsQueue}.");
 
-				var isCrptoCodeExist = result.BasicProperties.Headers.TryGetValue("CryptoCode", out object cryptoCodeValue);
-				Assert.True(isCrptoCodeExist, "No crypto code information in user properties.");
+		//		var isCrptoCodeExist = result.BasicProperties.Headers.TryGetValue("CryptoCode", out object cryptoCodeValue);
+		//		Assert.True(isCrptoCodeExist, "No crypto code information in user properties.");
 
-				var cryptoCode = Encoding.UTF8.GetString((cryptoCodeValue as byte[]));
-				Assert.Equal(tester.Client.Network.CryptoCode, cryptoCode);
+		//		var cryptoCode = Encoding.UTF8.GetString((cryptoCodeValue as byte[]));
+		//		Assert.Equal(tester.Client.Network.CryptoCode, cryptoCode);
 
-				var contentType = result.BasicProperties.ContentType;
-				Assert.Equal(typeof(NewTransactionEvent).ToString(), contentType);
+		//		var contentType = result.BasicProperties.ContentType;
+		//		Assert.Equal(typeof(NewTransactionEvent).ToString(), contentType);
 
-				var message = Encoding.UTF8.GetString(result.Body);
+		//		var message = Encoding.UTF8.GetString(result.Body);
 				
-				//Configure JSON custom serialization
-				NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode((string)cryptoCode); 
-				JsonSerializerSettings settings = new JsonSerializerSettings();
-				new Serializer(networkForDeserializion).ConfigureSerializer(settings);
+		//		//Configure JSON custom serialization
+		//		NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode((string)cryptoCode); 
+		//		JsonSerializerSettings settings = new JsonSerializerSettings();
+		//		new Serializer(networkForDeserializion).ConfigureSerializer(settings);
 
-				var txEventQ = JsonConvert.DeserializeObject<NewTransactionEvent>(message, settings);
-				Assert.Equal(txEventQ.DerivationStrategy, pubkey);
+		//		var txEventQ = JsonConvert.DeserializeObject<NewTransactionEvent>(message, settings);
+		//		Assert.Equal(txEventQ.DerivationStrategy, pubkey);
 
-				// Setup a queue for all confirmed transactions
-				var allConfirmedTransactionsQueue = "allConfirmedTransactions";
-				var allConfirmedTransactionsRoutingKey = $"transactions.*.confirmed";
-				channel.QueueDeclare(allConfirmedTransactionsQueue, true, false, false);
-                channel.QueueBind(allConfirmedTransactionsQueue, RabbitMqTestConfig.RabbitMqTransactionExchange, allConfirmedTransactionsRoutingKey);
-				while(channel.BasicGet(allConfirmedTransactionsQueue, true) != null) {} 
+		//		// Setup a queue for all confirmed transactions
+		//		var allConfirmedTransactionsQueue = "allConfirmedTransactions";
+		//		var allConfirmedTransactionsRoutingKey = $"transactions.*.confirmed";
+		//		channel.QueueDeclare(allConfirmedTransactionsQueue, true, false, false);
+  //              channel.QueueBind(allConfirmedTransactionsQueue, RabbitMqTestConfig.RabbitMqTransactionExchange, allConfirmedTransactionsRoutingKey);
+		//		while(channel.BasicGet(allConfirmedTransactionsQueue, true) != null) {} 
 
-				tester.RPC.EnsureGenerate(1);
-				await Task.Delay(5000);
+		//		tester.RPC.EnsureGenerate(1);
+		//		await Task.Delay(5000);
 
-				result = channel.BasicGet(allConfirmedTransactionsQueue, true);
-				Assert.True(result != null, $"No message received from RabbitMq Queue : {allConfirmedTransactionsQueue}.");
-			}
-		}
+		//		result = channel.BasicGet(allConfirmedTransactionsQueue, true);
+		//		Assert.True(result != null, $"No message received from RabbitMq Queue : {allConfirmedTransactionsQueue}.");
+		//	}
+		//}
 
-		[Fact]
-		[Trait("Broker", "RabbitMq")]
-		public async Task CanSendRabbitMqNewBlockEventMessage()
-		{
-			using (var tester = ServerTester.Create())
-			{
-				tester.Client.WaitServerStarted();
-				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
-				tester.Client.Track(pubkey);
+		//[Fact]
+		//[Trait("Broker", "RabbitMq")]
+		//public async Task CanSendRabbitMqNewBlockEventMessage()
+		//{
+		//	using (var tester = ServerTester.CreateNoAutoStart())
+		//	{
+		//		tester.UseRabbitMQ = true;
+		//		tester.Start();
+		//		tester.Client.WaitServerStarted();
+		//		var key = new BitcoinExtKey(new ExtKey(), tester.Network);
+		//		var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
+		//		tester.Client.Track(pubkey);
 
-				// RabbitMq connection
-				var factory = new ConnectionFactory() { 
-                    HostName = RabbitMqTestConfig.RabbitMqHostName,
-					VirtualHost = RabbitMqTestConfig.RabbitMqVirtualHost,
-                    UserName = RabbitMqTestConfig.RabbitMqUsername,
-                    Password = RabbitMqTestConfig.RabbitMqPassword };
-                IConnection connection = factory.CreateConnection();
-                var channel = connection.CreateModel();
-                channel.ExchangeDeclare(RabbitMqTestConfig.RabbitMqBlockExchange, ExchangeType.Topic);
+		//		// RabbitMq connection
+		//		var factory = new ConnectionFactory() { 
+  //                  HostName = RabbitMqTestConfig.RabbitMqHostName,
+		//			VirtualHost = RabbitMqTestConfig.RabbitMqVirtualHost,
+  //                  UserName = RabbitMqTestConfig.RabbitMqUsername,
+  //                  Password = RabbitMqTestConfig.RabbitMqPassword };
+  //              IConnection connection = factory.CreateConnection();
+  //              var channel = connection.CreateModel();
+  //              channel.ExchangeDeclare(RabbitMqTestConfig.RabbitMqBlockExchange, ExchangeType.Topic);
 
-				// Setup a queue for all blocks
-				var allBlocksQueue = "allBlocks";
-				var allBlocksRoutingKey = $"blocks.#";
-				channel.QueueDeclare(allBlocksQueue, true, false, false);
-                channel.QueueBind(allBlocksQueue, RabbitMqTestConfig.RabbitMqBlockExchange, allBlocksRoutingKey);
-				while(channel.BasicGet(allBlocksQueue, true) != null) {} // Empty the queue
+		//		// Setup a queue for all blocks
+		//		var allBlocksQueue = "allBlocks";
+		//		var allBlocksRoutingKey = $"blocks.#";
+		//		channel.QueueDeclare(allBlocksQueue, true, false, false);
+  //              channel.QueueBind(allBlocksQueue, RabbitMqTestConfig.RabbitMqBlockExchange, allBlocksRoutingKey);
+		//		while(channel.BasicGet(allBlocksQueue, true) != null) {} // Empty the queue
 
-				// Setup a queue for all [CryptoCode] blocks
-				var allBtcBlocksQueue = "allBtcblocks";
-				var allBtcBlocksRoutingKey = $"blocks.{tester.Client.Network.CryptoCode}";
-				channel.QueueDeclare(allBtcBlocksQueue, true, false, false);
-                channel.QueueBind(allBtcBlocksQueue, RabbitMqTestConfig.RabbitMqBlockExchange, allBtcBlocksRoutingKey);
-				while(channel.BasicGet(allBtcBlocksQueue, true) != null) {} 
+		//		// Setup a queue for all [CryptoCode] blocks
+		//		var allBtcBlocksQueue = "allBtcblocks";
+		//		var allBtcBlocksRoutingKey = $"blocks.{tester.Client.Network.CryptoCode}";
+		//		channel.QueueDeclare(allBtcBlocksQueue, true, false, false);
+  //              channel.QueueBind(allBtcBlocksQueue, RabbitMqTestConfig.RabbitMqBlockExchange, allBtcBlocksRoutingKey);
+		//		while(channel.BasicGet(allBtcBlocksQueue, true) != null) {} 
 
-				var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
-				await Task.Delay(5000);
+		//		var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
+		//		await Task.Delay(5000);
 
-				BasicGetResult result = channel.BasicGet(allBlocksQueue, true);
-				Assert.True(result != null, $"No message received from RabbitMq Queue : {allBlocksQueue}.");
-				result = channel.BasicGet(allBtcBlocksQueue, true);
-				Assert.True(result != null, $"No message received from RabbitMq Queue : {allBtcBlocksQueue}.");
+		//		BasicGetResult result = channel.BasicGet(allBlocksQueue, true);
+		//		Assert.True(result != null, $"No message received from RabbitMq Queue : {allBlocksQueue}.");
+		//		result = channel.BasicGet(allBtcBlocksQueue, true);
+		//		Assert.True(result != null, $"No message received from RabbitMq Queue : {allBtcBlocksQueue}.");
 
-				var isCrptoCodeExist = result.BasicProperties.Headers.TryGetValue("CryptoCode", out object cryptoCodeValue);
-				Assert.True(isCrptoCodeExist, "No crypto code information in user properties.");
+		//		var isCrptoCodeExist = result.BasicProperties.Headers.TryGetValue("CryptoCode", out object cryptoCodeValue);
+		//		Assert.True(isCrptoCodeExist, "No crypto code information in user properties.");
 
-				var cryptoCode = Encoding.UTF8.GetString((cryptoCodeValue as byte[]));
-				Assert.Equal(tester.Client.Network.CryptoCode, cryptoCode);
+		//		var cryptoCode = Encoding.UTF8.GetString((cryptoCodeValue as byte[]));
+		//		Assert.Equal(tester.Client.Network.CryptoCode, cryptoCode);
 
-				var contentType = result.BasicProperties.ContentType;
-				Assert.Equal(typeof(NewBlockEvent).ToString(), contentType);
+		//		var contentType = result.BasicProperties.ContentType;
+		//		Assert.Equal(typeof(NewBlockEvent).ToString(), contentType);
 
-				var message = Encoding.UTF8.GetString(result.Body);
+		//		var message = Encoding.UTF8.GetString(result.Body);
 				
-				//Configure JSON custom serialization
-				NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode((string)cryptoCode); 
-				JsonSerializerSettings settings = new JsonSerializerSettings();
-				new Serializer(networkForDeserializion).ConfigureSerializer(settings);
+		//		//Configure JSON custom serialization
+		//		NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode((string)cryptoCode); 
+		//		JsonSerializerSettings settings = new JsonSerializerSettings();
+		//		new Serializer(networkForDeserializion).ConfigureSerializer(settings);
 
-				var blockEventQ = JsonConvert.DeserializeObject<NewBlockEvent>(message, settings);
-				Assert.IsType<Models.NewBlockEvent>(blockEventQ);
-				Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(), result.BasicProperties.MessageId.ToUpperInvariant());
-				Assert.Equal(expectedBlockId, blockEventQ.Hash);
-				Assert.NotEqual(0, blockEventQ.Height);
-			}
-		}
+		//		var blockEventQ = JsonConvert.DeserializeObject<NewBlockEvent>(message, settings);
+		//		Assert.IsType<Models.NewBlockEvent>(blockEventQ);
+		//		Assert.Equal(expectedBlockId.ToString().ToUpperInvariant(), result.BasicProperties.MessageId.ToUpperInvariant());
+		//		Assert.Equal(expectedBlockId, blockEventQ.Hash);
+		//		Assert.NotEqual(0, blockEventQ.Height);
+		//	}
+		//}
 
 		class TestMetadata
 		{
