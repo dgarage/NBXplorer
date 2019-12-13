@@ -33,6 +33,10 @@ namespace NBXplorer.Tests
 		{
 			return new ServerTester(caller);
 		}
+		public static ServerTester CreateNoAutoStart([CallerMemberNameAttribute]string caller = null)
+		{
+			return new ServerTester(caller, false);
+		}
 
 		public void Dispose()
 		{
@@ -55,19 +59,24 @@ namespace NBXplorer.Tests
 			get; set;
 		}
 
-		public ServerTester(string directory)
+		public ServerTester(string directory, bool autoStart = true)
 		{
 			SetEnvironment();
+			var rootTestData = "TestData";
+			directory = Path.Combine(rootTestData, directory);
+			_Directory = directory;
+			if (!Directory.Exists(rootTestData))
+				Directory.CreateDirectory(rootTestData);
+			if (autoStart)
+				Start();
+		}
+
+		public void Start()
+		{
 			try
 			{
-				var rootTestData = "TestData";
-				directory = Path.Combine(rootTestData, directory);
-				_Directory = directory;
-				if (!Directory.Exists(rootTestData))
-					Directory.CreateDirectory(rootTestData);
-
 				var cryptoSettings = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode(CryptoCode);
-				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, directory);
+				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, _Directory);
 
 				Explorer = NodeBuilder.CreateNode();
 				Explorer.ConfigParameters.Add("txindex", "1");
@@ -79,7 +88,7 @@ namespace NBXplorer.Tests
 				NodeBuilder.StartAll();
 				Explorer.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
 
-				datadir = Path.Combine(directory, "explorer");
+				datadir = Path.Combine(_Directory, "explorer");
 				DeleteFolderRecursive(datadir);
 				StartNBXplorer();
 				this.Client.WaitServerStarted();
@@ -91,6 +100,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		public bool UseRabbitMQ { get; set; } = false;
 		private void StartNBXplorer()
 		{
 			var port = CustomServer.FreeTcpPort();
@@ -114,13 +124,15 @@ namespace NBXplorer.Tests
 			keyValues.Add(("asbtranq", AzureServiceBusTestConfig.NewTransactionQueue));
 			keyValues.Add(("asbblockt", AzureServiceBusTestConfig.NewBlockTopic));
 			keyValues.Add(("asbtrant", AzureServiceBusTestConfig.NewTransactionTopic));
-			keyValues.Add(("rmqhost", RabbitMqTestConfig.RabbitMqHostName));
-			keyValues.Add(("rmqvirtual", RabbitMqTestConfig.RabbitMqVirtualHost));			
-			keyValues.Add(("rmquser", RabbitMqTestConfig.RabbitMqUsername));
-			keyValues.Add(("rmqpass", RabbitMqTestConfig.RabbitMqPassword));
-			keyValues.Add(("rmqtranex", RabbitMqTestConfig.RabbitMqTransactionExchange));
-			keyValues.Add(("rmqblockex", RabbitMqTestConfig.RabbitMqBlockExchange));
-
+			if (UseRabbitMQ)
+			{
+				keyValues.Add(("rmqhost", RabbitMqTestConfig.RabbitMqHostName));
+				keyValues.Add(("rmqvirtual", RabbitMqTestConfig.RabbitMqVirtualHost));
+				keyValues.Add(("rmquser", RabbitMqTestConfig.RabbitMqUsername));
+				keyValues.Add(("rmqpass", RabbitMqTestConfig.RabbitMqPassword));
+				keyValues.Add(("rmqtranex", RabbitMqTestConfig.RabbitMqTransactionExchange));
+				keyValues.Add(("rmqblockex", RabbitMqTestConfig.RabbitMqBlockExchange));
+			}
 			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }
 			.Concat(new[] { $"--{CryptoCode.ToLowerInvariant()}hastxindex" })).ToArray();
 			Host = new WebHostBuilder()
@@ -180,7 +192,7 @@ namespace NBXplorer.Tests
 			return ((T)(Host.Services.GetService(typeof(T))));
 		}
 
-		public ExplorerConfiguration Configuration { get; private set;  }
+		public ExplorerConfiguration Configuration { get; private set; }
 
 		ExplorerClient _Client;
 		public ExplorerClient Client
