@@ -75,13 +75,13 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Colossus.Instance.Regtest;
 			//RPCSupportSegwit = false;
 
-			CryptoCode = "LBTC";
-			nodeDownloadData = NodeDownloadData.Elements.v0_18_1_1;
-			NBXplorerNetwork = new NBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, NetworkType.Regtest);
+			// CryptoCode = "LBTC";
+			// nodeDownloadData = NodeDownloadData.Elements.v0_18_1_1;
+			// NBXplorerNetwork = new NBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, NetworkType.Regtest);
 			
-//			CryptoCode = "BTC";
-//			nodeDownloadData = NodeDownloadData.Bitcoin.v0_18_0;
-//			NBXplorerNetwork = new NBXplorerNetwork(Network.RegTest.NetworkSet, NetworkType.Regtest);
+			CryptoCode = "BTC";
+			nodeDownloadData = NodeDownloadData.Bitcoin.v0_18_0;
+			NBXplorerNetwork = new NBXplorerNetwork(Network.RegTest.NetworkSet, NetworkType.Regtest);
 		}
 	}
 }
