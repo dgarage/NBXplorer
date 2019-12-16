@@ -11,23 +11,30 @@ namespace NBXplorer.DerivationStrategy
 {
 	public class DerivationStrategyOptions
 	{
-
+		private ScriptPubKeyType? _scriptPubKeyType = null;
 		public ScriptPubKeyType ScriptPubKeyType
 		{
 			get
 			{
-				if (AdditionalOptions.TryGetValue("legacy", out var legacy) && legacy)
+
+				if (_scriptPubKeyType == null)
 				{
-					return ScriptPubKeyType.Legacy;
+					if (AdditionalOptions.TryGetValue("legacy", out var legacy) && legacy)
+					{
+						return ScriptPubKeyType.Legacy;
+					}
+					if (AdditionalOptions.TryGetValue("p2sh", out var p2sh) && p2sh)
+					{
+						return ScriptPubKeyType.SegwitP2SH;
+					}
+					_scriptPubKeyType =  ScriptPubKeyType.Segwit;
 				}
-				if (AdditionalOptions.TryGetValue("p2sh", out var p2sh) && p2sh)
-				{
-					return ScriptPubKeyType.SegwitP2SH;
-				}
-				return ScriptPubKeyType.Segwit;
+
+				return _scriptPubKeyType.Value;
 			}
 			set
 			{
+				_scriptPubKeyType = value;
 				switch (value)
 				{
 					case ScriptPubKeyType.Legacy:
