@@ -183,6 +183,7 @@ namespace NBXplorer.Altcoins.Liquid
 		{
 			await base.AfterMatch(tx, keyInfos);
 			if (tx.TrackedSource is DerivationSchemeTrackedSource ts &&
+			    !ts.DerivationStrategy.DerivationStrategyOptions.Unblinded() && 
 				tx.Transaction is ElementsTransaction elementsTransaction &&
 				tx is ElementsTrackedTransaction elementsTracked)
 			{
@@ -190,7 +191,7 @@ namespace NBXplorer.Altcoins.Liquid
 					.Select(kv => (KeyPath: kv.KeyPath,
 								   Address: kv.Address as BitcoinBlindedAddress,
 								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.KeyPath)))
-					.Where(o => o.Address != null && o.BlindingKey != null)
+					.Where(o => o.Address != null)
 					.Select(o => new UnblindTransactionBlindingAddressKey()
 					{
 						Address = o.Address,

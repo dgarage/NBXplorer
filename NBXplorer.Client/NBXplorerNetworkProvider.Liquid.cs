@@ -29,10 +29,9 @@ namespace NBXplorer
 
 			public static Key GenerateBlindingKey(DerivationStrategyBase derivationStrategy, KeyPath keyPath)
 			{
-				if (derivationStrategy.DerivationStrategyOptions.AdditionalOptions.TryGetValue("unblinded",
-					    out var unblinded) && unblinded)
+				if (derivationStrategy.DerivationStrategyOptions.Unblinded())
 				{
-					return null;
+					throw new InvalidOperationException("This derivation scheme is set to only track unblinded addresses");
 				}
 				var blindingKey = new Key(derivationStrategy.GetChild(keyPath).GetChild(new KeyPath("0")).GetDerivation()
 					.ScriptPubKey.WitHash.ToBytes());
@@ -51,6 +50,14 @@ namespace NBXplorer
 		public NBXplorerNetwork GetLBTC()
 		{
 			return GetFromCryptoCode(NBitcoin.Altcoins.Liquid.Instance.CryptoCode);
+		}
+	}
+	
+	public static class LiquidDerivationStrategyOptionsExtensions
+	{
+		public static bool Unblinded(this DerivationStrategyOptions derivationStrategyOptions)
+		{
+			return derivationStrategyOptions.AdditionalOptions.TryGetValue("unblinded", out var unblinded) && unblinded;
 		}
 	}
 }
