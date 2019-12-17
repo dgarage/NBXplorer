@@ -610,7 +610,7 @@ namespace NBXplorer.Tests
 			var outpoints = psbt2.PSBT.GetOriginalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
 			Assert.Equal(2, outpoints.Length);
 
-			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+			var request = new CreatePSBTRequest()
 			{
 				IncludeOnlyOutpoints = new List<OutPoint>() { outpoints[0] },
 				Destinations =
@@ -621,16 +621,21 @@ namespace NBXplorer.Tests
 								SweepAll = true
 							}
 						},
+				MinValue = Money.Coins(1.0m),
 				FeePreference = new FeePreference()
 				{
 					ExplicitFee = Money.Coins(0.000001m),
 				},
 				ReserveChangeAddress = false
-			});
+			};
+			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, request);
 
 			var actualOutpoints = psbt2.PSBT.GetOriginalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
 			Assert.Single(actualOutpoints);
 			Assert.Equal(outpoints[0], actualOutpoints[0]);
+			request.MinValue = Money.Coins(0.1m);
+			ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, request));
+			Assert.Equal("not-enough-funds", ex.Error.Code);
 
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{

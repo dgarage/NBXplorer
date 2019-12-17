@@ -60,13 +60,25 @@ namespace NBXplorer.Controllers
 				var excludedOutpoints = request.ExcludeOutpoints.ToHashSet();
 				availableCoinsByOutpoint = availableCoinsByOutpoint.Where(c => !excludedOutpoints.Contains(c.Key)).ToDictionary(o => o.Key, o => o.Value);
 			}
+
+			if (request.MinValue != null)
+			{
+				availableCoinsByOutpoint = availableCoinsByOutpoint.Where(c => request.MinValue >= c.Value.Amount).ToDictionary(o => o.Key, o => o.Value);
+			}
 			txBuilder.AddCoins(availableCoinsByOutpoint.Values);
 
 			foreach (var dest in request.Destinations)
 			{
 				if (dest.SweepAll)
 				{
-					txBuilder.SendAll(dest.Destination);
+					try
+					{
+						txBuilder.SendAll(dest.Destination);
+					}
+					catch
+					{
+						throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "You can't sweep funds, because you don't have any."));
+					}
 				}
 				else
 				{

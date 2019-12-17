@@ -61,6 +61,12 @@ namespace NBXplorer.Models
 		/// This transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint) 
 		/// </summary>
 		public List<PSBTRebaseKeyRules> RebaseKeyPaths { get; set; }
+
+		/// <summary>
+		/// Under this value, UTXO's will be ignored.
+		/// </summary>
+
+		public Money MinValue { get; set; }
 	}
 	public class PSBTRebaseKeyRules
 	{

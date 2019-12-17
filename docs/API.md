@@ -907,6 +907,7 @@ Fields:
   "excludeOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1", 
 						"7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-2"],
   "includeOnlyOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1" ],
+  "minValue": 1000,
   "rebaseKeyPaths": [
   	  {
 		"accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
@@ -925,6 +926,7 @@ Fields:
 * `minConfirmations`: default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
 * `includeOnlyOutpoints`: Only select the following outpoints for creating the PSBT (default to null)
 * `excludeOutpoints`: Do not select the following outpoints for creating the PSBT (default to empty)
+* `minValue`: UTXO's with value below this amount will be ignored (default to null)
 * `destinations`: Required, the destinations where to send the money
 * `destinations[].destination`: Required, the destination address
 * `destinations[].amount` Send this amount to the destination (Mutually exclusive with: sweepAll)
