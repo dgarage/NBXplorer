@@ -13,7 +13,6 @@
 		<RepositoryUrl>https://github.com/dgarage/NBXplorer/</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<LangVersion>8.0</LangVersion>
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
 	</PropertyGroup>
 
 	<ItemGroup>
