@@ -41,6 +41,7 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}rpcauth", $"RPC authentication method 3: user:password or cookiefile=path (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpcurl", $"The RPC server url (default: default rpc server depended on the network)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}startheight", $"The height where starting the scan (default: where your rpc server was synched when you first started this program)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}minutxovalue", $"The minimum value of tracked UTXOs, any UTXO with value less than this is ignored. (default: 1 (satoshi))", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}hastxindex", "If true, NBXplorer will try to fetch missing transactions from the local node (default: false)", CommandOptionType.BoolValue);
 			}
@@ -137,6 +138,9 @@ namespace NBXplorer.Configuration
 				builder.AppendLine();
 				builder.AppendLine("## This is the connection to your node through P2P");
 				builder.AppendLine($"#{cryptoCode}.node.endpoint=127.0.0.1:" + network);
+				builder.AppendLine();
+				builder.AppendLine("## minutxovalue defines the minimum value allowed for a utxo to be tracked");
+				builder.AppendLine($"#{cryptoCode}.minutxovalue=1");
 				builder.AppendLine();
 				builder.AppendLine("## startheight defines from which block you will start scanning, if -1 is set, it will use current blockchain height");
 				builder.AppendLine($"#{cryptoCode}.startheight=-1");
