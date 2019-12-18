@@ -140,7 +140,7 @@ namespace NBXplorer.Configuration
 					}
 
 					chainConfiguration.StartHeight = config.GetOrDefault<int>($"{network.CryptoCode}.startheight", -1);
-					chainConfiguration.MinUtxoValue = config.GetOrDefault<Money>($"{network.CryptoCode}.minutxovalue", Money.Satoshis(1));
+					chainConfiguration.MinUtxoValue = Money.Satoshis(config.GetOrDefault<int>($"{network.CryptoCode}.minutxovalue", 1));
 					chainConfiguration.HasTxIndex = config.GetOrDefault<bool>($"{network.CryptoCode}.hastxindex", false);
 
 					ChainConfigurations.Add(chainConfiguration);
