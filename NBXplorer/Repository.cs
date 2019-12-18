@@ -736,10 +736,10 @@ namespace NBXplorer
 		{
 			get; set;
 		} = 30;
-		public int MinUtxoValue
+		public Money MinUtxoValue
 		{
 			get; set;
-		} = 1;
+		} = Money.Satoshis(1);
 
 		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, CancellationToken cancellation = default)
 		{
