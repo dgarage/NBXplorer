@@ -71,6 +71,7 @@ namespace NBXplorer
 					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
 					repo.MaxPoolSize = configuration.MaxGapSize;
 					repo.MinPoolSize = configuration.MinGapSize;
+					repo.MinUtxoValue = configuration.MinUtxoValue;
 					_Repositories.Add(net.CryptoCode, repo);
 				}
 			}
@@ -735,6 +736,10 @@ namespace NBXplorer
 		{
 			get; set;
 		} = 30;
+		public Money MinUtxoValue
+		{
+			get; set;
+		} = Money.Satoshis(1);
 
 		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, CancellationToken cancellation = default)
 		{
@@ -1019,8 +1024,11 @@ namespace NBXplorer
 				}
 				foreach (var output in tx.Outputs)
 				{
-					scripts.Add(output.ScriptPubKey);
-					transactionsPerScript.Add(output.ScriptPubKey, tx);
+					if (output.Value.Satoshi >= MinUtxoValue)
+					{
+						scripts.Add(output.ScriptPubKey);
+						transactionsPerScript.Add(output.ScriptPubKey, tx);
+					}
 				}
 			}
 			if (scripts.Count == 0)
