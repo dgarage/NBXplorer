@@ -141,9 +141,12 @@ namespace NBXplorer.Configuration
 
 					chainConfiguration.StartHeight = config.GetOrDefault<int>($"{network.CryptoCode}.startheight", -1);
 
-					if (config.GetOrDefault<int>($"{network.CryptoCode}.minutxovalue", -1) is int v && v != -1)
+					if (!(network is NBXplorer.NBXplorerNetworkProvider.LiquidNBXplorerNetwork))
 					{
-						chainConfiguration.MinUtxoValue = Money.Satoshis(v);
+						if (config.GetOrDefault<int>($"{network.CryptoCode}.minutxovalue", -1) is int v && v != -1)
+						{
+							chainConfiguration.MinUtxoValue = Money.Satoshis(v);
+						}
 					}
 					
 					chainConfiguration.HasTxIndex = config.GetOrDefault<bool>($"{network.CryptoCode}.hastxindex", false);
