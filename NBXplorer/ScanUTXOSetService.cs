@@ -172,9 +172,13 @@ namespace NBXplorer
 								try
 								{
 									var result = await scanning.WithCancellation(cts.Token);
-									var outputs = result.Outputs
-															  .Where(o => o.Coin.Amount >= repo.MinUtxoValue)
-															  .ToArray();
+									var outputs = result.Outputs;
+									if (repo.MinUtxoValue != null)
+									{
+										outputs = outputs
+													.Where(o => o.Coin.Amount >= repo.MinUtxoValue)
+													.ToArray();
+									}
 									var progressObj = workItem.State.Progress.Clone();
 									progressObj.BatchNumber++;
 									progressObj.From += progressObj.Count;

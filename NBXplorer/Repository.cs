@@ -1024,11 +1024,10 @@ namespace NBXplorer
 				}
 				foreach (var output in tx.Outputs)
 				{
-					if (output.Value.Satoshi >= MinUtxoValue)
-					{
-						scripts.Add(output.ScriptPubKey);
-						transactionsPerScript.Add(output.ScriptPubKey, tx);
-					}
+					if (MinUtxoValue != null && output.Value < MinUtxoValue)
+						continue;
+					scripts.Add(output.ScriptPubKey);
+					transactionsPerScript.Add(output.ScriptPubKey, tx);
 				}
 			}
 			if (scripts.Count == 0)
