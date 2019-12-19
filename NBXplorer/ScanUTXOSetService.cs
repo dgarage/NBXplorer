@@ -172,15 +172,17 @@ namespace NBXplorer
 								try
 								{
 									var result = await scanning.WithCancellation(cts.Token);
+									var OutputsNoSpam = result.Outputs.Where(o => o.Coin.Amount >= repo.MinUtxoValue);
+									var OutputsCount = OutputsNoSpam.Count();
 									var progressObj = workItem.State.Progress.Clone();
 									progressObj.BatchNumber++;
 									progressObj.From += progressObj.Count;
-									progressObj.Found += result.Outputs.Length;
+									progressObj.Found += OutputsCount;
 									progressObj.TotalSearched += scannedItems.Descriptors.Count;
 									progressObj.UpdateRemainingBatches(workItem.Options.GapLimit);
 									progressObj.UpdateOverallProgress();
-									Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning of batch {workItem.State.Progress.BatchNumber} for {workItem.DerivationStrategy.ToPrettyString()} complete with {result.Outputs.Length} UTXOs fetched");
-									await UpdateRepository(rpc, workItem.DerivationStrategy, repo, result.Outputs, scannedItems, progressObj);
+									Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning of batch {workItem.State.Progress.BatchNumber} for {workItem.DerivationStrategy.ToPrettyString()} complete with {OutputsCount} UTXOs fetched");
+									await UpdateRepository(rpc, workItem.DerivationStrategy, repo, OutputsNoSpam, scannedItems, progressObj);
 
 									if (progressObj.RemainingBatches <= -1)
 									{
@@ -234,7 +236,7 @@ namespace NBXplorer
 			}
 		}
 
-		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, Repository repo, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
+		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, Repository repo, IEnumerable<ScanTxoutOutput> outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
 		{
 			var clientBatch = client.PrepareBatch();
 			var blockIdsByHeight = new ConcurrentDictionary<int, uint256>();
