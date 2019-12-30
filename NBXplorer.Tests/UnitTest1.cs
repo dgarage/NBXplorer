@@ -3077,7 +3077,7 @@ namespace NBXplorer.Tests
 
 					//test: Client should return Elements transaction types when event is published
 					var evtTask = session.NextEventAsync(Timeout);
-					var txid = await cashCow.SendToAddressAsync(address, Money.Coins(1.0m));
+					var txid = await cashCow.SendToAddressAsync(address, Money.Coins(0.2m));
 
 					var evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 
@@ -3085,7 +3085,7 @@ namespace NBXplorer.Tests
 					//test: Elements should have unblinded the outputs
 					var output = Assert.Single(evt.Outputs);
 					var assetMoney = Assert.IsType<AssetMoney>(output.Value);
-					Assert.Equal(Money.Coins(1.0m).Satoshi, assetMoney.Quantity);
+					Assert.Equal(Money.Coins(0.2m).Satoshi, assetMoney.Quantity);
 					Assert.NotNull(assetMoney.AssetId);
 
 					// but not the transaction itself
@@ -3119,14 +3119,87 @@ namespace NBXplorer.Tests
 					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString(), 0);
 					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
 
-					Assert.Equal(1.0m, receivedMoney);
+					Assert.Equal(0.2m, receivedMoney);
 
 					var balance = tester.Client.GetBalance(userDerivationScheme);
 					Assert.Equal(assetMoney, ((MoneyBag)balance.Total).Single());
+					
+					Assert.DoesNotContain("-[unblinded]", userDerivationScheme.ToString());
+					//test: setting up unblinded tracking
+					userDerivationScheme.AdditionalOptions.Add("unblinded", true);
+					
+					Assert.Contains("-[unblinded]", userDerivationScheme.ToString());
+
+					Assert.True(tester.NBXplorerNetwork.DerivationStrategyFactory.Parse(userDerivationScheme.ToString())
+						            .AdditionalOptions.TryGetValue("unblinded", out var unblinded) && unblinded);
+					await tester.Client.TrackAsync(userDerivationScheme, Timeout);
+					var unusedUnblinded = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+					Assert.IsNotType<BitcoinBlindedAddress>(unusedUnblinded.Address);
+					
+					evtTask = session.NextEventAsync(Timeout);
+					txid = await cashCow.SendToAddressAsync(unusedUnblinded.Address, Money.Coins(0.1m));
+					evt = Assert.IsType<NewTransactionEvent>(await evtTask);
+					tx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
+						.TransactionData.Transaction));
+					Assert.Equal(txid, tx.GetHash());
+					Assert.Contains(tx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value?.ToDecimal(MoneyUnit.BTC) == 0.1m);
+
+					//test: track the same xpub but with diff options(unblinded vs blinded) and see that indexes are not reused
+					
+					userDerivationScheme = tester.Client.GenerateWallet(new GenerateWalletRequest()
+					{
+						SavePrivateKeys = true,
+						ImportKeysToRPC= true
+					}).DerivationScheme;
+				
+				
+					var blindedUnused = await tester.Client.GetUnusedAsync(userDerivationScheme, DerivationFeature.Deposit, 0, true);
+					var bitcoinBlindedAddress = Assert.IsType<BitcoinBlindedAddress>(blindedUnused.Address);
+					userDerivationScheme.AdditionalOptions.Add("unblinded", true);
+					var unblindedUnused = await tester.Client.GetUnusedAsync(userDerivationScheme, DerivationFeature.Deposit,0,true);
+					Assert.IsNotType<BitcoinBlindedAddress>(unblindedUnused.Address);
+				
+					Assert.NotEqual(bitcoinBlindedAddress.UnblindedAddress, unblindedUnused.Address);
+					Assert.NotEqual(blindedUnused.KeyPath, unblindedUnused.KeyPath);
+					Assert.NotEqual(bitcoinBlindedAddress.ScriptPubKey, unblindedUnused.ScriptPubKey);
 				}
 			}
 		}
+[Fact]
+		public async Task TestSTuff()
+		{
 
+			using (var tester = ServerTester.Create())
+			{
+				if (tester.Network.NetworkSet != NBitcoin.Altcoins.Liquid.Instance)
+				{
+					return;
+				}
+
+				var cashNode = tester.NodeBuilder.CreateNode(true);
+				cashNode.Sync(tester.Explorer, true);
+				//test: track the same xpub but with diff options(unblinded vs blinded) and see that indexes are not reused
+
+				var userDerivationScheme = tester.Client.GenerateWallet(new GenerateWalletRequest()
+				{
+					SavePrivateKeys = true,
+					ImportKeysToRPC = true
+				}).DerivationScheme;
+
+
+				var blindedUnused =
+					await tester.Client.GetUnusedAsync(userDerivationScheme, DerivationFeature.Deposit, 0, true);
+				var bitcoinBlindedAddress = Assert.IsType<BitcoinBlindedAddress>(blindedUnused.Address);
+				userDerivationScheme.AdditionalOptions.Add("unblinded", true);
+				var unblindedUnused =
+					await tester.Client.GetUnusedAsync(userDerivationScheme, DerivationFeature.Deposit, 0, true);
+				Assert.IsNotType<BitcoinBlindedAddress>(unblindedUnused.Address);
+
+				Assert.NotEqual(bitcoinBlindedAddress.UnblindedAddress, unblindedUnused.Address);
+				Assert.NotEqual(blindedUnused.KeyPath, unblindedUnused.KeyPath);
+				Assert.NotEqual(bitcoinBlindedAddress.ScriptPubKey, unblindedUnused.ScriptPubKey);
+			}
+		}
 
 		[Fact]
 		public async Task CanGenerateWallet()

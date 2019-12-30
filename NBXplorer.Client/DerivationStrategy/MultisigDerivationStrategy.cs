@@ -29,7 +29,7 @@ namespace NBXplorer.DerivationStrategy
 			get; set;
 		}
 
-		protected override string StringValue
+		public override string StringValueCore
 		{
 			get
 			{
@@ -49,7 +49,8 @@ namespace NBXplorer.DerivationStrategy
 			}
 		}
 
-		internal MultisigDerivationStrategy(int reqSignature, BitcoinExtPubKey[] keys, bool isLegacy)
+		internal MultisigDerivationStrategy(int reqSignature, BitcoinExtPubKey[] keys, bool isLegacy,
+			Dictionary<string, bool> additionalOptions) : base(additionalOptions)
 		{
 			Keys = keys;
 			RequiredSignatures = reqSignature;
@@ -84,7 +85,7 @@ namespace NBXplorer.DerivationStrategy
 
 		public override DerivationStrategyBase GetChild(KeyPath keyPath)
 		{
-			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray(), IsLegacy)
+			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray(), IsLegacy, AdditionalOptions)
 			{
 				LexicographicOrder = LexicographicOrder
 			};

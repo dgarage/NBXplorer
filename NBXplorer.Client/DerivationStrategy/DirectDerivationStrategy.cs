@@ -24,7 +24,7 @@ namespace NBXplorer.DerivationStrategy
 			set;
 		}
 
-		protected override string StringValue
+		public override string StringValueCore
 		{
 			get
 			{
@@ -38,7 +38,7 @@ namespace NBXplorer.DerivationStrategy
 			}
 		}
 
-		public DirectDerivationStrategy(BitcoinExtPubKey root)
+		public DirectDerivationStrategy(BitcoinExtPubKey root, Dictionary<string, bool> additionalOptions = null) : base(additionalOptions)
 		{
 			if(root == null)
 				throw new ArgumentNullException(nameof(root));
@@ -52,7 +52,7 @@ namespace NBXplorer.DerivationStrategy
 
 		public override DerivationStrategyBase GetChild(KeyPath keyPath)
 		{
-			return new DirectDerivationStrategy(_Root.ExtPubKey.Derive(keyPath).GetWif(_Root.Network)) { Segwit = Segwit };
+			return new DirectDerivationStrategy(_Root.ExtPubKey.Derive(keyPath).GetWif(_Root.Network), AdditionalOptions) { Segwit = Segwit };
 		}
 
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()
