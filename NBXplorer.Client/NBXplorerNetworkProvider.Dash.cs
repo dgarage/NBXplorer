@@ -11,7 +11,8 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Dash.Instance, networkType)
 			{
-				MinRPCVersion = 120000
+				MinRPCVersion = 120000,
+				CoinType = networkType == NetworkType.Mainnet ? new KeyPath("5'") : new KeyPath("1'")
 			});
 		}
 

@@ -10,7 +10,7 @@ namespace NBXplorer.Models
 {
 	public abstract class TrackedSource
 	{
-		public static bool TryParse(string str, out TrackedSource trackedSource, Network network)
+		public static bool TryParse(string str, out TrackedSource trackedSource, NBXplorerNetwork network)
 		{
 			if (str == null)
 				throw new ArgumentNullException(nameof(str));
@@ -26,7 +26,7 @@ namespace NBXplorer.Models
 			}
 			else if (strSpan.StartsWith("ADDRESS:".AsSpan(), StringComparison.Ordinal))
 			{
-				if (!AddressTrackedSource.TryParse(strSpan, out var addressTrackedSource, network))
+				if (!AddressTrackedSource.TryParse(strSpan, out var addressTrackedSource, network.NBitcoinNetwork))
 					return false;
 				trackedSource = addressTrackedSource;
 			}
@@ -88,9 +88,14 @@ namespace NBXplorer.Models
 				throw new ArgumentException(paramName: nameof(scriptPubKey), message: $"{nameof(scriptPubKey)} can't be translated on an address on {network.Name}");
 			return new AddressTrackedSource(address);
 		}
+
+		public virtual string ToPrettyString()
+		{
+			return ToString();
+		}
 	}
 
-	public class AddressTrackedSource : TrackedSource
+	public class AddressTrackedSource : TrackedSource, IDestination
 	{
 		// Note that we should in theory access BitcoinAddress. But parsing BitcoinAddress is very expensive, so we keep storing plain strings
 		public AddressTrackedSource(BitcoinAddress address)
@@ -107,6 +112,8 @@ namespace NBXplorer.Models
 		{
 			get;
 		}
+
+		public Script ScriptPubKey => Address.ScriptPubKey;
 
 		public static bool TryParse(ReadOnlySpan<char> strSpan, out TrackedSource addressTrackedSource, Network network)
 		{
@@ -129,6 +136,11 @@ namespace NBXplorer.Models
 		{
 			return _FullAddressString;
 		}
+
+		public override string ToPrettyString()
+		{
+			return Address.ToString();
+		}
 	}
 
 	public class DerivationSchemeTrackedSource : TrackedSource
@@ -142,7 +154,7 @@ namespace NBXplorer.Models
 
 		public DerivationStrategy.DerivationStrategyBase DerivationStrategy { get; }
 
-		public static bool TryParse(ReadOnlySpan<char> strSpan, out DerivationSchemeTrackedSource derivationSchemeTrackedSource, Network network)
+		public static bool TryParse(ReadOnlySpan<char> strSpan, out DerivationSchemeTrackedSource derivationSchemeTrackedSource, NBXplorerNetwork network)
 		{
 			if (strSpan == null)
 				throw new ArgumentNullException(nameof(strSpan));
@@ -153,7 +165,7 @@ namespace NBXplorer.Models
 				return false;
 			try
 			{
-				var factory = new DerivationStrategy.DerivationStrategyFactory(network);
+				var factory = network.DerivationStrategyFactory;
 				var derivationScheme = factory.Parse(strSpan.Slice("DERIVATIONSCHEME:".Length).ToString());
 				derivationSchemeTrackedSource = new DerivationSchemeTrackedSource(derivationScheme);
 				return true;
@@ -164,6 +176,15 @@ namespace NBXplorer.Models
 		public override string ToString()
 		{
 			return "DERIVATIONSCHEME:" + DerivationStrategy.ToString();
+		}
+		public override string ToPrettyString()
+		{
+			var strategy = DerivationStrategy.ToString();
+			if (strategy.Length > 35)
+			{
+				strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
+			}
+			return strategy;
 		}
 	}
 }

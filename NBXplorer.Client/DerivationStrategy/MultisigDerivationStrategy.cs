@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using NBitcoin.Crypto;
+using System.Threading.Tasks;
 
 namespace NBXplorer.DerivationStrategy
 {
@@ -66,9 +67,13 @@ namespace NBXplorer.DerivationStrategy
 			ms.Write(v, 0, v.Length);
 		}
 
-		public override Derivation Derive(KeyPath keyPath)
+		public override Derivation GetDerivation()
 		{
-			var pubKeys = this.Keys.Select(s => s.ExtPubKey.Derive(keyPath).PubKey).ToArray();
+			var pubKeys = new PubKey[this.Keys.Length];
+			Parallel.For(0, pubKeys.Length, i =>
+			{
+				pubKeys[i] = this.Keys[i].ExtPubKey.PubKey;
+			});
 			if(LexicographicOrder)
 			{
 				Array.Sort(pubKeys, LexicographicComparer);
@@ -77,12 +82,17 @@ namespace NBXplorer.DerivationStrategy
 			return new Derivation() { ScriptPubKey = redeem };
 		}
 
-		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
+		public override DerivationStrategyBase GetChild(KeyPath keyPath)
 		{
 			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray(), IsLegacy)
 			{
 				LexicographicOrder = LexicographicOrder
 			};
+		}
+
+		public override IEnumerable<ExtPubKey> GetExtPubKeys()
+		{
+			return Keys.Select(k => k.ExtPubKey);
 		}
 	}
 }

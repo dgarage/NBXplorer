@@ -48,7 +48,6 @@ dlldata.c
 project.lock.json
 project.fragment.lock.json
 artifacts/
-**/Properties/launchSettings.json
 
 *_i.c
 *_p.c
@@ -288,3 +287,4 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+/NBXplorer.Tests/Properties/launchSettings.json

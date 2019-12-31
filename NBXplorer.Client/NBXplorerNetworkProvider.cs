@@ -1,7 +1,5 @@
 ﻿using NBitcoin;
-using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace NBXplorer
 {
@@ -9,7 +7,9 @@ namespace NBXplorer
     {
 		public NBXplorerNetworkProvider(NetworkType networkType)
 		{
+			NetworkType = networkType;
 			InitBitcoin(networkType);
+			InitBitcore(networkType);
 			InitLitecoin(networkType);
 			InitDogecoin(networkType);
 			InitBCash(networkType);
@@ -22,10 +22,14 @@ namespace NBXplorer
 			InitFeathercoin(networkType);
 			InitUfo(networkType);
 			InitViacoin(networkType);
-			NetworkType = networkType;
-			foreach(var chain in _Networks.Values)
+			InitMonoeci(networkType);
+			InitGobyte(networkType);
+			InitColossus(networkType);
+			InitChaincoin(networkType);
+			InitLiquid(networkType);
+			foreach (var chain in _Networks.Values)
 			{
-				chain.DerivationStrategyFactory = new DerivationStrategy.DerivationStrategyFactory(chain.NBitcoinNetwork);
+				chain.DerivationStrategyFactory ??= new DerivationStrategy.DerivationStrategyFactory(chain.NBitcoinNetwork);
 			}
 		}
 
@@ -37,7 +41,7 @@ namespace NBXplorer
 
 		public NBXplorerNetwork GetFromCryptoCode(string cryptoCode)
 		{
-			_Networks.TryGetValue(cryptoCode, out NBXplorerNetwork network);
+			_Networks.TryGetValue(cryptoCode.ToUpperInvariant(), out NBXplorerNetwork network);
 			return network;
 		}
 
@@ -49,6 +53,8 @@ namespace NBXplorer
 		Dictionary<string, NBXplorerNetwork> _Networks = new Dictionary<string, NBXplorerNetwork>();
 		private void Add(NBXplorerNetwork network)
 		{
+			if (network.NBitcoinNetwork == null)
+				return;
 			_Networks.Add(network.CryptoCode, network);
 		}
 	}

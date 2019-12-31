@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using NBXplorer.Models;
+using NBitcoin.DataEncoders;
 
 namespace NBXplorer
 {
@@ -43,11 +44,28 @@ namespace NBXplorer
 
 	public class GetNetworkInfoResponse
 	{
-		public double relayfee
+		public class LocalAddress
+		{
+			public string address { get; set; }
+			public int port { get; set; }
+		}
+		public double? relayfee
 		{
 			get; set;
 		}
-		public double incrementalfee
+		public FeeRate GetRelayFee()
+		{
+			return relayfee == null ? null : new FeeRate(Money.Coins((decimal)relayfee), 1000);
+		}
+		public double? incrementalfee
+		{
+			get; set;
+		}
+		public FeeRate GetIncrementalFee()
+		{
+			return incrementalfee == null ? null : new FeeRate(Money.Coins((decimal)incrementalfee), 1000);
+		}
+		public LocalAddress[] localaddresses
 		{
 			get; set;
 		}
@@ -67,29 +85,33 @@ namespace NBXplorer
 			return JsonConvert.DeserializeObject<GetNetworkInfoResponse>(result.ResultString);
 		}
 
-		public static async Task<GetFeeRateResult> GetFeeRateAsyncEx(this RPCClient client, int blockCount)
+		public static async Task<Repository.SavedTransaction> TryGetRawTransaction(this RPCClient client, uint256 txId)
 		{
-			FeeRate rate = null;
-			int blocks = 0;
-			try
+			var request = new RPCRequest(RPCOperations.getrawtransaction, new object[] { txId, true });
+			var response = await client.SendCommandAsync(request, false);
+			if (response.Error == null && response.Result is JToken rpcResult && rpcResult["hex"] != null)
 			{
-				var res = await client.TryEstimateSmartFeeAsync(blockCount, EstimateSmartFeeMode.Conservative).ConfigureAwait(false);
-				if(res == null)
-					return null;
-				rate = res.FeeRate;
-				blocks = res.Blocks;
+				uint256 blockHash = null;
+				if (rpcResult["blockhash"] != null)
+				{
+					blockHash = uint256.Parse(rpcResult.Value<string>("blockhash"));
+				}
+				DateTimeOffset timestamp = DateTimeOffset.UtcNow;
+				if (rpcResult["time"] != null)
+				{
+					timestamp = NBitcoin.Utils.UnixTimeToDateTime(rpcResult.Value<long>("time"));
+				}
+				
+				var rawTx = client.Network.Consensus.ConsensusFactory.CreateTransaction();
+				rawTx.ReadWrite(Encoders.Hex.DecodeData(rpcResult.Value<string>("hex")), client.Network);
+				return new Repository.SavedTransaction()
+									{
+										BlockHash = blockHash,
+										Timestamp = timestamp,
+										Transaction = rawTx
+									};
 			}
-			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
-			{
-				var response = await client.SendCommandAsync(RPCOperations.estimatefee, blockCount).ConfigureAwait(false);
-				var result = response.Result.Value<decimal>();
-				var money = Money.Coins(result);
-				if (money.Satoshi < 0)
-					return null;
-				rate = new FeeRate(money);
-				blocks = blockCount;
-			}
-			return new GetFeeRateResult() { FeeRate = rate, BlockCount = blocks };
+			return null;
 		}
 	}
 }

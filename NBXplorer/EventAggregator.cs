@@ -65,7 +65,7 @@ namespace NBXplorer
 		}
 		public async Task<T> WaitNext<T>(Func<T, bool> predicate, CancellationToken cancellation = default)
 		{
-			TaskCompletionSource<T> tcs = new TaskCompletionSource<T>();
+			TaskCompletionSource<T> tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
 			var subscription = Subscribe<T>((a, b) => {
 				if(predicate(b))
 				{
@@ -146,6 +146,17 @@ namespace NBXplorer
 		public IEventAggregatorSubscription Subscribe<T>(Action<T> subscription)
 		{
 			return Subscribe(new Action<IEventAggregatorSubscription, T>((sub, t) => subscription(t)));
+		}
+
+		public IEventAggregatorSubscription Subscribe<T>(Func<T, Task> subscription)
+		{
+			return Subscribe(new Action<IEventAggregatorSubscription, T>((sub, t) => subscription(t).ContinueWith(prev =>
+			{
+				if(prev.Status == TaskStatus.Faulted)
+				{
+					Logs.Events.LogError(prev.Exception, $"Error while calling event handler");
+				}
+			})));
 		}
 
 		public void Dispose()

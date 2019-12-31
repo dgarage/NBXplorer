@@ -19,8 +19,9 @@ namespace NBXplorer.Tests
 		RepositoryTester(string name, bool caching)
 		{
 			_Name = name;
-			ServerTester.DeleteRecursivelyWithMagicDust(name);
-			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(NetworkType.Regtest), 
+			ServerTester.DeleteFolderRecursive(name);
+			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(NetworkType.Regtest),
+											   KeyPathTemplates.Default,
 											   new Configuration.ExplorerConfiguration()
 											   {
 												   DataDir = name,
@@ -33,13 +34,14 @@ namespace NBXplorer.Tests
 													   }
 												   }
 											   });
+			_Provider.StartAsync().GetAwaiter().GetResult();
 			_Repository = _Provider.GetRepository(new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode("BTC"));
 		}
 
 		public void Dispose()
 		{
-			_Provider.Dispose();
-			ServerTester.DeleteRecursivelyWithMagicDust(_Name);
+			_Provider.DisposeAsync().GetAwaiter().GetResult();
+			ServerTester.DeleteFolderRecursive(_Name);
 		}
 
 		private Repository _Repository;

@@ -13,41 +13,24 @@ namespace NBXplorer
 {
     public static class ExtensionsClient
     {
-		static ExtensionsClient()
+		public static IEnumerable<IList<T>> Batch<T>(this IEnumerable<T> values, int size)
 		{
-			_TypeByName = new Dictionary<string, Type>();
-			_NameByType = new Dictionary<Type, string>();
-			Add("newblock", typeof(Models.NewBlockEvent));
-			Add("subscribeblock", typeof(Models.NewBlockEventRequest));
-			Add("subscribetransaction", typeof(Models.NewTransactionEventRequest));
-			Add("newtransaction", typeof(Models.NewTransactionEvent));
-		}
-
-		static Dictionary<string, Type> _TypeByName;
-		static Dictionary<Type, string> _NameByType;
-		private static void Add(string typeName, Type type)
-		{
-			_TypeByName.Add(typeName, type);
-			_NameByType.Add(type, typeName);
-		}
-
-		public static IEnumerable<T[]> Batch<T>(this IEnumerable<T> values, int size)
-		{
-			var batch = new T[size];
-			int index = 0;
+			if (size <= 0)
+				throw new ArgumentOutOfRangeException(nameof(size));
+			if (values == null)
+				throw new ArgumentNullException(nameof(values));
+			var batch = new List<T>();
 			foreach(var v in values)
 			{
-				batch[index++] = v;
-				if(index == batch.Length)
+				batch.Add(v);
+				if(size == batch.Count)
 				{
 					yield return batch;
-					batch = new T[size];
-					index = 0;
+					batch = new List<T>();
 				}
 			}
-			if(index != 0)
+			if(batch.Count != 0)
 			{
-				Array.Resize(ref batch, index);
 				yield return batch;
 			}
 		}
@@ -71,23 +54,6 @@ namespace NBXplorer
 			}
 
 			return new ArraySegment<T>(array.Array, array.Offset + index, count);
-		}
-
-		public static object ParseNotificationMessage(string str, JsonSerializerSettings settings)
-		{
-			if(str == null)
-				throw new ArgumentNullException(nameof(str));
-			JObject jobj = JObject.Parse(str);
-			var type = (jobj["type"] as JValue)?.Value<string>();
-			if(type == null)
-				throw new FormatException("'type' property not found");
-			if(!_TypeByName.TryGetValue(type, out Type typeObject))
-				throw new FormatException("unknown 'type'");
-			var data = (jobj["data"] as JObject);
-			if(data == null)
-				throw new FormatException("'data' property not found");
-
-			return JsonConvert.DeserializeObject(data.ToString(), typeObject, settings);
 		}
 
 		public static async Task CloseSocket(this WebSocket socket, WebSocketCloseStatus status, string statusDescription, CancellationToken cancellation = default)
@@ -126,12 +92,6 @@ namespace NBXplorer
 				}
 			}
 			return blockIds;
-		}
-
-		public static string GetNotificationMessageTypeName(Type type)
-		{
-			_NameByType.TryGetValue(type, out string name);
-			return name;
 		}
 	}
 }

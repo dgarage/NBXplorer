@@ -2,6 +2,7 @@
 {
 	public class NewTransactionEventRequest : NewEventBase
 	{
+		public override string EventType => "subscribetransaction";
 		public string[] DerivationSchemes { get; set; }
 
 		public string[] TrackedSources { get; set; }

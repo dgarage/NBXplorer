@@ -1,0 +1,51 @@
+{
+  "profiles": {
+    "NBXplorer - BTC on Mainnet": {
+      "commandName": "Project",
+      "commandLineArgs": "",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:4774",
+      "launchUrl": "v1/cryptos/btc/status"
+    },
+
+    "NBXplorer - BTC+LTC on Regtest": {
+      "commandName": "Project",
+      "commandLineArgs": "--chains=btc,ltc --network=regtest",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:4774",
+      "launchUrl": "v1/cryptos/ltc/status"
+    },
+    "NBXplorer - LBTC on Regtest from Docker": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "NBXPLORER_NETWORK": "regtest",
+        "NBXPLORER_CHAINS":"lbtc",
+        "NBXPLORER_LBTCRPCURL": "http://127.0.0.1:19332/",
+        "NBXPLORER_LBTCNODEENDPOINT": "127.0.0.1:19444",
+        "NBXPLORER_LBTCRPCUSER": "liquid",
+        "NBXPLORER_LBTCRPCPASSWORD": "liquid",
+        "NBXPLORER_NOAUTH": "true"
+      },
+      "applicationUrl": "http://localhost:4774",
+      "launchUrl": "v1/cryptos/lbtc/status"
+    },
+    "NBXplorer - DASH on Testnet": {
+      "commandName": "Project",
+      "commandLineArgs": "--chains=dash --network=testnet",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:4774",
+      "launchUrl": "v1/cryptos/dash/status"
+    }
+  }
+}

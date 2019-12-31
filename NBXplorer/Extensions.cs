@@ -29,25 +29,22 @@ using NBXplorer.Authentication;
 using NBitcoin.DataEncoders;
 using System.Text.RegularExpressions;
 using NBXplorer.MessageBrokers;
+using NBitcoin.Protocol;
 
 namespace NBXplorer
 {
 	public static class Extensions
 	{
-		internal static Task WaitOneAsync(this WaitHandle waitHandle)
+		internal static bool AsBoolean(this string value)
 		{
-			if(waitHandle == null)
-				throw new ArgumentNullException("waitHandle");
-
-			var tcs = new TaskCompletionSource<bool>();
-			var rwh = ThreadPool.RegisterWaitForSingleObject(waitHandle,
-				delegate
-				{
-					tcs.TrySetResult(true);
-				}, null, TimeSpan.FromMinutes(1.0), true);
-			var t = tcs.Task;
-			t.ContinueWith(_ => rwh.Unregister(null));
-			return t;
+			if (value is string str && bool.TryParse(str, out var v))
+				return v;
+			return false;
+		}
+		internal static void AddRange<T>(this HashSet<T> hashset, IEnumerable<T> elements)
+		{
+			foreach (var el in elements)
+				hashset.Add(el);
 		}
 		internal static uint160 GetHash(this DerivationStrategyBase derivation)
 		{
@@ -62,7 +59,12 @@ namespace NBXplorer
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
 		}
 
-
+		public static T As<T>(this IActionResult actionResult)
+		{
+			if (actionResult is JsonResult jsonResult && jsonResult.Value is T v)
+				return v;
+			return default;
+		}
 		public static async Task<DateTimeOffset?> GetBlockTimeAsync(this RPCClient client, uint256 blockId, bool throwIfNotFound = true)
 		{
 			var response = await client.SendCommandAsync(new RPCRequest("getblockheader", new object[] { blockId }), throwIfNotFound).ConfigureAwait(false);
@@ -77,54 +79,15 @@ namespace NBXplorer
 			return null;
 		}
 
-		public static IEnumerable<TransactionMatch> GetMatches(this Repository repository, Transaction tx)
+		internal static KeyPathInformation AddAddress(this KeyPathInformation keyPathInformation, Network network)
 		{
-			var matches = new Dictionary<string, TransactionMatch>();
-			HashSet<Script> inputScripts = new HashSet<Script>();
-			HashSet<Script> outputScripts = new HashSet<Script>();
-			HashSet<Script> scripts = new HashSet<Script>();
-			foreach(var input in tx.Inputs)
+			if(keyPathInformation.Address == null)
 			{
-				var signer = input.GetSigner();
-				if(signer != null)
-				{
-					inputScripts.Add(signer.ScriptPubKey);
-					scripts.Add(signer.ScriptPubKey);
-				}
+				keyPathInformation.Address = keyPathInformation.ScriptPubKey.GetDestinationAddress(network);
 			}
-
-			foreach(var output in tx.Outputs)
-			{
-				outputScripts.Add(output.ScriptPubKey);
-				scripts.Add(output.ScriptPubKey);
-			}
-
-			var keyInformations = repository.GetKeyInformations(scripts.ToArray());
-			foreach(var keyInfoByScripts in keyInformations)
-			{
-				foreach(var keyInfo in keyInfoByScripts.Value)
-				{
-					var matchesGroupingKey = keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex();
-					if (!matches.TryGetValue(matchesGroupingKey, out TransactionMatch match))
-					{
-						match = new TransactionMatch();
-						matches.Add(matchesGroupingKey, match);
-						match.TrackedSource = keyInfo.TrackedSource;
-						match.DerivationStrategy = (keyInfo.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-						match.Transaction = tx;
-					}
-
-					if(outputScripts.Contains(keyInfo.ScriptPubKey))
-						match.Outputs.Add(keyInfo);
-
-					if(inputScripts.Contains(keyInfo.ScriptPubKey))
-						match.Inputs.Add(keyInfo);
-				}
-			}
-			return matches.Values;
+			return keyPathInformation;
 		}
-
-
+#if NETCOREAPP21
 		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
 		{
 			public void Configure(MvcJsonOptions options)
@@ -132,6 +95,7 @@ namespace NBXplorer
 				new Serializer(null).ConfigureSerializer(options.SerializerSettings);
 			}
 		}
+#endif
 
 		public class ConfigureCookieFileBasedConfiguration : IConfigureNamedOptions<BasicAuthenticationOptions>
 		{
@@ -177,7 +141,12 @@ namespace NBXplorer
 				mvc.Filters.Add(new NBXplorerExceptionFilter());
 			});
 
+#if NETCOREAPP21
 			services.AddSingleton<IConfigureOptions<MvcJsonOptions>, MVCConfigureOptions>();
+			services.AddSingleton<MvcNewtonsoftJsonOptions>();
+#else
+			services.AddSingleton<MvcNewtonsoftJsonOptions>(o =>  o.GetRequiredService<IOptions<MvcNewtonsoftJsonOptions>>().Value);
+#endif
 			services.TryAddSingleton<ChainProvider>();
 
 			services.TryAddSingleton<CookieRepository>();
@@ -185,11 +154,21 @@ namespace NBXplorer
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<AddressPoolServiceAccessor>();
 			services.AddSingleton<IHostedService, AddressPoolService>();
-			services.TryAddSingleton<BitcoinDWaitersAccessor>();
-			services.AddSingleton<IHostedService, BitcoinDWaiters>();
+			services.TryAddSingleton<BitcoinDWaiters>();
+			services.TryAddSingleton<RebroadcasterHostedService>();
+			services.AddSingleton<IHostedService, ScanUTXOSetService>();
+			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
+			services.AddSingleton<IHostedService, BitcoinDWaiters>(o => o.GetRequiredService<BitcoinDWaiters>());
+			services.AddSingleton<IHostedService, RebroadcasterHostedService>(o => o.GetRequiredService<RebroadcasterHostedService>());
 			services.AddSingleton<IHostedService, BrokerHostedService>();
 
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
+
+			services.AddSingleton<KeyPathTemplates>(o =>
+			{
+				var conf = o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value;
+				return new KeyPathTemplates(conf.CustomKeyPathTemplate);
+			});
 
 			services.AddSingleton<NBXplorerNetworkProvider>(o =>
 			{
@@ -207,27 +186,6 @@ namespace NBXplorer
 				o.LoadArgs(conf);
 			});
 			return services;
-		}
-
-		internal static string ToPrettyString(this TrackedSource trackedSource)
-		{
-			if (trackedSource is DerivationSchemeTrackedSource derivation)
-			{
-				var strategy = derivation.DerivationStrategy.ToString();
-				if (strategy.Length > 35)
-				{
-					strategy = strategy.Substring(0, 10) + "..." + strategy.Substring(strategy.Length - 20);
-				}
-				return strategy;
-			}
-			else if (trackedSource is AddressTrackedSource addressDerivation)
-			{
-				return addressDerivation.Address.ToString();
-			}
-			else
-			{
-				return trackedSource.ToString();
-			}
 		}
 
 		internal class NoObjectModelValidator : IObjectModelValidator

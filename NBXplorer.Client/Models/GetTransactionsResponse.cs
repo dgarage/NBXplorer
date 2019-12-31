@@ -13,11 +13,6 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
-		public bool HasChanges()
-		{
-			return ConfirmedTransactions.HasChanges() || UnconfirmedTransactions.HasChanges() || ReplacedTransactions.HasChanges();
-		}
-
 		public TransactionInformationSet ConfirmedTransactions
 		{
 			get; set;
@@ -36,23 +31,10 @@ namespace NBXplorer.Models
 
 	public class TransactionInformationSet
 	{
-		public Bookmark KnownBookmark
-		{
-			get; set;
-		}
-
-		public Bookmark Bookmark
-		{
-			get; set;
-		}
 		public List<TransactionInformation> Transactions
 		{
 			get; set;
 		} = new List<TransactionInformation>();
-		public bool HasChanges()
-		{
-			return KnownBookmark != Bookmark;
-		}
 	}
 
 	public class TransactionInformationMatch
@@ -93,21 +75,21 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
-		public List<TransactionInformationMatch> Outputs
+		public List<MatchedOutput> Outputs
 		{
 			get; set;
-		} = new List<TransactionInformationMatch>();
+		} = new List<MatchedOutput>();
 
-		public List<TransactionInformationMatch> Inputs
+		public List<MatchedOutput> Inputs
 		{
 			get; set;
-		} = new List<TransactionInformationMatch>();
+		} = new List<MatchedOutput>();
 		public DateTimeOffset Timestamp
 		{
 			get;
 			set;
 		}
-		public Money BalanceChange
+		public IMoney BalanceChange
 		{
 			get;
 			set;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using NBitcoin;
@@ -28,19 +29,38 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
-		public List<KeyPathInformation> Outputs
+		public List<MatchedOutput> Outputs
 		{
 			get; set;
-		} = new List<KeyPathInformation>();
+		} = new List<MatchedOutput>();
 
-		public List<KeyPathInformation> Inputs
-		{
-			get; set;
-		} = new List<KeyPathInformation>();
+		[JsonIgnore]
+		public override string EventType => "newtransaction";
 
-		public TransactionMatch AsMatch()
+		public override string ToString()
 		{
-			return new TransactionMatch() { DerivationStrategy = DerivationStrategy, TrackedSource = TrackedSource, Inputs = Inputs, Outputs = Outputs, Transaction = TransactionData.Transaction };
+			var conf = (BlockId == null ? "unconfirmed" : "confirmed");
+
+			string strategy = TrackedSource.ToPrettyString();
+			var txId = TransactionData.TransactionHash.ToString();
+			txId = txId.Substring(0, 6) + "..." + txId.Substring(txId.Length - 6);
+
+			string keyPathSuffix = string.Empty;
+			var keyPaths = Outputs.Select(v => v.KeyPath?.ToString()).Where(k => k != null).ToArray();
+			if (keyPaths.Length != 0)
+			{
+				keyPathSuffix = $" ({String.Join(", ", keyPaths)})";
+			}
+			return $"{CryptoCode}: {strategy} matching {conf} transaction {txId}{keyPathSuffix}";
 		}
+	}
+
+	public class MatchedOutput
+	{
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+		public KeyPath KeyPath { get; set; }
+		public Script ScriptPubKey { get; set; }
+		public int Index { get; set; }
+		public IMoney Value { get; set; }
 	}
 }

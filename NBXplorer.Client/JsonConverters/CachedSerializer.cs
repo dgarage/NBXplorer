@@ -52,14 +52,12 @@ namespace NBXplorer.JsonConverters
 				return Converter.CanConvert(objectType);
 			}
 		}
-		public CachedSerializer()
+		public CachedSerializer(NBXplorerNetwork network)
 		{
-
-		}
-		public CachedSerializer(Network network)
-		{
-			cachedConverter.Add(new CachedConverter(new BitcoinStringJsonConverter(network)));
-			cachedConverter.Add(new CachedConverter(new DerivationStrategyJsonConverter(network == null ? null : new DerivationStrategy.DerivationStrategyFactory(network))));
+			if (network == null)
+				throw new ArgumentNullException(nameof(network));
+			cachedConverter.Add(new CachedConverter(new BitcoinStringJsonConverter(network.NBitcoinNetwork)));
+			cachedConverter.Add(new CachedConverter(new DerivationStrategyJsonConverter(network.DerivationStrategyFactory)));
 			cachedConverter.Add(new CachedConverter(new TrackedSourceJsonConverter(network)));
 		}
 		public override bool CanConvert(Type objectType)

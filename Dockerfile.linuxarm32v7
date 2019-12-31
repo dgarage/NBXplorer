@@ -1,0 +1,21 @@
+# This is a manifest image, will pull the image with the same arch as the builder machine
+FROM mcr.microsoft.com/dotnet/core/sdk:3.1.100 AS builder
+WORKDIR /source
+COPY NBXplorer/NBXplorer.csproj NBXplorer/NBXplorer.csproj
+COPY NBXplorer.Client/NBXplorer.Client.csproj NBXplorer.Client/NBXplorer.Client.csproj
+# Cache some dependencies
+RUN cd NBXplorer && dotnet restore && cd ..
+COPY . .
+RUN cd NBXplorer && \
+    dotnet publish --output /app/ --configuration Release
+
+# Force the builder machine to take make an arm runtime image. This is fine as long as the builder does not run any program
+FROM mcr.microsoft.com/dotnet/core/aspnet:3.1.0-buster-slim-arm32v7
+
+WORKDIR /datadir
+WORKDIR /app
+ENV NBXPLORER_DATADIR=/datadir
+VOLUME /datadir
+
+COPY --from=builder "/app" .
+ENTRYPOINT ["dotnet", "NBXplorer.dll"]

@@ -34,9 +34,9 @@ namespace NBXplorer.DerivationStrategy
 			}
 		}
 
-		public override Derivation Derive(KeyPath keyPath)
+		public override Derivation GetDerivation()
 		{
-			var derivation = Inner.Derive(keyPath);
+			var derivation = Inner.GetDerivation();
 			return new Derivation()
 			{
 				ScriptPubKey = derivation.ScriptPubKey.Hash.ScriptPubKey,
@@ -44,9 +44,14 @@ namespace NBXplorer.DerivationStrategy
 			};
 		}
 
-		public override DerivationStrategyBase GetLineFor(KeyPath keyPath)
+		public override IEnumerable<ExtPubKey> GetExtPubKeys()
 		{
-			return new P2SHDerivationStrategy(Inner.GetLineFor(keyPath), addSuffix);
+			return Inner.GetExtPubKeys();
+		}
+
+		public override DerivationStrategyBase GetChild(KeyPath keyPath)
+		{
+			return new P2SHDerivationStrategy(Inner.GetChild(keyPath), addSuffix);
 		}
 	}
 }

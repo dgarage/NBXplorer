@@ -15,41 +15,40 @@ namespace NBXplorer.MessageBrokers
 	{
 		const int MaxMessageIdLength = 128;
 
-		public AzureBroker(ISenderClient client, JsonSerializerSettings serializerSettings)
+		public AzureBroker(ISenderClient client, NBXplorerNetworkProvider networks)
 		{
 			Client = client;
-			SerializerSettings = serializerSettings;
+			Networks = networks;
 		}
 
 		public ISenderClient Client
 		{
 			get;
 		}
-		public JsonSerializerSettings SerializerSettings
-		{
-			get;
-		}
+		public NBXplorerNetworkProvider Networks { get; }
 
 		static Encoding UTF8 = new UTF8Encoding(false);
 		public async Task Send(NewTransactionEvent transactionEvent)
 		{
-			string jsonMsg = transactionEvent.ToJson(SerializerSettings);
+			string jsonMsg = transactionEvent.ToJson(Networks.GetFromCryptoCode(transactionEvent.CryptoCode).JsonSerializerSettings);
 			var bytes = UTF8.GetBytes(jsonMsg);
 			var message = new Message(bytes);
 			string msgIdHash = HashMessageId($"{transactionEvent.TrackedSource}-{transactionEvent.TransactionData.Transaction.GetHash()}-{(transactionEvent.TransactionData.BlockId?.ToString() ?? string.Empty)}");
 			ValidateMessageId(msgIdHash);
 			message.MessageId = msgIdHash;
 			message.ContentType = transactionEvent.GetType().ToString();
+			message.UserProperties.Add("CryptoCode", transactionEvent.CryptoCode);
 			await Client.SendAsync(message);
 		}
 
 		public async Task Send(NewBlockEvent blockEvent)
 		{
-			string jsonMsg = blockEvent.ToJson(SerializerSettings);
+			string jsonMsg = blockEvent.ToJson(Networks.GetFromCryptoCode(blockEvent.CryptoCode).JsonSerializerSettings);
 			var bytes = UTF8.GetBytes(jsonMsg);
 			var message = new Message(bytes);
 			message.MessageId = blockEvent.Hash.ToString();
 			message.ContentType = blockEvent.GetType().ToString();
+			message.UserProperties.Add("CryptoCode", blockEvent.CryptoCode);			
 			await Client.SendAsync(message);
 		}
 

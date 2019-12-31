@@ -3,23 +3,23 @@
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<Company>Digital Garage</Company>
-		<Version>1.0.3.0</Version>
+		<Version>3.0.1</Version>
 		<Copyright>Copyright © Digital Garage 2017</Copyright>
 		<Description>Client API for the minimalist HD Wallet Tracker NBXplorer</Description>
 		<PackageIconUrl>https://aois.blob.core.windows.net/public/Bitcoin.png</PackageIconUrl>
 		<PackageTags>bitcoin</PackageTags>
 		<PackageProjectUrl>https://github.com/dgarage/NBXplorer/</PackageProjectUrl>
-		<PackageLicenseUrl>https://github.com/dgarage/NBXplorer/blob/master/LICENSE</PackageLicenseUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/dgarage/NBXplorer/</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
-		<LangVersion>7.3</LangVersion>
+		<LangVersion>8.0</LangVersion>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="4.1.1.54" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="1.0.1.18" />
+		<PackageReference Include="NBitcoin" Version="5.0.12" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="2.0.5" />
 		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.18" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>
-
 </Project>

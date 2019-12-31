@@ -1,7 +1,8 @@
-﻿using NBitcoin.Tests;
+using NBitcoin.Tests;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using NBitcoin;
 
 namespace NBXplorer.Tests
 {
@@ -10,71 +11,81 @@ namespace NBXplorer.Tests
 		private void SetEnvironment()
 		{
 			//CryptoCode = "LTC";
-			//nodeDownloadData = NodeDownloadData.Litecoin.v0_15_1;
+			//nodeDownloadData = NodeDownloadData.Litecoin.v0_16_3;
 			//Network = NBitcoin.Altcoins.Litecoin.Instance.Regtest;
-			//RPCSupportSegwit = false;
 
 			//CryptoCode = "BCH";
 			//nodeDownloadData = NodeDownloadData.BCash.v0_16_2;
 			//Network = NBitcoin.Altcoins.BCash.Instance.Regtest;
-			//RPCSupportSegwit = false;
 
 			//Tests of DOGE are broken because it outpoint locking seems to work differently
 			//CryptoCode = "DOGE";
 			//nodeDownloadData = NodeDownloadData.Dogecoin.v1_10_0;
 			//Network = NBitcoin.Altcoins.Dogecoin.Instance.Regtest;
-			//RPCSupportSegwit = false;
 			//RPCStringAmount = false;
 
 			//CryptoCode = "DASH";
 			//nodeDownloadData = NodeDownloadData.Dash.v0_12_2;
 			//Network = NBitcoin.Altcoins.Dash.Instance.Regtest;
-			//RPCSupportSegwit = false;
 
-			//CryptoCode = "TRC";
-			//nodeDownloadData = NodeDownloadData.Terracoin.v0_12_2;
-			//Network = NBitcoin.Altcoins.Terracoin.Instance.Regtest;
-			//RPCSupportSegwit = false;
+            //CryptoCode = "TRC";
+            //nodeDownloadData = NodeDownloadData.Terracoin.v0_12_2;
+            //Network = NBitcoin.Altcoins.Terracoin.Instance.Regtest;
 
-			//CryptoCode = "Polis";
-			//nodeDownloadData = NodeDownloadData.Polis.v1_3_0;
+			//CryptoCode = "POLIS";
+			//nodeDownloadData = NodeDownloadData.Polis.v1_3_1;
 			//Network = NBitcoin.Altcoins.Polis.Instance.Regtest;
-			//RPCSupportSegwit = false;
 
 			//CryptoCode = "BTG";
 			//nodeDownloadData = NodeDownloadData.BGold.v0_15_0;
 			//Network = NBitcoin.Altcoins.BGold.Instance.Regtest;
-			//RPCSupportSegwit = false;
 
 			//CryptoCode = "MONA";
 			//nodeDownloadData = NodeDownloadData.Monacoin.v0_15_1;
 			//Network = NBitcoin.Altcoins.Monacoin.Instance.Regtest;
-			//RPCSupportSegwit = false;
 
 			//CryptoCode = "FTC";
 			//nodeDownloadData = NodeDownloadData.Feathercoin.v0_16_0;
 			//Network = NBitcoin.Altcoins.Feathercoin.Instance.Regtest;
-			//RPCSupportSegwit = false;
 
 			//CryptoCode = "UFO";
 			//nodeDownloadData = NodeDownloadData.Ufo.v0_16_0;
 			//Network = NBitcoin.Altcoins.Ufo.Instance.Regtest;
-			//RPCSupportSegwit = false;
 
 			//CryptoCode = "VIA";
 			//nodeDownloadData = NodeDownloadData.Viacoin.v0_15_1;
 			//Network = NBitcoin.Altcoins.Viacoin.Instance.Regtest;
-			//RPCSupportSegwit = false;
 
 			//CryptoCode = "GRS";
 			//nodeDownloadData = NodeDownloadData.Groestlcoin.v2_16_0;
 			//Network = NBitcoin.Altcoins.Groestlcoin.Instance.Regtest;
 
+			//CryptoCode = "BTX";
+			//nodeDownloadData = NodeDownloadData.Bitcore.v0_15_2;
+			//Network = NBitcoin.Altcoins.Bitcore.Instance.Regtest;
+
+			//CryptoCode = "XMCC";
+			//nodeDownloadData = NodeDownloadData.Monoeci.v0_12_2_3;
+			//Network = NBitcoin.Altcoins.Monoeci.Instance.Regtest;
+			//RPCSupportSegwit = false;
+
+			//CryptoCode = "GBX";
+			//nodeDownloadData = NodeDownloadData.Gobyte.v0_12_2_4;
+			//Network = NBitcoin.Altcoins.Gobyte.Instance.Regtest;
+			//RPCSupportSegwit = false;
+
+			//CryptoCode = "COLX";
+			//nodeDownloadData = NodeDownloadData.Colossus.v1_1_1;
+			//Network = NBitcoin.Altcoins.Colossus.Instance.Regtest;
+			//RPCSupportSegwit = false;
+
+			//CryptoCode = "LBTC";
+			//nodeDownloadData = NodeDownloadData.Elements.v0_18_1_1;
+			//NBXplorerNetwork = new NBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, NetworkType.Regtest);
+			//
 			CryptoCode = "BTC";
-			nodeDownloadData = NodeDownloadData.Bitcoin.v0_17_0;
-			Network = NBitcoin.Network.RegTest;
-			RPCSupportSignRawTransaction = false;
-			RPCSupportSegwit = true;
+			nodeDownloadData = NodeDownloadData.Bitcoin.v0_18_0;
+			NBXplorerNetwork = new NBXplorerNetwork(Network.RegTest.NetworkSet, NetworkType.Regtest);
 		}
 	}
 }

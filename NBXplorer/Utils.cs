@@ -9,60 +9,75 @@ namespace NBXplorer
 {
 	public static class Utils
 	{
-		public static IEnumerable<Transaction> TopologicalSort(this IEnumerable<Transaction> transactions)
+		public static ICollection<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
 		{
-			return transactions
-				.Select(t => t.AsAnnotatedTransaction())
-				.TopologicalSort()
-				.Select(t => t.Record.Transaction);
+			return transactions.TopologicalSort(
+				dependsOn: t => t.Record.SpentOutpoints.Select(o => o.Hash),
+				getKey: t => t.Record.TransactionHash,
+				getValue: t => t,
+				solveTies: AnnotatedTransactionComparer.OldToYoung);
+		}
+		public static List<T> TopologicalSort<T>(this ICollection<T> nodes, Func<T, IEnumerable<T>> dependsOn)
+		{
+			return nodes.TopologicalSort(dependsOn, k => k, k => k);
 		}
 
-		static AnnotatedTransaction AsAnnotatedTransaction(this Transaction tx)
+		public static List<T> TopologicalSort<T, TDepend>(this ICollection<T> nodes, Func<T, IEnumerable<TDepend>> dependsOn, Func<T, TDepend> getKey)
 		{
-			return new AnnotatedTransaction() { Record = new TrackedTransaction() { Transaction = tx } };
-		}
-		
-		public static IEnumerable<AnnotatedTransaction> TopologicalSort(this IEnumerable<AnnotatedTransaction> transactions)
-		{
-			transactions = transactions.ToList(); // Buffer
-			return transactions.TopologicalSort<AnnotatedTransaction>(DependsOn(transactions));
+			return nodes.TopologicalSort(dependsOn, getKey, o => o);
 		}
 
-		static Func<AnnotatedTransaction, IEnumerable<AnnotatedTransaction>> DependsOn(IEnumerable<AnnotatedTransaction> transactions)
+		public static List<TValue> TopologicalSort<T, TDepend, TValue>(this ICollection<T> nodes,
+												Func<T, IEnumerable<TDepend>> dependsOn,
+												Func<T, TDepend> getKey,
+												Func<T, TValue> getValue,
+												IComparer<T> solveTies = null)
 		{
-			return t =>
+			if (nodes.Count == 0)
+				return new List<TValue>();
+			if (getKey == null)
+				throw new ArgumentNullException(nameof(getKey));
+			if (getValue == null)
+				throw new ArgumentNullException(nameof(getValue));
+			solveTies = solveTies ?? Comparer<T>.Default;
+			List<TValue> result = new List<TValue>(nodes.Count);
+			HashSet<TDepend> allKeys = new HashSet<TDepend>(nodes.Count);
+			var noDependencies = new SortedDictionary<T, HashSet<TDepend>>(solveTies);
+
+			foreach (var node in nodes)
+				allKeys.Add(getKey(node));
+			var dependenciesByValues = nodes.ToDictionary(node => node,
+										   node => new HashSet<TDepend>(dependsOn(node).Where(n => allKeys.Contains(n))));
+			foreach (var e in dependenciesByValues.Where(x => x.Value.Count == 0))
 			{
-				HashSet<uint256> spent = new HashSet<uint256>(t.Record.Transaction.Inputs.Select(txin => txin.PrevOut.Hash));
-				return transactions.Where(u => spent.Contains(u.Record.Transaction.GetHash()) ||  //Depends on parent transaction
-												(u.Height.HasValue && t.Height.HasValue && u.Height.Value < t.Height.Value) ); //Depends on earlier transaction
-			};
-		}
-
-		public static IEnumerable<T> TopologicalSort<T>(this IEnumerable<T> nodes,
-												Func<T, IEnumerable<T>> dependsOn)
-		{
-			List<T> result = new List<T>();
-			var elems = nodes.ToDictionary(node => node,
-										   node => new HashSet<T>(dependsOn(node)));
-			while(elems.Count > 0)
+				noDependencies.Add(e.Key, e.Value);
+			}
+			if (noDependencies.Count == 0)
 			{
-				var elem = elems.FirstOrDefault(x => x.Value.Count == 0);
-				if(elem.Key == null)
+				throw new InvalidOperationException("Impossible to topologically sort a cyclic graph");
+			}
+			while (noDependencies.Count > 0)
+			{
+				var nodep = noDependencies.First();
+				noDependencies.Remove(nodep.Key);
+				dependenciesByValues.Remove(nodep.Key);
+
+				var elemKey = getKey(nodep.Key);
+				result.Add(getValue(nodep.Key));
+				foreach (var selem in dependenciesByValues)
 				{
-					//cycle detected can't order
-					return nodes;
+					if (selem.Value.Remove(elemKey) && selem.Value.Count == 0)
+						noDependencies.Add(selem.Key, selem.Value);
 				}
-				elems.Remove(elem.Key);
-				foreach(var selem in elems)
-				{
-					selem.Value.Remove(elem.Key);
-				}
-				result.Add(elem.Key);
+			}
+			if (dependenciesByValues.Count != 0)
+			{
+				throw new InvalidOperationException("Impossible to topologically sort a cyclic graph");
 			}
 			return result;
 		}
 
-		public static TransactionResult ToTransactionResult(bool includeTransaction, SlimChain chain, Repository.SavedTransaction[] result)
+		public static TransactionResult ToTransactionResult(SlimChain chain, Repository.SavedTransaction[] result)
 		{
 			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
 			var oldest = result
@@ -77,7 +92,7 @@ namespace NBXplorer
 
 			var conf = confBlock == null ? 0 : chain.Height - confBlock.Height + 1;
 
-			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = includeTransaction ? oldest.Transaction : null, Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = oldest.Transaction, TransactionHash = oldest.Transaction.GetHash(), Height = confBlock?.Height, Timestamp = oldest.Timestamp };
 		}
 	}
 }

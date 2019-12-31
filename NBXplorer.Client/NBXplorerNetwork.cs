@@ -1,4 +1,6 @@
 ﻿using NBitcoin;
+using NBXplorer.DerivationStrategy;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,11 +11,13 @@ namespace NBXplorer
 {
 	public class NBXplorerNetwork
 	{
-		public NBXplorerNetwork(INetworkSet networkSet, NBitcoin.NetworkType networkType)
+		public NBXplorerNetwork(INetworkSet networkSet, NetworkType networkType,
+			DerivationStrategyFactory derivationStrategyFactory = null)
 		{
 			NBitcoinNetwork = networkSet.GetNetwork(networkType);
 			CryptoCode = networkSet.CryptoCode;
 			DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(networkType);
+			DerivationStrategyFactory = derivationStrategyFactory;
 		}
 		public Network NBitcoinNetwork
 		{
@@ -42,22 +46,51 @@ namespace NBXplorer
 			get;
 			internal set;
 		}
+
+		public virtual BitcoinAddress CreateAddress(DerivationStrategyBase derivationStrategy, KeyPath keyPath, Script scriptPubKey)
+		{
+			return scriptPubKey.GetDestinationAddress(NBitcoinNetwork);
+		}
+
 		public bool SupportCookieAuthentication
 		{
 			get;
 			internal set;
 		} = true;
 
+
+		private Serializer _Serializer;
+		public Serializer Serializer
+		{
+			get
+			{
+				_Serializer = _Serializer ?? new Serializer(this);
+				return _Serializer;
+			}
+		}
+
+
+		public JsonSerializerSettings JsonSerializerSettings
+		{
+			get
+			{
+				return Serializer.Settings;
+			}
+		}
+
+		
+
 		public TimeSpan ChainLoadingTimeout
 		{
 			get;
 			set;
 		} = TimeSpan.FromMinutes(15);
-		public bool SupportEstimatesSmartFee
+
+		public TimeSpan ChainCacheLoadingTimeout
 		{
 			get;
 			set;
-		} = true;
+		} = TimeSpan.FromSeconds(30);
 
 		/// <summary>
 		/// Minimum blocks to keep if pruning is activated
@@ -66,10 +99,16 @@ namespace NBXplorer
 		{
 			get; set;
 		} = 288;
+		public KeyPath CoinType { get; internal set; }
 
 		public override string ToString()
 		{
 			return CryptoCode.ToString();
+		}
+		
+		public virtual ExplorerClient CreateExplorerClient(Uri uri)
+		{
+			return new ExplorerClient(this, uri);
 		}
 	}
 }
