@@ -24,7 +24,7 @@ namespace NBXplorer.DerivationStrategy
 			set;
 		}
 
-		public override string StringValueCore
+		protected override string StringValueCore
 		{
 			get
 			{

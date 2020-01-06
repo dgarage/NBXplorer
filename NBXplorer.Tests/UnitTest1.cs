@@ -3143,61 +3143,7 @@ namespace NBXplorer.Tests
 						.TransactionData.Transaction));
 					Assert.Equal(txid, tx.GetHash());
 					Assert.Contains(tx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value?.ToDecimal(MoneyUnit.BTC) == 0.1m);
-
-					//test: track the same xpub but with diff options(unblinded vs blinded) and see that indexes are not reused
-					
-					userDerivationScheme = tester.Client.GenerateWallet(new GenerateWalletRequest()
-					{
-						SavePrivateKeys = true,
-						ImportKeysToRPC= true
-					}).DerivationScheme;
-				
-				
-					var blindedUnused = await tester.Client.GetUnusedAsync(userDerivationScheme, DerivationFeature.Deposit, 0, true);
-					var bitcoinBlindedAddress = Assert.IsType<BitcoinBlindedAddress>(blindedUnused.Address);
-					userDerivationScheme.AdditionalOptions.Add("unblinded", true);
-					var unblindedUnused = await tester.Client.GetUnusedAsync(userDerivationScheme, DerivationFeature.Deposit,0,true);
-					Assert.IsNotType<BitcoinBlindedAddress>(unblindedUnused.Address);
-				
-					Assert.NotEqual(bitcoinBlindedAddress.UnblindedAddress, unblindedUnused.Address);
-					Assert.NotEqual(blindedUnused.KeyPath, unblindedUnused.KeyPath);
-					Assert.NotEqual(bitcoinBlindedAddress.ScriptPubKey, unblindedUnused.ScriptPubKey);
 				}
-			}
-		}
-[Fact]
-		public async Task TestSTuff()
-		{
-
-			using (var tester = ServerTester.Create())
-			{
-				if (tester.Network.NetworkSet != NBitcoin.Altcoins.Liquid.Instance)
-				{
-					return;
-				}
-
-				var cashNode = tester.NodeBuilder.CreateNode(true);
-				cashNode.Sync(tester.Explorer, true);
-				//test: track the same xpub but with diff options(unblinded vs blinded) and see that indexes are not reused
-
-				var userDerivationScheme = tester.Client.GenerateWallet(new GenerateWalletRequest()
-				{
-					SavePrivateKeys = true,
-					ImportKeysToRPC = true
-				}).DerivationScheme;
-
-
-				var blindedUnused =
-					await tester.Client.GetUnusedAsync(userDerivationScheme, DerivationFeature.Deposit, 0, true);
-				var bitcoinBlindedAddress = Assert.IsType<BitcoinBlindedAddress>(blindedUnused.Address);
-				userDerivationScheme.AdditionalOptions.Add("unblinded", true);
-				var unblindedUnused =
-					await tester.Client.GetUnusedAsync(userDerivationScheme, DerivationFeature.Deposit, 0, true);
-				Assert.IsNotType<BitcoinBlindedAddress>(unblindedUnused.Address);
-
-				Assert.NotEqual(bitcoinBlindedAddress.UnblindedAddress, unblindedUnused.Address);
-				Assert.NotEqual(blindedUnused.KeyPath, unblindedUnused.KeyPath);
-				Assert.NotEqual(bitcoinBlindedAddress.ScriptPubKey, unblindedUnused.ScriptPubKey);
 			}
 		}
 

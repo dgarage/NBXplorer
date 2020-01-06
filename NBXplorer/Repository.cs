@@ -369,7 +369,7 @@ namespace NBXplorer
 			});
 		}
 
-		public virtual async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
+		public async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
 			var keyInfo = await _TxContext.DoAsync((tx) =>
 			{

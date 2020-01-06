@@ -48,8 +48,7 @@ namespace NBXplorer
 		}
 		internal static uint160 GetHash(this DerivationStrategyBase derivation)
 		{
-			//use StringValueCore not StringValue here to ignore additional options and end up with separate stores for the same xpub
-			var data = Encoding.UTF8.GetBytes(derivation.StringValueCore);
+			var data = Encoding.UTF8.GetBytes(derivation.StringValue);
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
 		}
 		internal static uint160 GetHash(this TrackedSource trackedSource)

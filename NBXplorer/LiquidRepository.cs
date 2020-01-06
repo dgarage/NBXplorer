@@ -208,30 +208,6 @@ namespace NBXplorer
 			}
 		}
 
-		
-		public override async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
-		{
-			//This override is a little hacky due to how we store keypath info.
-			//If we track the same xpub with different options( unblinded and blinded), it will use the same storage in order to preserve a correct reserved index.
-			//Since it's the same store, we make sure to change accordingly on who is requesting this key index.
-			//If it is different, we save it to reflect this.
-			//Note: this can happen multiple times if reservation is not used
-			
-			var result = await base.GetUnused(strategy, derivationFeature, n, reserve);
-			var bitcoinBlindedAddress = result.Address as BitcoinBlindedAddress;
-			if (bitcoinBlindedAddress!= null  && strategy.Unblinded())
-			{
-				result.Address = bitcoinBlindedAddress.UnblindedAddress;
-				await SaveKeyInformations(new []{result});
-			}else if(bitcoinBlindedAddress == null && !strategy.Unblinded() )
-			{
-				result.Address = _Network.CreateAddress(strategy, result.KeyPath, result.ScriptPubKey);
-				await SaveKeyInformations(new []{result});
-			}
-
-			return result;
-		}
-
 		public override TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, Transaction tx, Dictionary<Script, KeyPath> knownScriptMapping)
 		{
 			return new ElementsTrackedTransaction(transactionKey, trackedSource, tx, knownScriptMapping);
