@@ -3046,6 +3046,35 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanUseDerivationAdditionalOptions()
+		{
+			var network = GetNetwork(Network.RegTest);
+			var x = new ExtKey().Neuter().GetWif(Network.RegTest);
+			var plainXpub = network.DerivationStrategyFactory.Parse($"{x}");
+			var xpubTest = network.DerivationStrategyFactory.Parse($"{x}-[test]");
+			var xpubTest2Args = network.DerivationStrategyFactory.Parse($"{x}-[test1]-[test2]");
+			var xpubTest2ArgsInversed = network.DerivationStrategyFactory.Parse($"{x}-[TEST2]-[test1]");
+			
+			
+			Assert.Empty(plainXpub.AdditionalOptions);
+			
+			Assert.NotEmpty(xpubTest.AdditionalOptions);
+			Assert.True(xpubTest.AdditionalOptions.ContainsKey("test"));
+			Assert.True(xpubTest.AdditionalOptions["test"]);
+			
+			Assert.NotEqual(plainXpub, xpubTest2Args);
+			Assert.NotEqual(xpubTest, xpubTest2Args);
+			Assert.NotEmpty(xpubTest2Args.AdditionalOptions);
+			
+			Assert.True(xpubTest2Args.AdditionalOptions.ContainsKey("test1"));
+			Assert.True(xpubTest2Args.AdditionalOptions.ContainsKey("test2"));
+			Assert.True(xpubTest2Args.AdditionalOptions["test1"]);
+			Assert.True(xpubTest2Args.AdditionalOptions["test2"]);
+
+			Assert.Equal(xpubTest2Args, xpubTest2ArgsInversed);
+		}
+
+		[Fact]
 		public async Task ElementsTests()
 		{
 			using (var tester = ServerTester.Create())

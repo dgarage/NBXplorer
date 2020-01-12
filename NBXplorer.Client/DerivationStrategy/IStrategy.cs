@@ -49,8 +49,8 @@ namespace NBXplorer.DerivationStrategy
 		public string StringValue => $"{StringValueCore}{GetSuffixOptionsString()}";
 
 		private string GetSuffixOptionsString()
-		{
-			return string.Join("", AdditionalOptions.Where(pair => pair.Value).Select(pair => $"-[{pair.Key}]"));
+		{;
+			return string.Join("", new SortedDictionary<string, bool>(AdditionalOptions).Where(pair => pair.Value).Select(pair => $"-[{pair.Key}]"));
 		}
 		
 		public override bool Equals(object obj)

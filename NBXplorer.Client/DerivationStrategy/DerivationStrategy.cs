@@ -177,7 +177,7 @@ namespace NBXplorer.DerivationStrategy
 
 		private void ReadOptions(ref string str, ref Dictionary<string, bool> additionalOptions)
 		{
-			foreach (Match match in Regex.Matches(str, @"-\[.+\]"))
+			foreach (Match match in Regex.Matches(str, @"-\[[^ \]\-]+\]"))
 			{
 				var key = match.Value.Substring(1)
 					.Replace("[", string.Empty)
@@ -185,7 +185,7 @@ namespace NBXplorer.DerivationStrategy
 
 				var value = false;
 				ReadBool(ref str, key, ref value);
-				additionalOptions.AddOrReplace(key, value);
+				additionalOptions.AddOrReplace(key.ToLowerInvariant(), value);
 			}
 		}
 	}
