@@ -48,7 +48,7 @@ namespace NBXplorer
 		}
 		internal static uint160 GetHash(this DerivationStrategyBase derivation)
 		{
-			var data = Encoding.UTF8.GetBytes(derivation.StringValue);
+			var data = Encoding.UTF8.GetBytes(derivation.ToString());
 			return new uint160(Hashes.RIPEMD160(data, data.Length));
 		}
 		internal static uint160 GetHash(this TrackedSource trackedSource)
