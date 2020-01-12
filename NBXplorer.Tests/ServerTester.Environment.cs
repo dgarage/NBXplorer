@@ -80,7 +80,7 @@ namespace NBXplorer.Tests
 			//NBXplorerNetwork = new NBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, NetworkType.Regtest);
 			//
 			CryptoCode = "BTC";
-			nodeDownloadData = NodeDownloadData.Bitcoin.v0_18_0;
+			nodeDownloadData = NodeDownloadData.Bitcoin.v0_19_0_1;
 			NBXplorerNetwork = new NBXplorerNetwork(Network.RegTest.NetworkSet, NetworkType.Regtest);
 		}
 	}

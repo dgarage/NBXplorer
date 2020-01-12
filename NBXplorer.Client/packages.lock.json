@@ -4,9 +4,9 @@
     ".NETStandard,Version=v2.0": {
       "NBitcoin": {
         "type": "Direct",
-        "requested": "[5.0.12, )",
-        "resolved": "5.0.12",
-        "contentHash": "G0qNBSGk/+alF4qx/WpeP5xkhnbFzDVPG1HqdM4TknP04AysjvovVeKHP29zpIJwDdXHr91LWcVYXTsrqCCAeQ==",
+        "requested": "[5.0.13, )",
+        "resolved": "5.0.13",
+        "contentHash": "kYySbrgqov5/DYJWdj1wTh2lL/llFUwNfQhGtru1Y4m+dkCYgErphalULEdvJUSDAp05itSqZQ0Uyj2vDEU9eg==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "1.0.0",
           "Newtonsoft.Json": "11.0.1",
@@ -15,11 +15,11 @@
       },
       "NBitcoin.Altcoins": {
         "type": "Direct",
-        "requested": "[2.0.5, )",
-        "resolved": "2.0.5",
-        "contentHash": "Vg5DbufgQpS7/W4pSe/qApgYEaa+kHwEhGRXxLAJv2hXIQPwjk1ZHm/UuuPxAtzlcpq4p9CaqtCzI43uQITupg==",
+        "requested": "[2.0.5.1, )",
+        "resolved": "2.0.5.1",
+        "contentHash": "IWf/72HZjReIO0KUf+33WsyRX43MFDnYCPoj+bsxlw8Ql/h07CM1SXRC9M0aGWoSaNvhvV2bn6Q+9D8pqmZFQQ==",
         "dependencies": {
-          "NBitcoin": "5.0.9"
+          "NBitcoin": "5.0.13"
         }
       },
       "NETStandard.Library": {

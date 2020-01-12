@@ -810,8 +810,8 @@ namespace NBXplorer.Tests
 				tester.Client.Track(bob);
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 
-				var payment1 = Money.Coins(0.04m);
-				var payment2 = Money.Coins(0.08m);
+				var payment1 = Money.Coins(0.004m);
+				var payment2 = Money.Coins(0.008m);
 
 				var tx1 = tester.RPC.SendToAddress(a1.ScriptPubKey, payment1, replaceable: true);
 				tester.Notifications.WaitForTransaction(bob, tx1);
@@ -1329,19 +1329,22 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
 				tester.Client.Track(pubkey);
-				tester.RPC.SendCommand(RPCOperations.sendmany, "",
-						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/0")}\": \"0.5\" }}"));
+				var fundingTxId = new uint256(tester.RPC.SendCommand(RPCOperations.sendmany, "",
+						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/0")}\": \"0.5\" }}")).ResultString);
+				tester.Notifications.WaitForTransaction(pubkey, fundingTxId);
 				var utxo = tester.Client.GetUTXOs(pubkey);
 				tester.RPC.EnsureGenerate(1);
 				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
-				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
+				Assert.Equal(fundingTxId, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
 				Logs.Tester.LogInformation($"Funding tx ({fundingTxId}) has two coins");
 				Logs.Tester.LogInformation("Let's spend one of the coins");
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
+
 				var spending1 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				tester.Notifications.WaitForTransaction(pubkey, spending1);
 				Logs.Tester.LogInformation($"Spent on {spending1}");
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
@@ -1357,17 +1360,19 @@ namespace NBXplorer.Tests
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var spending2 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				tester.Notifications.WaitForTransaction(pubkey, spending2);
 				Logs.Tester.LogInformation($"Spent on {spending2}");
 
 				tester.RPC.EnsureGenerate(3);
 				tester.WaitSynchronized();
 				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned if we want to keep 1H of blocks");
-				tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0/24.0 });
+				tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0 / 24.0 });
 				AssertNotPruned(tester, pubkey, fundingTxId);
 				AssertNotPruned(tester, pubkey, spending1);
 				AssertNotPruned(tester, pubkey, spending2);
 
 				tester.RPC.Generate(4);
+				tester.WaitSynchronized();
 				var totalPruned = tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0 / 24.0 }).TotalPruned;
 				Assert.Equal(3, totalPruned);
 				totalPruned = tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0 / 24.0 }).TotalPruned;
