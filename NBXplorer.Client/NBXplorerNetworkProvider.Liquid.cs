@@ -56,7 +56,9 @@ namespace NBXplorer
 	{
 		public static bool Unblinded(this DerivationStrategyBase derivationStrategyBase)
 		{
-			return derivationStrategyBase.AdditionalOptions.TryGetValue("unblinded", out var unblinded) && unblinded;
+			if (derivationStrategyBase.AdditionalOptions is null)
+				return false;
+			return derivationStrategyBase.AdditionalOptions.TryGetValue("unblinded", out var unblinded) is true && unblinded;
 		}
 	}
 }
