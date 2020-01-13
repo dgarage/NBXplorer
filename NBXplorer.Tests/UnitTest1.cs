@@ -810,8 +810,8 @@ namespace NBXplorer.Tests
 				tester.Client.Track(bob);
 				var a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 
-				var payment1 = Money.Coins(0.004m);
-				var payment2 = Money.Coins(0.008m);
+				var payment1 = Money.Coins(0.04m);
+				var payment2 = Money.Coins(0.08m);
 
 				var tx1 = tester.RPC.SendToAddress(a1.ScriptPubKey, payment1, replaceable: true);
 				tester.Notifications.WaitForTransaction(bob, tx1);
@@ -823,10 +823,10 @@ namespace NBXplorer.Tests
 				{
 					input.ScriptSig = Script.Empty; //Strip signatures
 				}
+				var change = tx.Outputs.First(o => o.Value != payment1);
+				change.Value -= ((payment2 - payment1) + Money.Satoshis(5000)); //Add more fees
 				var output = tx.Outputs.First(o => o.Value == payment1);
 				output.Value = payment2;
-				var change = tx.Outputs.First(o => o.Value != payment1);
-				change.Value -= (payment2 - payment1) * 2; //Add more fees
 				var replacement = tester.RPC.SignRawTransaction(tx);
 
 				tester.RPC.SendRawTransaction(replacement);
