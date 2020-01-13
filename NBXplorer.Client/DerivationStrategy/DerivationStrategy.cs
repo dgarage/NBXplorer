@@ -61,7 +61,8 @@ namespace NBXplorer.DerivationStrategy
 			ReadBool(ref str, "keeporder", ref keepOrder);
 
 			var additionalOptions = new Dictionary<string,bool>();
-			ReadOptions(ref str, ref additionalOptions);
+			if (Network.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
+				ReadOptions(ref str, ref additionalOptions);
 			
 			if(!legacy && !_Network.Consensus.SupportSegwit)
 				throw new FormatException("Segwit is not supported");
@@ -73,7 +74,7 @@ namespace NBXplorer.DerivationStrategy
 									p2sh ? ScriptPubKeyType.SegwitP2SH :
 									ScriptPubKeyType.Segwit,
 				AdditionalOptions = additionalOptions
-		};
+			};
 			var match = MultiSigRegex.Match(str);
 			if(match.Success)
 			{

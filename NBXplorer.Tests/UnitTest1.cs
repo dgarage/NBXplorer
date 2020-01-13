@@ -3053,7 +3053,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanUseDerivationAdditionalOptions()
 		{
-			var network = GetNetwork(Network.RegTest);
+			var network = GetNetwork(NBitcoin.Altcoins.Liquid.Instance.Regtest);
 			var x = new ExtKey().Neuter().GetWif(Network.RegTest);
 			var plainXpub = network.DerivationStrategyFactory.Parse($"{x}");
 			var xpubTest = network.DerivationStrategyFactory.Parse($"{x}-[test]");
