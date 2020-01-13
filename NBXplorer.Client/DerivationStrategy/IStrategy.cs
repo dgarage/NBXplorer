@@ -46,10 +46,18 @@ namespace NBXplorer.DerivationStrategy
 			get;
 		}
 		
-		public string StringValue => $"{StringValueCore}{GetSuffixOptionsString()}";
+		public string StringValue
+		{
+			get
+			{
+				if (AdditionalOptions == null || AdditionalOptions.Count == 0)
+					return StringValueCore;
+				return $"{StringValueCore}{GetSuffixOptionsString()}";
+			}
+		}
 
 		private string GetSuffixOptionsString()
-		{;
+		{
 			return string.Join("", new SortedDictionary<string, bool>(AdditionalOptions).Where(pair => pair.Value).Select(pair => $"-[{pair.Key}]"));
 		}
 		
