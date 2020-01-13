@@ -2468,7 +2468,7 @@ namespace NBXplorer.Tests
 				if (evts.Length != 0)
 					lastId = evts.Last().EventId;
 				DateTimeOffset now = DateTimeOffset.UtcNow;
-				using (var cts = new CancellationTokenSource(1000))
+				using (var cts = new CancellationTokenSource(1500))
 				{
 					try
 					{
