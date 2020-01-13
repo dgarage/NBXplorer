@@ -2,6 +2,7 @@
 using NBXplorer.DerivationStrategy;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -21,7 +22,7 @@ namespace NBXplorer.DerivationStrategy
 			get; set;
 		}
 		
-		public Dictionary<string, bool> AdditionalOptions { get; set; } = new Dictionary<string, bool>();
+		public ReadOnlyDictionary<string, bool> AdditionalOptions { get; set; }
 	}
 	public class DerivationStrategyFactory
 	{
@@ -42,7 +43,7 @@ namespace NBXplorer.DerivationStrategy
 		}
 
 		readonly Regex MultiSigRegex = new Regex("^([0-9]{1,2})-of(-[A-Za-z0-9]+)+$");
-		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), null) { Segwit = false };
+		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 		public DerivationStrategyBase Parse(string str)
 		{
 			var strategy = ParseCore(str);
@@ -60,9 +61,11 @@ namespace NBXplorer.DerivationStrategy
 			bool keepOrder = false;
 			ReadBool(ref str, "keeporder", ref keepOrder);
 
-			var additionalOptions = new Dictionary<string,bool>();
+			Dictionary<string, bool> additionalOptions = null;
 			if (Network.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
+			{
 				ReadOptions(ref str, ref additionalOptions);
+			}
 			
 			if(!legacy && !_Network.Consensus.SupportSegwit)
 				throw new FormatException("Segwit is not supported");
@@ -73,7 +76,7 @@ namespace NBXplorer.DerivationStrategy
 				ScriptPubKeyType = legacy ? ScriptPubKeyType.Legacy :
 									p2sh ? ScriptPubKeyType.SegwitP2SH :
 									ScriptPubKeyType.Segwit,
-				AdditionalOptions = additionalOptions
+				AdditionalOptions = additionalOptions == null ? null : new ReadOnlyDictionary<string, bool>(additionalOptions)
 			};
 			var match = MultiSigRegex.Match(str);
 			if(match.Success)
@@ -114,7 +117,7 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey, options.AdditionalOptions) { Segwit = options.ScriptPubKeyType != ScriptPubKeyType.Legacy };
+			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey, options.ScriptPubKeyType != ScriptPubKeyType.Legacy, options.AdditionalOptions);
 			if(options.ScriptPubKeyType != ScriptPubKeyType.Legacy && !_Network.Consensus.SupportSegwit)
 				throw new InvalidOperationException("This crypto currency does not support segwit");
 
@@ -147,10 +150,7 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase CreateMultiSigDerivationStrategy(BitcoinExtPubKey[] pubKeys, int sigCount, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options.ScriptPubKeyType == ScriptPubKeyType.Legacy, options.AdditionalOptions)
-			{
-				LexicographicOrder = !options.KeepOrder
-			};
+			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options.ScriptPubKeyType == ScriptPubKeyType.Legacy, !options.KeepOrder, options.AdditionalOptions);
 			if(options.ScriptPubKeyType == ScriptPubKeyType.Legacy)
 				return new P2SHDerivationStrategy(derivationStrategy, false);
 
@@ -186,6 +186,7 @@ namespace NBXplorer.DerivationStrategy
 
 				var value = false;
 				ReadBool(ref str, key, ref value);
+				additionalOptions = additionalOptions ?? new Dictionary<string, bool>();
 				additionalOptions.AddOrReplace(key.ToLowerInvariant(), value);
 			}
 		}

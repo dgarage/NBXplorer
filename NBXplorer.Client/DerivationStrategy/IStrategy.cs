@@ -2,6 +2,7 @@
 using NBitcoin.Crypto;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 
@@ -16,11 +17,12 @@ namespace NBXplorer.DerivationStrategy
 	}
 	public abstract class DerivationStrategyBase : IHDScriptPubKey
 	{
-		public Dictionary<string, bool> AdditionalOptions { get; }
+		ReadOnlyDictionary<string, bool> Empty = new ReadOnlyDictionary<string, bool>(new Dictionary<string, bool>(0));
+		public ReadOnlyDictionary<string, bool> AdditionalOptions { get; }
 
-		internal DerivationStrategyBase(Dictionary<string,bool> additionalOptions)
+		internal DerivationStrategyBase(ReadOnlyDictionary<string,bool> additionalOptions)
 		{
-			AdditionalOptions = additionalOptions?? new Dictionary<string, bool>();
+			AdditionalOptions = additionalOptions ?? Empty;
 		}
 
 		public DerivationLine GetLineFor(KeyPathTemplate keyPathTemplate)
@@ -45,14 +47,20 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get;
 		}
-		
-		public string StringValue
+
+		string _StringValue;
+		string StringValue
 		{
 			get
 			{
-				if (AdditionalOptions == null || AdditionalOptions.Count == 0)
-					return StringValueCore;
-				return $"{StringValueCore}{GetSuffixOptionsString()}";
+				if (_StringValue == null)
+				{
+					if (AdditionalOptions.Count == 0)
+						_StringValue = StringValueCore;
+					else
+						_StringValue = $"{StringValueCore}{GetSuffixOptionsString()}";
+				}
+				return _StringValue;
 			}
 		}
 

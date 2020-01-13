@@ -74,7 +74,7 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = RepositoryTester.Create(true))
 			{
-				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
+				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 				RepositoryCanTrackAddressesCore(tester, dummy);
 			}
 		}
@@ -145,7 +145,7 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = RepositoryTester.Create(true))
 			{
-				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
+				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 				var seria = new Serializer(tester.Repository.Network);
 				var keyInfo = new KeyPathInformation()
 				{
@@ -3160,7 +3160,7 @@ namespace NBXplorer.Tests
 					
 					Assert.DoesNotContain("-[unblinded]", userDerivationScheme.ToString());
 					//test: setting up unblinded tracking
-					userDerivationScheme.AdditionalOptions.Add("unblinded", true);
+					userDerivationScheme = tester.NBXplorerNetwork.DerivationStrategyFactory.Parse(userDerivationScheme.ToString() + "-[unblinded]");
 					
 					Assert.Contains("-[unblinded]", userDerivationScheme.ToString());
 
