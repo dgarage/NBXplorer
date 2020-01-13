@@ -924,8 +924,7 @@ namespace NBXplorer.Controllers
 			var buffer = new MemoryStream();
 			await Request.Body.CopyToAsync(buffer);
 			buffer.Position = 0;
-			var stream = new BitcoinStream(buffer, false);
-			tx.ReadWrite(stream);
+			tx.FromBytes(buffer.ToArrayEfficient());
 
 			var waiter = this.Waiters.GetWaiter(network);
 			var repo = RepositoryProvider.GetRepository(network);

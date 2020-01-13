@@ -78,7 +78,7 @@ namespace NBXplorer.Tests
 
 			//CryptoCode = "LBTC";
 			//nodeDownloadData = NodeDownloadData.Elements.v0_18_1_1;
-			//NBXplorerNetwork = new NBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, NetworkType.Regtest);
+			//NBXplorerNetwork = _Provider.GetLBTC();
 			//
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_19_0_1;
