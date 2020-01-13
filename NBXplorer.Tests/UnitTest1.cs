@@ -3051,6 +3051,35 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanUseDerivationAdditionalOptions()
+		{
+			var network = GetNetwork(Network.RegTest);
+			var x = new ExtKey().Neuter().GetWif(Network.RegTest);
+			var plainXpub = network.DerivationStrategyFactory.Parse($"{x}");
+			var xpubTest = network.DerivationStrategyFactory.Parse($"{x}-[test]");
+			var xpubTest2Args = network.DerivationStrategyFactory.Parse($"{x}-[test1]-[test2]");
+			var xpubTest2ArgsInversed = network.DerivationStrategyFactory.Parse($"{x}-[TEST2]-[test1]");
+			
+			
+			Assert.Empty(plainXpub.AdditionalOptions);
+			
+			Assert.NotEmpty(xpubTest.AdditionalOptions);
+			Assert.True(xpubTest.AdditionalOptions.ContainsKey("test"));
+			Assert.True(xpubTest.AdditionalOptions["test"]);
+			
+			Assert.NotEqual(plainXpub, xpubTest2Args);
+			Assert.NotEqual(xpubTest, xpubTest2Args);
+			Assert.NotEmpty(xpubTest2Args.AdditionalOptions);
+			
+			Assert.True(xpubTest2Args.AdditionalOptions.ContainsKey("test1"));
+			Assert.True(xpubTest2Args.AdditionalOptions.ContainsKey("test2"));
+			Assert.True(xpubTest2Args.AdditionalOptions["test1"]);
+			Assert.True(xpubTest2Args.AdditionalOptions["test2"]);
+
+			Assert.Equal(xpubTest2Args, xpubTest2ArgsInversed);
+		}
+
+		[Fact]
 		public async Task ElementsTests()
 		{
 			using (var tester = ServerTester.Create())
@@ -3082,7 +3111,7 @@ namespace NBXplorer.Tests
 
 					//test: Client should return Elements transaction types when event is published
 					var evtTask = session.NextEventAsync(Timeout);
-					var txid = await cashCow.SendToAddressAsync(address, Money.Coins(1.0m));
+					var txid = await cashCow.SendToAddressAsync(address, Money.Coins(0.2m));
 
 					var evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 
@@ -3090,7 +3119,7 @@ namespace NBXplorer.Tests
 					//test: Elements should have unblinded the outputs
 					var output = Assert.Single(evt.Outputs);
 					var assetMoney = Assert.IsType<AssetMoney>(output.Value);
-					Assert.Equal(Money.Coins(1.0m).Satoshi, assetMoney.Quantity);
+					Assert.Equal(Money.Coins(0.2m).Satoshi, assetMoney.Quantity);
 					Assert.NotNull(assetMoney.AssetId);
 
 					// but not the transaction itself
@@ -3124,14 +3153,33 @@ namespace NBXplorer.Tests
 					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString(), 0);
 					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
 
-					Assert.Equal(1.0m, receivedMoney);
+					Assert.Equal(0.2m, receivedMoney);
 
 					var balance = tester.Client.GetBalance(userDerivationScheme);
 					Assert.Equal(assetMoney, ((MoneyBag)balance.Total).Single());
+					
+					Assert.DoesNotContain("-[unblinded]", userDerivationScheme.ToString());
+					//test: setting up unblinded tracking
+					userDerivationScheme.AdditionalOptions.Add("unblinded", true);
+					
+					Assert.Contains("-[unblinded]", userDerivationScheme.ToString());
+
+					Assert.True(tester.NBXplorerNetwork.DerivationStrategyFactory.Parse(userDerivationScheme.ToString())
+						            .AdditionalOptions.TryGetValue("unblinded", out var unblinded) && unblinded);
+					await tester.Client.TrackAsync(userDerivationScheme, Timeout);
+					var unusedUnblinded = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+					Assert.IsNotType<BitcoinBlindedAddress>(unusedUnblinded.Address);
+					
+					evtTask = session.NextEventAsync(Timeout);
+					txid = await cashCow.SendToAddressAsync(unusedUnblinded.Address, Money.Coins(0.1m));
+					evt = Assert.IsType<NewTransactionEvent>(await evtTask);
+					tx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
+						.TransactionData.Transaction));
+					Assert.Equal(txid, tx.GetHash());
+					Assert.Contains(tx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value?.ToDecimal(MoneyUnit.BTC) == 0.1m);
 				}
 			}
 		}
-
 
 		[Fact]
 		public async Task CanGenerateWallet()
