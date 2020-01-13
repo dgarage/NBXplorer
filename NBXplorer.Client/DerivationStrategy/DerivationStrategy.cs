@@ -40,7 +40,15 @@ namespace NBXplorer.DerivationStrategy
 			if(network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
+			if (_Network.Consensus.SupportSegwit)
+			{
+				AuthorizedOptions.Add("p2sh");
+			}
+			AuthorizedOptions.Add("keeporder");
+			AuthorizedOptions.Add("legacy");
 		}
+
+		public HashSet<string> AuthorizedOptions { get; } = new HashSet<string>();
 
 		readonly Regex MultiSigRegex = new Regex("^([0-9]{1,2})-of(-[A-Za-z0-9]+)+$");
 		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
@@ -53,22 +61,36 @@ namespace NBXplorer.DerivationStrategy
 		private DerivationStrategyBase ParseCore(string str)
 		{
 			bool legacy = false;
-			ReadBool(ref str, "legacy", ref legacy);
-
 			bool p2sh = false;
-			ReadBool(ref str, "p2sh", ref p2sh);
-
 			bool keepOrder = false;
-			ReadBool(ref str, "keeporder", ref keepOrder);
 
-			Dictionary<string, bool> additionalOptions = null;
-			if (Network.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
+			Dictionary<string, bool> optionsDictionary = new Dictionary<string, bool>(5);
+			foreach (Match optionMatch in _OptionRegex.Matches(str))
 			{
-				ReadOptions(ref str, ref additionalOptions);
+				var key = optionMatch.Groups[1].Value.ToLowerInvariant();
+				if (!AuthorizedOptions.Contains(key))
+					throw new FormatException($"The option '{key}' is not supported by this network");
+				if (!optionsDictionary.TryAdd(key, true))
+					throw new FormatException($"The option '{key}' is duplicated");
 			}
-			
-			if(!legacy && !_Network.Consensus.SupportSegwit)
-				throw new FormatException("Segwit is not supported");
+			str = _OptionRegex.Replace(str, string.Empty);
+			if (optionsDictionary.Remove("legacy"))
+			{
+				legacy = true;
+			}
+			if (optionsDictionary.Remove("p2sh"))
+			{
+				p2sh = true;
+			}
+			if (optionsDictionary.Remove("keeporder"))
+			{
+				keepOrder = true;
+			}
+			if (!legacy && !_Network.Consensus.SupportSegwit)
+				throw new FormatException("Segwit is not supported you need to specify option '-[legacy]'");
+
+			if (legacy && p2sh)
+				throw new FormatException("The option 'legacy' is incompatible with 'p2sh'");
 
 			var options = new DerivationStrategyOptions()
 			{
@@ -76,7 +98,7 @@ namespace NBXplorer.DerivationStrategy
 				ScriptPubKeyType = legacy ? ScriptPubKeyType.Legacy :
 									p2sh ? ScriptPubKeyType.SegwitP2SH :
 									ScriptPubKeyType.Segwit,
-				AdditionalOptions = additionalOptions == null ? null : new ReadOnlyDictionary<string, bool>(additionalOptions)
+				AdditionalOptions = new ReadOnlyDictionary<string, bool>(optionsDictionary)
 			};
 			var match = MultiSigRegex.Match(str);
 			if(match.Success)
@@ -176,19 +198,6 @@ namespace NBXplorer.DerivationStrategy
 			}
 		}
 
-		private void ReadOptions(ref string str, ref Dictionary<string, bool> additionalOptions)
-		{
-			foreach (Match match in Regex.Matches(str, @"-\[[^ \]\-]+\]"))
-			{
-				var key = match.Value.Substring(1)
-					.Replace("[", string.Empty)
-					.Replace("]", string.Empty);
-
-				var value = false;
-				ReadBool(ref str, key, ref value);
-				additionalOptions = additionalOptions ?? new Dictionary<string, bool>();
-				additionalOptions.AddOrReplace(key.ToLowerInvariant(), value);
-			}
-		}
+		readonly static Regex _OptionRegex = new Regex(@"-\[([^ \]\-]+)\]");
 	}
 }

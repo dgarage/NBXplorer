@@ -8,6 +8,7 @@ namespace NBXplorer.Tests
 {
     public partial class ServerTester
     {
+		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(NetworkType.Regtest);
 		private void SetEnvironment()
 		{
 			//CryptoCode = "LTC";
@@ -81,7 +82,7 @@ namespace NBXplorer.Tests
 			//
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_19_0_1;
-			NBXplorerNetwork = new NBXplorerNetwork(Network.RegTest.NetworkSet, NetworkType.Regtest);
+			NBXplorerNetwork = _Provider.GetBTC();
 		}
 	}
 }

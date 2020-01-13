@@ -29,10 +29,10 @@ namespace NBXplorer.Tests
 			Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
 			Logs.LogProvider = new XUnitLogProvider(helper);
 		}
-
-		private NBXplorerNetwork GetNetwork(Network network)
+		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(NetworkType.Regtest);
+		private NBXplorerNetwork GetNetwork(INetworkSet network)
 		{
-			return new NBXplorerNetwork(network.NetworkSet, network.NetworkType, new DerivationStrategyFactory(network));
+			return _Provider.GetFromCryptoCode(network.CryptoCode);
 		}
 
 		[Fact]
@@ -2069,6 +2069,14 @@ namespace NBXplorer.Tests
 			generated = Generate(multiP2WSHP2SH);
 			Assert.IsType<ScriptId>(generated.ScriptPubKey.GetDestination());
 			Assert.NotNull(PayToMultiSigTemplate.Instance.ExtractScriptPubKeyParameters(generated.Redeem));
+
+			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[keeporder]-[legacy]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[legacy]-[keeporder]").ToString());
+			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[p2sh]-[keeporder]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[keeporder]-[p2sh]").ToString());
+
+			factory.AuthorizedOptions.Add("a");
+			factory.AuthorizedOptions.Add("b");
+			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[b]-[keeporder]-[a]-[legacy]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[legacy]-[keeporder]-[a]-[b]").ToString());
+			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[a]-[p2sh]-[keeporder]-[b]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[keeporder]-[p2sh]-[a]-[b]").ToString());
 		}
 
 		private static Derivation Generate(DerivationStrategyBase strategy)
@@ -2530,7 +2538,7 @@ namespace NBXplorer.Tests
 		public void CanTopologicalSortRecords()
 		{
 			var key = new BitcoinExtKey(new ExtKey(), Network.RegTest);
-			var pubkey = GetNetwork(Network.RegTest).DerivationStrategyFactory.Parse($"{key.Neuter().ToString()}");
+			var pubkey = GetNetwork(Bitcoin.Instance).DerivationStrategyFactory.Parse($"{key.Neuter().ToString()}");
 			var trackedSource = new DerivationSchemeTrackedSource(pubkey);
 
 			// The topological sorting should always return the most buried transactions first
@@ -3053,9 +3061,14 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanUseDerivationAdditionalOptions()
 		{
-			var network = GetNetwork(NBitcoin.Altcoins.Liquid.Instance.Regtest);
-			var x = new ExtKey().Neuter().GetWif(Network.RegTest);
+			var network = GetNetwork(NBitcoin.Altcoins.AltNetworkSets.Liquid);
+			var x = new ExtKey().Neuter().GetWif(network.NBitcoinNetwork);
 			var plainXpub = network.DerivationStrategyFactory.Parse($"{x}");
+			network.DerivationStrategyFactory.Parse($"{x}-[unblinded]");
+			Assert.Throws<FormatException>(() => network.DerivationStrategyFactory.Parse($"{x}-[test]"));
+			network.DerivationStrategyFactory.AuthorizedOptions.Add("test");
+			network.DerivationStrategyFactory.AuthorizedOptions.Add("test1");
+			network.DerivationStrategyFactory.AuthorizedOptions.Add("test2");
 			var xpubTest = network.DerivationStrategyFactory.Parse($"{x}-[test]");
 			var xpubTest2Args = network.DerivationStrategyFactory.Parse($"{x}-[test1]-[test2]");
 			var xpubTest2ArgsInversed = network.DerivationStrategyFactory.Parse($"{x}-[TEST2]-[test1]");
@@ -3077,6 +3090,12 @@ namespace NBXplorer.Tests
 			Assert.True(xpubTest2Args.AdditionalOptions["test2"]);
 
 			Assert.Equal(xpubTest2Args, xpubTest2ArgsInversed);
+
+			var xpub = network.DerivationStrategyFactory.Parse($"{x}-[TEST2]-[test1]-[p2sh]");
+			Assert.Equal($"{x}-[p2sh]-[test1]-[test2]", xpub.ToString());
+			Assert.Equal(2, xpub.AdditionalOptions.Count);
+			Assert.True(xpub.AdditionalOptions.ContainsKey("test1"));
+			Assert.True(xpub.AdditionalOptions.ContainsKey("test2"));
 		}
 
 		[Fact]

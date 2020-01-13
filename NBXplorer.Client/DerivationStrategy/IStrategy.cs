@@ -43,7 +43,7 @@ namespace NBXplorer.DerivationStrategy
 		}
 		public abstract Derivation GetDerivation();
 
-		protected abstract string StringValueCore
+		protected internal abstract string StringValueCore
 		{
 			get;
 		}

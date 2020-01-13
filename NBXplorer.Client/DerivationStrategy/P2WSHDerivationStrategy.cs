@@ -22,7 +22,7 @@ namespace NBXplorer.DerivationStrategy
 			get; set;
 		}
 
-		protected override string StringValueCore => Inner.ToString();
+		protected internal override string StringValueCore => Inner.ToString();
 
 		public override Derivation GetDerivation()
 		{

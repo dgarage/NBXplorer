@@ -30,7 +30,7 @@ namespace NBXplorer.DerivationStrategy
 			get;
 		}
 
-		protected override string StringValueCore
+		protected internal override string StringValueCore
 		{
 			get
 			{

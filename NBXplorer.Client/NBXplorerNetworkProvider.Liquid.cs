@@ -12,10 +12,17 @@ namespace NBXplorer
 	{
 		public class LiquidNBXplorerNetwork : NBXplorerNetwork
 		{
-			public LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType, DerivationStrategyFactory derivationStrategyFactory = null) : base(networkSet, networkType, derivationStrategyFactory)
+			internal LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType) : base(networkSet, networkType)
 			{
 			}
-			
+
+			internal override DerivationStrategyFactory CreateStrategyFactory()
+			{
+				var factory = base.CreateStrategyFactory();
+				factory.AuthorizedOptions.Add("unblinded");
+				return factory;
+			}
+
 			public override BitcoinAddress CreateAddress(DerivationStrategyBase derivationStrategy, KeyPath keyPath, Script scriptPubKey)
 			{
 				if (derivationStrategy.Unblinded())

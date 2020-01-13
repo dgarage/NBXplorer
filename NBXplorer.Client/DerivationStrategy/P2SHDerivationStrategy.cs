@@ -24,12 +24,12 @@ namespace NBXplorer.DerivationStrategy
 			get; set;
 		}
 
-		protected override string StringValueCore
+		protected internal override string StringValueCore
 		{
 			get
 			{
 				if(addSuffix)
-					return Inner.ToString() + "-[p2sh]";
+					return Inner.StringValueCore + "-[p2sh]";
 				return Inner.ToString();
 			}
 		}
