@@ -82,6 +82,25 @@ namespace NBXplorer.Controllers
 		}
 		public ScanUTXOSetService ScanUTXOSetService { get; }
 
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/rpc")]
+		public async Task<IActionResult> RPCProxy(string cryptoCode, [FromBody]string jsonRPC)
+		{
+			var network = GetNetwork(cryptoCode, true);
+			var waiter = Waiters.GetWaiter(network);
+			if (jsonRPC.StartsWith("["))
+			{
+				var batchRPC = waiter.RPC.PrepareBatch();
+				var results = network.Serializer.ToObject<RPCRequest[]>(jsonRPC).Select(rpcRequest => batchRPC.SendCommandAsync(rpcRequest, false)).ToList();
+				await batchRPC.SendBatchAsync();
+				return Json(results.Select(task => task.Result));
+			}
+			else
+			{
+				return Json(await waiter.RPC.SendCommandAsync(network.Serializer.ToObject<RPCRequest>(jsonRPC), false));
+			}
+		}
+		
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/fees/{blockCount}")]
 		public async Task<GetFeeRateResult> GetFeeRate(int blockCount, string cryptoCode)

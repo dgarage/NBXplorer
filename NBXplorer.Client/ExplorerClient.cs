@@ -86,7 +86,10 @@ namespace NBXplorer
 			_CryptoCode = _Network.CryptoCode;
 			_Factory = Network.DerivationStrategyFactory;
 			SetCookieAuth(network.DefaultSettings.DefaultCookieFile);
+			RPCClient = new RPCClientProxy(this);  
 		}
+
+		public RPCClientProxy RPCClient { get;}
 
 		internal IAuth _Auth = new NullAuthentication();
 
@@ -124,7 +127,6 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(extKey));
 			return GetUTXOsAsync(TrackedSource.Create(extKey), cancellation);
 		}
-
 		public async Task<TransactionResult> GetTransactionAsync(uint256 txId, CancellationToken cancellation = default)
 		{
 			return await SendAsync<TransactionResult>(HttpMethod.Get, null, "v1/cryptos/{0}/transactions/" + txId, new[] { CryptoCode }, cancellation).ConfigureAwait(false);
