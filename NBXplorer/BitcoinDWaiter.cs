@@ -267,8 +267,15 @@ namespace NBXplorer
 							_Network.NBitcoinNetwork.NetworkType == NetworkType.Mainnet &&
 							!_BanListLoaded)
 						{
-							if (await LoadBanList())
+							try
+							{
+								await LoadBanList();
 								_BanListLoaded = true;
+							}
+							catch (Exception ex)
+							{
+								Logs.Explorer.LogWarning($"{Network.CryptoCode}: Error while trying to load the ban list, skipping... ({ex.Message})");
+							}
 						}
 						if (blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest)
 						{
@@ -371,7 +378,7 @@ namespace NBXplorer
 				File.Delete(RPCReadyFile);
 		}
 
-		private async Task<bool> LoadBanList()
+		private async Task LoadBanList()
 		{
 			var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("NBXplorer.banlist.cli.txt");
 			string content = null;
@@ -394,7 +401,6 @@ namespace NBXplorer
 					result.ThrowIfError();
 			}
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Node banlist loaded");
-			return true;
 		}
 
 		private async Task ConnectToBitcoinD(CancellationToken cancellation)
