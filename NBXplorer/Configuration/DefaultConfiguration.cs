@@ -44,6 +44,7 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}minutxovalue", $"The minimum value of tracked UTXOs, any UTXO with value less than this is ignored. (default: 1 (satoshi))", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}hastxindex", "If true, NBXplorer will try to fetch missing transactions from the local node (default: false)", CommandOptionType.BoolValue);
+				app.Option($"--{crypto}pollinginterval", $"Polling interval (in seconds) for querying about UTXO to the chain. (default: 60 seconds)", CommandOptionType.SingleValue);
 			}
 
 			app.Option("--asbcnstr", "[For Azure Service Bus] Azure Service Bus Connection string. New Block and New Transaction messages will be pushed to queues when this values is set", CommandOptionType.SingleValue);

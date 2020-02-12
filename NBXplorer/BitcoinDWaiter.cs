@@ -196,7 +196,7 @@ namespace NBXplorer
 						while (await StepAsync(token))
 						{
 						}
-						await tick.Wait(PollingInterval, token);
+						await tick.Wait(_ChainConfiguration.PollingInterval, token);
 						errors = 0;
 					}
 					catch (ConfigException) when (!token.IsCancellationRequested)
@@ -229,11 +229,6 @@ namespace NBXplorer
 		{
 			return GetExplorerBehavior()?.CurrentLocation;
 		}
-
-		public TimeSpan PollingInterval
-		{
-			get; set;
-		} = TimeSpan.FromMinutes(1.0);
 
 		public async Task StopAsync(CancellationToken cancellationToken)
 		{

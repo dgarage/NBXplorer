@@ -48,6 +48,8 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public bool HasTxIndex { get; set; }
+
+		public TimeSpan PollingInterval { get;set;}
 	}
 	public class ExplorerConfiguration
 	{
@@ -118,6 +120,8 @@ namespace NBXplorer.Configuration
 					var chainConfiguration = new ChainConfiguration();
 					chainConfiguration.Rescan = config.GetOrDefault<bool>($"{network.CryptoCode}.rescan", false);
 					chainConfiguration.CryptoCode = network.CryptoCode;
+
+					chainConfiguration.PollingInterval = TimeSpan.FromSeconds(config.GetOrDefault<int>($"{network.CryptoCode}.pollinginterval", 60));
 
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
 
