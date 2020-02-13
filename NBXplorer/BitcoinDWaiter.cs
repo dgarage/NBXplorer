@@ -367,7 +367,7 @@ namespace NBXplorer
 			return _Node?.State == NodeState.HandShaked ? _Node : null;
 		}
 
-		private ExplorerBehavior GetExplorerBehavior()
+		internal ExplorerBehavior GetExplorerBehavior()
 		{
 			return GetHandshakedNode()?.Behaviors?.Find<ExplorerBehavior>();
 		}

@@ -337,7 +337,7 @@ namespace NBXplorer
 		}
 
 
-		private async Task SaveMatches(Transaction transaction)
+		internal async Task SaveMatches(Transaction transaction)
 		{
 			var now = DateTimeOffset.UtcNow;
 			var matches = (await Repository.GetMatches(transaction, null, now, false)).ToArray();
