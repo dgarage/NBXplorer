@@ -11,7 +11,7 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Terracoin.Instance, networkType)
 			{
-				MinRPCVersion = 120204
+				MinRPCVersion = 120204,
 				CoinType = networkType == NetworkType.Mainnet ? new KeyPath("83'") : new KeyPath("1'")
 			});
 		}
