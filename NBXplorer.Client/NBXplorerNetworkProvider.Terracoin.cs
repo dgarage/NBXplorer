@@ -11,7 +11,7 @@ namespace NBXplorer
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Terracoin.Instance, networkType)
 			{
-				MinRPCVersion = 120000
+				MinRPCVersion = 120204
 			});
 		}
 
