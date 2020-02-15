@@ -29,10 +29,10 @@ namespace NBXplorer.Tests
 			Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
 			Logs.LogProvider = new XUnitLogProvider(helper);
 		}
-
-		private NBXplorerNetwork GetNetwork(Network network)
+		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(NetworkType.Regtest);
+		private NBXplorerNetwork GetNetwork(INetworkSet network)
 		{
-			return new NBXplorerNetwork(network.NetworkSet, network.NetworkType, new DerivationStrategyFactory(network));
+			return _Provider.GetFromCryptoCode(network.CryptoCode);
 		}
 
 		[Fact]
@@ -74,7 +74,7 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = RepositoryTester.Create(true))
 			{
-				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
+				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 				RepositoryCanTrackAddressesCore(tester, dummy);
 			}
 		}
@@ -145,7 +145,7 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = RepositoryTester.Create(true))
 			{
-				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
+				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 				var seria = new Serializer(tester.Repository.Network);
 				var keyInfo = new KeyPathInformation()
 				{
@@ -823,10 +823,10 @@ namespace NBXplorer.Tests
 				{
 					input.ScriptSig = Script.Empty; //Strip signatures
 				}
+				var change = tx.Outputs.First(o => o.Value != payment1);
+				change.Value -= ((payment2 - payment1) + Money.Satoshis(5000)); //Add more fees
 				var output = tx.Outputs.First(o => o.Value == payment1);
 				output.Value = payment2;
-				var change = tx.Outputs.First(o => o.Value != payment1);
-				change.Value -= (payment2 - payment1) * 2; //Add more fees
 				var replacement = tester.RPC.SignRawTransaction(tx);
 
 				tester.RPC.SendRawTransaction(replacement);
@@ -1329,19 +1329,22 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
 				tester.Client.Track(pubkey);
-				tester.RPC.SendCommand(RPCOperations.sendmany, "",
-						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/0")}\": \"0.5\" }}"));
+				var fundingTxId = new uint256(tester.RPC.SendCommand(RPCOperations.sendmany, "",
+						JObject.Parse($"{{ \"{tester.AddressOf(pubkey, "0/1")}\": \"0.9\", \"{tester.AddressOf(pubkey, "0/0")}\": \"0.5\" }}")).ResultString);
+				tester.Notifications.WaitForTransaction(pubkey, fundingTxId);
 				var utxo = tester.Client.GetUTXOs(pubkey);
 				tester.RPC.EnsureGenerate(1);
 				tester.Notifications.WaitForBlocks(tester.RPC.Generate(1));
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(2, utxo.Confirmed.UTXOs.Count);
-				var fundingTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
+				Assert.Equal(fundingTxId, utxo.Confirmed.UTXOs[0].Outpoint.Hash);
 				Logs.Tester.LogInformation($"Funding tx ({fundingTxId}) has two coins");
 				Logs.Tester.LogInformation("Let's spend one of the coins");
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
+
 				var spending1 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				tester.Notifications.WaitForTransaction(pubkey, spending1);
 				Logs.Tester.LogInformation($"Spent on {spending1}");
 				tester.RPC.EnsureGenerate(1);
 				tester.WaitSynchronized();
@@ -1357,17 +1360,19 @@ namespace NBXplorer.Tests
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
 				var spending2 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
+				tester.Notifications.WaitForTransaction(pubkey, spending2);
 				Logs.Tester.LogInformation($"Spent on {spending2}");
 
 				tester.RPC.EnsureGenerate(3);
 				tester.WaitSynchronized();
 				Logs.Tester.LogInformation($"Now {spending1} and {spending2} should be pruned if we want to keep 1H of blocks");
-				tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0/24.0 });
+				tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0 / 24.0 });
 				AssertNotPruned(tester, pubkey, fundingTxId);
 				AssertNotPruned(tester, pubkey, spending1);
 				AssertNotPruned(tester, pubkey, spending2);
 
 				tester.RPC.Generate(4);
+				tester.WaitSynchronized();
 				var totalPruned = tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0 / 24.0 }).TotalPruned;
 				Assert.Equal(3, totalPruned);
 				totalPruned = tester.Client.Prune(pubkey, new PruneRequest() { DaysToKeep = 1.0 / 24.0 }).TotalPruned;
@@ -2064,6 +2069,14 @@ namespace NBXplorer.Tests
 			generated = Generate(multiP2WSHP2SH);
 			Assert.IsType<ScriptId>(generated.ScriptPubKey.GetDestination());
 			Assert.NotNull(PayToMultiSigTemplate.Instance.ExtractScriptPubKeyParameters(generated.Redeem));
+
+			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[keeporder]-[legacy]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[legacy]-[keeporder]").ToString());
+			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[p2sh]-[keeporder]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[keeporder]-[p2sh]").ToString());
+
+			factory.AuthorizedOptions.Add("a");
+			factory.AuthorizedOptions.Add("b");
+			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[b]-[keeporder]-[a]-[legacy]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[legacy]-[keeporder]-[a]-[b]").ToString());
+			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[a]-[p2sh]-[keeporder]-[b]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[keeporder]-[p2sh]-[a]-[b]").ToString());
 		}
 
 		private static Derivation Generate(DerivationStrategyBase strategy)
@@ -2455,7 +2468,7 @@ namespace NBXplorer.Tests
 				if (evts.Length != 0)
 					lastId = evts.Last().EventId;
 				DateTimeOffset now = DateTimeOffset.UtcNow;
-				using (var cts = new CancellationTokenSource(1000))
+				using (var cts = new CancellationTokenSource(1500))
 				{
 					try
 					{
@@ -2525,7 +2538,7 @@ namespace NBXplorer.Tests
 		public void CanTopologicalSortRecords()
 		{
 			var key = new BitcoinExtKey(new ExtKey(), Network.RegTest);
-			var pubkey = GetNetwork(Network.RegTest).DerivationStrategyFactory.Parse($"{key.Neuter().ToString()}");
+			var pubkey = GetNetwork(Bitcoin.Instance).DerivationStrategyFactory.Parse($"{key.Neuter().ToString()}");
 			var trackedSource = new DerivationSchemeTrackedSource(pubkey);
 
 			// The topological sorting should always return the most buried transactions first
@@ -3046,6 +3059,46 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public void CanUseDerivationAdditionalOptions()
+		{
+			var network = GetNetwork(NBitcoin.Altcoins.AltNetworkSets.Liquid);
+			var x = new ExtKey().Neuter().GetWif(network.NBitcoinNetwork);
+			var plainXpub = network.DerivationStrategyFactory.Parse($"{x}");
+			network.DerivationStrategyFactory.Parse($"{x}-[unblinded]");
+			Assert.Throws<FormatException>(() => network.DerivationStrategyFactory.Parse($"{x}-[test]"));
+			network.DerivationStrategyFactory.AuthorizedOptions.Add("test");
+			network.DerivationStrategyFactory.AuthorizedOptions.Add("test1");
+			network.DerivationStrategyFactory.AuthorizedOptions.Add("test2");
+			var xpubTest = network.DerivationStrategyFactory.Parse($"{x}-[test]");
+			var xpubTest2Args = network.DerivationStrategyFactory.Parse($"{x}-[test1]-[test2]");
+			var xpubTest2ArgsInversed = network.DerivationStrategyFactory.Parse($"{x}-[TEST2]-[test1]");
+			
+			
+			Assert.Empty(plainXpub.AdditionalOptions);
+			
+			Assert.NotEmpty(xpubTest.AdditionalOptions);
+			Assert.True(xpubTest.AdditionalOptions.ContainsKey("test"));
+			Assert.True(xpubTest.AdditionalOptions["test"]);
+			
+			Assert.NotEqual(plainXpub, xpubTest2Args);
+			Assert.NotEqual(xpubTest, xpubTest2Args);
+			Assert.NotEmpty(xpubTest2Args.AdditionalOptions);
+			
+			Assert.True(xpubTest2Args.AdditionalOptions.ContainsKey("test1"));
+			Assert.True(xpubTest2Args.AdditionalOptions.ContainsKey("test2"));
+			Assert.True(xpubTest2Args.AdditionalOptions["test1"]);
+			Assert.True(xpubTest2Args.AdditionalOptions["test2"]);
+
+			Assert.Equal(xpubTest2Args, xpubTest2ArgsInversed);
+
+			var xpub = network.DerivationStrategyFactory.Parse($"{x}-[TEST2]-[test1]-[p2sh]");
+			Assert.Equal($"{x}-[p2sh]-[test1]-[test2]", xpub.ToString());
+			Assert.Equal(2, xpub.AdditionalOptions.Count);
+			Assert.True(xpub.AdditionalOptions.ContainsKey("test1"));
+			Assert.True(xpub.AdditionalOptions.ContainsKey("test2"));
+		}
+
+		[Fact]
 		public async Task ElementsTests()
 		{
 			using (var tester = ServerTester.Create())
@@ -3077,7 +3130,7 @@ namespace NBXplorer.Tests
 
 					//test: Client should return Elements transaction types when event is published
 					var evtTask = session.NextEventAsync(Timeout);
-					var txid = await cashCow.SendToAddressAsync(address, Money.Coins(1.0m));
+					var txid = await cashCow.SendToAddressAsync(address, Money.Coins(0.2m));
 
 					var evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 
@@ -3085,7 +3138,7 @@ namespace NBXplorer.Tests
 					//test: Elements should have unblinded the outputs
 					var output = Assert.Single(evt.Outputs);
 					var assetMoney = Assert.IsType<AssetMoney>(output.Value);
-					Assert.Equal(Money.Coins(1.0m).Satoshi, assetMoney.Quantity);
+					Assert.Equal(Money.Coins(0.2m).Satoshi, assetMoney.Quantity);
 					Assert.NotNull(assetMoney.AssetId);
 
 					// but not the transaction itself
@@ -3119,14 +3172,33 @@ namespace NBXplorer.Tests
 					var received = tester.RPC.SendCommand("getreceivedbyaddress", address.ToString(), 0);
 					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
 
-					Assert.Equal(1.0m, receivedMoney);
+					Assert.Equal(0.2m, receivedMoney);
 
 					var balance = tester.Client.GetBalance(userDerivationScheme);
 					Assert.Equal(assetMoney, ((MoneyBag)balance.Total).Single());
+					
+					Assert.DoesNotContain("-[unblinded]", userDerivationScheme.ToString());
+					//test: setting up unblinded tracking
+					userDerivationScheme = tester.NBXplorerNetwork.DerivationStrategyFactory.Parse(userDerivationScheme.ToString() + "-[unblinded]");
+					
+					Assert.Contains("-[unblinded]", userDerivationScheme.ToString());
+
+					Assert.True(tester.NBXplorerNetwork.DerivationStrategyFactory.Parse(userDerivationScheme.ToString())
+						            .AdditionalOptions.TryGetValue("unblinded", out var unblinded) && unblinded);
+					await tester.Client.TrackAsync(userDerivationScheme, Timeout);
+					var unusedUnblinded = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
+					Assert.IsNotType<BitcoinBlindedAddress>(unusedUnblinded.Address);
+					
+					evtTask = session.NextEventAsync(Timeout);
+					txid = await cashCow.SendToAddressAsync(unusedUnblinded.Address, Money.Coins(0.1m));
+					evt = Assert.IsType<NewTransactionEvent>(await evtTask);
+					tx = (Assert.IsAssignableFrom<ElementsTransaction>(Assert.IsType<NewTransactionEvent>(evt)
+						.TransactionData.Transaction));
+					Assert.Equal(txid, tx.GetHash());
+					Assert.Contains(tx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value?.ToDecimal(MoneyUnit.BTC) == 0.1m);
 				}
 			}
 		}
-
 
 		[Fact]
 		public async Task CanGenerateWallet()

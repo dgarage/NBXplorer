@@ -2,6 +2,7 @@
 using NBXplorer.DerivationStrategy;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -20,6 +21,8 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
+		
+		public ReadOnlyDictionary<string, bool> AdditionalOptions { get; set; }
 	}
 	public class DerivationStrategyFactory
 	{
@@ -37,10 +40,18 @@ namespace NBXplorer.DerivationStrategy
 			if(network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
+			if (_Network.Consensus.SupportSegwit)
+			{
+				AuthorizedOptions.Add("p2sh");
+			}
+			AuthorizedOptions.Add("keeporder");
+			AuthorizedOptions.Add("legacy");
 		}
 
+		public HashSet<string> AuthorizedOptions { get; } = new HashSet<string>();
+
 		readonly Regex MultiSigRegex = new Regex("^([0-9]{1,2})-of(-[A-Za-z0-9]+)+$");
-		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest)) { Segwit = false };
+		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 		public DerivationStrategyBase Parse(string str)
 		{
 			var strategy = ParseCore(str);
@@ -50,24 +61,45 @@ namespace NBXplorer.DerivationStrategy
 		private DerivationStrategyBase ParseCore(string str)
 		{
 			bool legacy = false;
-			ReadBool(ref str, "legacy", ref legacy);
-
 			bool p2sh = false;
-			ReadBool(ref str, "p2sh", ref p2sh);
-
 			bool keepOrder = false;
-			ReadBool(ref str, "keeporder", ref keepOrder);
 
-			if(!legacy && !_Network.Consensus.SupportSegwit)
-				throw new FormatException("Segwit is not supported");
+			Dictionary<string, bool> optionsDictionary = new Dictionary<string, bool>(5);
+			foreach (Match optionMatch in _OptionRegex.Matches(str))
+			{
+				var key = optionMatch.Groups[1].Value.ToLowerInvariant();
+				if (!AuthorizedOptions.Contains(key))
+					throw new FormatException($"The option '{key}' is not supported by this network");
+				if (!optionsDictionary.TryAdd(key, true))
+					throw new FormatException($"The option '{key}' is duplicated");
+			}
+			str = _OptionRegex.Replace(str, string.Empty);
+			if (optionsDictionary.Remove("legacy"))
+			{
+				legacy = true;
+			}
+			if (optionsDictionary.Remove("p2sh"))
+			{
+				p2sh = true;
+			}
+			if (optionsDictionary.Remove("keeporder"))
+			{
+				keepOrder = true;
+			}
+			if (!legacy && !_Network.Consensus.SupportSegwit)
+				throw new FormatException("Segwit is not supported you need to specify option '-[legacy]'");
+
+			if (legacy && p2sh)
+				throw new FormatException("The option 'legacy' is incompatible with 'p2sh'");
 
 			var options = new DerivationStrategyOptions()
 			{
 				KeepOrder = keepOrder,
 				ScriptPubKeyType = legacy ? ScriptPubKeyType.Legacy :
 									p2sh ? ScriptPubKeyType.SegwitP2SH :
-									ScriptPubKeyType.Segwit
-		};
+									ScriptPubKeyType.Segwit,
+				AdditionalOptions = new ReadOnlyDictionary<string, bool>(optionsDictionary)
+			};
 			var match = MultiSigRegex.Match(str);
 			if(match.Success)
 			{
@@ -107,7 +139,7 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey) { Segwit = options.ScriptPubKeyType != ScriptPubKeyType.Legacy };
+			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey, options.ScriptPubKeyType != ScriptPubKeyType.Legacy, options.AdditionalOptions);
 			if(options.ScriptPubKeyType != ScriptPubKeyType.Legacy && !_Network.Consensus.SupportSegwit)
 				throw new InvalidOperationException("This crypto currency does not support segwit");
 
@@ -140,10 +172,7 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase CreateMultiSigDerivationStrategy(BitcoinExtPubKey[] pubKeys, int sigCount, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options.ScriptPubKeyType == ScriptPubKeyType.Legacy)
-			{
-				LexicographicOrder = !options.KeepOrder
-			};
+			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options.ScriptPubKeyType == ScriptPubKeyType.Legacy, !options.KeepOrder, options.AdditionalOptions);
 			if(options.ScriptPubKeyType == ScriptPubKeyType.Legacy)
 				return new P2SHDerivationStrategy(derivationStrategy, false);
 
@@ -168,5 +197,7 @@ namespace NBXplorer.DerivationStrategy
 					str = str.Substring(0, str.Length - 1);
 			}
 		}
+
+		readonly static Regex _OptionRegex = new Regex(@"-\[([^ \]\-]+)\]");
 	}
 }

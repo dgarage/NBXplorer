@@ -11,7 +11,7 @@ namespace NBXplorer.DerivationStrategy
 	public class P2SHDerivationStrategy : DerivationStrategyBase
 	{
 		bool addSuffix;
-		internal P2SHDerivationStrategy(DerivationStrategyBase inner, bool addSuffix)
+		internal P2SHDerivationStrategy(DerivationStrategyBase inner, bool addSuffix):base(inner.AdditionalOptions)
 		{
 			if(inner == null)
 				throw new ArgumentNullException(nameof(inner));
@@ -24,12 +24,12 @@ namespace NBXplorer.DerivationStrategy
 			get; set;
 		}
 
-		protected override string StringValue
+		protected internal override string StringValueCore
 		{
 			get
 			{
 				if(addSuffix)
-					return Inner.ToString() + "-[p2sh]";
+					return Inner.StringValueCore + "-[p2sh]";
 				return Inner.ToString();
 			}
 		}

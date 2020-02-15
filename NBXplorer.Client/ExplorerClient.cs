@@ -471,15 +471,23 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(request));
 			return this.SendAsync<UpdatePSBTResponse>(HttpMethod.Post, request, "v1/cryptos/{0}/psbt/update", new object[] { CryptoCode }, cancellation);
 		}
-
 		public BroadcastResult Broadcast(Transaction tx, CancellationToken cancellation = default)
 		{
-			return BroadcastAsync(tx, cancellation).GetAwaiter().GetResult();
+			return Broadcast(tx, false, cancellation);
+		}
+		public BroadcastResult Broadcast(Transaction tx, bool testMempoolAccept, CancellationToken cancellation = default)
+		{
+			return BroadcastAsync(tx, testMempoolAccept, cancellation).GetAwaiter().GetResult();
 		}
 
 		public Task<BroadcastResult> BroadcastAsync(Transaction tx, CancellationToken cancellation = default)
 		{
-			return SendAsync<BroadcastResult>(HttpMethod.Post, tx.ToBytes(), "v1/cryptos/{0}/transactions", new[] { CryptoCode }, cancellation);
+			return BroadcastAsync(tx, false, cancellation);
+		}
+
+		public Task<BroadcastResult> BroadcastAsync(Transaction tx, bool testMempoolAccept, CancellationToken cancellation = default)
+		{
+			return SendAsync<BroadcastResult>(HttpMethod.Post, tx.ToBytes(), "v1/cryptos/{0}/transactions?testMempoolAccept={1}", new[] { CryptoCode, testMempoolAccept.ToString() }, cancellation);
 		}
 
 		public TMetadata GetMetadata<TMetadata>(DerivationStrategyBase derivationScheme, string key, CancellationToken cancellationToken = default)

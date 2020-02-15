@@ -112,8 +112,10 @@ namespace NBXplorer
 
 
 
-		public int AskBlocks()
+		int AskBlocks()
 		{
+			if (!_InFlights.IsEmpty)
+				return 0;
 			var node = AttachedNode;
 			if (node == null || node.State != NodeState.HandShaked)
 				return 0;
@@ -335,7 +337,7 @@ namespace NBXplorer
 		}
 
 
-		private async Task SaveMatches(Transaction transaction)
+		internal async Task SaveMatches(Transaction transaction)
 		{
 			var now = DateTimeOffset.UtcNow;
 			var matches = (await Repository.GetMatches(transaction, null, now, false)).ToArray();
