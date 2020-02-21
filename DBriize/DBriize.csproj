@@ -1,0 +1,14 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>DBriize</RootNamespace>
+    <Version>1.0.1.2</Version>
+    <LangVersion>7.3</LangVersion>
+    <PackageId>DBriize</PackageId>
+    <Description>A copy of the DBreeze project based on modern .NET practices (Original project: https://github.com/hhblaze/DBreeze)</Description>
+    <PackageProjectUrl>https://github.com/NicolasDorier/DBriize</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/NicolasDorier/DBriize</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+</Project>
