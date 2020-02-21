@@ -12,7 +12,7 @@ using System.Linq;
 using System.Text;
 //using System.Threading.Tasks;
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
     /// <summary>
     /// Custom binary serializer of well known types
@@ -759,7 +759,7 @@ namespace DBreeze.Utils
                             mode = 0;
                             sizer[size] = el;
                             size++;
-                            valCnt = DBreeze.Utils.Biser.ToUInt32(sizer);
+                            valCnt = DBriize.Utils.Biser.ToUInt32(sizer);
                             ClearSizer();
                             if (valCnt > 0)
                             {

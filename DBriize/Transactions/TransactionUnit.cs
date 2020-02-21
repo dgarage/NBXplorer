@@ -8,10 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
-using DBreeze.SchemeInternal;
+using DBriize.Utils;
+using DBriize.SchemeInternal;
 
-namespace DBreeze.Transactions
+namespace DBriize.Transactions
 {   
     /// <summary>
     /// This object includes class Transaction (visible for the user) and holds internally technical transaction information.

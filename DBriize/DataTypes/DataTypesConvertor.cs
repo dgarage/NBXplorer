@@ -9,10 +9,10 @@ using System.Linq;
 using System.Text;
 using System.Reflection;
 
-using DBreeze.Utils;
-using DBreeze.Exceptions;
+using DBriize.Utils;
+using DBriize.Exceptions;
 
-namespace DBreeze.DataTypes
+namespace DBriize.DataTypes
 {
     public static class DataTypesConvertor
     {
@@ -209,21 +209,21 @@ namespace DBreeze.DataTypes
                 return ((IDBConvertable)((object)data)).GetBytes();
 
             if (td == TYPE_OBJECT)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
 
             if (td.GetTypeInfo().IsEnum)
             {
                 var enumtype = Enum.GetUnderlyingType(td);
                 if (dce.TryGetValue(enumtype, out f))
                     return f(data);
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
             }
 
             //Trying byte serialization for unknown object, in case if byte serializer is set
             if (CustomSerializator.ByteArraySerializator != null)
                 return CustomSerializator.ByteArraySerializator(data);
 
-            throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
+            throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
 
         }
 
@@ -250,10 +250,10 @@ namespace DBreeze.DataTypes
                 var enumtype = Enum.GetUnderlyingType(td);
                 if (dce.TryGetValue(enumtype, out f))
                     return f(data);
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
             }
 
-            throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
+            throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
 
         }
 
@@ -283,7 +283,7 @@ namespace DBreeze.DataTypes
             }
 
             if (td == TYPE_OBJECT)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
 
 
             if (td.GetTypeInfo().IsEnum)
@@ -292,13 +292,13 @@ namespace DBreeze.DataTypes
                 if (dcbe.TryGetValue(enumtype, out f))
                     return (TData)f(dt);
 
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
             }
 
             if (CustomSerializator.ByteArrayDeSerializator != null)
                 return (TData)CustomSerializator.ByteArrayDeSerializator(dt, td);
 
-            throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
+            throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.UNSUPPORTED_DATATYPE, td.ToString(), null);
 
         }
 

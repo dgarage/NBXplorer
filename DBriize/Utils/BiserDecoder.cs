@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
     public static partial class Biser
     {

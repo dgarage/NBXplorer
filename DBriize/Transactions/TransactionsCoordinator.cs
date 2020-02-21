@@ -8,13 +8,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze;
-using DBreeze.Utils;
-using DBreeze.LianaTrie;
-using DBreeze.Exceptions;
-using DBreeze.SchemeInternal;
+using DBriize;
+using DBriize.Utils;
+using DBriize.LianaTrie;
+using DBriize.Exceptions;
+using DBriize.SchemeInternal;
 
-namespace DBreeze.Transactions
+namespace DBriize.Transactions
 {
     internal class TransactionsCoordinator
     {
@@ -24,9 +24,9 @@ namespace DBreeze.Transactions
         /// </summary>
         Dictionary<int, TransactionUnit> _transactions = new Dictionary<int, TransactionUnit>();
 
-        internal DBreezeEngine _engine = null;
+        internal DBriizeEngine _engine = null;
 
-        public TransactionsCoordinator(DBreezeEngine engine)
+        public TransactionsCoordinator(DBriizeEngine engine)
         {
             this._engine = engine;            
         }
@@ -37,7 +37,7 @@ namespace DBreeze.Transactions
         /// </summary>
         public Scheme GetSchema
         {
-            get { return this._engine.DBreezeSchema; }
+            get { return this._engine.DBriizeSchema; }
         }
 
 
@@ -92,7 +92,7 @@ namespace DBreeze.Transactions
             }
             catch (System.Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_GETTING_TRANSACTION_FAILED, ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_GETTING_TRANSACTION_FAILED, ex);
             }
             finally
             {
@@ -150,7 +150,7 @@ namespace DBreeze.Transactions
         //    }
         //    catch (System.Exception ex)
         //    {
-        //        throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_GETTING_TRANSACTION_FAILED,ex);                
+        //        throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_GETTING_TRANSACTION_FAILED,ex);                
         //    }
         //    finally
         //    {
@@ -368,7 +368,7 @@ namespace DBreeze.Transactions
                     {
                         this.UnregisterTransaction(transactionThreadId);
 
-                        throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_TABLE_WRITE_REGISTRATION_FAILED,ex);                        
+                        throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_TABLE_WRITE_REGISTRATION_FAILED,ex);                        
                         
                     }
                     finally
@@ -396,13 +396,13 @@ namespace DBreeze.Transactions
                 {
                     this.UnregisterTransaction(transactionThreadId);
 
-                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_IN_DEADLOCK);                    
+                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_IN_DEADLOCK);                    
                 }
 
                 if (toWaitTillTransactionIsFinished)
                 {
                     //blocking thread which requires busy tables for writing, till they are released
-                    //ThreadsGator.PutGateHere(20000);    //every 20 second (or by Gate open we give a chance to re-try, for safety reasons of hanged threads, if programmer didn't dispose DBreeze process after the programm end)
+                    //ThreadsGator.PutGateHere(20000);    //every 20 second (or by Gate open we give a chance to re-try, for safety reasons of hanged threads, if programmer didn't dispose DBriize process after the programm end)
                     ThreadsGator.PutGateHere();
                     //mreWriteTransactionLock.WaitOne();
                 }
@@ -431,7 +431,7 @@ namespace DBreeze.Transactions
                 {
                     this.UnregisterTransaction(transactionThreadId);
 
-                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_CANBEUSED_FROM_ONE_THREAD);
+                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_CANBEUSED_FROM_ONE_THREAD);
                 }
 
 
@@ -443,7 +443,7 @@ namespace DBreeze.Transactions
 
                 try
                 {
-                    tbl = this._engine.DBreezeSchema.GetTable(tableName);
+                    tbl = this._engine.DBriizeSchema.GetTable(tableName);
 
                     //Adding table to transaction unit with the ITransactable interface
                     transactionUnit.AddTransactionWriteTable(tableName, tbl);    //added together with ITransactable
@@ -466,7 +466,7 @@ namespace DBreeze.Transactions
             }
             else
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_DOESNT_EXIST);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_DOESNT_EXIST);
             }
         }
 
@@ -495,17 +495,17 @@ namespace DBreeze.Transactions
                 if (!ignoreThreadIdCheck && Environment.CurrentManagedThreadId != transactionThreadId)
                 {
                     this.UnregisterTransaction(transactionThreadId);
-                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_CANBEUSED_FROM_ONE_THREAD);
+                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_CANBEUSED_FROM_ONE_THREAD);
                 }
 
                 LTrie tbl = null;
 
                 try
                 {
-                    if (!this._engine.DBreezeSchema.IfUserTableExists(tableName))
+                    if (!this._engine.DBriizeSchema.IfUserTableExists(tableName))
                         return null;
 
-                    tbl = this._engine.DBreezeSchema.GetTable(tableName);
+                    tbl = this._engine.DBriizeSchema.GetTable(tableName);
                 }
                 catch (Exception ex)
                 {
@@ -520,7 +520,7 @@ namespace DBreeze.Transactions
             }
             else
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_DOESNT_EXIST);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_DOESNT_EXIST);
             }
         }
 
@@ -531,7 +531,7 @@ namespace DBreeze.Transactions
         public void Commit(int transactionThreadId)
         {
             if (!this._engine.DBisOperable)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DB_IS_NOT_OPERABLE,this._engine.DBisOperableReason,new Exception());
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DB_IS_NOT_OPERABLE,this._engine.DBisOperableReason,new Exception());
 
             TransactionUnit transactionUnit = this.GetTransactionUnit(transactionThreadId);
 
@@ -652,7 +652,7 @@ namespace DBreeze.Transactions
             }
             else
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_DOESNT_EXIST);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_DOESNT_EXIST);
             }
         }
 
@@ -725,7 +725,7 @@ namespace DBreeze.Transactions
             }
             else
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_DOESNT_EXIST);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_DOESNT_EXIST);
             }
         }
 

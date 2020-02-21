@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
     public static class BytesProcessing
     {
@@ -467,7 +467,7 @@ namespace DBreeze.Utils
 
         /// <summary>
         /// Concept of the objects storage (read docu from 20170321)
-        /// Concatenates byte representing index and other elements, converted to byte[] using DBreeze converters, sequentially.
+        /// Concatenates byte representing index and other elements, converted to byte[] using DBriize converters, sequentially.
         /// </summary>
         /// <param name="indexNumber">Index number (one byte from 1-255)</param>
         /// <param name="pars">Parts of the index to be converted to byte[]</param>
@@ -475,13 +475,13 @@ namespace DBreeze.Utils
         public static byte[] ToIndex(this int indexNumber, params object[] pars)
         {
             if (indexNumber < 1 || indexNumber > 255)
-                throw new Exception("DBreezeIndex: 1-255 is an allowed index region!");
+                throw new Exception("DBriizeIndex: 1-255 is an allowed index region!");
             return ToIndex((byte)indexNumber, pars);
         }
 
         /// <summary>
         /// Concept of the objects storage (read docu from 20170321)
-        /// Concatenates byte representing index and other elements, converted to byte[] using DBreeze converters, sequentially.
+        /// Concatenates byte representing index and other elements, converted to byte[] using DBriize converters, sequentially.
         /// </summary>
         /// <param name="indexNumber">Index number (one byte from 1-255)</param>
         /// <param name="pars">Parts of the index to be converted to byte[]</param>
@@ -489,7 +489,7 @@ namespace DBreeze.Utils
         public static byte[] ToIndex(this byte indexNumber, params object[] pars)
         {
             if (indexNumber < 1)
-                throw new Exception("DBreezeIndex: 1-255 is an allowed index region!");
+                throw new Exception("DBriizeIndex: 1-255 is an allowed index region!");
 
             if (pars == null || pars.Length < 1)
                 return new byte[] { indexNumber };
@@ -503,7 +503,7 @@ namespace DBreeze.Utils
 
         /// <summary>
         /// Concatenates converted to byte[] elements sequentially. 
-        /// DBreeze converters are used.
+        /// DBriize converters are used.
         /// </summary>
         /// <param name="pars"></param>
         /// <returns></returns>
@@ -520,7 +520,7 @@ namespace DBreeze.Utils
 
         /// <summary>
         /// Concatenates converted to byte[] elements sequentially. 
-        /// DBreeze converters are used.
+        /// DBriize converters are used.
         /// </summary>
         /// <param name="par1"></param>
         /// <param name="pars"></param>

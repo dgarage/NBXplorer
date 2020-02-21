@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Storage;
+using DBriize.Storage;
 
-namespace DBreeze.LianaTrie
+namespace DBriize.LianaTrie
 {
     internal class NestedTableStorage :IStorage
     {
@@ -31,7 +31,7 @@ namespace DBreeze.LianaTrie
             }
         }
 
-        public DBreezeConfiguration DbreezeConfiguration
+        public DBriizeConfiguration DbreezeConfiguration
         {
             get { return this._masterStorage.DbreezeConfiguration; }
         }

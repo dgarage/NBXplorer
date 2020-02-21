@@ -8,11 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
-using DBreeze.Exceptions;
-using DBreeze.Tries;
+using DBriize.Utils;
+using DBriize.Exceptions;
+using DBriize.Tries;
 
-namespace DBreeze.LianaTrie
+namespace DBriize.LianaTrie
 {
     public class LTrieRootNode:ITrieRootNode
     {
@@ -141,7 +141,7 @@ namespace DBreeze.LianaTrie
                 //HERE DB MUST BECOMES NOT-OPERABLE !!!!!!!!!!!!!!!!!!!!!!!!!
 
                 //PARTIALLY CASCADE  this.Tree.Cache.RollBack(); has wrap, others not                
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTIONAL_ROLLBACK_FAILED, this.Tree.TableName, ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTIONAL_ROLLBACK_FAILED, this.Tree.TableName, ex);
             }
         }
 
@@ -164,7 +164,7 @@ namespace DBreeze.LianaTrie
                 //HERE DB MUST BECOMES NOT-OPERABLE !!!!!!!!!!!!!!!!!!!!!!!!!
 
                 //PARTIALLY CASCADE  this.Tree.Cache.RollBack(); has wrap, others not
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.ROLLBACK_FAILED, this.Tree.TableName, ex);                             
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.ROLLBACK_FAILED, this.Tree.TableName, ex);                             
             }
             
         }
@@ -189,7 +189,7 @@ namespace DBreeze.LianaTrie
             }
             catch (Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTIONAL_COMMIT_FAILED, this.Tree.TableName, ex);               
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTIONAL_COMMIT_FAILED, this.Tree.TableName, ex);               
             }
         }
 
@@ -205,10 +205,10 @@ namespace DBreeze.LianaTrie
                 me = this.SerializeRootNode();
 
                 //Synchronized inside         
-                //DBreeze.Diagnostic.SpeedStatistic.StartCounter("Commit");
+                //DBriize.Diagnostic.SpeedStatistic.StartCounter("Commit");
                 //this.Tree.Cache.Commit(this.EmptyPointer, ref me, ref oldRoot);
                 this.Tree.Cache.Commit(ref me, ref oldRoot);
-                //DBreeze.Diagnostic.SpeedStatistic.StopCounter("Commit");
+                //DBriize.Diagnostic.SpeedStatistic.StopCounter("Commit");
 
             }
             catch (Exception ex)
@@ -216,7 +216,7 @@ namespace DBreeze.LianaTrie
                 ////rollbak will be done on the level of the tree
           
                 ////////////////////////////////////////   
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.COMMIT_FAILED, this.Tree.TableName, ex);                          
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.COMMIT_FAILED, this.Tree.TableName, ex);                          
             }
 
         }
@@ -322,7 +322,7 @@ namespace DBreeze.LianaTrie
                 return null;
 
             if (key.Length > UInt16.MaxValue)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.KEY_IS_TOO_LONG);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.KEY_IS_TOO_LONG);
 
 
 
@@ -476,10 +476,10 @@ namespace DBreeze.LianaTrie
             }
 
             if (key.Length > UInt16.MaxValue)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.KEY_IS_TOO_LONG);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.KEY_IS_TOO_LONG);
 
             if (value == null)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.PARTIAL_VALUE_CANT_BE_NULL);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.PARTIAL_VALUE_CANT_BE_NULL);
 
 
             LTrieGenerationNode gn = null;
@@ -656,7 +656,7 @@ namespace DBreeze.LianaTrie
                 catch (Exception ex)
                 {
                     ////////////////////  MADE THAT Table is not Opearable on the upper level, 
-                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.RECREATE_TABLE_FAILED, this.Tree.TableName, ex);                    
+                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.RECREATE_TABLE_FAILED, this.Tree.TableName, ex);                    
                 }
                 
             }
@@ -726,7 +726,7 @@ namespace DBreeze.LianaTrie
                 return;
 
             if (key.Length > UInt16.MaxValue)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.KEY_IS_TOO_LONG);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.KEY_IS_TOO_LONG);
 
 
             LTrieGenerationNode gn = null;

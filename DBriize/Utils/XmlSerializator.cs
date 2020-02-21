@@ -8,12 +8,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
-using DBreeze.Exceptions;
+using DBriize.Utils;
+using DBriize.Exceptions;
 
 using System.Text.RegularExpressions;
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
 
     internal static class XmlSerializator
@@ -92,10 +92,10 @@ namespace DBreeze.Utils
 //using System.Linq;
 //using System.Text;
 
-//using DBreeze.Utils;
-//using DBreeze.Exceptions;
+//using DBriize.Utils;
+//using DBriize.Exceptions;
 
-//namespace DBreeze.Utils
+//namespace DBriize.Utils
 //{
 
 //    public static class XmlSerializator
@@ -135,7 +135,7 @@ namespace DBreeze.Utils
 //            //}
 //            //catch (Exception ex)
 //            //{
-//            //    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.XML_SERIALIZATION_ERROR,ex);                  
+//            //    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.XML_SERIALIZATION_ERROR,ex);                  
 //            //}
 
 //        }
@@ -172,7 +172,7 @@ namespace DBreeze.Utils
 //            //}
 //            //catch (Exception ex)
 //            //{
-//            //    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.XML_DESERIALIZATION_ERROR, ex);                
+//            //    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.XML_DESERIALIZATION_ERROR, ex);                
 //            //}
 
 //        }

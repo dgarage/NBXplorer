@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 //using System.Threading.Tasks;
 
-namespace DBreeze.Storage.RemoteInstance
+namespace DBriize.Storage.RemoteInstance
 {
     public interface IRemoteInstanceCommunicator
     {

@@ -10,10 +10,10 @@ using System.Text;
 //using System.Threading.Tasks;
 using System.IO;
 
-using DBreeze.Utils;
+using DBriize.Utils;
 
 
-namespace DBreeze.Storage.RemoteInstance
+namespace DBriize.Storage.RemoteInstance
 {
     /// <summary>
     /// Represents one table, is managed by RemoteTablesHandler, server data, rollback and rollback helper files.

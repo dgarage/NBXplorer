@@ -7,9 +7,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
+using DBriize.Utils;
 
-namespace DBreeze.Storage
+namespace DBriize.Storage
 {
     /// <summary>
     /// Storage layer
@@ -19,23 +19,23 @@ namespace DBreeze.Storage
       
         IStorage _tableStorage = null;        
         
-        public StorageLayer(string fileName, TrieSettings trieSettings, DBreezeConfiguration configuration)
+        public StorageLayer(string fileName, TrieSettings trieSettings, DBriizeConfiguration configuration)
         {          
             if (trieSettings.StorageWasOverriden)
             {
                 switch (trieSettings.AlternativeTableStorageType)
                 {
-                    case DBreezeConfiguration.eStorage.DISK:
+                    case DBriizeConfiguration.eStorage.DISK:
 
                         _tableStorage = (IStorage) new FSR(fileName, trieSettings, configuration);
 
                         break;
-                    case DBreezeConfiguration.eStorage.MEMORY:
+                    case DBriizeConfiguration.eStorage.MEMORY:
 
                         _tableStorage = (IStorage)new MSR(fileName, trieSettings, configuration);
 
                         break;
-                    case DBreezeConfiguration.eStorage.RemoteInstance:
+                    case DBriizeConfiguration.eStorage.RemoteInstance:
 
                         _tableStorage = (IStorage)new RISR(fileName, trieSettings, configuration);
 
@@ -46,17 +46,17 @@ namespace DBreeze.Storage
             {
                 switch (configuration.Storage)
                 {
-                    case DBreezeConfiguration.eStorage.DISK:
+                    case DBriizeConfiguration.eStorage.DISK:
 
                         _tableStorage = (IStorage)new FSR(fileName, trieSettings, configuration);
 
                         break;
-                    case DBreezeConfiguration.eStorage.MEMORY:
+                    case DBriizeConfiguration.eStorage.MEMORY:
 
                         _tableStorage = (IStorage)new MSR(fileName, trieSettings, configuration);
 
                         break;
-                    case DBreezeConfiguration.eStorage.RemoteInstance:
+                    case DBriizeConfiguration.eStorage.RemoteInstance:
 
                         _tableStorage = (IStorage)new RISR(fileName, trieSettings, configuration);
 
@@ -71,7 +71,7 @@ namespace DBreeze.Storage
             get { return _tableStorage.TrieSettings; }
         }
 
-        public DBreezeConfiguration DbreezeConfiguration
+        public DBriizeConfiguration DbreezeConfiguration
         {
             get { return _tableStorage.DbreezeConfiguration; }
         }

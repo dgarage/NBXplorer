@@ -9,9 +9,9 @@ using System.Linq;
 using System.Text;
 using System.Diagnostics;
 
-using DBreeze.Utils;
+using DBriize.Utils;
 
-namespace DBreeze.Diagnostic
+namespace DBriize.Diagnostic
 {
 
     public static class SpeedStatistic

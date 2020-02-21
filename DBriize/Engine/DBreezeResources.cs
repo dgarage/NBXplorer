@@ -9,28 +9,28 @@ using System.Text;
 //using System.Threading.Tasks;
 using System.IO;
 
-using DBreeze.LianaTrie;
-using DBreeze.Storage;
-using DBreeze.Utils;
-using DBreeze.DataTypes;
-using DBreeze.Exceptions;
+using DBriize.LianaTrie;
+using DBriize.Storage;
+using DBriize.Utils;
+using DBriize.DataTypes;
+using DBriize.Exceptions;
 
 using System.Threading;
 
-namespace DBreeze
+namespace DBriize
 {
     /// <summary>
-    /// DBreeze resources represents an In-Memory dictionary synchronized with an internal DBreeze table. 
-    /// Key is a string, Value any standard DBreeze.DataType (or serialized object, when custom serializer is supplied).
+    /// DBriize resources represents an In-Memory dictionary synchronized with an internal DBriize table. 
+    /// Key is a string, Value any standard DBriize.DataType (or serialized object, when custom serializer is supplied).
     /// Can be called from anywhere, even from other transactions. There is no need to add into sync table
     /// </summary>
-    public class DBreezeResources : IDisposable
+    public class DBriizeResources : IDisposable
     {
-        DBreezeEngine DBreezeEngine = null;
+        DBriizeEngine DBriizeEngine = null;
         TrieSettings LTrieSettings = null;
         IStorage Storage = null;
         LTrie LTrie = null;
-        static string TableFileName = "_DBreezeResources";        
+        static string TableFileName = "_DBriizeResources";        
         long init = DateTime.UtcNow.Ticks;        
         int disposed = 0;
 
@@ -48,16 +48,16 @@ namespace DBreeze
         /// constructor
         /// </summary>
         /// <param name="engine"></param>
-        internal DBreezeResources(DBreezeEngine engine)
+        internal DBriizeResources(DBriizeEngine engine)
         {
-            this.DBreezeEngine = engine;
+            this.DBriizeEngine = engine;
             LTrieSettings = new TrieSettings()
             {
                 InternalTable = true
             };
             Storage = new StorageLayer(Path.Combine(engine.MainFolder, TableFileName), LTrieSettings, engine.Configuration);
             LTrie = new LTrie(Storage);
-            LTrie.TableName = "DBreezeResources";
+            LTrie.TableName = "DBriizeResources";
         }
 
         /// <summary>
@@ -197,7 +197,7 @@ namespace DBreeze
             }
             catch (Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Insert", ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Insert", ex);
             }
             finally
             {
@@ -258,7 +258,7 @@ namespace DBreeze
         }
 
         /// <summary>
-        /// Batch insert of resources where value is a defined DBreeze or DBreeze.CustomSerializer type
+        /// Batch insert of resources where value is a defined DBriize or DBriize.CustomSerializer type
         /// </summary>
         /// <typeparam name="TValue"></typeparam>
         /// <param name="resources"></param>
@@ -352,7 +352,7 @@ namespace DBreeze
             }
             catch (Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Insert batch", ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Insert batch", ex);
             }
             finally
             {
@@ -391,7 +391,7 @@ namespace DBreeze
             }
             catch (Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Remove batch", ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Remove batch", ex);
             }
             finally
             {
@@ -420,7 +420,7 @@ namespace DBreeze
             }
             catch (Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Remove", ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Remove", ex);
             }
             finally
             {
@@ -574,7 +574,7 @@ namespace DBreeze
                         }
                         catch (Exception ex)
                         {
-                            throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Select 1", ex);
+                            throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Select 1", ex);
                         }
                         finally
                         {
@@ -595,7 +595,7 @@ namespace DBreeze
             }
             catch (System.Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Select 2", ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Select 2", ex);
             }
             finally
             {
@@ -673,7 +673,7 @@ namespace DBreeze
                     }
                     catch (Exception ex)
                     {
-                        throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Select 1", ex);
+                        throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Select 1", ex);
                     }
                     finally
                     {
@@ -688,7 +688,7 @@ namespace DBreeze
             }
             catch (System.Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Select 2", ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBREEZE_RESOURCES_CONCERNING, "in Select 2", ex);
             }
             finally
             {

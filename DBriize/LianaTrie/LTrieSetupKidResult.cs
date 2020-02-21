@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DBreeze.LianaTrie
+namespace DBriize.LianaTrie
 {
     public class LTrieSetupKidResult
     {

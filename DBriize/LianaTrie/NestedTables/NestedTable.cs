@@ -8,11 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.LianaTrie;
-using DBreeze.Exceptions;
-using DBreeze.Utils;
+using DBriize.LianaTrie;
+using DBriize.Exceptions;
+using DBriize.Utils;
 
-namespace DBreeze.DataTypes
+namespace DBriize.DataTypes
 {
     /// <summary>
     /// NestedTable
@@ -200,7 +200,7 @@ namespace DBreeze.DataTypes
 
             if (!_insertAllowed)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
             }
 
 
@@ -520,7 +520,7 @@ namespace DBreeze.DataTypes
 
             if (!_insertAllowed)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
             }
 
 
@@ -667,7 +667,7 @@ namespace DBreeze.DataTypes
 
             if (!_insertAllowed)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
             }
 
             _tbl.RemoveAll();
@@ -730,7 +730,7 @@ namespace DBreeze.DataTypes
 
             if (!_insertAllowed)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
             }
 
             byte[] btKey = DataTypesConvertor.ConvertKey<TKey>(key);
@@ -793,7 +793,7 @@ namespace DBreeze.DataTypes
 
             if (!_insertAllowed)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DBINTABLE_CHANGEDATA_FROMSELECTVIEW);
             }
 
             byte[] btOldKey = DataTypesConvertor.ConvertKey<TKey>(oldKey);

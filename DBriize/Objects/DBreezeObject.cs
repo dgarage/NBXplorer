@@ -8,20 +8,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DBreeze.Objects
+namespace DBriize.Objects
 {
     /// <summary>
     /// Concept of the objects storage (read docu from 20170321)
     /// </summary>
     /// <typeparam name="TEntityType"></typeparam>
-    public class DBreezeObject<TEntityType>
+    public class DBriizeObject<TEntityType>
     {
         /// <summary>
         /// 
         /// </summary>
-        public DBreezeObject()
+        public DBriizeObject()
         {
-            //Indexes = new List<DBreezeIndex>();
+            //Indexes = new List<DBriizeIndex>();
             NewEntity = false;
             IncludeOldEntityIntoResult = false;
         }
@@ -29,7 +29,7 @@ namespace DBreeze.Objects
         /// <summary>
         /// List of indexes
         /// </summary>
-        public IList<DBreezeIndex> Indexes { get; set; }
+        public IList<DBriizeIndex> Indexes { get; set; }
 
         /// <summary>
         /// Deafult false. Skips reading existing value on the disk (insert time economy)
@@ -51,7 +51,7 @@ namespace DBreeze.Objects
         internal byte[] ptrToExisingEntity { get; set; }
 
         /// <summary>
-        /// Default false. If true updated value will be included into DBreezeObjectInsertResult.OldEntity
+        /// Default false. If true updated value will be included into DBriizeObjectInsertResult.OldEntity
         /// </summary>
         public bool IncludeOldEntityIntoResult { get; set; }
 
@@ -62,12 +62,12 @@ namespace DBreeze.Objects
     /// Answer after transaction.ObjectInsert
     /// </summary>
     /// <typeparam name="TEntityType"></typeparam>
-    public class DBreezeObjectInsertResult<TEntityType>
+    public class DBriizeObjectInsertResult<TEntityType>
     {
         /// <summary>
         /// 
         /// </summary>
-        public DBreezeObjectInsertResult()
+        public DBriizeObjectInsertResult()
         {          
            // EntityWasInserted = false;
             OldEntityWasFound = false;
@@ -81,7 +81,7 @@ namespace DBreeze.Objects
 
         /// <summary>
         /// Entity which was found in database before update.
-        /// Will be included if DBreezeObject.IncludeOldEntityIntoResult = true;
+        /// Will be included if DBriizeObject.IncludeOldEntityIntoResult = true;
         /// </summary>
         public TEntityType OldEntity { get; set; }
 
@@ -91,7 +91,7 @@ namespace DBreeze.Objects
         public bool EntityWasInserted { get; set; }
 
         /// <summary>
-        /// Pointer to DBreezeObject, ObjectGetByFixedAddress should help to retrieve it.
+        /// Pointer to DBriizeObject, ObjectGetByFixedAddress should help to retrieve it.
         /// </summary>
         public byte[] PtrToObject { get; set; }
     }

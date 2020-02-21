@@ -8,15 +8,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
-using DBreeze.DataTypes;
+using DBriize.Utils;
+using DBriize.DataTypes;
 
-namespace DBreeze.Objects
+namespace DBriize.Objects
 {   
     /// <summary>
     /// Concept of the objects storage (read docu from 20170321)
     /// </summary>
-    public class DBreezeIndex
+    public class DBriizeIndex
     {
         internal List<byte[]> bts = new List<byte[]>();
         /// <summary>
@@ -40,16 +40,16 @@ namespace DBreeze.Objects
         /// </summary>
         /// <param name="indexNumber">Must be unique for every index, will be used for searches</param>
         /// <param name="props">chain of data types forming byte[] index. if null is supplied existing index entry will be removed</param>
-        public DBreezeIndex(byte indexNumber, params object[] props)
+        public DBriizeIndex(byte indexNumber, params object[] props)
         {  
             AddPrimaryToTheEnd = true;
             PrimaryIndex = false;
             
             if (IndexNumber == 0)
-                throw new Exception("DBreezeIndex: zero as index number is not allowed!");
+                throw new Exception("DBriizeIndex: zero as index number is not allowed!");
 
             //if(props.Count() == 0)
-            //    throw new Exception($"DBreeze.Transaction.InsertObject: index { indexNumber } is incorrectly defined");
+            //    throw new Exception($"DBriize.Transaction.InsertObject: index { indexNumber } is incorrectly defined");
 
             IndexNumber = indexNumber;
 
@@ -64,7 +64,7 @@ namespace DBreeze.Objects
                         break;
                     }
 
-                    //throw new Exception($"DBreeze.Transaction.InsertObject: index { indexNumber } is incorrectly defined");
+                    //throw new Exception($"DBriize.Transaction.InsertObject: index { indexNumber } is incorrectly defined");
 
                     bts.Add(DataTypesConvertor.ConvertValue(prop, prop.GetType()));
                 }

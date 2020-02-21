@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DBreeze.Exceptions
+namespace DBriize.Exceptions
 {
     /// <summary>
     /// This is a specific Exception which will bring to DB is not opearable state, we need to analyze this type of exception separately,

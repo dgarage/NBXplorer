@@ -6,11 +6,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using DBreeze.Utils;
-using DBreeze.DataTypes;
-using DBreeze.LianaTrie;
+using DBriize.Utils;
+using DBriize.DataTypes;
+using DBriize.LianaTrie;
 
-namespace DBreeze.Transactions
+namespace DBriize.Transactions
 {
     /// <summary>
     /// Speeding up, space economy. Represents a mechanism helping to store entites into the memory, before insert or remove.

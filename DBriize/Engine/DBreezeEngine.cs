@@ -10,22 +10,22 @@ using System.Text;
 
 using System.IO;
 
-using DBreeze.Transactions;
-using DBreeze.Exceptions;
-using DBreeze.TextSearch;
+using DBriize.Transactions;
+using DBriize.Exceptions;
+using DBriize.TextSearch;
 
-//under DBreeze main namespace we hold Schema and Engine.
+//under DBriize main namespace we hold Schema and Engine.
 
-namespace DBreeze
+namespace DBriize
 {
     /// <summary>
-    /// Main DBreeze Database class.
+    /// Main DBriize Database class.
     /// </summary>
-    public class DBreezeEngine:IDisposable
+    public class DBriizeEngine:IDisposable
     {
         #region "Version Number"
         /// <summary>
-        /// DBreeze version number
+        /// DBriize version number
         /// </summary>        
         //public static string Version = "01.061.20131120";
         //public static string Version = "01.068.20141205";
@@ -33,9 +33,9 @@ namespace DBreeze
         #endregion
 
    
-        //later can be swapped on Configuration.DBreezeDataFolderName;
+        //later can be swapped on Configuration.DBriizeDataFolderName;
         internal string MainFolder = String.Empty;
-        internal Scheme DBreezeSchema = null;
+        internal Scheme DBriizeSchema = null;
         internal TextDeferredIndexer DeferredIndexer = null;
         internal TransactionsCoordinator _transactionsCoordinator = null;
         //internal bool DBisOperable = true;
@@ -56,11 +56,11 @@ namespace DBreeze
         int disposed = 0;
 
         /// <summary>
-        /// Initialized from DBreezeRemoteEngine
+        /// Initialized from DBriizeRemoteEngine
         /// </summary>
         internal bool RemoteEngine = false;
         /// <summary>
-        /// DBreeze may execute some tasks in the background (like deffered text indexing). 
+        /// DBriize may execute some tasks in the background (like deffered text indexing). 
         /// External delegate can receive notifications about that.
         /// </summary>
         public Action<string, object> BackgroundTasksExternalNotifier = null;
@@ -69,18 +69,18 @@ namespace DBreeze
         /// For now BackupPlan is included.
         /// Later can be added special settings for each entity defined by string pattern.
         /// </summary>
-        internal DBreezeConfiguration Configuration = new DBreezeConfiguration();
+        internal DBriizeConfiguration Configuration = new DBriizeConfiguration();
 
         /// <summary>
         /// For DbreezeRemoteEngine wrapper
         /// </summary>
-        internal DBreezeEngine() { }
+        internal DBriizeEngine() { }
 
         /// <summary>
         /// Dbreeze instantiator
         /// </summary>
         /// <param name="dbreezeConfiguration"></param>
-        public DBreezeEngine(DBreezeConfiguration dbreezeConfiguration)
+        public DBriizeEngine(DBriizeConfiguration dbreezeConfiguration)
         {
             ConstructFromConfiguration(dbreezeConfiguration);
 
@@ -91,18 +91,18 @@ namespace DBreeze
             ////Configuration.Backup.SynchronizeBackup has more information
             //if (Configuration.Backup.IsActive)
             //{
-            //    Configuration.Backup.DBreezeFolderName = Configuration.DBreezeDataFolderName;
+            //    Configuration.Backup.DBriizeFolderName = Configuration.DBriizeDataFolderName;
 
             //    ////Running backup synchronization
             //    //Configuration.Backup.SynchronizeBackup();
             //}
 
-            //MainFolder = Configuration.DBreezeDataFolderName;
+            //MainFolder = Configuration.DBriizeDataFolderName;
 
             //InitDb();
 
-            ////Console.WriteLine("DBreeze notification: Don't forget in the dispose function of your DLL or main application thread");
-            ////Console.WriteLine("                      to dispose DBreeze engine:  if(_engine != null) _engine.Dispose(); ");
+            ////Console.WriteLine("DBriize notification: Don't forget in the dispose function of your DLL or main application thread");
+            ////Console.WriteLine("                      to dispose DBriize engine:  if(_engine != null) _engine.Dispose(); ");
             ////Console.WriteLine("                      to get graceful finilization of all working threads! ");
         }
 
@@ -110,48 +110,48 @@ namespace DBreeze
         /// Constructing Dbreeze from dbreezeConfiguration
         /// </summary>
         /// <param name="dbreezeConfiguration"></param>
-        internal void ConstructFromConfiguration(DBreezeConfiguration dbreezeConfiguration)
+        internal void ConstructFromConfiguration(DBriizeConfiguration dbreezeConfiguration)
         {
              if (Configuration != null)
                 Configuration = dbreezeConfiguration;
              else
-                 throw new Exception("DBreeze.DBreezeEngine.DBreezeEngine: please supply DBreezeConfiguration");
+                 throw new Exception("DBriize.DBriizeEngine.DBriizeEngine: please supply DBriizeConfiguration");
             
             //Setting up in backup DbreezeFolderName, there must be found at least TransJournal and Scheme.
             //Configuration.Backup.SynchronizeBackup has more information
             if (Configuration.Backup.IsActive)
             {
-                Configuration.Backup.DBreezeFolderName = Configuration.DBreezeDataFolderName;
+                Configuration.Backup.DBriizeFolderName = Configuration.DBriizeDataFolderName;
 
                 ////Running backup synchronization
                 //Configuration.Backup.SynchronizeBackup();
             }
                         
-            if (dbreezeConfiguration.Storage == DBreezeConfiguration.eStorage.RemoteInstance && !RemoteEngine)
-                throw new Exception("DBreeze.DBreezeEngine.DBreezeEngine: remote instance must be initiated via new DBreezeRemoteEngine");
+            if (dbreezeConfiguration.Storage == DBriizeConfiguration.eStorage.RemoteInstance && !RemoteEngine)
+                throw new Exception("DBriize.DBriizeEngine.DBriizeEngine: remote instance must be initiated via new DBriizeRemoteEngine");
 
-            MainFolder = Configuration.DBreezeDataFolderName;
+            MainFolder = Configuration.DBriizeDataFolderName;
 
             InitDb();
 
-            //Console.WriteLine("DBreeze notification: Don't forget in the dispose function of your DLL or main application thread");
-            //Console.WriteLine("                      to dispose DBreeze engine:  if(_engine != null) _engine.Dispose(); ");
+            //Console.WriteLine("DBriize notification: Don't forget in the dispose function of your DLL or main application thread");
+            //Console.WriteLine("                      to dispose DBriize engine:  if(_engine != null) _engine.Dispose(); ");
             //Console.WriteLine("                      to get graceful finilization of all working threads! ");
         }
 
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="DBreezeDataFolderName"></param>
-        public DBreezeEngine(string DBreezeDataFolderName)
+        /// <param name="DBriizeDataFolderName"></param>
+        public DBriizeEngine(string DBriizeDataFolderName)
         {
-            MainFolder = DBreezeDataFolderName;
-            Configuration.DBreezeDataFolderName = DBreezeDataFolderName;
+            MainFolder = DBriizeDataFolderName;
+            Configuration.DBriizeDataFolderName = DBriizeDataFolderName;
 
             InitDb();
 
-            //Console.WriteLine("DBreeze notification: Don't forget in the dispose function of your DLL or main application thread");
-            //Console.WriteLine("                      to dispose DBreeze engine:  if(_engine != null) _engine.Dispose(); ");
+            //Console.WriteLine("DBriize notification: Don't forget in the dispose function of your DLL or main application thread");
+            //Console.WriteLine("                      to dispose DBriize engine:  if(_engine != null) _engine.Dispose(); ");
             //Console.WriteLine("                      to get graceful finilization of all working threads! ");
         }
 
@@ -172,7 +172,7 @@ namespace DBreeze
                     //Init type converter
                     DataTypes.DataTypesConvertor.InitDict();
 
-                    if (Configuration.Storage == DBreezeConfiguration.eStorage.DISK)
+                    if (Configuration.Storage == DBriizeConfiguration.eStorage.DISK)
                     {
                         DirectoryInfo di = new DirectoryInfo(MainFolder);
 
@@ -181,7 +181,7 @@ namespace DBreeze
                     }
 
                     //trying to open schema file
-                    DBreezeSchema = new Scheme(this);
+                    DBriizeSchema = new Scheme(this);
 
                     //Initializing Transactions Coordinator
                     _transactionsCoordinator = new TransactionsCoordinator(this);
@@ -201,7 +201,7 @@ namespace DBreeze
             {
                 DBisOperable = false;
                 DBisOperableReason = "InitDb";
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.CREATE_DB_FOLDER_FAILED, ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.CREATE_DB_FOLDER_FAILED, ex);
             }
 
             
@@ -219,14 +219,14 @@ namespace DBreeze
             //    return;
 
             DBisOperable = false;
-            DBisOperableReason = "DBreezeEngine.Dispose";
+            DBisOperableReason = "DBriizeEngine.Dispose";
             //Disposed = true;
 
             //Disposing all transactions
             _transactionsCoordinator.StopEngine();
 
             //Disposing Schema
-            DBreezeSchema.Dispose();
+            DBriizeSchema.Dispose();
 
             //Disposing Trnsactional Journal, may be later move journal into transactionsCoordinator
             _transactionsJournal.Dispose();
@@ -249,7 +249,7 @@ namespace DBreeze
         public Transaction GetTransaction()
         {
             if (!DBisOperable)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DB_IS_NOT_OPERABLE,DBisOperableReason,new Exception());              
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DB_IS_NOT_OPERABLE,DBisOperableReason,new Exception());              
 
             //User receives new transaction from the engine
             return this._transactionsCoordinator.GetTransaction(0, eTransactionTablesLockTypes.SHARED);
@@ -268,7 +268,7 @@ namespace DBreeze
         public Transaction GetTransaction(eTransactionTablesLockTypes tablesLockType, params string[] tables)
         {
             if (!DBisOperable)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DB_IS_NOT_OPERABLE, DBisOperableReason, new Exception());
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DB_IS_NOT_OPERABLE, DBisOperableReason, new Exception());
 
             //User receives new transaction from the engine
             return this._transactionsCoordinator.GetTransaction(1, tablesLockType, tables);
@@ -277,13 +277,13 @@ namespace DBreeze
 
        
         /// <summary>
-        /// Returns DBreeze schema object
+        /// Returns DBriize schema object
         /// </summary>
         public Scheme Scheme
         {
             get
             {
-                return this.DBreezeSchema;
+                return this.DBriizeSchema;
             }
         }
 

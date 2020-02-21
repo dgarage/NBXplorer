@@ -10,9 +10,9 @@ using System.Text;
 //using System.Threading.Tasks;
 using System.Threading;
 
-using DBreeze.Utils;
+using DBriize.Utils;
 
-namespace DBreeze.Storage.RemoteInstance
+namespace DBriize.Storage.RemoteInstance
 {
     /// <summary>
     /// ServerSide. Servs one local database.

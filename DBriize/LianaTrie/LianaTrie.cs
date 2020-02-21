@@ -8,16 +8,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Storage;
-using DBreeze.Exceptions;
-using DBreeze.LianaTrie.Iterations;
+using DBriize.Storage;
+using DBriize.Exceptions;
+using DBriize.LianaTrie.Iterations;
 
-using DBreeze.Transactions;
-using DBreeze.Tries;
-using DBreeze.DataTypes;
-using DBreeze.Utils;
+using DBriize.Transactions;
+using DBriize.Tries;
+using DBriize.DataTypes;
+using DBriize.Utils;
 
-namespace DBreeze.LianaTrie
+namespace DBriize.LianaTrie
 {
     /// <summary>
     /// Liana Trie
@@ -811,7 +811,7 @@ namespace DBreeze.LianaTrie
         }
 
         /// <summary>
-        /// Can be used inside of DBreeze - concerns all read functions
+        /// Can be used inside of DBriize - concerns all read functions
         /// </summary>
         /// <param name="SYNCHRO_READ"></param>
         /// <returns></returns>
@@ -866,7 +866,7 @@ namespace DBreeze.LianaTrie
 
 
         /// <summary>
-        /// DBreeze compatible.
+        /// DBriize compatible.
         /// Extension, which helps to READ-THREADS smartly utilize created before read-roots
         /// </summary>
         /// <param name="key"></param>
@@ -1742,7 +1742,7 @@ namespace DBreeze.LianaTrie
             catch (Exception ex)
             {
                 //MUST BRING TO NON-OPERATABLE
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTIONAL_COMMIT_FAILED, this.TableName,ex);               
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTIONAL_COMMIT_FAILED, this.TableName,ex);               
             }
         }
 

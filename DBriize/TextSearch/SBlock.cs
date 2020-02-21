@@ -7,11 +7,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze;
-using DBreeze.Utils;
-using DBreeze.DataTypes;
+using DBriize;
+using DBriize.Utils;
+using DBriize.DataTypes;
 
-namespace DBreeze.TextSearch
+namespace DBriize.TextSearch
 {
     /// <summary>
     /// 
@@ -26,7 +26,7 @@ namespace DBreeze.TextSearch
         /// <summary>
         /// Generates a logical block: 
         /// var tsm = tran.TextSearch("MyTextSearchTable");
-        /// tsm.BlockAnd("pill").OR(new DBreeze.TextSearch.BlockAnd("blue", "#LNDDE"))
+        /// tsm.BlockAnd("pill").OR(new DBriize.TextSearch.BlockAnd("blue", "#LNDDE"))
         /// .GetDocumentIDs
         /// </summary>
         /// <param name="containsWords">space separated words to be used by "contains" logic</param>
@@ -54,7 +54,7 @@ namespace DBreeze.TextSearch
         /// <summary>
         /// Generates a logical block: 
         /// var tsm = tran.TextSearch("MyTextSearchTable");
-        /// tsm.BlockAnd("pill").OR(new DBreeze.TextSearch.BlockOr("blue red", "#LNDDE"))
+        /// tsm.BlockAnd("pill").OR(new DBriize.TextSearch.BlockOr("blue red", "#LNDDE"))
         /// .GetDocumentIDs
         /// </summary>
         /// <param name="containsWords">space separated words to be used by "contains" logic</param>
@@ -158,7 +158,7 @@ namespace DBreeze.TextSearch
         SBlock CreateBlock(SBlock block, eOperation operation, bool ignoreOnEmptyParameters = false)
         {
             if (_tsm == null)
-                throw new Exception("DBreeze.Exception: first search block must be added via TextSearchTable");
+                throw new Exception("DBriize.Exception: first search block must be added via TextSearchTable");
 
             //Returning parent block in case if this block must be ignored
             if (ignoreOnEmptyParameters && String.IsNullOrEmpty(block._fullMatchWords) && String.IsNullOrEmpty(block._containsWords))
@@ -283,7 +283,7 @@ namespace DBreeze.TextSearch
 
         /// <summary>
         /// Returns last added block. Can be added existing block or new block in format
-        /// new DBreeze.TextSearch.BlockAnd(... or new DBreeze.TextSearch.BlockOr(
+        /// new DBriize.TextSearch.BlockAnd(... or new DBriize.TextSearch.BlockOr(
         /// </summary>
         /// <param name="block"></param>
         /// <param name="ignoreOnEmptyParameters">Block will not be counted in intersection calculations if has empty FullMatch and Contains words</param>
@@ -299,7 +299,7 @@ namespace DBreeze.TextSearch
 
         /// <summary>
         /// Returns last added block. Can be added existing block or new block in format
-        /// new DBreeze.TextSearch.BlockAnd(... or new DBreeze.TextSearch.BlockOr(
+        /// new DBriize.TextSearch.BlockAnd(... or new DBriize.TextSearch.BlockOr(
         /// </summary>
         /// <param name="block"></param>
         /// <param name="ignoreOnEmptyParameters">Block will not be counted in intersection calculations if has empty FullMatch and Contains words</param>
@@ -311,7 +311,7 @@ namespace DBreeze.TextSearch
 
         /// <summary>
         /// Returns last added block. Can be added existing block or new block in format
-        /// new DBreeze.TextSearch.BlockAnd(... or new DBreeze.TextSearch.BlockOr(
+        /// new DBriize.TextSearch.BlockAnd(... or new DBriize.TextSearch.BlockOr(
         /// </summary>
         /// <param name="block"></param>
         /// <param name="ignoreOnEmptyParameters">Block will not be counted in intersection calculations if has empty FullMatch and Contains words</param>
@@ -326,7 +326,7 @@ namespace DBreeze.TextSearch
 
         /// <summary>
         /// Returns last added block. Can be added existing block or new block in format
-        /// new DBreeze.TextSearch.BlockAnd(... or new DBreeze.TextSearch.BlockOr(
+        /// new DBriize.TextSearch.BlockAnd(... or new DBriize.TextSearch.BlockOr(
         /// </summary>
         /// <param name="block"></param>
         /// <param name="ignoreOnEmptyParameters">Block will not be counted in intersection calculations if has empty FullMatch and Contains words</param>
@@ -364,7 +364,7 @@ namespace DBreeze.TextSearch
             var myArray = this.GetArrays();
             if (myArray.Count != 0)
             {
-                DBreeze.DataTypes.Row<int, byte[]> docRow = null;
+                DBriize.DataTypes.Row<int, byte[]> docRow = null;
                 //foreach (var el in WABI.TextSearch_AND_logic(myArray))
 
                 var q = WABI.TextSearch_AND_logic(myArray);

@@ -3,8 +3,8 @@
   It's a free software for those, who think that it should be free.
 */
 
-using DBreeze.LianaTrie;
-using DBreeze.Storage;
+using DBriize.LianaTrie;
+using DBriize.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,35 +12,35 @@ using System.Linq;
 using System.Text;
 //using System.Threading.Tasks;
 
-using DBreeze.Utils;
+using DBriize.Utils;
 
-namespace DBreeze.TextSearch
+namespace DBriize.TextSearch
 {
     /// <summary>
     /// TextDeferredIndexer
     /// </summary>
     internal class TextDeferredIndexer:IDisposable
     {
-        DBreezeEngine DBreezeEngine = null;
+        DBriizeEngine DBriizeEngine = null;
         TrieSettings LTrieSettings = null;
         IStorage Storage = null;
         LTrie LTrie = null;
-        static string TableFileName = "_DBreezeTextIndexer";
+        static string TableFileName = "_DBriizeTextIndexer";
         object lock_operation = new object();
         long init = DateTime.UtcNow.Ticks;
         int inDeferredIndexer = 0;
         int disposed = 0;
 
-        public TextDeferredIndexer(DBreezeEngine engine)
+        public TextDeferredIndexer(DBriizeEngine engine)
         {
-            this.DBreezeEngine = engine;
+            this.DBriizeEngine = engine;
             LTrieSettings = new TrieSettings()
             {
                 InternalTable = true
             };
             Storage = new StorageLayer(Path.Combine(engine.MainFolder, TableFileName), LTrieSettings, engine.Configuration);
             LTrie = new LTrie(Storage);
-            LTrie.TableName = "DBreeze.TextIndexer";
+            LTrie.TableName = "DBriize.TextIndexer";
 
             if (LTrie.Storage.Length > 100000)  //Recreating file if its size more then 100KB and it is empty
             {
@@ -51,7 +51,7 @@ namespace DBreeze.TextSearch
 
                     Storage = new StorageLayer(Path.Combine(engine.MainFolder, TableFileName), LTrieSettings, engine.Configuration);
                     LTrie = new LTrie(Storage);
-                    LTrie.TableName = "DBreeze.TextIndexer";
+                    LTrie.TableName = "DBriize.TextIndexer";
                 }
             }
 
@@ -85,7 +85,7 @@ namespace DBreeze.TextSearch
             lock (lock_operation)
             {
                 init++;
-                var bt = DBreeze.Utils.Biser.Encode_DICT_PROTO_STRING_UINTHASHSET(defferedDocIds, Compression.eCompressionMethod.NoCompression);                
+                var bt = DBriize.Utils.Biser.Encode_DICT_PROTO_STRING_UINTHASHSET(defferedDocIds, Compression.eCompressionMethod.NoCompression);                
                 LTrie.Add(init.To_8_bytes_array_BigEndian(), bt);
                 LTrie.Commit();
             }
@@ -108,15 +108,15 @@ namespace DBreeze.TextSearch
 
             new System.Threading.Thread(new System.Threading.ThreadStart(() =>
             {
-                this.DBreezeEngine.BackgroundNotify("TextDefferedIndexingHasStarted", null);
+                this.DBriizeEngine.BackgroundNotify("TextDefferedIndexingHasStarted", null);
                 Indexer();
-                this.DBreezeEngine.BackgroundNotify("TextDefferedIndexingHasFinished", null);
+                this.DBriizeEngine.BackgroundNotify("TextDefferedIndexingHasFinished", null);
             })).Start(); 
 #else
             System.Threading.Tasks.Task.Run(() => {
-                this.DBreezeEngine.BackgroundNotify("TextDefferedIndexingHasStarted", null);
+                this.DBriizeEngine.BackgroundNotify("TextDefferedIndexingHasStarted", null);
                 Indexer();
-                this.DBreezeEngine.BackgroundNotify("TextDefferedIndexingHasFinished", null);
+                this.DBriizeEngine.BackgroundNotify("TextDefferedIndexingHasFinished", null);
             });
 #endif
         }
@@ -150,7 +150,7 @@ namespace DBreeze.TextSearch
                         
                         currentItter++;
                         defTask = new Dictionary<string, HashSet<uint>>();
-                        DBreeze.Utils.Biser.Decode_DICT_PROTO_STRING_UINTHASHSET(row.GetFullValue(true), defTask, Compression.eCompressionMethod.NoCompression);                        
+                        DBriize.Utils.Biser.Decode_DICT_PROTO_STRING_UINTHASHSET(row.GetFullValue(true), defTask, Compression.eCompressionMethod.NoCompression);                        
                         defTasks.Add(row.Key, defTask);
 
                         foreach (var el in defTask)
@@ -172,7 +172,7 @@ namespace DBreeze.TextSearch
                 }
 
                 //Indexing defTasks
-                using (var tran = this.DBreezeEngine.GetTransaction())
+                using (var tran = this.DBriizeEngine.GetTransaction())
                 {
                     tran.tsh = new TextSearchHandler(tran);
                     tran.SynchronizeTables(itbls.Keys.ToList());

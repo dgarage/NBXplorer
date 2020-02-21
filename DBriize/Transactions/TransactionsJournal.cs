@@ -10,19 +10,19 @@ using System.Text;
 
 using System.IO;
 
-using DBreeze;
-using DBreeze.Storage;
-using DBreeze.LianaTrie;
-using DBreeze.Utils;
+using DBriize;
+using DBriize.Storage;
+using DBriize.LianaTrie;
+using DBriize.Utils;
 
-using DBreeze.Exceptions;
+using DBriize.Exceptions;
 
-namespace DBreeze.Transactions
+namespace DBriize.Transactions
 {
     public class TransactionsJournal : IDisposable
     {
-        internal DBreezeEngine Engine=null;
-        static string JournalFileName = "_DBreezeTranJrnl";
+        internal DBriizeEngine Engine=null;
+        static string JournalFileName = "_DBriizeTranJrnl";
 
         TrieSettings LTrieSettings = null;
         IStorage Storage = null;
@@ -46,9 +46,9 @@ namespace DBreeze.Transactions
         /// </summary>
         Dictionary<ulong, Dictionary<string, ITransactable>> _transactionsTables = new Dictionary<ulong, Dictionary<string, ITransactable>>();
 
-        public TransactionsJournal(DBreezeEngine DBreezeEngine)
+        public TransactionsJournal(DBriizeEngine DBriizeEngine)
         {
-            Engine = DBreezeEngine;
+            Engine = DBriizeEngine;
 
             this.Init();
         }
@@ -67,7 +67,7 @@ namespace DBreeze.Transactions
                  //Storage = new TrieDiskStorage(Path.Combine(Engine.MainFolder, JournalFileName), LTrieSettings, Engine.Configuration);
                  LTrie = new LTrie(Storage);
 
-                 LTrie.TableName = "DBreeze.TranJournal";
+                 LTrie.TableName = "DBriize.TranJournal";
 
                  this.RestoreNotFinishedTransactions();
             }
@@ -123,7 +123,7 @@ namespace DBreeze.Transactions
                 //Settigns and storage for Committed tables !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   MUST BE TAKEN FROM SCHEMA, FOR NOW DEFAULT
                 TrieSettings ltrSet = null;
                 IStorage storage = null;
-                DBreeze.LianaTrie.LTrie ltrie = null;
+                DBriize.LianaTrie.LTrie ltrie = null;
                                 
 
                 foreach (var row in LTrie.IterateForward(true, false))
@@ -136,7 +136,7 @@ namespace DBreeze.Transactions
                     {                       
                         //Trying to get path from the Schema, there is universal function for getting table physical TABLE FULL PATH /NAME
 
-                        physicalPathToTheUserTable = Engine.DBreezeSchema.GetPhysicalPathToTheUserTable(fn);
+                        physicalPathToTheUserTable = Engine.DBriizeSchema.GetPhysicalPathToTheUserTable(fn);
 
                         //Returned path can be empty, if no more such table
                         if (physicalPathToTheUserTable == String.Empty)
@@ -181,7 +181,7 @@ namespace DBreeze.Transactions
                 this.Engine.DBisOperable = false;
                 this.Engine.DBisOperableReason = "TransactionsCoordinator.RestoreNotFinishedTransaction";
                 //NOT CASCADE ADD EXCEPTION
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.CLEAN_ROLLBACK_FILES_FOR_FINISHED_TRANSACTIONS_FAILED);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.CLEAN_ROLLBACK_FILES_FOR_FINISHED_TRANSACTIONS_FAILED);
             }
             
         }
@@ -288,7 +288,7 @@ namespace DBreeze.Transactions
                        
                         Storage = new StorageLayer(Path.Combine(Engine.MainFolder, JournalFileName), LTrieSettings, Engine.Configuration);                        
                         LTrie = new LTrie(Storage);
-                        LTrie.TableName = "DBreeze.TranJournal";
+                        LTrie.TableName = "DBriize.TranJournal";
                     }
                 }
 

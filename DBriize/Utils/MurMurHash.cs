@@ -40,9 +40,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using DBreeze.Utils;
+using DBriize.Utils;
 
-namespace DBreeze.Utils.Hash
+namespace DBriize.Utils.Hash
 {
     public static class MurMurHash
     {

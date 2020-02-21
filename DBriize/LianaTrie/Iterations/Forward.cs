@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
+using DBriize.Utils;
 
-namespace DBreeze.LianaTrie.Iterations
+namespace DBriize.LianaTrie.Iterations
 {
     public class Forward
     {

@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Exceptions;
+using DBriize.Exceptions;
 
-namespace DBreeze.SchemeInternal
+namespace DBriize.SchemeInternal
 {
     public static class DbUserTables
     {
@@ -21,7 +21,7 @@ namespace DBreeze.SchemeInternal
         public static void UserTableNameIsOk(string tableName)
         {
             if (tableName == String.Empty)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TABLE_NAMES_TABLENAMECANTBEEMPTY);         
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TABLE_NAMES_TABLENAMECANTBEEMPTY);         
 
             for (int i = 0; i < tableName.Length; i++)
             {
@@ -35,7 +35,7 @@ namespace DBreeze.SchemeInternal
                     case '^':   //reserved by dbreeze                    
                     case '~':   //reserved by dbreeze
                     case '´':   //reserved by dbreeze                    
-                        throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TABLE_NAMES_TABLENAMECANT_CONTAINRESERVEDSYMBOLS); 
+                        throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TABLE_NAMES_TABLENAMECANT_CONTAINRESERVEDSYMBOLS); 
                 }
             }
             
@@ -73,7 +73,7 @@ namespace DBreeze.SchemeInternal
 
 
             if (tableName == String.Empty)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TABLE_PATTERN_CANTBEEMPTY);  
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TABLE_PATTERN_CANTBEEMPTY);  
 
             for (int i = 0; i < tableName.Length; i++)
             {
@@ -88,10 +88,10 @@ namespace DBreeze.SchemeInternal
                     case '#':
 
                         if ((i + 2) > (tableName.Length - 1))
-                            throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TABLE_PATTERN_SYMBOLS_AFTER_SHARP); 
+                            throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TABLE_PATTERN_SYMBOLS_AFTER_SHARP); 
 
                         if (tableName[i + 1] != '/')
-                            throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TABLE_PATTERN_SYMBOLS_AFTER_SHARP); 
+                            throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TABLE_PATTERN_SYMBOLS_AFTER_SHARP); 
                       
                         break;
                 }

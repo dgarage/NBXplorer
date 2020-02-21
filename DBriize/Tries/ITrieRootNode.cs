@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DBreeze.Tries
+namespace DBriize.Tries
 {
     /// <summary>
     /// Identifies any type of RootNode in different tries

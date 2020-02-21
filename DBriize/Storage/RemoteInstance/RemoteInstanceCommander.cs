@@ -9,9 +9,9 @@ using System.Linq;
 using System.Text;
 //using System.Threading.Tasks;
 
-using DBreeze.Utils;
+using DBriize.Utils;
 
-namespace DBreeze.Storage.RemoteInstance
+namespace DBriize.Storage.RemoteInstance
 {
     internal class RemoteInstanceCommander// : IRemoteInstanceCommander
     {
@@ -32,7 +32,7 @@ namespace DBreeze.Storage.RemoteInstance
         public RemoteInstanceCommander(IRemoteInstanceCommunicator communicator)
         {
             if (communicator == null)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander supplied IRemoteInstanceCommunicator is null");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander supplied IRemoteInstanceCommunicator is null");
 
             this.Com = communicator;
         }
@@ -96,7 +96,7 @@ namespace DBreeze.Storage.RemoteInstance
                 _RollbackHelperFileLength = BitConverter.ToInt64(ret, 25);
             }
             else if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.OpenRemoteTable: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.OpenRemoteTable: remote exception");
 
         }
 
@@ -111,7 +111,7 @@ namespace DBreeze.Storage.RemoteInstance
             byte[] ret = Com.Send(protocol);
 
             if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.CloseRemoteTable: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.CloseRemoteTable: remote exception");
         }
 
         /// <summary>
@@ -125,7 +125,7 @@ namespace DBreeze.Storage.RemoteInstance
             byte[] ret = Com.Send(protocol);
 
             if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.DeleteRemoteTable: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.DeleteRemoteTable: remote exception");
         }
                
 
@@ -216,7 +216,7 @@ namespace DBreeze.Storage.RemoteInstance
                 _DataFileLength = BitConverter.ToInt64(ret, 1);             
             }
             else if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.DataFileWrite: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.DataFileWrite: remote exception");
         }
 
         /// <summary>
@@ -243,7 +243,7 @@ namespace DBreeze.Storage.RemoteInstance
                 _RollbackFileLength = BitConverter.ToInt64(ret, 1);
             }
             else if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.RollbackFileWrite: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.RollbackFileWrite: remote exception");
         }
 
         /// <summary>
@@ -270,7 +270,7 @@ namespace DBreeze.Storage.RemoteInstance
                 _RollbackHelperFileLength = BitConverter.ToInt64(ret, 1);
             }
             else if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.RollbackHelperFileWrite: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.RollbackHelperFileWrite: remote exception");
         }
 
         #endregion
@@ -311,7 +311,7 @@ namespace DBreeze.Storage.RemoteInstance
             //    DataFileRead(array, offset, count);
             //}
             else if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.DataFileRead: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.DataFileRead: remote exception");
 
             return (array == null) ? 0 : array.Length;
         }
@@ -344,7 +344,7 @@ namespace DBreeze.Storage.RemoteInstance
                     ret.Substring(1).CopyTo(array, 0);  //not to loose ref object                
             }
             else if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.RollbackFileRead: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.RollbackFileRead: remote exception");
 
             return (array == null) ? 0 : array.Length;
         }
@@ -377,7 +377,7 @@ namespace DBreeze.Storage.RemoteInstance
                     ret.Substring(1).CopyTo(array, 0);  //not to loose ref object
             }
             else if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.RollbackHelperFileRead: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.RollbackHelperFileRead: remote exception");
 
             return (array == null) ? 0 : array.Length;
         }
@@ -398,7 +398,7 @@ namespace DBreeze.Storage.RemoteInstance
             byte[] ret = Com.Send(protocol);
 
             if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.DataFileFlush: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.DataFileFlush: remote exception");
         }
 
         /// <summary>
@@ -414,7 +414,7 @@ namespace DBreeze.Storage.RemoteInstance
             byte[] ret = Com.Send(protocol);
 
             if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.RollbackFileFlush: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.RollbackFileFlush: remote exception");
         }
         #endregion
 
@@ -431,7 +431,7 @@ namespace DBreeze.Storage.RemoteInstance
             byte[] ret = Com.Send(protocol);
 
             if (ret[0] == 255)
-                throw new Exception("DBreeze.Storage.RemoteInstance.RemoteInstanceCommander.RollbackFileRecreate: remote exception");
+                throw new Exception("DBriize.Storage.RemoteInstance.RemoteInstanceCommander.RollbackFileRecreate: remote exception");
 
             _RollbackFileLength = 0;
         }

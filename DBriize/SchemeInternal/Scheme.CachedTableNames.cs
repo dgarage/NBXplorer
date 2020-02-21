@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace DBreeze.SchemeInternal
+namespace DBriize.SchemeInternal
 {
     /// <summary>
     /// serves, cache of physical file names and corresponding virtual user table names

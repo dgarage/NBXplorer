@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
+using DBriize.Utils;
 
-namespace DBreeze.LianaTrie
+namespace DBriize.LianaTrie
 {    
     internal class LTrieGenerationNode
     {
@@ -1535,7 +1535,7 @@ namespace DBreeze.LianaTrie
                 /*DEBUG*/
                 //if (KidsBeforeModification == null)
                 //{
-                //    throw new Exception(String.Format("!!!DBreeze debug exception, LTrieGenNode KBM null, Reservation: {0}; QRS: {1};",reservation,this.QuantityReservationSlots));
+                //    throw new Exception(String.Format("!!!DBriize debug exception, LTrieGenNode KBM null, Reservation: {0}; QRS: {1};",reservation,this.QuantityReservationSlots));
                 //}
                 /*DEBUG*/
 

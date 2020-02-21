@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
+using DBriize.Utils;
 
-namespace DBreeze.LianaTrie
+namespace DBriize.LianaTrie
 {
     internal class LTrieKidsInNode
     {
@@ -190,7 +190,7 @@ namespace DBreeze.LianaTrie
         //            //kid++;
         //            kidPlace = kid * shift;
 
-        //            //DBreeze.Diagnostic.SpeedStatistic.StartCounter("ParseKids");
+        //            //DBriize.Diagnostic.SpeedStatistic.StartCounter("ParseKids");
 
         //            //checking if pointer is empty
         //            switch (DefaultPointerLength)
@@ -244,7 +244,7 @@ namespace DBreeze.LianaTrie
         //                    break;
 
         //            }
-        //            //DBreeze.Diagnostic.SpeedStatistic.StopCounter("ParseKids");
+        //            //DBriize.Diagnostic.SpeedStatistic.StopCounter("ParseKids");
 
 
 
@@ -1216,7 +1216,7 @@ namespace DBreeze.LianaTrie
         {
             if (!AllowSave)
                 return null;
-            //DBreeze.Diagnostic.SpeedStatistic.StartCounter("b");
+            //DBriize.Diagnostic.SpeedStatistic.StartCounter("b");
 
 
             byte[] ret = new byte[DefaultPointerLength + 2 + (256 * shift)];
@@ -1254,7 +1254,7 @@ namespace DBreeze.LianaTrie
                 Buffer.BlockCopy(ret, 0, ret1, 0, realcnt);
             }
 
-            //DBreeze.Diagnostic.SpeedStatistic.StopCounter("b");
+            //DBriize.Diagnostic.SpeedStatistic.StopCounter("b");
 
             //////if (ret1.Length != (ret1.Length / 7 * 7 + 5))
             //////{
@@ -1268,7 +1268,7 @@ namespace DBreeze.LianaTrie
 
         //public byte[] GetKidsForSave(int reservation)
         //{
-        //    DBreeze.Diagnostic.SpeedStatistic.StartCounter("b");
+        //    DBriize.Diagnostic.SpeedStatistic.StartCounter("b");
 
         //    byte[] ret = null;
 
@@ -1297,7 +1297,7 @@ namespace DBreeze.LianaTrie
         //    if (toAdd > 0)
         //        ret = ret.Concat(new byte[(2 + DefaultPointerLength) * toAdd]);         //2 because: 1 for kid name[0-255], 2 for id link to node or to value
 
-        //    DBreeze.Diagnostic.SpeedStatistic.StopCounter("b");
+        //    DBriize.Diagnostic.SpeedStatistic.StopCounter("b");
 
         //    return ret;
         //}

@@ -8,10 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
-using DBreeze.Exceptions;
+using DBriize.Utils;
+using DBriize.Exceptions;
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
     public static class CustomSerializator
     {
@@ -55,7 +55,7 @@ namespace DBreeze.Utils
             }
             catch (Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.CUSTOM_SERIALIZATION_ERROR, ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.CUSTOM_SERIALIZATION_ERROR, ex);
             }
 
         }
@@ -76,7 +76,7 @@ namespace DBreeze.Utils
             }
             catch (Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.CUSTOM_DESERIALIZATION_ERROR, ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.CUSTOM_DESERIALIZATION_ERROR, ex);
             }
 
         }

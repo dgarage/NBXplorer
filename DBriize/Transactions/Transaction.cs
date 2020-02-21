@@ -8,16 +8,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.LianaTrie;
-using DBreeze.Exceptions;
-using DBreeze.DataTypes;
-using DBreeze.Tries;
-using DBreeze.SchemeInternal;
-using DBreeze.Utils;
-using DBreeze.TextSearch;
+using DBriize.LianaTrie;
+using DBriize.Exceptions;
+using DBriize.DataTypes;
+using DBriize.Tries;
+using DBriize.SchemeInternal;
+using DBriize.Utils;
+using DBriize.TextSearch;
 //using System.Threading.Tasks;
 
-namespace DBreeze.Transactions
+namespace DBriize.Transactions
 {
     /// <summary>
     /// Transaction
@@ -195,16 +195,16 @@ namespace DBreeze.Transactions
         private void CheckIfTransactionHasTablesRegisteredForWrite(IList<string> tablesNames)
         {
             if (syncroTablesIsDone)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_TABLES_RESERVATION_CANBEDONE_ONCE, new Exception());
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_TABLES_RESERVATION_CANBEDONE_ONCE, new Exception());
 
             syncroTablesIsDone = false;
             //Reservation can be done only once, before calls of any write function.
 
             if (tablesNames.Count()<1)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_TABLES_RESERVATION_LIST_MUSTBEFILLED, new Exception());
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_TABLES_RESERVATION_LIST_MUSTBEFILLED, new Exception());
 
             if (this._transactionUnit.TransactionWriteTablesCount > 0)
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_TABLES_RESERVATION_FAILED, new Exception());
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_TABLES_RESERVATION_FAILED, new Exception());
         }
 
         #endregion
@@ -265,7 +265,7 @@ namespace DBreeze.Transactions
                 table = this._transactionUnit.TransactionsCoordinator.GetTable_WRITE(tableName, this.ManagedThreadId);
                 
                 if (table == null)
-                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DB_IS_NOT_OPERABLE, this._transactionUnit.TransactionsCoordinator.GetSchema.Engine.DBisOperableReason,new Exception());
+                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DB_IS_NOT_OPERABLE, this._transactionUnit.TransactionsCoordinator.GetSchema.Engine.DBisOperableReason,new Exception());
 
                 //Adding to Open Table Counter
                 AddOpenTable(tableName);
@@ -318,7 +318,7 @@ namespace DBreeze.Transactions
             ////{
             ////    this.UnregisterTransaction(transactionThreadId);
 
-            ////    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_CANBEUSED_FROM_ONE_THREAD);
+            ////    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_CANBEUSED_FROM_ONE_THREAD);
             ////}
 
             //LTrie table = null;
@@ -432,7 +432,7 @@ namespace DBreeze.Transactions
             //{
             //    this.UnregisterTransaction(transactionThreadId);
 
-            //    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TRANSACTION_CANBEUSED_FROM_ONE_THREAD);
+            //    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TRANSACTION_CANBEUSED_FROM_ONE_THREAD);
             //}
 
             LTrie table = null;
@@ -912,7 +912,7 @@ namespace DBreeze.Transactions
                 return (TIdentity)((object)ci);
             }
             else
-                throw new Exception("DBreeze.Transaction.ObjectGetNewIdentity: not acceptable identity type. (Only (long,ulong,int,uint,short,ushort))");
+                throw new Exception("DBriize.Transaction.ObjectGetNewIdentity: not acceptable identity type. (Only (long,ulong,int,uint,short,ushort))");
         }
 
         /// <summary>
@@ -924,15 +924,15 @@ namespace DBreeze.Transactions
         /// <param name="toInsert">Configuration for the inserting object</param>
         /// <param name="speedUpdate">Set to true to increase update speed (table can consume more physical space)</param>
         /// <returns></returns>
-        public DBreeze.Objects.DBreezeObjectInsertResult<TObject> ObjectInsert<TObject>(string tableName, DBreeze.Objects.DBreezeObject<TObject> toInsert, bool speedUpdate = false)
+        public DBriize.Objects.DBriizeObjectInsertResult<TObject> ObjectInsert<TObject>(string tableName, DBriize.Objects.DBriizeObject<TObject> toInsert, bool speedUpdate = false)
         {
            
-            DBreeze.Objects.DBreezeObjectInsertResult<TObject> res = new Objects.DBreezeObjectInsertResult<TObject>();
+            DBriize.Objects.DBriizeObjectInsertResult<TObject> res = new Objects.DBriizeObjectInsertResult<TObject>();
 
             if (toInsert == null || toInsert.Indexes == null || toInsert.Indexes.Count < 1)
-                throw new Exception("DBreeze.Transaction.InsertObject: indexes are not supplied");
+                throw new Exception("DBriize.Transaction.InsertObject: indexes are not supplied");
 
-            DBreeze.Objects.DBreezeIndex primary = null;
+            DBriize.Objects.DBriizeIndex primary = null;
 
             //Newly supplied indexes, their count may not correspond to the stored indexes
             Dictionary<byte, byte[]> nidx = new Dictionary<byte, byte[]>();
@@ -941,14 +941,14 @@ namespace DBreeze.Transactions
                 if (idx.PrimaryIndex)
                 {
                     if (primary != null)
-                        throw new Exception("DBreeze.Transaction.ObjectInsert: primary index can be defined only once");
+                        throw new Exception("DBriize.Transaction.ObjectInsert: primary index can be defined only once");
                     primary = idx;
                     primary.FormIndex(null);
                 }
                 else if (idx.AddPrimaryToTheEnd)
                 {
                     if (primary == null)
-                        throw new Exception("DBreeze.Transaction.ObjectInsert: primary index has to be supplied");
+                        throw new Exception("DBriize.Transaction.ObjectInsert: primary index has to be supplied");
                     idx.FormIndex(primary.IndexNoPrefix);
                 }
                 else
@@ -962,13 +962,13 @@ namespace DBreeze.Transactions
                     }
                 }
                 if (nidx.ContainsKey(idx.IndexNumber))
-                    throw new Exception("DBreeze.Transaction.ObjectInsert: index definition is duplicated");
+                    throw new Exception("DBriize.Transaction.ObjectInsert: index definition is duplicated");
 
                 nidx[idx.IndexNumber] = idx.IndexFull;
             }
 
             if (!toInsert.NewEntity && toInsert.ptrToExisingEntity == null && primary == null)
-                throw new Exception("DBreeze.Transaction.ObjectInsert: Not supplied index helping to grab entity");
+                throw new Exception("DBriize.Transaction.ObjectInsert: Not supplied index helping to grab entity");
 
 
             byte[] ptr = null;
@@ -1195,18 +1195,18 @@ namespace DBreeze.Transactions
         /// <summary>
         /// Concept of the objects storage (read docu from 20170321).
         /// Gets object directly if available its fixed address in the file, can be useful for the indexes stored in different from the object table.
-        /// Returns DBreezeObject, to get entity use property.Entity. If returns null, then such entity doesn't exist.
+        /// Returns DBriizeObject, to get entity use property.Entity. If returns null, then such entity doesn't exist.
         /// </summary>
         /// <typeparam name="TVal"></typeparam>
         /// <param name="tableName">name of the table</param>
         /// <param name="address">fixed address in the file</param>
         /// <returns></returns>
-        public DBreeze.Objects.DBreezeObject<TVal> ObjectGetByFixedAddress<TVal>(string tableName, byte[] address)
+        public DBriize.Objects.DBriizeObject<TVal> ObjectGetByFixedAddress<TVal>(string tableName, byte[] address)
         {
             if (address == null)
                 return null;
 
-            var ret = new Objects.DBreezeObject<TVal>();
+            var ret = new Objects.DBriizeObject<TVal>();
 
             ret.ptrToExisingEntity = address;
             ITrieRootNode readRoot = null;
@@ -1263,16 +1263,16 @@ namespace DBreeze.Transactions
             ////For keys and values different convertors.
 
 
-            ////DBreeze.Test.TestStatic.StartCounter("KEYS COMPUTE");
+            ////DBriize.Test.TestStatic.StartCounter("KEYS COMPUTE");
 
             //byte[] btKey = DataTypesConvertor.ConvertKey<TKey>(key);
             //byte[] btValue = DataTypesConvertor.ConvertValue<TValue>(value);
 
-            ////DBreeze.Test.TestStatic.StopCounter("KEYS COMPUTE");
+            ////DBriize.Test.TestStatic.StopCounter("KEYS COMPUTE");
 
-            ////DBreeze.Test.TestStatic.StartCounter("VALUE ADD");
+            ////DBriize.Test.TestStatic.StartCounter("VALUE ADD");
             //refToInsertedValue = table.Add(ref btKey, ref btValue);
-            ////DBreeze.Test.TestStatic.StopCounter("VALUE ADD");
+            ////DBriize.Test.TestStatic.StopCounter("VALUE ADD");
             //if (refToInsertedValue != null)
             //    refToInsertedValue = refToInsertedValue.EnlargeByteArray_BigEndian(8);
         }
@@ -1314,16 +1314,16 @@ namespace DBreeze.Transactions
             //For keys and values different convertors.
 
 
-            //DBreeze.Test.TestStatic.StartCounter("KEYS COMPUTE");
+            //DBriize.Test.TestStatic.StartCounter("KEYS COMPUTE");
 
             byte[] btKey = DataTypesConvertor.ConvertKey<TKey>(key);
             byte[] btValue = DataTypesConvertor.ConvertValue<TValue>(value);
 
-            //DBreeze.Test.TestStatic.StopCounter("KEYS COMPUTE");
+            //DBriize.Test.TestStatic.StopCounter("KEYS COMPUTE");
 
-            //DBreeze.Test.TestStatic.StartCounter("VALUE ADD");
+            //DBriize.Test.TestStatic.StartCounter("VALUE ADD");
             refToInsertedValue = table.Add(ref btKey, ref btValue, out WasUpdated, dontUpdateIfExists);
-            //DBreeze.Test.TestStatic.StopCounter("VALUE ADD");
+            //DBriize.Test.TestStatic.StopCounter("VALUE ADD");
             if (refToInsertedValue != null)
                 refToInsertedValue = refToInsertedValue.EnlargeByteArray_BigEndian(8);
         }
@@ -1349,7 +1349,7 @@ namespace DBreeze.Transactions
         ///// </summary>
         ///// <param name="tableName"></param>
         ///// <param name="diskFlushBehaviour"></param>
-        //public void Technical_SetTable_DiskFlushBehaviour(string tableName, DBreezeConfiguration.eDiskFlush diskFlushBehaviour)
+        //public void Technical_SetTable_DiskFlushBehaviour(string tableName, DBriizeConfiguration.eDiskFlush diskFlushBehaviour)
         //{            
         //    LTrie table = GetWriteTableFromBuffer(tableName);
         //    table.Storage.TrieSettings.DiskFlushBehaviour = diskFlushBehaviour;
@@ -1823,7 +1823,7 @@ namespace DBreeze.Transactions
         /// <summary>
         /// Inserts/Updates searchable words per external documentID
         /// </summary>
-        /// <param name="tableName">Real DBreeze table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
+        /// <param name="tableName">Real DBriize table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
         /// <param name="documentId">External document id, it will be returned after executing TextSearch.block.GetDocumentIDs</param>        
         /// <param name="containsWords">Space separated words, which will be stored using "contains" logic.</param>
         /// <param name="fullMatchWords">Space separated words, which will be stored using "full-match" logic (they can be also search via contains words by StartsWith logic)</param>
@@ -1843,7 +1843,7 @@ namespace DBreeze.Transactions
         /// <summary>
         /// Appends words to the searchable set of the external documentID
         /// </summary>
-        /// <param name="tableName">Real DBreeze table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
+        /// <param name="tableName">Real DBriize table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
         /// <param name="documentId">External document id, it will be returned after executing TextSearch.block.GetDocumentIDs</param>      
         /// <param name="containsWords">Space separated words, which will be stored using "contains" logic.</param>
         /// <param name="fullMatchWords">Space separated words, which will be stored using "full-match" logic</param>
@@ -1862,7 +1862,7 @@ namespace DBreeze.Transactions
         /// <summary>
         /// Removes words from the searchable set of the external documentID
         /// </summary>
-        /// <param name="tableName">Real DBreeze table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
+        /// <param name="tableName">Real DBriize table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
         /// <param name="documentId">External document id, it will be returned after executing TextSearch.block.GetDocumentIDs</param>        
         /// <param name="fullMatchWords">Space separated words, which will be stored using "full-match" logic</param>
         /// <param name="deferredIndexing"> Means that document will be indexed in parallel thread and possible search will be available a bit later after commit. 
@@ -1880,7 +1880,7 @@ namespace DBreeze.Transactions
         /// <summary>
         /// Removes external documentID from the search index
         /// </summary>
-        /// <param name="tableName">Real DBreeze table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
+        /// <param name="tableName">Real DBriize table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
         /// <param name="documentId">External document id, it will be returned after executing TextSearch.block.GetDocumentIDs</param>  
         /// <param name="deferredIndexing"> Means that document will be indexed in parallel thread and possible search will be available a bit later after commit. 
         /// It's good for the fast Commits while inserting relatively large searchables-set .
@@ -1896,7 +1896,7 @@ namespace DBreeze.Transactions
         /// <summary>
         /// Returns existng searchables for the given documents external IDs
         /// </summary>
-        /// <param name="tableName">Real DBreeze table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
+        /// <param name="tableName">Real DBriize table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
         /// <param name="documentIds"></param>
         /// <returns></returns>
         public Dictionary<byte[],HashSet<string>> TextGetDocumentsSearchables(string tableName, HashSet<byte[]> documentIds)
@@ -1912,7 +1912,7 @@ namespace DBreeze.Transactions
         /// Returns TextSearchTable (word aligned bitmap index manager for the search-index table). 
         /// Allows to make logical block based comparative operations.
         /// </summary>
-        /// <param name="tableName">Real DBreeze table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
+        /// <param name="tableName">Real DBriize table name, used to store text index for the group of documents. Must be added to tran.SynchronizeTables by programmer.</param>
         /// <returns></returns>
         public TextSearchTable TextSearch(string tableName)
         {

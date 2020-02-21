@@ -12,7 +12,7 @@ using System.Linq;
 using System.Text;
 
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
     public class BloomFilter
     {

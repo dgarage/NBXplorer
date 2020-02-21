@@ -9,14 +9,14 @@ using System.Linq;
 using System.Text;
 //using System.Threading.Tasks;
 
-using DBreeze;
-using DBreeze.Transactions;
-using DBreeze.Utils;
-using DBreeze.DataTypes;
+using DBriize;
+using DBriize.Transactions;
+using DBriize.Utils;
+using DBriize.DataTypes;
 using System.Diagnostics;
 
 
-namespace DBreeze.TextSearch
+namespace DBriize.TextSearch
 {
     /// <summary>
     /// New instance per transaction. Is created by necessity, while inserting or selecting anything concerning TextSearch subsystem.

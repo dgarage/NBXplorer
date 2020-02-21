@@ -8,11 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.LianaTrie;
-using DBreeze.DataTypes;
-using DBreeze.Utils;
+using DBriize.LianaTrie;
+using DBriize.DataTypes;
+using DBriize.Utils;
 
-namespace DBreeze.DataTypes
+namespace DBriize.DataTypes
 {
     /// <summary>
     /// Row
@@ -299,9 +299,9 @@ namespace DBreeze.DataTypes
         /// </summary>
         /// <typeparam name="TVal"></typeparam>
         /// <returns></returns>
-        public DBreeze.Objects.DBreezeObject<TVal> ObjectGet<TVal>()
+        public DBriize.Objects.DBriizeObject<TVal> ObjectGet<TVal>()
         {
-            var ret = new Objects.DBreezeObject<TVal>();
+            var ret = new Objects.DBriizeObject<TVal>();
 
             byte[] dataBlockId = null;
             int startIndex = 0;
@@ -433,7 +433,7 @@ namespace DBreeze.DataTypes
             {
 
 
-                if (typeof(TKey) == DBreeze.DataTypes.DataTypesConvertor.TYPE_BYTE_ARRAY)
+                if (typeof(TKey) == DBriize.DataTypes.DataTypesConvertor.TYPE_BYTE_ARRAY)
                 {
                     System.Diagnostics.Debug.WriteLine(String.Format("{2}; K: {0}; V: {1}", this._key, Value, leadingText));
                 }

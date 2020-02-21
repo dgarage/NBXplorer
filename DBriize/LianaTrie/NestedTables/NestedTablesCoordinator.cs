@@ -8,10 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
-using DBreeze.DataTypes;
+using DBriize.Utils;
+using DBriize.DataTypes;
 
-namespace DBreeze.LianaTrie
+namespace DBriize.LianaTrie
 {
     /// <summary>
     /// Represents a bound to the LTrie nested tables coordinator.

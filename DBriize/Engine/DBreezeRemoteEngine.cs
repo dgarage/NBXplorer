@@ -8,30 +8,30 @@ using System.Linq;
 using System.Text;
 //using System.Threading.Tasks;
 
-using DBreeze.Transactions;
-using DBreeze.Exceptions;
+using DBriize.Transactions;
+using DBriize.Exceptions;
 
-namespace DBreeze
+namespace DBriize
 {
     /// <summary>
     /// 
     /// </summary>
-    public class DBreezeRemoteEngine : DBreezeEngine
+    public class DBriizeRemoteEngine : DBriizeEngine
     {
-        DBreezeConfiguration conf = null;
+        DBriizeConfiguration conf = null;
         bool inited = false;
         object lock_init = new object();
         
 
         /// <summary>
-        /// DBreezeRemoteEngine instantiator
+        /// DBriizeRemoteEngine instantiator
         /// </summary>
         /// <param name="dbreezeConfiguration"></param>
-        public DBreezeRemoteEngine(DBreezeConfiguration dbreezeConfiguration)            
+        public DBriizeRemoteEngine(DBriizeConfiguration dbreezeConfiguration)            
         {
 
             if (dbreezeConfiguration == null)
-                throw new Exception("DBreeze.DbreezeRemoteEngine.DbreezeRemoteEngine:  dbreezeConfiguration is NULL");
+                throw new Exception("DBriize.DbreezeRemoteEngine.DbreezeRemoteEngine:  dbreezeConfiguration is NULL");
 
             conf = dbreezeConfiguration;
             this.RemoteEngine = true;
@@ -83,14 +83,14 @@ namespace DBreeze
         }
 
         /// <summary>
-        /// Returns DBreeze schema object
+        /// Returns DBriize schema object
         /// </summary>
         public new Scheme Scheme
         {
             get
             {
                 Init();
-                return this.DBreezeSchema;
+                return this.DBriizeSchema;
             }
         }
         

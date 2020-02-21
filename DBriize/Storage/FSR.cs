@@ -9,14 +9,14 @@ using System.Linq;
 using System.Text;
 using System.IO;
 
-using DBreeze.Utils;
-using DBreeze.Exceptions;
+using DBriize.Utils;
+using DBriize.Exceptions;
 
-namespace DBreeze.Storage
+namespace DBriize.Storage
 {
     /// <summary>
-    /// DBreeze random and sequential disk IO buffers implementation.
-    /// Specially designed for DBreeze specific storage format.
+    /// DBriize random and sequential disk IO buffers implementation.
+    /// Specially designed for DBriize specific storage format.
     /// Not for common usage.
     /// </summary>
     internal class FSR : IStorage
@@ -87,7 +87,7 @@ namespace DBreeze.Storage
 
         TrieSettings _trieSettings = null;
         ushort DefaultPointerLen = 0;
-        DBreezeConfiguration _configuration = null;
+        DBriizeConfiguration _configuration = null;
 
         bool _backupIsActive = false;
 
@@ -100,7 +100,7 @@ namespace DBreeze.Storage
 
         #endregion
 
-        public FSR(string fileName, TrieSettings trieSettings, DBreezeConfiguration configuration)
+        public FSR(string fileName, TrieSettings trieSettings, DBriizeConfiguration configuration)
         {
             this._fileName = fileName;
             this._configuration = configuration;
@@ -142,7 +142,7 @@ namespace DBreeze.Storage
         /// <summary>
         /// 
         /// </summary>
-        public DBreezeConfiguration DbreezeConfiguration
+        public DBriizeConfiguration DbreezeConfiguration
         {
             get { return this._configuration; }
         }
@@ -240,7 +240,7 @@ namespace DBreeze.Storage
             catch (Exception ex)
             {
                 IsOperable = false;
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DB_IS_NOT_OPERABLE, "FSR INIT FAILED: " + this._fileName, ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DB_IS_NOT_OPERABLE, "FSR INIT FAILED: " + this._fileName, ex);
             }
 
         }
@@ -303,7 +303,7 @@ namespace DBreeze.Storage
             //catch (Exception ex)
             //{
             //    IsOperable = false;
-            //    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.RESTORE_ROLLBACK_DATA_FAILED, this._fileName, ex);
+            //    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.RESTORE_ROLLBACK_DATA_FAILED, this._fileName, ex);
             //}
 
         }
@@ -685,7 +685,7 @@ namespace DBreeze.Storage
 
             //DB RULE1. We cant update and go out of the end of file
             //!! ALL throw new Exception must be taken away after testS
-            //!! This is a cutted implementation for DBreeze we dont take care buffer elements overlapping (start+len U some elements -> should be not possible)
+            //!! This is a cutted implementation for DBriize we dont take care buffer elements overlapping (start+len U some elements -> should be not possible)
             //overwriting partly file and partly sequential buffer is not allowed
 
             if (data == null || data.Length == 0)
@@ -1300,7 +1300,7 @@ namespace DBreeze.Storage
             catch (Exception ex)
             {
                 IsOperable = false;
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.RESTORE_ROLLBACK_DATA_FAILED, this._fileName, ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.RESTORE_ROLLBACK_DATA_FAILED, this._fileName, ex);
             }
 
 

@@ -8,11 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
-using DBreeze.Storage;
-using DBreeze.Exceptions;
+using DBriize.Utils;
+using DBriize.Storage;
+using DBriize.Exceptions;
 
-namespace DBreeze.LianaTrie
+namespace DBriize.LianaTrie
 {
     internal class LTrieWriteCache:IDisposable
     {
@@ -824,7 +824,7 @@ namespace DBreeze.LianaTrie
             {
                
                 if (data != null && data.LongCount() > Int32.MaxValue)
-                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.DYNAMIC_DATA_BLOCK_VALUE_IS_BIG);
+                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.DYNAMIC_DATA_BLOCK_VALUE_IS_BIG);
 
 
                 if (initPtr._IfDynamicDataPointerIsEmpty() || !Trie.OverWriteIsAllowed)

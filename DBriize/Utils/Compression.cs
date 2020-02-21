@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
     public static class Compression
     {

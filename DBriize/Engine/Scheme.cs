@@ -10,19 +10,19 @@ using System.Text;
 
 using System.IO;
 
-using DBreeze.Storage;
-using DBreeze.LianaTrie;
-using DBreeze.Utils;
+using DBriize.Storage;
+using DBriize.LianaTrie;
+using DBriize.Utils;
 
-using DBreeze.Exceptions;
+using DBriize.Exceptions;
 
-using DBreeze.SchemeInternal;
+using DBriize.SchemeInternal;
 
-namespace DBreeze
+namespace DBriize
 {
     public class Scheme : IDisposable
     {
-        internal DBreezeEngine Engine = null;
+        internal DBriizeEngine Engine = null;
 
         CachedTableNames cachedTableNames = new CachedTableNames();
         
@@ -31,9 +31,9 @@ namespace DBreeze
         /// </summary>
         internal bool AutoCloseOpenTables = true;
 
-        static string Copyright = "DBreeze.tiesky.com";
+        static string Copyright = "DBriize.tiesky.com";
 
-        static string SchemaFileName = "_DBreezeSchema";
+        static string SchemaFileName = "_DBriizeSchema";
 
         //For System Tables or Records we reserve "@@@@" sequence
         static string LastFileNumberKeyName = "@@@@LastFileNumber";
@@ -50,9 +50,9 @@ namespace DBreeze
 
         bool _disposed = false;
 
-        public Scheme(DBreezeEngine DBreezeEngine)
+        public Scheme(DBriizeEngine DBriizeEngine)
         {
-            Engine = DBreezeEngine;
+            Engine = DBriizeEngine;
 
             this.OpenSchema();
         }
@@ -110,7 +110,7 @@ namespace DBreeze
 
             LTrie = new LTrie(Storage);
 
-            LTrie.TableName = "DBreeze.Scheme";
+            LTrie.TableName = "DBriize.Scheme";
 
             //Reading lastFileNumber
             ReadUserLastFileNumber();
@@ -164,7 +164,7 @@ namespace DBreeze
                             fileName = fullValue.Substring(2, 8).To_UInt64_BigEndian();
                             break;
                         default:
-                            throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.SCHEME_FILE_PROTOCOL_IS_UNKNOWN);
+                            throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.SCHEME_FILE_PROTOCOL_IS_UNKNOWN);
                     }
                 }
                 else
@@ -206,7 +206,7 @@ namespace DBreeze
             {
                 this.Engine.DBisOperable = false;
                 this.Engine.DBisOperableReason = "GetPhysicalPathToTheUserTable";
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.GENERAL_EXCEPTION_DB_NOT_OPERABLE, this.Engine.DBisOperableReason, ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.GENERAL_EXCEPTION_DB_NOT_OPERABLE, this.Engine.DBisOperableReason, ex);
 
             }
         }
@@ -243,7 +243,7 @@ namespace DBreeze
                         fileName = fullValue.Substring(2, 8).To_UInt64_BigEndian();
                         break;
                     default:
-                        throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.SCHEME_FILE_PROTOCOL_IS_UNKNOWN);
+                        throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.SCHEME_FILE_PROTOCOL_IS_UNKNOWN);
                 }
 
                 string alternativeTableLocation = String.Empty;
@@ -363,7 +363,7 @@ namespace DBreeze
                                     fileName = fullValue.Substring(2, 8).To_UInt64_BigEndian();
                                     break;
                                 default:
-                                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.SCHEME_FILE_PROTOCOL_IS_UNKNOWN);
+                                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.SCHEME_FILE_PROTOCOL_IS_UNKNOWN);
                             }
                         }
                         else
@@ -438,13 +438,13 @@ namespace DBreeze
 
                         if (alternativeTableLocation == String.Empty)
                         {
-                            ts.AlternativeTableStorageType = DBreezeConfiguration.eStorage.MEMORY;
+                            ts.AlternativeTableStorageType = DBriizeConfiguration.eStorage.MEMORY;
 
                             storage = new StorageLayer(Path.Combine(Engine.MainFolder, fileName.ToString()), ts, Engine.Configuration);
                         }
                         else
                         {
-                            ts.AlternativeTableStorageType = DBreezeConfiguration.eStorage.DISK;
+                            ts.AlternativeTableStorageType = DBriizeConfiguration.eStorage.DISK;
                             ts.AlternativeTableStorageFolder = alternativeTableLocation;
 
                             DirectoryInfo diAlt = new DirectoryInfo(alternativeTableLocation);
@@ -497,7 +497,7 @@ namespace DBreeze
             }
             catch (Exception ex)
             {
-                throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.SCHEME_GET_TABLE_WRITE_FAILED, tableName, ex);
+                throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.SCHEME_GET_TABLE_WRITE_FAILED, tableName, ex);
             }
             finally
             {
@@ -538,7 +538,7 @@ namespace DBreeze
         /// <param name="closeOpenTables"></param>
         internal void CloseTables(Dictionary<string, ulong?> closeOpenTables)
         {
-            //if (Engine.Configuration.Storage == DBreezeConfiguration.eStorage.MEMORY)
+            //if (Engine.Configuration.Storage == DBriizeConfiguration.eStorage.MEMORY)
             //    return;
 
             string tableName = String.Empty;
@@ -568,8 +568,8 @@ namespace DBreeze
                     }
                     else
                     {
-                        //Table location is not overridden, working further based on main DBreeze configuration
-                        if (Engine.Configuration.Storage == DBreezeConfiguration.eStorage.MEMORY)
+                        //Table location is not overridden, working further based on main DBriize configuration
+                        if (Engine.Configuration.Storage == DBriizeConfiguration.eStorage.MEMORY)
                             continue;   //we don't close memory tables
                     }
 
@@ -617,7 +617,7 @@ namespace DBreeze
         {
             //This call can be done only for physical files, it's controlled on the upper level
 
-            //if (this.Engine.Configuration.Storage == DBreezeConfiguration.eStorage.MEMORY)
+            //if (this.Engine.Configuration.Storage == DBriizeConfiguration.eStorage.MEMORY)
             //    return;
 
             try
@@ -788,7 +788,7 @@ namespace DBreeze
             }
             catch (System.Exception ex)
             {
-                DBreezeException.Throw(DBreezeException.eDBreezeExceptions.SCHEME_TABLE_DELETE_FAILED, userTableName, ex);
+                DBriizeException.Throw(DBriizeException.eDBriizeExceptions.SCHEME_TABLE_DELETE_FAILED, userTableName, ex);
             }
             finally
             {
@@ -866,7 +866,7 @@ namespace DBreeze
                 }
                 else
                 {
-                    if (Engine.Configuration.Storage == DBreezeConfiguration.eStorage.MEMORY)
+                    if (Engine.Configuration.Storage == DBriizeConfiguration.eStorage.MEMORY)
                     {
                         //In-Memory Table
                         inMemory = true;
@@ -901,7 +901,7 @@ namespace DBreeze
             }
             catch (System.Exception ex)
             {
-                DBreezeException.Throw(DBreezeException.eDBreezeExceptions.SCHEME_TABLE_RENAME_FAILED, oldUserTableName, ex);
+                DBriizeException.Throw(DBriizeException.eDBriizeExceptions.SCHEME_TABLE_RENAME_FAILED, oldUserTableName, ex);
             }
             finally
             {

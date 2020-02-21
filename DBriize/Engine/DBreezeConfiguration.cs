@@ -6,18 +6,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using DBreeze.Storage;
-using DBreeze.Storage.RemoteInstance;
+using DBriize.Storage;
+using DBriize.Storage.RemoteInstance;
 
-namespace DBreeze
+namespace DBriize
 {
-    public class DBreezeConfiguration : IDisposable
+    public class DBriizeConfiguration : IDisposable
     {
         Backup _backup = new Backup();
 
-        public DBreezeConfiguration()
+        public DBriizeConfiguration()
         {
-            DBreezeDataFolderName = String.Empty;            
+            DBriizeDataFolderName = String.Empty;            
             Storage = eStorage.DISK;
         }
 
@@ -46,9 +46,9 @@ namespace DBreeze
         }
 
         /// <summary>
-        /// Folder where will reside DBreeze database files
+        /// Folder where will reside DBriize database files
         /// </summary>
-        public string DBreezeDataFolderName { get; set; }
+        public string DBriizeDataFolderName { get; set; }
 
         public enum eStorage
         {
@@ -62,7 +62,7 @@ namespace DBreeze
 
         /// <summary>
         /// DISK, MEMORY or Remote Instance. DEFAULT IS DISK,
-        /// DBreezeDataFolderName must be supplied.
+        /// DBriizeDataFolderName must be supplied.
         /// </summary>
         public eStorage Storage { get; set; }
 
@@ -123,7 +123,7 @@ namespace DBreeze
         /// <summary>
         /// Configuration concerning TextSearch subsystem
         /// </summary>
-        public TextSearchConfiguration TextSearchConfig = new DBreezeConfiguration.TextSearchConfiguration();
+        public TextSearchConfiguration TextSearchConfig = new DBriizeConfiguration.TextSearchConfiguration();
 
     }
 }

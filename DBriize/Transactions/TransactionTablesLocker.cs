@@ -8,10 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
-using DBreeze.SchemeInternal;
+using DBriize.Utils;
+using DBriize.SchemeInternal;
 
-namespace DBreeze
+namespace DBriize
 {
     public enum eTransactionTablesLockTypes
     {
@@ -219,7 +219,7 @@ namespace DBreeze
 
 
         /// <summary>
-        /// MUST BE CALLED BY ENGINE DISPOSE (After all other DBreeze disposes)
+        /// MUST BE CALLED BY ENGINE DISPOSE (After all other DBriize disposes)
         /// </summary>
         public void Dispose()
         { 

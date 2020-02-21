@@ -8,10 +8,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.Utils;
-using DBreeze.Exceptions;
+using DBriize.Utils;
+using DBriize.Exceptions;
 
-namespace DBreeze.LianaTrie
+namespace DBriize.LianaTrie
 {   
     public class LTrieRow
     {
@@ -25,7 +25,7 @@ namespace DBreeze.LianaTrie
                 //Master, Nested tables are covered, DataBlocks are not covered. To get DataBlock is enough only pointer. But may be there is not so much sense
                 //to operate with pure pointers, if table can be compacted or recreated, at least at some places.
                 if (TableFixTime != _root.Tree.Storage.StorageFixTime)
-                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TABLE_WAS_CHANGED_LINKS_ARE_NOT_ACTUAL, new Exception());
+                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TABLE_WAS_CHANGED_LINKS_ARE_NOT_ACTUAL, new Exception());
 
                 return _root;
             }
@@ -74,7 +74,7 @@ namespace DBreeze.LianaTrie
             get
             {
                 if (TableFixTime != _root.Tree.Storage.StorageFixTime)
-                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TABLE_WAS_CHANGED_LINKS_ARE_NOT_ACTUAL, new Exception());
+                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TABLE_WAS_CHANGED_LINKS_ARE_NOT_ACTUAL, new Exception());
 
                 return _linkToValue;
             }
@@ -102,7 +102,7 @@ namespace DBreeze.LianaTrie
                 //Checking if table which we read now is the same which has generated this LTrieRow.
                 //If not then in-between table recreate was executed or restore from other tables
                 if (TableFixTime != _root.Tree.Storage.StorageFixTime)
-                    throw DBreezeException.Throw(DBreezeException.eDBreezeExceptions.TABLE_WAS_CHANGED_LINKS_ARE_NOT_ACTUAL, new Exception());
+                    throw DBriizeException.Throw(DBriizeException.eDBriizeExceptions.TABLE_WAS_CHANGED_LINKS_ARE_NOT_ACTUAL, new Exception());
 
                 return this._exists;
             }

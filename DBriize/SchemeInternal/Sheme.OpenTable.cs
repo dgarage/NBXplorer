@@ -8,9 +8,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.LianaTrie;
+using DBriize.LianaTrie;
 
-namespace DBreeze.SchemeInternal
+namespace DBriize.SchemeInternal
 {
     public class OpenTable:IDisposable
     {

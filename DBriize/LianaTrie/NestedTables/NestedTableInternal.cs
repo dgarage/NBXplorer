@@ -8,11 +8,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze.LianaTrie;
-using DBreeze.Storage;
-using DBreeze.Exceptions;
+using DBriize.LianaTrie;
+using DBriize.Storage;
+using DBriize.Exceptions;
 
-namespace DBreeze.DataTypes
+namespace DBriize.DataTypes
 {
     
     /// <summary>

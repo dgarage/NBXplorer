@@ -10,7 +10,7 @@ using System.Text;
 
 using System.Threading;
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
 
     /// <summary>

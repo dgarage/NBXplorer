@@ -8,7 +8,7 @@ using System.Threading;
 // Disabling compiler warning on a volatile field used in interlocked operations. Safe.
 #pragma warning disable 0420
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
     /// <summary>
     /// Temporar wrapper

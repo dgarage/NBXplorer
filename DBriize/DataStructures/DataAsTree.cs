@@ -9,10 +9,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-using DBreeze;
-using DBreeze.Utils;
+using DBriize;
+using DBriize.Utils;
 
-namespace DBreeze.DataStructures
+namespace DBriize.DataStructures
 {
     /// <summary>
     /// Ierarchical DataStructure. Any node can have subnodes and own binary content
@@ -38,16 +38,16 @@ namespace DBreeze.DataStructures
         protected byte[] ContentRef = null;
 
         /// <summary>
-        /// Real table name in DBreeze, that will hold the structure
+        /// Real table name in DBriize, that will hold the structure
         /// </summary>
-        protected string DBreezeTableName = String.Empty;
+        protected string DBriizeTableName = String.Empty;
 
-        protected DBreeze.Transactions.Transaction Transaction = null;
+        protected DBriize.Transactions.Transaction Transaction = null;
 
-        protected DBreeze.DataTypes.NestedTable nt2Read = null;
-        protected DBreeze.DataTypes.NestedTable nt3Read = null;
-        protected DBreeze.DataTypes.NestedTable nt2Write = null;    //Storing structure in format ParentId(long)+NodeId(long). Value depends upon type of file or folder
-        protected DBreeze.DataTypes.NestedTable nt3Write = null;    //Storing node name for easy search
+        protected DBriize.DataTypes.NestedTable nt2Read = null;
+        protected DBriize.DataTypes.NestedTable nt3Read = null;
+        protected DBriize.DataTypes.NestedTable nt2Write = null;    //Storing structure in format ParentId(long)+NodeId(long). Value depends upon type of file or folder
+        protected DBriize.DataTypes.NestedTable nt3Write = null;    //Storing node name for easy search
 
         protected DataAsTree RootNode = null;
         protected bool maximalInsertSpeed = false;
@@ -56,10 +56,10 @@ namespace DBreeze.DataStructures
         /// <summary>
         /// Initializing Root Node
         /// </summary>
-        /// <param name="DBreezeTableName">Real table name in DBreeze, that will hold the structure, must be synchronized with other tables in transaction</param>
+        /// <param name="DBriizeTableName">Real table name in DBriize, that will hold the structure, must be synchronized with other tables in transaction</param>
         /// <param name="tran"></param>
-        /// <param name="maximalInsertSpeed">will use DBreeze Technical_SetTable_OverwriteIsNotAllowed among transaction for DBreezeTableName</param>
-        public DataAsTree(string DBreezeTableName, DBreeze.Transactions.Transaction tran, bool maximalInsertSpeed = false)
+        /// <param name="maximalInsertSpeed">will use DBriize Technical_SetTable_OverwriteIsNotAllowed among transaction for DBriizeTableName</param>
+        public DataAsTree(string DBriizeTableName, DBriize.Transactions.Transaction tran, bool maximalInsertSpeed = false)
         {
             if (tran == null)
                 throw new Exception("Transaction is null");
@@ -72,7 +72,7 @@ namespace DBreeze.DataStructures
 
             this.Transaction = tran;
             this.maximalInsertSpeed = maximalInsertSpeed;
-            this.DBreezeTableName = DBreezeTableName;
+            this.DBriizeTableName = DBriizeTableName;
             this.NodeId = 0;
             this.ParentNodeId = 0;
         }
@@ -110,7 +110,7 @@ namespace DBreeze.DataStructures
         void CopyInternals(DataAsTree node)
         {
             node.RootNode = this.RootNode;
-            //node.DBreezeTableName = this.DBreezeTableName;
+            //node.DBriizeTableName = this.DBriizeTableName;
             //node.Transaction = this.Transaction;
             //node.nt2Write = this.nt2Write;
             //node.nt2Read = this.nt2Read;
@@ -126,9 +126,9 @@ namespace DBreeze.DataStructures
         {
             if (this.RootNode.nt2Read == null)
             {
-                this.RootNode.nt2Read = this.RootNode.Transaction.SelectTable(this.RootNode.DBreezeTableName, new byte[] { 2 }, 0);
+                this.RootNode.nt2Read = this.RootNode.Transaction.SelectTable(this.RootNode.DBriizeTableName, new byte[] { 2 }, 0);
                 this.RootNode.nt2Read.ValuesLazyLoadingIsOn = false;
-                this.RootNode.nt3Read = this.RootNode.Transaction.SelectTable(this.RootNode.DBreezeTableName, new byte[] { 3 }, 0);
+                this.RootNode.nt3Read = this.RootNode.Transaction.SelectTable(this.RootNode.DBriizeTableName, new byte[] { 3 }, 0);
                 this.RootNode.nt3Read.ValuesLazyLoadingIsOn = false;
             }
         }
@@ -143,9 +143,9 @@ namespace DBreeze.DataStructures
             if (this.RootNode.nt2Write == null)
             {
                 //under new byte[] { 1 }  we store Id of the entity(long)
-                this.RootNode.nt2Write = this.RootNode.Transaction.InsertTable(this.RootNode.DBreezeTableName, new byte[] { 2 }, 0);  //here is a structure table  
+                this.RootNode.nt2Write = this.RootNode.Transaction.InsertTable(this.RootNode.DBriizeTableName, new byte[] { 2 }, 0);  //here is a structure table  
                 this.RootNode.nt2Write.ValuesLazyLoadingIsOn = false;
-                this.RootNode.nt3Write = this.RootNode.Transaction.InsertTable(this.RootNode.DBreezeTableName, new byte[] { 3 }, 0);  //here is a search by NodeName table
+                this.RootNode.nt3Write = this.RootNode.Transaction.InsertTable(this.RootNode.DBriizeTableName, new byte[] { 3 }, 0);  //here is a search by NodeName table
                 this.RootNode.nt3Write.ValuesLazyLoadingIsOn = false;
             }
 
@@ -207,7 +207,7 @@ namespace DBreeze.DataStructures
 
             byte[] val = null;
             byte[] prt = null;
-            DBreeze.DataTypes.Row<byte[], byte[]> nodeRow = null;
+            DBriize.DataTypes.Row<byte[], byte[]> nodeRow = null;
 
             foreach (var row in this.RootNode.nt3Read.SelectForwardStartsWith<string, byte[]>(nameStartsWithPart))
             {
@@ -299,7 +299,7 @@ namespace DBreeze.DataStructures
         /// </summary>
         /// <param name="row"></param>
         /// <returns></returns>
-        DataAsTree SetupNodeFromRow(DBreeze.DataTypes.Row<byte[], byte[]> row)
+        DataAsTree SetupNodeFromRow(DBriize.DataTypes.Row<byte[], byte[]> row)
         {
             DataAsTree node = null;
             byte[] val = row.Value;
@@ -415,9 +415,9 @@ namespace DBreeze.DataStructures
 
             byte[] val = null;
 
-            long maxId = this.RootNode.Transaction.Select<byte[], long>(this.RootNode.DBreezeTableName, new byte[] { 1 }).Value;
+            long maxId = this.RootNode.Transaction.Select<byte[], long>(this.RootNode.DBriizeTableName, new byte[] { 1 }).Value;
 
-            DBreeze.DataTypes.Row<string, byte[]> nodeNameIndexRow = null;
+            DBriize.DataTypes.Row<string, byte[]> nodeNameIndexRow = null;
             byte[] btNodeNameIndex = null;
 
             bool skipToFillNameIndex = false;
@@ -498,7 +498,7 @@ namespace DBreeze.DataStructures
                 /*-----------------------------*/
             }
             //Latest used Id
-            this.RootNode.Transaction.Insert<byte[], long>(this.RootNode.DBreezeTableName, new byte[] { 1 }, maxId);
+            this.RootNode.Transaction.Insert<byte[], long>(this.RootNode.DBriizeTableName, new byte[] { 1 }, maxId);
 
         }//eo func
 
@@ -568,7 +568,7 @@ namespace DBreeze.DataStructures
 
             byte[] val = null;
 
-            long maxId = this.RootNode.Transaction.Select<byte[], long>(this.RootNode.DBreezeTableName, new byte[] { 1 }).Value;
+            long maxId = this.RootNode.Transaction.Select<byte[], long>(this.RootNode.DBriizeTableName, new byte[] { 1 }).Value;
 
             bool skipToFillNameIndex = false;
 
@@ -631,7 +631,7 @@ namespace DBreeze.DataStructures
             /*node.NodeName index support*/
             if (!skipToFillNameIndex)
             {
-                DBreeze.DataTypes.Row<string, byte[]> nodeNameIndexRow = null;
+                DBriize.DataTypes.Row<string, byte[]> nodeNameIndexRow = null;
                 byte[] btNodeNameIndex = null;
 
                 nodeNameIndexRow = nt3Write.Select<string, byte[]>(node.NodeName.ToLower());
@@ -645,7 +645,7 @@ namespace DBreeze.DataStructures
 
 
             //Latest used Id
-            this.RootNode.Transaction.Insert<byte[], long>(this.RootNode.DBreezeTableName, new byte[] { 1 }, maxId);
+            this.RootNode.Transaction.Insert<byte[], long>(this.RootNode.DBriizeTableName, new byte[] { 1 }, maxId);
 
             return node;
 

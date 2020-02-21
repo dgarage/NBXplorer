@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DBreeze.Storage
+namespace DBriize.Storage
 {
     /// <summary>
     /// Storage interface
@@ -19,7 +19,7 @@ namespace DBreeze.Storage
 
         //Common
         TrieSettings TrieSettings { get; }
-        DBreezeConfiguration DbreezeConfiguration { get; }
+        DBriizeConfiguration DbreezeConfiguration { get; }
 
         //Table
         string Table_FileName { get; }
@@ -47,7 +47,7 @@ namespace DBreeze.Storage
 
         //void Rollback_Dispose();
 
-        //------------------------- new generation DBreeze 150
+        //------------------------- new generation DBriize 150
 
         ////////////// transaction parts
 

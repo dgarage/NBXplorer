@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DBreeze.Storage
+namespace DBriize.Storage
 {
     public class TrieSettings
     {
@@ -57,13 +57,13 @@ namespace DBreeze.Storage
         /// Next 3 concern alternative table storage pathes.
         /// </summary>
         internal string AlternativeTableStorageFolder = String.Empty;
-        internal DBreeze.DBreezeConfiguration.eStorage AlternativeTableStorageType = DBreezeConfiguration.eStorage.DISK;
+        internal DBriize.DBriizeConfiguration.eStorage AlternativeTableStorageType = DBriizeConfiguration.eStorage.DISK;
         internal bool StorageWasOverriden = false;
 
         ///// <summary>
         ///// Concerning disk flush behaviour
         ///// </summary>
-        //internal DBreeze.DBreezeConfiguration.eDiskFlush DiskFlushBehaviour = DBreezeConfiguration.eDiskFlush.INDUSTRIAL;
+        //internal DBriize.DBriizeConfiguration.eDiskFlush DiskFlushBehaviour = DBriizeConfiguration.eDiskFlush.INDUSTRIAL;
     }
     
 }

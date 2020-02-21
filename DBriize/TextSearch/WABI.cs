@@ -7,10 +7,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
-using DBreeze.Utils;
+using DBriize.Utils;
 
 
-namespace DBreeze.TextSearch
+namespace DBriize.TextSearch
 {
     /// <summary>
     /// Word aligned bitmap index

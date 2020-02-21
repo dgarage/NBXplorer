@@ -7,11 +7,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using DBreeze;
-using DBreeze.Utils;
-using DBreeze.DataTypes;
+using DBriize;
+using DBriize.Utils;
+using DBriize.DataTypes;
 
-namespace DBreeze.TextSearch
+namespace DBriize.TextSearch
 {
     /// <summary>
     /// Manager for word aligned bitmap indexes
@@ -91,7 +91,7 @@ namespace DBreeze.TextSearch
         public TextSearchTable(Transactions.Transaction tran, string tableName)
         {
             if (tran == null || String.IsNullOrEmpty(tableName))
-                throw new Exception("DBreeze.TextSearch.TextSearchTable constructor: transaction or tableName is not supplied");
+                throw new Exception("DBriize.TextSearch.TextSearchTable constructor: transaction or tableName is not supplied");
 
             this._tran = tran;
             this._tableName = tableName;
@@ -110,7 +110,7 @@ namespace DBreeze.TextSearch
             if (this.tbWords == null)
             {
                 if (this._tran == null || String.IsNullOrEmpty(this._tableName))
-                    throw new Exception("DBreeze.TextSearch.TextSearchTable.ComputeWordsOrigin: transaction is not initialzed");
+                    throw new Exception("DBriize.TextSearch.TextSearchTable.ComputeWordsOrigin: transaction is not initialzed");
 
                 this.tbWords = this._tran.SelectTable<byte>(this._tableName, 20, 0);
                 this.tbWords.ValuesLazyLoadingIsOn = false;
@@ -228,7 +228,7 @@ namespace DBreeze.TextSearch
         /// <summary>
         /// Generates a logical block: 
         /// var tsm = tran.TextSearch("MyTextSearchTable");
-        /// tsm.Block("choose").And(new DBreeze.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
+        /// tsm.Block("choose").And(new DBriize.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
         /// .GetDocumentIDs
         /// </summary>
         /// <param name="containsWords">space separated words to be used by "contains" logic or startswith if words were stored by full-match logic</param>
@@ -244,7 +244,7 @@ namespace DBreeze.TextSearch
         /// <summary>
         /// Generates a logical block: 
         /// var tsm = tran.TextSearch("MyTextSearchTable");
-        /// tsm.Block("choose").And(new DBreeze.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
+        /// tsm.Block("choose").And(new DBriize.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
         /// .GetDocumentIDs
         /// </summary>
         /// <param name="containsWords">space separated words to be used by "contains" logic</param>
@@ -281,7 +281,7 @@ namespace DBreeze.TextSearch
         /// <summary>
         /// Generates a logical block: 
         /// var tsm = tran.TextSearch("MyTextSearchTable");
-        /// tsm.Block("choose").And(new DBreeze.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
+        /// tsm.Block("choose").And(new DBriize.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
         /// .GetDocumentIDs
         /// </summary>
         /// <param name="containsWords">space separated words to be used by "contains" logic or startswith if words were stored by full-match logic</param>
@@ -328,7 +328,7 @@ namespace DBreeze.TextSearch
         /// <summary>
         /// Generates a logical block: 
         /// var tsm = tran.TextSearch("MyTextSearchTable");
-        /// tsm.Block("choose").And(new DBreeze.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
+        /// tsm.Block("choose").And(new DBriize.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
         /// .GetDocumentIDs
         /// </summary>
         /// <param name="containsWords">space separated words to be used by "contains" logic or startswith if words were stored by full-match logic</param>
@@ -373,7 +373,7 @@ namespace DBreeze.TextSearch
         /// <summary>
         /// Generates a logical block: 
         /// var tsm = tran.TextSearch("MyTextSearchTable");
-        /// tsm.Block("choose").And(new DBreeze.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
+        /// tsm.Block("choose").And(new DBriize.TextSearch.BlockAnd("pill")).Or(tsm.BlockOr("blue red"))
         /// .GetDocumentIDs
         /// </summary>
         /// <param name="containsWords">space separated words to be used by "contains" logic</param>

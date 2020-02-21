@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace DBreeze.Utils
+namespace DBriize.Utils
 {
     /// <summary>
     /// Set of string processing extensions
