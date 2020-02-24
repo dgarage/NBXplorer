@@ -196,6 +196,7 @@ namespace NBXplorer.Controllers
 					rpc.RequestTimeout = TimeSpan.FromMinutes(1.0);
 					blockchainInfo = await rpc.GetBlockchainInfoAsyncEx();
 				}
+				catch (HttpRequestException ex) when (ex.InnerException is IOException) { } // Sometimes "The response ended prematurely."
 				catch (IOException) { } // Sometimes "The response ended prematurely."
 				catch (OperationCanceledException) // Timeout, can happen if core is really busy
 				{
