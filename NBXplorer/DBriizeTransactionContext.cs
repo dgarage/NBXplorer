@@ -41,6 +41,8 @@ namespace NBXplorer
 			_Loop.Start();
 			await DoAsync((tx) => { _Tx = _Engine.GetTransaction(); });
 		}
+		DateTimeOffset _LastInitialized;
+		Action<DBriize.Transactions.Transaction> _Init;
 		public event Action<DBriizeTransactionContext, Exception> UnhandledException;
 		void Loop()
 		{
@@ -58,9 +60,19 @@ namespace NBXplorer
 					{
 						if (!initialized)
 						{
-							act.Item1(null);
-							initialized = true;
+							_Init = act.Item1;
+							_Init(null);
+							_LastInitialized = DateTimeOffset.UtcNow;
 							AssertTxIsSet();
+							initialized = true;
+						}
+						else if (DateTimeOffset.UtcNow - _LastInitialized > TimeSpan.FromMinutes(10))
+						{
+							_Tx.Dispose();
+							_Init(null);
+							_LastInitialized = DateTimeOffset.UtcNow;
+							AssertTxIsSet();
+							act.Item1(_Tx);
 						}
 						else
 						{
