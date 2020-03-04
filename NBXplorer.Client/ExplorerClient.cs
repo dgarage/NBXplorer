@@ -20,7 +20,7 @@ namespace NBXplorer
 {
 	public class ExplorerClient
 	{
-		internal interface IAuth
+		public interface IAuth
 		{
 			bool RefreshCache();
 			void SetAuthorization(HttpRequestMessage message);
@@ -74,34 +74,8 @@ namespace NBXplorer
 			{
 			}
 		}
-		
-		class CustomAuthentication : IAuth
-		{
-			AuthenticationHeaderValue _CachedAuth;
 
-			public CustomAuthentication(AuthenticationHeaderValue authenticationHeader)
-			{
-				_CachedAuth = authenticationHeader;
-			}
-
-			public bool RefreshCache()
-			{
-				return false;
-			}
-
-			public void SetAuthorization(HttpRequestMessage message)
-			{
-				message.Headers.Authorization = _CachedAuth;
-			}
-
-			public void SetWebSocketAuth(ClientWebSocket socket)
-			{
-				if (_CachedAuth != null)
-					socket.Options.SetRequestHeader("Authorization", $"{_CachedAuth.Scheme} {_CachedAuth.Parameter}");
-			}
-		}
-
-		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress = null, AuthenticationHeaderValue customAuthHeader = null)
+		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress = null, IAuth customAuth = null)
 		{
 			serverAddress = serverAddress ?? network.DefaultSettings.DefaultUrl;
 			if (network == null)
@@ -111,13 +85,14 @@ namespace NBXplorer
 			Serializer = new Serializer(network);
 			_CryptoCode = _Network.CryptoCode;
 			_Factory = Network.DerivationStrategyFactory;
-			if (customAuthHeader == null)
+			if (customAuth == null)
 			{
 				SetCookieAuth(network.DefaultSettings.DefaultCookieFile);
 			}
 			else
 			{
-				_Auth = new CustomAuthentication(customAuthHeader);
+				_Auth = customAuth;
+				customAuth.RefreshCache();
 			}
 		}
 
