@@ -21,7 +21,7 @@
       "applicationUrl": "http://localhost:4774",
       "launchUrl": "v1/cryptos/ltc/status"
     },
-    "NBXplorer - LBTC on Regtest from Docker": {
+    "NBXplorer - BTC & LBTC on Regtest from Docker": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {

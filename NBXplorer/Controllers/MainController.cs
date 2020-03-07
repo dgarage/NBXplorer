@@ -84,10 +84,21 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/rpc")]
-		public async Task<IActionResult> RPCProxy(string cryptoCode, [FromBody]string jsonRPC)
+		[Consumes("applications/json", "application/json-rpc")]
+		public async Task<IActionResult> RPCProxy(string cryptoCode)
 		{
 			var network = GetNetwork(cryptoCode, true);
 			var waiter = Waiters.GetWaiter(network);
+			var jsonRPC = string.Empty;
+			using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
+			{
+				jsonRPC = await reader.ReadToEndAsync();
+			}
+
+			if (string.IsNullOrEmpty(jsonRPC))
+			{
+				return BadRequest();
+			}
 			if (jsonRPC.StartsWith("["))
 			{
 				var batchRPC = waiter.RPC.PrepareBatch();
@@ -95,10 +106,8 @@ namespace NBXplorer.Controllers
 				await batchRPC.SendBatchAsync();
 				return Json(results.Select(task => task.Result));
 			}
-			else
-			{
-				return Json(await waiter.RPC.SendCommandAsync(network.Serializer.ToObject<RPCRequest>(jsonRPC), false));
-			}
+
+			return Json(await waiter.RPC.SendCommandAsync(network.Serializer.ToObject<RPCRequest>(jsonRPC), false));
 		}
 		
 		[HttpGet]
