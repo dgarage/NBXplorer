@@ -76,6 +76,10 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Colossus.Instance.Regtest;
 			//RPCSupportSegwit = false;
 
+			//CryptoCode = "XVG";
+			//nodeDownloadData = NodeDownloadData.Verge.v6_0_2;
+			//Network = NBitcoin.Altcoins.Verge.Instance.Regtest;
+
 			//CryptoCode = "LBTC";
 			//nodeDownloadData = NodeDownloadData.Elements.v0_18_1_1;
 			//NBXplorerNetwork = _Provider.GetLBTC();
