@@ -89,9 +89,9 @@ namespace NBXplorer
 			_CryptoCode = _Network.CryptoCode;
 			_Factory = Network.DerivationStrategyFactory;
 			SetCookieAuth(network.DefaultSettings.DefaultCookieFile);
-			}
+		}
 
-		public RPCClient RPCClient { get; internal set; }
+		public RPCClient RPCClient { get; private set; }
 
 		internal IAuth _Auth = new NullAuthentication();
 

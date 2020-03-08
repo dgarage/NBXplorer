@@ -3342,7 +3342,6 @@ namespace NBXplorer.Tests
 				Assert.Equal(generatedWallet.AccountHDKey, importedWallet.AccountHDKey);
 				Assert.Equal(generatedWallet.MasterHDKey, importedWallet.MasterHDKey);
 			}
-			
 		}
 		[Fact]
 		public async Task CanUseRPCProxy()
