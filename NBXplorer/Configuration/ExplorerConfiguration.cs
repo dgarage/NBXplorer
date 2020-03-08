@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Collections.Generic;
@@ -173,6 +173,7 @@ namespace NBXplorer.Configuration
 			if (!Directory.Exists(SignalFilesDir))
 				Directory.CreateDirectory(SignalFilesDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
+			ExposeRPC = config.GetOrDefault<bool>("exposerpc", false);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 
 			var customKeyPathTemplate = config.GetOrDefault<string>("customkeypathtemplate", null);
@@ -260,6 +261,7 @@ namespace NBXplorer.Configuration
         public string RabbitMqPassword { get; set; }
         public string RabbitMqTransactionExchange { get; set; }
         public string RabbitMqBlockExchange { get; set; }
+        public bool ExposeRPC { get; set; }
 
 		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
     }

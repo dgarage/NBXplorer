@@ -1,4 +1,4 @@
-﻿using NBitcoin;
+using NBitcoin;
 using System.Linq;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
@@ -41,7 +41,7 @@ namespace NBXplorer
 			}
 			catch(WebSocketException) // For some reason the ErrorCode is not properly set, so we can check for error 401
 			{
-				if(!_Client._Auth.RefreshCache())
+				if(!_Client.Auth.RefreshCache())
 					throw;
 				socket = await ConnectAsyncCore(uri, cancellation);
 			}
@@ -53,7 +53,7 @@ namespace NBXplorer
 		private async Task<ClientWebSocket> ConnectAsyncCore(string uri, CancellationToken cancellation)
 		{
 			var socket = new ClientWebSocket();
-			_Client._Auth.SetWebSocketAuth(socket);
+			_Client.Auth.SetWebSocketAuth(socket);
 			try
 			{
 				await socket.ConnectAsync(new Uri(uri, UriKind.Absolute), cancellation).ConfigureAwait(false);

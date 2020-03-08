@@ -25,6 +25,7 @@ using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Diagnostics;
+using System.Net;
 using NBitcoin.Altcoins.Elements;
 
 namespace NBXplorer.Controllers
@@ -87,6 +88,10 @@ namespace NBXplorer.Controllers
 		[Consumes("applications/json", "application/json-rpc")]
 		public async Task<IActionResult> RPCProxy(string cryptoCode)
 		{
+			if (!ExplorerConfiguration.ExposeRPC)
+			{
+				return StatusCode((int) HttpStatusCode.Unauthorized);
+			}
 			var network = GetNetwork(cryptoCode, true);
 			var waiter = Waiters.GetWaiter(network);
 			var jsonRPC = string.Empty;
