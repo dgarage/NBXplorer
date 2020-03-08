@@ -16,7 +16,8 @@
       "commandLineArgs": "--chains=btc,ltc --network=regtest",
       "launchBrowser": true,
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "NBXPLORER_EXPOSERPC": "true"
       },
       "applicationUrl": "http://localhost:4774",
       "launchUrl": "v1/cryptos/ltc/status"
@@ -36,7 +37,8 @@
         "NBXPLORER_BTCNODEENDPOINT": "127.0.0.1:39388",
         "NBXPLORER_BTCRPCUSER": "liquid",
         "NBXPLORER_BTCRPCPASSWORD": "liquid",
-        "NBXPLORER_NOAUTH": "true"
+        "NBXPLORER_NOAUTH": "true",
+        "NBXPLORER_EXPOSERPC": "true"
       },
       "applicationUrl": "http://localhost:4774",
       "launchUrl": "v1/cryptos/lbtc/status"

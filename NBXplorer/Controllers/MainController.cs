@@ -3,7 +3,6 @@ using NBXplorer.ModelBinders;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
-using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
 using System;
 using System.Collections.Generic;
@@ -17,16 +16,11 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json.Linq;
-using NBXplorer.Events;
 using NBXplorer.Configuration;
 using System.Net.WebSockets;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
-using System.Diagnostics;
-using System.Net;
-using NBitcoin.Altcoins.Elements;
 
 namespace NBXplorer.Controllers
 {
@@ -85,12 +79,12 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/rpc")]
-		[Consumes("applications/json", "application/json-rpc")]
+		[Consumes("application/json", "application/json-rpc")]
 		public async Task<IActionResult> RPCProxy(string cryptoCode)
 		{
 			if (!ExplorerConfiguration.ExposeRPC)
 			{
-				return StatusCode((int) HttpStatusCode.Unauthorized);
+				throw new NBXplorerError(401, "json-rpc-not-exposed", $"JSON-RPC is not configured to be exposed.").AsException();
 			}
 			var network = GetNetwork(cryptoCode, true);
 			var waiter = Waiters.GetWaiter(network);
@@ -102,7 +96,7 @@ namespace NBXplorer.Controllers
 
 			if (string.IsNullOrEmpty(jsonRPC))
 			{
-				return BadRequest();
+				throw new NBXplorerError(422, "no-json-rpc-request", $"A JSON-RPC request was not provided in the body.").AsException();
 			}
 			if (jsonRPC.StartsWith("["))
 			{
