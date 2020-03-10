@@ -1,4 +1,4 @@
-﻿using NBitcoin.Tests;
+using NBitcoin.Tests;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -28,6 +28,10 @@ namespace NBXplorer.Tests
 			//CryptoCode = "DASH";
 			//nodeDownloadData = NodeDownloadData.Dash.v0_12_2;
 			//Network = NBitcoin.Altcoins.Dash.Instance.Regtest;
+
+			//CryptoCode = "TRC";
+			//nodeDownloadData = NodeDownloadData.Terracoin.v0_12_2;
+			//Network = NBitcoin.Altcoins.Terracoin.Instance.Regtest;
 
 			//CryptoCode = "POLIS";
 			//nodeDownloadData = NodeDownloadData.Polis.v1_3_1;
