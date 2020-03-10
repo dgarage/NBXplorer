@@ -78,7 +78,11 @@ namespace NBXplorer
 			}
 		}
 
-		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress = null, IAuth customAuth = null)
+		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress = null): this(network, serverAddress, null)
+		{
+
+		}
+		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress, IAuth customAuth)
 		{
 			serverAddress = serverAddress ?? network.DefaultSettings.DefaultUrl;
 			if (network == null)
