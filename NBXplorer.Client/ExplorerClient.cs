@@ -20,7 +20,7 @@ namespace NBXplorer
 {
 	public class ExplorerClient
 	{
-		internal interface IAuth
+		public interface IAuth
 		{
 			bool RefreshCache();
 			void SetAuthorization(HttpRequestMessage message);
@@ -75,7 +75,7 @@ namespace NBXplorer
 			}
 		}
 
-		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress = null)
+		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress = null, IAuth customAuth = null)
 		{
 			serverAddress = serverAddress ?? network.DefaultSettings.DefaultUrl;
 			if (network == null)
@@ -85,7 +85,15 @@ namespace NBXplorer
 			Serializer = new Serializer(network);
 			_CryptoCode = _Network.CryptoCode;
 			_Factory = Network.DerivationStrategyFactory;
-			SetCookieAuth(network.DefaultSettings.DefaultCookieFile);
+			if (customAuth == null)
+			{
+				SetCookieAuth(network.DefaultSettings.DefaultCookieFile);
+			}
+			else
+			{
+				_Auth = customAuth;
+				customAuth.RefreshCache();
+			}
 		}
 
 		internal IAuth _Auth = new NullAuthentication();
