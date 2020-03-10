@@ -114,6 +114,7 @@ namespace NBXplorer.Tests
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcauth", Explorer.GetRPCAuth()));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
 			keyValues.Add(("cachechain", "0"));
+			keyValues.Add(("exposerpc", "1"));
 			keyValues.Add(("rpcnotest", "1"));
 			keyValues.Add(("mingapsize", "3"));
 			keyValues.Add(("maxgapsize", "8"));

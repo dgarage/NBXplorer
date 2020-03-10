@@ -66,6 +66,7 @@ namespace NBXplorer.Configuration
 			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);
 			app.Option("--cachechain", $"Whether the chain of header is locally cached for faster startup (default: true)", CommandOptionType.SingleValue);
 			app.Option("--rpcnotest", $"Faster start because RPC connection testing skipped (default: false)", CommandOptionType.SingleValue);
+			app.Option("--exposerpc", $"Expose the node RPC through the REST API (default: false)", CommandOptionType.SingleValue);
 			app.Option("-v | --verbose", $"Verbose logs (default: true)", CommandOptionType.SingleValue);
 			return app;
 		}
@@ -149,6 +150,8 @@ namespace NBXplorer.Configuration
 			}
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");
+			builder.AppendLine("## Expose the node RPC through the REST API");
+			builder.AppendLine($"#exposerpc=1");
 			builder.AppendLine("## What crypto currencies is supported");
 			var chains = string.Join(',', new NBXplorerNetworkProvider(NetworkType.Mainnet)
 				.GetAll()

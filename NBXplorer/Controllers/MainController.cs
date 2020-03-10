@@ -3,7 +3,6 @@ using NBXplorer.ModelBinders;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
-using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
 using System;
 using System.Collections.Generic;
@@ -17,15 +16,11 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using Microsoft.AspNetCore.Authorization;
 using Newtonsoft.Json.Linq;
-using NBXplorer.Events;
 using NBXplorer.Configuration;
 using System.Net.WebSockets;
-using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
-using System.Diagnostics;
-using NBitcoin.Altcoins.Elements;
 
 namespace NBXplorer.Controllers
 {
@@ -82,6 +77,38 @@ namespace NBXplorer.Controllers
 		}
 		public ScanUTXOSetService ScanUTXOSetService { get; }
 
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/rpc")]
+		[Consumes("application/json", "application/json-rpc")]
+		public async Task<IActionResult> RPCProxy(string cryptoCode)
+		{
+			if (!ExplorerConfiguration.ExposeRPC)
+			{
+				throw new NBXplorerError(401, "json-rpc-not-exposed", $"JSON-RPC is not configured to be exposed.").AsException();
+			}
+			var network = GetNetwork(cryptoCode, true);
+			var waiter = Waiters.GetWaiter(network);
+			var jsonRPC = string.Empty;
+			using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
+			{
+				jsonRPC = await reader.ReadToEndAsync();
+			}
+
+			if (string.IsNullOrEmpty(jsonRPC))
+			{
+				throw new NBXplorerError(422, "no-json-rpc-request", $"A JSON-RPC request was not provided in the body.").AsException();
+			}
+			if (jsonRPC.StartsWith("["))
+			{
+				var batchRPC = waiter.RPC.PrepareBatch();
+				var results = network.Serializer.ToObject<RPCRequest[]>(jsonRPC).Select(rpcRequest => batchRPC.SendCommandAsync(rpcRequest, false)).ToList();
+				await batchRPC.SendBatchAsync();
+				return Json(results.Select(task => task.Result));
+			}
+
+			return Json(await waiter.RPC.SendCommandAsync(network.Serializer.ToObject<RPCRequest>(jsonRPC), false));
+		}
+		
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/fees/{blockCount}")]
 		public async Task<GetFeeRateResult> GetFeeRate(int blockCount, string cryptoCode)

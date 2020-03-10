@@ -3343,5 +3343,20 @@ namespace NBXplorer.Tests
 				Assert.Equal(generatedWallet.MasterHDKey, importedWallet.MasterHDKey);
 			}
 		}
+		[Fact]
+		public async Task CanUseRPCProxy()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				Assert.NotNull(await tester.Client.RPCClient.GetBlockchainInfoAsync());
+
+				var batchTest = tester.Client.RPCClient.PrepareBatch();
+				var balanceResult = batchTest.GetBalanceAsync();
+				var blockchainInfoResult = batchTest.GetBlockchainInfoAsync();
+				await batchTest.SendBatchAsync();
+				await balanceResult;
+				await blockchainInfoResult;
+			}
+		}
 	}
 }
