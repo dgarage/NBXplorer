@@ -151,7 +151,7 @@ namespace NBXplorer.Configuration
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");
 			builder.AppendLine("## Expose the node RPC through the REST API");
-			builder.AppendLine($"#exposerpc=1");
+			builder.AppendLine($"#exposerpc=0");
 			builder.AppendLine("## What crypto currencies is supported");
 			var chains = string.Join(',', new NBXplorerNetworkProvider(NetworkType.Mainnet)
 				.GetAll()
