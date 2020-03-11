@@ -971,7 +971,7 @@ namespace NBXplorer.Controllers
 					};
 				}
 				await waiter.RPC.SendRawTransactionAsync(tx);
-				await waiter.GetExplorerBehavior()?.SaveMatches(tx);
+				await waiter.GetExplorerBehavior()?.SaveMatches(tx, false);
 				return new BroadcastResult(true);
 			}
 			catch (RPCException ex) when (!testMempoolAccept)
@@ -998,7 +998,7 @@ namespace NBXplorer.Controllers
 					{
 						await waiter.RPC.SendRawTransactionAsync(tx);
 						Logs.Explorer.LogInformation($"{network.CryptoCode}: Broadcast success");
-						await waiter.GetExplorerBehavior()?.SaveMatches(tx);
+						await waiter.GetExplorerBehavior()?.SaveMatches(tx, false);
 						return new BroadcastResult(true);
 					}
 					catch (RPCException)
