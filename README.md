@@ -42,6 +42,7 @@ It currently supports the following altcoins:
 * Monoeci
 * Polis
 * Verge
+* Terracoin
 * Ufo
 * Viacoin
 

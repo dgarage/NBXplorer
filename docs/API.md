@@ -34,6 +34,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Retrieve metadata from a derivation scheme](#getmetadata)
 * [Manual pruning](#pruning)
 * [Generate a wallet](#wallet)
+* [Node RPC Proxy](#rpc-proxy)
 * [Health check](#health)
 * [Liquid integration](#liquid)
 
@@ -1119,6 +1120,42 @@ Response:
 * `ImportAddressToRPC`: `true` or `false`, depending if addresses generated are also imported to the internal node.
 
 Note that the metadata `AccountKeyPath` is leveraged by [Create a PSBT](#psbt) and [Update a PSBT](#updatepsbt).
+
+## <a name="rpc-proxy"></a>Node RPC Proxy
+
+NBXplorer allows you to query the node's JSON-RPC through it when `exposerpc` option is enabled
+
+HTTP POST v1/cryptos/{cryptoCode}/rpc
+with Header `Content-Type` set to value `application/json` or `application/json-rpc`
+
+Error codes:
+
+* HTTP 415: You did not send the correct `Content-Type` header.
+* HTTP 404: `cryptoCode-not-supported`
+* HTTP 401: `json-rpc-not-exposed`
+* HTTP 400: `rpc-unavailable`
+* HTTP 422: `no-json-rpc-request`
+
+Request:
+
+```json
+{"jsonrpc": "1.0", "id":"1", "method": "getblockchaininfo", "params": [] }
+```
+
+Response:
+
+```json
+{
+    "error": null,
+    "result": {
+        "chain": "regtest",
+        ...
+    },
+    "resultString": "..."
+}
+```
+
+NOTE: Batch commands are also supported by sending the JSON-RPC requests in an array. The result is also returned in an array. 
 
 ## <a name="health"></a>Health check
 

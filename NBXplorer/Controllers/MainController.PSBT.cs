@@ -223,9 +223,10 @@ namespace NBXplorer.Controllers
 			foreach (var input in update.PSBT.Inputs)
 				input.TrySlimUTXO();
 
+			HashSet<PubKey> rebased = new HashSet<PubKey>();
 			if (update.RebaseKeyPaths != null)
 			{
-				foreach (var rebase in update.RebaseKeyPaths)
+				foreach (var rebase in update.RebaseKeyPaths.Where(r => rebased.Add(r.AccountKey.GetPublicKey())))
 				{
 					if (rebase.AccountKeyPath == null)
 						throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "rebaseKeyPaths[].accountKeyPath is missing"));
@@ -233,11 +234,10 @@ namespace NBXplorer.Controllers
 				}
 			}
 
-			var pubkey = update.DerivationScheme.GetExtPubKeys().SingleOrDefault();
-			if (pubkey != null)
+			var accountKeyPath = await repo.GetMetadata<RootedKeyPath>(new DerivationSchemeTrackedSource(update.DerivationScheme), WellknownMetadataKeys.AccountKeyPath);
+			if (accountKeyPath != null)
 			{
-				var accountKeyPath = await repo.GetMetadata<RootedKeyPath>(new DerivationSchemeTrackedSource(update.DerivationScheme), WellknownMetadataKeys.AccountKeyPath);
-				if (accountKeyPath != null)
+				foreach (var pubkey in update.DerivationScheme.GetExtPubKeys().Where(p => rebased.Add(p.PubKey)))
 				{
 					update.PSBT.RebaseKeyPaths(pubkey, accountKeyPath);
 				}

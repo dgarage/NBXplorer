@@ -257,7 +257,7 @@ namespace NBXplorer
 			}
 			else if (message.Message.Payload is TxPayload txPayload)
 			{
-				Run(() => SaveMatches(txPayload.Object));
+				Run(() => SaveMatches(txPayload.Object, true));
 			}
 		}
 		Task Run(Func<Task> act)
@@ -292,7 +292,7 @@ namespace NBXplorer
 				var matches =
 					(await Repository.GetMatches(block.Transactions, blockHash, now, true))
 					.ToArray();
-				await SaveMatches(matches, blockHash, now);
+				await SaveMatches(matches, blockHash, now, true);
 				var slimBlockHeader = Chain.GetBlock(blockHash);
 				if (slimBlockHeader != null)
 				{
@@ -337,14 +337,14 @@ namespace NBXplorer
 		}
 
 
-		internal async Task SaveMatches(Transaction transaction)
+		internal async Task SaveMatches(Transaction transaction, bool fireEvents)
 		{
 			var now = DateTimeOffset.UtcNow;
 			var matches = (await Repository.GetMatches(transaction, null, now, false)).ToArray();
-			await SaveMatches(matches, null, now);
+			await SaveMatches(matches, null, now, fireEvents);
 		}
 
-		private async Task SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now)
+		private async Task SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now, bool fireEvents)
 		{
 			await Repository.SaveMatches(matches);
 			_ = AddressPoolService.GenerateAddresses(Network, matches);
@@ -357,30 +357,34 @@ namespace NBXplorer
 			{
 				maybeHeight = height;
 			}
-			Task[] saving = new Task[matches.Length];
-			for (int i = 0; i < matches.Length; i++)
+			if (fireEvents)
 			{
-				var txEvt = new Models.NewTransactionEvent()
+				Task[] saving = new Task[matches.Length];
+				for (int i = 0; i < matches.Length; i++)
 				{
-					TrackedSource = matches[i].TrackedSource,
-					DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
-					CryptoCode = Network.CryptoCode,
-					BlockId = blockHash,
-					TransactionData = new TransactionResult()
+					var txEvt = new Models.NewTransactionEvent()
 					{
+						TrackedSource = matches[i].TrackedSource,
+						DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
+						CryptoCode = Network.CryptoCode,
 						BlockId = blockHash,
-						Height = maybeHeight,
-						Confirmations = maybeHeight == null ? 0 : chainHeight - maybeHeight.Value + 1,
-						Timestamp = now,
-						Transaction = matches[i].Transaction,
-						TransactionHash = matches[i].TransactionHash
-					},
-					Outputs = matches[i].GetReceivedOutputs().ToList()
-				};
-				saving[i] = Repository.SaveEvent(txEvt);
-				_EventAggregator.Publish(txEvt);
+						TransactionData = new TransactionResult()
+						{
+							BlockId = blockHash,
+							Height = maybeHeight,
+							Confirmations = maybeHeight == null ? 0 : chainHeight - maybeHeight.Value + 1,
+							Timestamp = now,
+							Transaction = matches[i].Transaction,
+							TransactionHash = matches[i].TransactionHash
+						},
+						Outputs = matches[i].GetReceivedOutputs().ToList()
+					};
+
+					saving[i] = Repository.SaveEvent(txEvt);
+					_EventAggregator.Publish(txEvt);
+				}
+				await Task.WhenAll(saving);
 			}
-			await Task.WhenAll(saving);
 		}
 		public bool IsSynching()
 		{
