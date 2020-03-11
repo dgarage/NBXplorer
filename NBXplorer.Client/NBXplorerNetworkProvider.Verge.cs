@@ -14,7 +14,7 @@ namespace NBXplorer
 				MinRPCVersion = 6000200,
 				ChainLoadingTimeout = TimeSpan.FromHours(1),
 				ChainCacheLoadingTimeout = TimeSpan.FromMinutes(3),
-				CoinType = NetworkType == NetworkType.Mainnet ? new KeyPath("0'") : new KeyPath("1'")
+				CoinType = NetworkType == NetworkType.Mainnet ? new KeyPath("77'") : new KeyPath("1'")
 			});
 		}
 
