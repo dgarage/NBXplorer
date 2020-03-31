@@ -366,7 +366,8 @@ Returns:
     "minRelayTxFee": 1,
     "capabilities": {
       "canScanTxoutSet": true,
-      "canSupportSegwit": true
+      "canSupportSegwit": true,
+      "canSupportTransactionCheck": true
     }
   },
   "repositoryPingTime": 0.0087891999999999987,
@@ -665,6 +666,7 @@ Error codes:
 
 * HTTP 404: `cryptoCode-not-supported`
 * HTTP 400: `rpc-unavailable`
+* HTTP 400: `not-supported` if `testMempoolAccept` is `true`, but the underlying node does not support it
 
 Returns:
 

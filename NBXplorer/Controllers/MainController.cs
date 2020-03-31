@@ -254,7 +254,8 @@ namespace NBXplorer.Controllers
 					Capabilities = new NodeCapabilities()
 					{
 						CanScanTxoutSet = waiter.RPC.Capabilities.SupportScanUTXOSet,
-						CanSupportSegwit = waiter.RPC.Capabilities.SupportSegwit
+						CanSupportSegwit = waiter.RPC.Capabilities.SupportSegwit,
+						CanSupportTransactionCheck = waiter.RPC.Capabilities.SupportTestMempoolAccept
 					},
 					ExternalAddresses = (networkInfo.localaddresses ?? Array.Empty<GetNetworkInfoResponse.LocalAddress>())
 										.Select(l => $"{l.address}:{l.port}").ToArray()
@@ -955,6 +956,8 @@ namespace NBXplorer.Controllers
 			tx.FromBytes(buffer.ToArrayEfficient());
 
 			var waiter = this.Waiters.GetWaiter(network);
+			if (testMempoolAccept && !waiter.RPC.Capabilities.SupportTestMempoolAccept)
+				throw new NBXplorerException(new NBXplorerError(400, "not-supported", "This feature is not supported for this crypto currency"));
 			var repo = RepositoryProvider.GetRepository(network);
 			var chain = ChainProvider.GetChain(network);
 			RPCException rpcEx = null;

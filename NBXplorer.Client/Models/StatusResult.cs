@@ -42,6 +42,7 @@ namespace NBXplorer.Models
 	{
 		public bool CanScanTxoutSet { get; set; }
 		public bool CanSupportSegwit { get; set; }
+		public bool CanSupportTransactionCheck { get; set; }
 	}
 	public class StatusResult
     {
