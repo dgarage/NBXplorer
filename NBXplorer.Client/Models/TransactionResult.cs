@@ -7,16 +7,16 @@ namespace NBXplorer.Models
 {
 	public class TransactionResult
 	{
-		uint _Confirmations;
+		int _Confirmations;
 		public int Confirmations
 		{
 			get
 			{
-				return checked((int)_Confirmations);
+				return _Confirmations;
 			}
 			set
 			{
-				_Confirmations = checked((uint)value);
+				_Confirmations = value;
 			}
 		}
 
