@@ -972,7 +972,7 @@ namespace NBXplorer.Controllers
 					return new BroadcastResult(false)
 					{
 						RPCCode = rpcCode,
-						RPCMessage = rpcCode == RPCErrorCode.RPC_TRANSACTION_ERROR ? "Transaction was rejected by network rules" : null,
+						RPCMessage = rpcCode == RPCErrorCode.RPC_TRANSACTION_REJECTED ? "Transaction was rejected by network rules" : null,
 						RPCCodeMessage = mempoolAccept.RejectReason,
 					};
 				}
@@ -1026,10 +1026,10 @@ namespace NBXplorer.Controllers
 			return rejectReason switch
 			{
 				"Transaction already in block chain" => RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN,
-				"Transaction rejected by AcceptToMemoryPool" => RPCErrorCode.RPC_TRANSACTION_ERROR,
-				"AcceptToMemoryPool failed" => RPCErrorCode.RPC_TRANSACTION_ERROR,
-				"insufficient fee" => RPCErrorCode.RPC_TRANSACTION_ERROR,
-				_ => RPCErrorCode.RPC_VERIFY_REJECTED
+				"Transaction rejected by AcceptToMemoryPool" => RPCErrorCode. RPC_TRANSACTION_REJECTED,
+				"AcceptToMemoryPool failed" => RPCErrorCode. RPC_TRANSACTION_REJECTED,
+				"insufficient fee" => RPCErrorCode. RPC_TRANSACTION_REJECTED,
+				_ => RPCErrorCode. RPC_TRANSACTION_ERROR
 			};
 		}
 
