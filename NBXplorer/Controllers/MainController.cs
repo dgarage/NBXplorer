@@ -968,10 +968,12 @@ namespace NBXplorer.Controllers
 					var mempoolAccept = await waiter.RPC.TestMempoolAcceptAsync(tx);
 					if (mempoolAccept.IsAllowed)
 						return new BroadcastResult(true);
+					var rpcCode = GetRPCCodeFromReason(mempoolAccept.RejectReason);
 					return new BroadcastResult(false)
 					{
-						RPCCode = GetRPCCodeFromReason(mempoolAccept.RejectReason),
-						RPCCodeMessage = $"{mempoolAccept.RejectReason} ({mempoolAccept.RejectCode})",
+						RPCCode = rpcCode,
+						RPCMessage = rpcCode == RPCErrorCode.RPC_TRANSACTION_ERROR ? "Transaction was rejected by network rules" : null,
+						RPCCodeMessage = mempoolAccept.RejectReason,
 					};
 				}
 				await waiter.RPC.SendRawTransactionAsync(tx);
@@ -1021,16 +1023,14 @@ namespace NBXplorer.Controllers
 
 		private RPCErrorCode? GetRPCCodeFromReason(string rejectReason)
 		{
-			switch (rejectReason)
+			return rejectReason switch
 			{
-				case "Transaction already in block chain":
-					return RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN;
-				case "Transaction rejected by AcceptToMemoryPool":
-				case "AcceptToMemoryPool failed":
-					return RPCErrorCode.RPC_TRANSACTION_ERROR;
-				default:
-					return RPCErrorCode.RPC_VERIFY_REJECTED;
-			}
+				"Transaction already in block chain" => RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN,
+				"Transaction rejected by AcceptToMemoryPool" => RPCErrorCode.RPC_TRANSACTION_ERROR,
+				"AcceptToMemoryPool failed" => RPCErrorCode.RPC_TRANSACTION_ERROR,
+				"insufficient fee" => RPCErrorCode.RPC_TRANSACTION_ERROR,
+				_ => RPCErrorCode.RPC_VERIFY_REJECTED
+			};
 		}
 
 		[HttpPost]
