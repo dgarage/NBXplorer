@@ -1025,6 +1025,9 @@ namespace NBXplorer.Controllers
 			{
 				case "Transaction already in block chain":
 					return RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN;
+				case "Transaction rejected by AcceptToMemoryPool":
+				case "AcceptToMemoryPool failed":
+					return RPCErrorCode.RPC_TRANSACTION_ERROR;
 				default:
 					return RPCErrorCode.RPC_VERIFY_REJECTED;
 			}
