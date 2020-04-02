@@ -970,7 +970,8 @@ namespace NBXplorer.Controllers
 						return new BroadcastResult(true);
 					return new BroadcastResult(false)
 					{
-						RPCCodeMessage = $"{mempoolAccept.RejectReason} ({mempoolAccept.RejectCode})"
+						RPCCode = GetRPCCodeFromReason(mempoolAccept.RejectReason),
+						RPCCodeMessage = $"{mempoolAccept.RejectReason} ({mempoolAccept.RejectCode})",
 					};
 				}
 				await waiter.RPC.SendRawTransactionAsync(tx);
@@ -1015,6 +1016,17 @@ namespace NBXplorer.Controllers
 					RPCCodeMessage = rpcEx.RPCCodeMessage,
 					RPCMessage = rpcEx.Message
 				};
+			}
+		}
+
+		private RPCErrorCode? GetRPCCodeFromReason(string rejectReason)
+		{
+			switch (rejectReason)
+			{
+				case "Transaction already in block chain":
+					return RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN;
+				default:
+					return RPCErrorCode.RPC_VERIFY_REJECTED;
 			}
 		}
 
