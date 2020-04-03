@@ -320,6 +320,27 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = ServerTester.Create())
 			{
+				// We need to check if we can get utxo information of segwit utxos
+				var segwit = tester.RPC.GetNewAddress(new GetNewAddressRequest()
+				{
+					AddressType = AddressType.Bech32
+				});
+				var txId = tester.RPC.SendToAddress(segwit, Money.Coins(0.01m));
+				var newTx = tester.RPC.GetRawTransaction(txId);
+				var coin = newTx.Outputs.AsCoins().First(c => c.ScriptPubKey == segwit.ScriptPubKey);
+				var spending = tester.Network.CreateTransactionBuilder()
+					.AddCoins(coin)
+					.SendAll(new Key().PubKey.ScriptPubKey)
+					.SubtractFees()
+					.SendFees(Money.Satoshis(1000))
+					.BuildTransaction(false);
+				var spendingPSBT = tester.Client.UpdatePSBT(new UpdatePSBTRequest()
+				{
+					PSBT = PSBT.FromTransaction(spending, tester.Network)
+				}).PSBT;
+				Assert.NotNull(spendingPSBT.Inputs[0].WitnessUtxo);
+				///////////////////////////
+
 				CanCreatePSBTCore(tester, true);
 				CanCreatePSBTCore(tester, false);
 			}
