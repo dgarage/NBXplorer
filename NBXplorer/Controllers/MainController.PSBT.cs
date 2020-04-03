@@ -271,7 +271,7 @@ namespace NBXplorer.Controllers
 			}
 
 			List<Script> redeems = new List<Script>();
-			foreach (var c in update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs))
+			foreach (var c in update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs.Where(o => !o.IsFinalized())))
 			{
 				var script = c.GetCoin()?.ScriptPubKey;
 				if (script != null &&
