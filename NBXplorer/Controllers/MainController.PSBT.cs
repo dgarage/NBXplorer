@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using NBitcoin.RPC;
 
 namespace NBXplorer.Controllers
 {
@@ -305,6 +306,20 @@ namespace NBXplorer.Controllers
 
 		private async Task UpdateUTXO(UpdatePSBTRequest update, Repository repo, BitcoinDWaiter rpc)
 		{
+			if (rpc?.RPCAvailable is true)
+			{
+				try
+				{
+					update.PSBT = await rpc.RPC.UTXOUpdatePSBT(update.PSBT);
+				}
+				// Best effort
+				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+				{
+				}
+				catch
+				{
+				}
+			}
 			AnnotatedTransactionCollection txs = null;
 			// First, we check for data in our history
 			foreach (var input in update.PSBT.Inputs.Where(NeedUTXO))

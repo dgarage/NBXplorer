@@ -85,6 +85,19 @@ namespace NBXplorer
 			return JsonConvert.DeserializeObject<GetNetworkInfoResponse>(result.ResultString);
 		}
 
+		public static async Task<PSBT> UTXOUpdatePSBT(this RPCClient rpcClient, PSBT psbt)
+		{
+			if (psbt == null) throw new ArgumentNullException(nameof(psbt));
+			var response = await rpcClient.SendCommandAsync("utxoupdatepsbt", new object[] { psbt.ToBase64() });
+			response.ThrowIfError();
+			if (response.Error == null && response.Result is JValue rpcResult && rpcResult.Value is string psbtStr)
+			{
+				return PSBT.Parse(psbtStr, psbt.Network);
+			}
+
+			throw new Exception("This should never happen");
+		}
+
 		public static async Task<Repository.SavedTransaction> TryGetRawTransaction(this RPCClient client, uint256 txId)
 		{
 			var request = new RPCRequest(RPCOperations.getrawtransaction, new object[] { txId, true });
