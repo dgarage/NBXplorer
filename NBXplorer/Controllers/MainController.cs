@@ -1150,6 +1150,8 @@ namespace NBXplorer.Controllers
 			}
 
 			// Step2. However, we need to remove those who are spending a UTXO from a transaction that is not pruned
+			retry:
+			bool removedPrunables = false;
 			if (prunableIds.Count != 0)
 			{
 				foreach (var tx in transactions.ConfirmedTransactions)
@@ -1164,9 +1166,13 @@ namespace NBXplorer.Controllers
 													.Where(parent => !prunableIds.Contains(parent.Record.TransactionHash)))
 					{
 						prunableIds.Remove(tx.Record.TransactionHash);
+						removedPrunables = true;
 					}
 				}
 			}
+			// If we removed some prunable, it may have made other transactions unprunable.
+			if (removedPrunables)
+				goto retry;
 
 			if (prunableIds.Count != 0)
 			{
