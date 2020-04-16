@@ -303,9 +303,8 @@ namespace NBXplorer
 						Height = slimBlockHeader.Height,
 						PreviousBlockHash = slimBlockHeader.Previous
 					};
-					var saving = Repository.SaveEvent(blockEvent);
+					await Repository.SaveEvent(blockEvent);
 					_EventAggregator.Publish(blockEvent);
-					await saving;
 				}
 			}
 			catch (ObjectDisposedException)
