@@ -31,7 +31,6 @@ namespace NBXplorer
 				settings.Converters.Insert(0, new JsonConverters.CachedSerializer(_Network));
 			}
 			ReplaceConverter<NBitcoin.JsonConverters.MoneyJsonConverter>(settings, new NBXplorer.JsonConverters.MoneyJsonConverter());
-			settings.Converters.Insert(0, new JsonConverters.FeeRateJsonConverter());
 		}
 
 		private static void ReplaceConverter<T>(JsonSerializerSettings settings, JsonConverter jsonConverter) where T : JsonConverter
