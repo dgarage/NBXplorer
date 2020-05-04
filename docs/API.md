@@ -905,6 +905,7 @@ Fields:
     "blockTarget": 1,
     "fallbackFeeRate": 100
   },
+  "discourageFeeSniping": true,
   "reserveChangeAddress": false,
   "minConfirmations": 0,
   "excludeOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1", 
@@ -940,6 +941,7 @@ Fields:
 * `feePreference.explicitFee`: An explicit fee for the transaction in Satoshi (Mutually exclusive with: blockTarget, explicitFeeRate, fallbackFeeRate)
 * `feePreference.blockTarget`: A number of blocks after which the user expect one confirmation (Mutually exclusive with: explicitFeeRate, explicitFee)
 * `feePreference.fallbackFeeRate`: If the NBXplorer's node does not have proper fee estimation, this specific rate will be use in Satoshi per vBytes, this make sure that `fee-estimation-unavailable` is never sent. (Mutually exclusive with: explicitFeeRate, explicitFee)
+* `discourageFeeSniping`: If `timeLock` is not set, set the timeLock to a random value to discourage fee sniping (default to true)
 * `rebaseKeyPaths`: Optional. rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about), a rebase can transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint)
 * `rebaseKeyPaths[].accountKey`: The account key to rebase
 * `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key prefixed by the master public key fingerprint.

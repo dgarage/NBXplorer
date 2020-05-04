@@ -37,7 +37,8 @@ namespace NBXplorer.Controllers
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
 
-			if (Waiters.GetWaiter(network).NetworkInfo?.GetRelayFee() is FeeRate feeRate)
+			var waiter = Waiters.GetWaiter(network);
+			if (waiter.NetworkInfo?.GetRelayFee() is FeeRate feeRate)
 			{
 				txBuilder.StandardTransactionPolicy.MinRelayTxFee = feeRate;
 			}
@@ -46,7 +47,46 @@ namespace NBXplorer.Controllers
 			if (request.LockTime is LockTime lockTime)
 			{
 				txBuilder.SetLockTime(lockTime);
-				txBuilder.OptInRBF = true;
+			}
+			// Discourage fee sniping.
+			//
+			// For a large miner the value of the transactions in the best block and
+			// the mempool can exceed the cost of deliberately attempting to mine two
+			// blocks to orphan the current best block. By setting nLockTime such that
+			// only the next block can include the transaction, we discourage this
+			// practice as the height restricted and limited blocksize gives miners
+			// considering fee sniping fewer options for pulling off this attack.
+			//
+			// A simple way to think about this is from the wallet's point of view we
+			// always want the blockchain to move forward. By setting nLockTime this
+			// way we're basically making the statement that we only want this
+			// transaction to appear in the next block; we don't want to potentially
+			// encourage reorgs by allowing transactions to appear at lower heights
+			// than the next block in forks of the best chain.
+			//
+			// Of course, the subsidy is high enough, and transaction volume low
+			// enough, that fee sniping isn't a problem yet, but by implementing a fix
+			// now we ensure code won't be written that makes assumptions about
+			// nLockTime that preclude a fix later.
+			else if (!(request.DiscourageFeeSniping is false))
+			{
+				if (waiter.State is BitcoinDWaiterState.Ready)
+				{
+					int blockHeight = ChainProvider.GetChain(network).Height;
+					// Secondly occasionally randomly pick a nLockTime even further back, so
+					// that transactions that are delayed after signing for whatever reason,
+					// e.g. high-latency mix networks and some CoinJoin implementations, have
+					// better privacy.
+					if (txBuilder.ShuffleRandom.Next(0, 10) == 0)
+					{
+						blockHeight = Math.Max(0, blockHeight - txBuilder.ShuffleRandom.Next(0, 100));
+					}
+					txBuilder.SetLockTime(new LockTime(blockHeight));
+				}
+				else
+				{
+					txBuilder.SetLockTime(new LockTime(0));
+				}
 			}
 			var utxos = (await GetUTXOs(network.CryptoCode, strategy, null)).As<UTXOChanges>().GetUnspentCoins(request.MinConfirmations);
 			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);

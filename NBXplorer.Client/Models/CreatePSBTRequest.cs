@@ -20,6 +20,11 @@ namespace NBXplorer.Models
 		/// The timelock of the transaction, activate RBF if not null (Optional: null, nLockTime to 0)
 		/// </summary>
 		public LockTime? LockTime { get; set; }
+
+		/// <summary>
+		/// Discourage fee sniping (Default: true)
+		/// </summary>
+		public bool? DiscourageFeeSniping { get; set; }
 		/// <summary>
 		/// Whether this transaction should use RBF or not.
 		/// </summary>

@@ -397,7 +397,7 @@ namespace NBXplorer.Tests
 						ExplicitFee = explicitFee ? Money.Coins(0.00001m) : null,
 					}
 				});
-
+				Assert.NotEqual(LockTime.Zero, psbt.PSBT.GetGlobalTransaction().LockTime);
 				psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
 				Assert.True(psbt.PSBT.TryGetFee(out var fee));
 				if (explicitFee)
@@ -567,6 +567,10 @@ namespace NBXplorer.Tests
 			});
 			Assert.True(psbt2.PSBT.GetOriginalTransaction().RBF);
 			Assert.Equal(changeAddress, psbt2.ChangeAddress);
+			foreach (var input in psbt2.PSBT.GetGlobalTransaction().Inputs)
+			{
+				Assert.Equal(new Sequence(Sequence.MAX_BIP125_RBF_SEQUENCE), input.Sequence);
+			}
 
 			Logs.Tester.LogInformation("Let's check that we can filter UTXO by confirmations");
 			Logs.Tester.LogInformation("We have no confirmation, so we should not have enough money if asking for min 1 conf");
@@ -704,7 +708,11 @@ namespace NBXplorer.Tests
 			var txx = psbt2.PSBT.GetOriginalTransaction();
 			Assert.Equal(new LockTime(1_000_000), txx.LockTime);
 			Assert.Equal(2U, txx.Version);
-			Assert.True(txx.RBF);
+			Assert.False(txx.RBF);
+			foreach (var input in txx.Inputs)
+			{
+				Assert.Equal(Sequence.FeeSnipping, input.Sequence);
+			}
 
 			Logs.Tester.LogInformation("Spend to self should give us 2 outputs with hdkeys pre populated");
 
@@ -723,6 +731,7 @@ namespace NBXplorer.Tests
 								Amount = Money.Coins(0.0001m)
 							}
 						},
+				DiscourageFeeSniping = false,
 				FeePreference = new FeePreference()
 				{
 					ExplicitFee = Money.Coins(0.000001m),
@@ -732,6 +741,10 @@ namespace NBXplorer.Tests
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 			Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
 			Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Value.KeyPath == newAddress.KeyPath)));
+			foreach (var input in psbt2.PSBT.GetGlobalTransaction().Inputs)
+			{
+				Assert.Equal(Sequence.Final, input.Sequence);
+			}
 
 			Logs.Tester.LogInformation("Let's check if we can update the PSBT if information is missing");
 			var expected = psbt2.PSBT.Clone();
@@ -2791,7 +2804,6 @@ namespace NBXplorer.Tests
 				signed.Inputs[0].PrevOut.N = 999;
 				result = tester.Client.Broadcast(signed);
 				Assert.False(result.Success);
-
 				var ex = Assert.Throws<NBXplorerException>(() => tester.Client.GetFeeRate(5));
 				Assert.Equal("fee-estimation-unavailable", ex.Error.Code);
 			}
