@@ -56,7 +56,6 @@ namespace NBXplorer.JsonConverters
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
-			cachedConverter.Add(new CachedConverter(new BitcoinStringJsonConverter(network.NBitcoinNetwork)));
 			cachedConverter.Add(new CachedConverter(new DerivationStrategyJsonConverter(network.DerivationStrategyFactory)));
 			cachedConverter.Add(new CachedConverter(new TrackedSourceJsonConverter(network)));
 		}
