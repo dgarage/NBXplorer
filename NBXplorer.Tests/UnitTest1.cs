@@ -2122,13 +2122,14 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
-		public void CanGetStatus()
+		public async Task CanGetStatus()
 		{
 			using (var tester = ServerTester.Create())
 			{
 				tester.Client.WaitServerStarted(Timeout);
-				var status = tester.Client.GetStatus();
+				var status = await tester.Client.GetStatusAsync();
 				Assert.NotNull(status.BitcoinStatus);
+				Assert.Equal("CanGetStatus", status.InstanceName);
 				Assert.True(status.IsFullySynched);
 				Assert.Equal(status.BitcoinStatus.Blocks, status.BitcoinStatus.Headers);
 				Assert.Equal(status.BitcoinStatus.Blocks, status.ChainHeight);
@@ -2139,6 +2140,8 @@ namespace NBXplorer.Tests
 				Assert.Equal(tester.CryptoCode, status.SupportedCryptoCodes[0]);
 				Assert.Single(status.SupportedCryptoCodes);
 				Assert.NotNull(status.BitcoinStatus.Capabilities);
+				var resp = await tester.HttpClient.GetAsync("/");
+				Assert.Equal("CanGetStatus", resp.Headers.GetValues("instance-name").First());
 			}
 		}
 

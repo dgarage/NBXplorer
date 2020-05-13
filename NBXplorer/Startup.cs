@@ -18,6 +18,7 @@ using NBXplorer.Filters;
 using NBXplorer.Logging;
 using Microsoft.AspNetCore.Authentication;
 using NBXplorer.Authentication;
+using NBXplorer.Configuration;
 #if NETCOREAPP21
 using IWebHostEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
 #else
@@ -66,6 +67,7 @@ namespace NBXplorer
 		}
 
 		public void Configure(IApplicationBuilder app, IServiceProvider prov,
+			ExplorerConfiguration explorerConfiguration,
 			IWebHostEnvironment env,
 			ILoggerFactory loggerFactory, IServiceProvider serviceProvider,
 			CookieRepository cookieRepository)
@@ -76,7 +78,14 @@ namespace NBXplorer
 				app.UseDeveloperExceptionPage();
 			}
 			Logs.Configure(loggerFactory);
-
+			if (!string.IsNullOrEmpty(explorerConfiguration.InstanceName))
+			{
+				app.Use(async (httpContext, next) =>
+				{
+					httpContext.Response.Headers.Add("instance-name", explorerConfiguration.InstanceName);
+					await next();
+				});
+			}
 #if !NETCOREAPP21
 			app.UseRouting();
 #endif
