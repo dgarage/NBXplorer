@@ -69,6 +69,11 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
+		public string? Alias
+		{
+			get;
+			set;
+		}
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
 		public NetworkType NetworkType
 		{

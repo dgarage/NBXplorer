@@ -175,6 +175,7 @@ namespace NBXplorer.Configuration
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
 			ExposeRPC = config.GetOrDefault<bool>("exposerpc", false);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
+			ServerAlias = config.GetOrDefault<string>("serveralias", null);
 
 			var customKeyPathTemplate = config.GetOrDefault<string>("customkeypathtemplate", null);
 			if (!string.IsNullOrEmpty(customKeyPathTemplate))
@@ -222,6 +223,11 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public bool NoAuthentication
+		{
+			get;
+			set;
+		}
+		public string ServerAlias
 		{
 			get;
 			set;

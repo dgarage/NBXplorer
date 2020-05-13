@@ -237,7 +237,8 @@ namespace NBXplorer.Controllers
 				CryptoCode = network.CryptoCode,
 				Version = typeof(MainController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version,
 				SupportedCryptoCodes = Waiters.All().Select(w => w.Network.CryptoCode).ToArray(),
-				IsFullySynched = true
+				IsFullySynched = true,
+				Alias = ExplorerConfiguration.ServerAlias
 			};
 
 			GetNetworkInfoResponse networkInfo = waiter.NetworkInfo;
