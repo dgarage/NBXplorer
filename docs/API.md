@@ -376,12 +376,15 @@ Returns:
   "syncHeight": 103,
   "networkType": "Regtest",
   "cryptoCode": "BTC",
+  "instanceName": "MyInstance",
   "supportedCryptoCodes": [
     "BTC"
   ],
   "version": "1.0.3.5"
 }
 ```
+
+`instanceName` can be configured via configuration's key `instancename`.
 
 ## <a name="unused"></a>Get a new unused address
 
