@@ -82,7 +82,7 @@ namespace NBXplorer
 			}
 		}
 
-		public void Publish<T>(T evt) where T : class
+		public void Publish<T>(T evt, bool internalEvent = false) where T : class
 		{
 			if(evt == null)
 				throw new ArgumentNullException(nameof(evt));
@@ -95,7 +95,8 @@ namespace NBXplorer
 				}
 			}
 
-			Logs.Events.LogInformation(evt.ToString());
+			if (!internalEvent)
+				Logs.Events.LogInformation(evt.ToString());
 			foreach(var sub in actionList)
 			{
 				try

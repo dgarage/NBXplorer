@@ -16,6 +16,7 @@ using System.Net.Http;
 using NBXplorer.Models;
 using NBXplorer.Events;
 using NBXplorer.Configuration;
+using Microsoft.AspNetCore.Mvc.Formatters;
 
 namespace NBXplorer
 {
@@ -305,6 +306,7 @@ namespace NBXplorer
 					};
 					await Repository.SaveEvent(blockEvent);
 					_EventAggregator.Publish(blockEvent);
+					_EventAggregator.Publish(new RawBlockEvent(block, this.Network), true);
 				}
 			}
 			catch (ObjectDisposedException)

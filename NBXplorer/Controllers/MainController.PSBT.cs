@@ -13,6 +13,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NBitcoin.RPC;
+using NBXplorer.Analytics;
 
 namespace NBXplorer.Controllers
 {
@@ -33,9 +34,69 @@ namespace NBXplorer.Controllers
 			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(body, network);
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
+
 			var repo = RepositoryProvider.GetRepository(network);
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
+
+			CreatePSBTSuggestions suggestions = null;
+			if (!(request.DisableFingerprintRandomization is true))
+			{
+				suggestions ??= new CreatePSBTSuggestions();
+				var distribution = fingerprintService.GetDistribution(network);
+				var known = new List<(Fingerprint feature, bool value)>();
+				if (request.RBF is bool rbf)
+					known.Add((Fingerprint.RBF, rbf));
+				if (request.DiscourageFeeSniping is bool feeSnipping)
+					known.Add((Fingerprint.FeeSniping, feeSnipping));
+				if (request.LockTime is LockTime l)
+				{
+					if (l == LockTime.Zero)
+						known.Add((Fingerprint.TimelockZero, true));
+				}
+				if (request.Version is uint version)
+				{
+					if (version == 1)
+						known.Add((Fingerprint.V1, true));
+					if (version == 2)
+						known.Add((Fingerprint.V2, true));
+				}
+				known.Add((Fingerprint.SpendFromMixed, false));
+				known.Add((Fingerprint.SequenceMixed, false));
+				if (strategy is DirectDerivationStrategy direct)
+				{
+					if (direct.Segwit)
+						known.Add((Fingerprint.SpendFromP2WPKH, true));
+					else
+						known.Add((Fingerprint.SpendFromP2PKH, true));
+				}
+				else
+				{
+					// TODO: What if multisig? For now we consider it p2wpkh
+					known.Add((Fingerprint.SpendFromP2SHP2WPKH, true));
+				}
+
+				Fingerprint fingerprint = distribution.PickFingerprint(txBuilder.ShuffleRandom);
+				try
+				{
+					fingerprint = distribution.KnowingThat(known.ToArray())
+											  .PickFingerprint(txBuilder.ShuffleRandom);
+				}
+				catch(InvalidOperationException)
+				{
+
+				}
+
+				request.RBF ??= fingerprint.HasFlag(Fingerprint.RBF);
+				request.DiscourageFeeSniping ??= fingerprint.HasFlag(Fingerprint.FeeSniping);
+				if (request.LockTime is null && fingerprint.HasFlag(Fingerprint.TimelockZero))
+					request.LockTime = new LockTime(0);
+				if (request.Version is null && fingerprint.HasFlag(Fingerprint.V1))
+					request.Version = 1;
+				if (request.Version is null && fingerprint.HasFlag(Fingerprint.V2))
+					request.Version = 2;
+				suggestions.ShouldEnforceLowR = fingerprint.HasFlag(Fingerprint.LowR);
+			}
 
 			var waiter = Waiters.GetWaiter(network);
 			if (waiter.NetworkInfo?.GetRelayFee() is FeeRate feeRate)
@@ -43,7 +104,7 @@ namespace NBXplorer.Controllers
 				txBuilder.StandardTransactionPolicy.MinRelayTxFee = feeRate;
 			}
 
-			txBuilder.OptInRBF = request.RBF;
+			txBuilder.OptInRBF = !(request.RBF is false);
 			if (request.LockTime is LockTime lockTime)
 			{
 				txBuilder.SetLockTime(lockTime);
@@ -226,7 +287,8 @@ namespace NBXplorer.Controllers
 			var resp = new CreatePSBTResponse()
 			{
 				PSBT = update.PSBT,
-				ChangeAddress = hasChange ? change.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : null
+				ChangeAddress = hasChange ? change.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : null,
+				Suggestions = suggestions
 			};
 			return Json(resp, network.JsonSerializerSettings);
 		}

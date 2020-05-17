@@ -920,14 +920,15 @@ Fields:
 		"accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
 		"accountKeyPath": "ab5ed9ab/49'/0'/0'"
 	  }
-  ]
+  ],
+  "disableFingerprintRandomization": false
 }
 ```
 
 * `seed`: Optional, default to null, a seed to specific to get a deterministic PSBT (useful for tests)
-* `version`: Optional, default to 1, the version of the transaction
-* `timeLock`: Optional, The timelock of the transaction, activate RBF if not null (default: null, nLockTime to 0)
-* `rbf`: Optional, default to false, determine if the transaction should have Replace By Fee (RBF) activated
+* `version`: Optional, the version of the transaction (default: 1, if `disableFingerprintRandomization` is `true`)
+* `timeLock`: Optional, The timelock of the transaction, activate RBF if not null (default: 0, if `disableFingerprintRandomization` is `true`)
+* `rbf`: Optional, determine if the transaction should have Replace By Fee (RBF) activated (default: `true`, if `disableFingerprintRandomization` is `true`)
 * `reserveChangeAddress`: default to false, whether the creation of this PSBT will reserve a new change address.
 * `explicitChangeAddress`: default to null, use a specific change address (Optional, mutually exclusive with reserveChangeAddress)
 * `minConfirmations`: default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
@@ -944,22 +945,29 @@ Fields:
 * `feePreference.explicitFee`: An explicit fee for the transaction in Satoshi (Mutually exclusive with: blockTarget, explicitFeeRate, fallbackFeeRate)
 * `feePreference.blockTarget`: A number of blocks after which the user expect one confirmation (Mutually exclusive with: explicitFeeRate, explicitFee)
 * `feePreference.fallbackFeeRate`: If the NBXplorer's node does not have proper fee estimation, this specific rate will be use in Satoshi per vBytes, this make sure that `fee-estimation-unavailable` is never sent. (Mutually exclusive with: explicitFeeRate, explicitFee)
-* `discourageFeeSniping`: If `timeLock` is not set, set the timeLock to a random value to discourage fee sniping (default to true)
+* `discourageFeeSniping`: If `timeLock` is not set, set the timeLock to a random value to discourage fee sniping (default to `true`, if `disableFingerprintRandomization` is `true`)
 * `rebaseKeyPaths`: Optional. rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about), a rebase can transform (PubKey0, 0/0, accountFingerprint) by (PubKey0, m/49'/0'/0/0, masterFingerprint)
 * `rebaseKeyPaths[].accountKey`: The account key to rebase
 * `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key prefixed by the master public key fingerprint.
+* `disableFingerprintRandomization`: Disable the randomization of default parameter's value to match the network's fingerprint distribution. (randomized default values are `version`, `timeLock`, `rbf`, `discourageFeeSniping`)
 
 Response:
 
 ```json
 {
   "psbt": "cHNidP8BAHcBAAAAASjvZHM29AbxO4IGGHbk3IE82yciSQFr2Ihge7P9P1HeAQAAAAD/////AmzQMAEAAAAAGXapFG1/TpHnIajdweam5Z3V9s6oGWBRiKyAw8kBAAAAABl2qRSVNmCfrnVeIwVkuTrCR6EvRFCP7IisAAAAAAABAP10AQEAAAACe9C2c9VL+gfYpic4c+Wk/Nn7bvhewA82owtcUDo/tPoAAAAAakcwRAIgUlLS0SDj7IXeY44x21eUg16Vh4qbJe+NDQ/ywUrB84kCIGLU5Vec2bjL1DZhUmDueLrf0uh/PycOK7FWg/Ptvwi0ASED7OpQGf+HzIRwWKZ1Hmd8h6vxkFOt5RlJ3u/flzNTesv/////818+qp4hLnw9DWOD+a601fLjFciZ/4iCNT1M9g+kMvkAAAAAakcwRAIgfk+bUUYfRs6AU1mt5unV4fZxCit34g8pE5fsawUM7H0CIBGpSil8+JCHdAHxKU2I7CvEBzAyz3ggd9RlH+QQSnlkASEC/wwlQ07b3xdSQaEf+wRJEnzEJT2GPNTY4Wb3Gg1hxFz/////AoDw+gIAAAAAGXapFHoZHSjaWNcmJk7sSHvRG29RaqIiiKxQlPoCAAAAABl2qRTSKm2x4ITWeuYLwCv3PUDtt+CL+YisAAAAACIGA1KRWHyJqdpbUzuezCSzj4+bj1+gNWGEibLG0BMj9/RmDDAn+hsBAAAAAgAAAAAiAgIuwas0MohgjmGIXoOgS95USEDawK//ZqrVEi5UIfP/FAwwJ/obAQAAAAMAAAAAAA==",
-  "changeAddress": "mqVvTQKsdJ36Z8m5uFWQSA5nhrJ5NHQ2Hs"
+  "changeAddress": "mqVvTQKsdJ36Z8m5uFWQSA5nhrJ5NHQ2Hs",
+  "suggestions": 
+  {
+      "shouldEnforceLowR": true
+  }
 }
 ```
 
 * `psbt`: The partially signed bitcoin transaction in Base64.
-* `changeAddress`: The change address of the transaction, useful for tests (can be null) 
+* `changeAddress`: The change address of the transaction, useful for tests (can be null)
+* `suggestions`: Suggestions to the signer of the PSBT (null value if `disableFingerprintRandomization` is set to `false`)
+* `suggestions.shouldEnforceLowR`: If `true`, the signer should enforce the creation of 71 bytes ECDSA signature to maximize privacy.
 
 Note, in the example above, if the [metadata](#metadata) `AccountKeyPath` is set to `ab5ed9ab/49'/0'/0'`, then you don't have to pass `rebaseKeyPaths`.
 
