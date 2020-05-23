@@ -612,7 +612,10 @@ namespace NBXplorer.Controllers
 						Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 						Timestamp = tx.Record.FirstSeen,
 						Inputs = tx.Record.SpentOutpoints.Select(o => txs.GetUTXO(o)).Where(o => o != null).ToList(),
-						Outputs = tx.Record.GetReceivedOutputs().ToList()
+						Outputs = tx.Record.GetReceivedOutputs().ToList(),
+						Replaceable = tx.Replaceable,
+						ReplacedBy = tx.ReplacedBy,
+						Replacing = tx.Replacing
 					};
 
 					if (txId == null || txId == txInfo.TransactionId)

@@ -176,7 +176,10 @@ Returns:
         ],
         "inputs": [],
         "timestamp": 1540381888,
-        "balanceChange": 100000000
+        "balanceChange": 100000000,
+        "replaceable": false,
+        "replacing": null,
+        "replacedBy": null
       }
     ]
   },
@@ -198,15 +201,44 @@ Returns:
         ],
         "inputs": [],
         "timestamp": 1540381889,
-        "balanceChange": 100000000
+        "balanceChange": 100000000,
+        "replaceable": false,
+        "replacing": "e070e213a0815b84b4ae96d4d64ce551158524364d3522e7d6bd5415c6c15d3f",
+        "replacedBy": null
       }
     ]
   },
   "replacedTransactions": {
-    "transactions": []
+    "transactions": [
+      {
+        "blockHash": null,
+        "confirmations": 0,
+        "height": null,
+        "transactionId": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1",
+        "transaction": null,
+        "outputs": [
+          {
+            "keyPath": "0",
+            "scriptPubKey": "0014b39fc4eb5c6dd238d39449b70a2e30d575426d99",
+            "index": 1,
+            "value": 100000000
+          }
+        ],
+        "inputs": [],
+        "timestamp": 1540381889,
+        "balanceChange": 100000000,
+        "replaceable": false,
+        "replacing": null,
+        "replacedBy": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1"
+      }
+    ]
   }
 }
 ```
+
+* `replaceable`: `true` if the transaction can be replaced (the transaction has RBF activated, is in the unconfirmed list and is not an intermediate transaction in a chain of unconfirmed transaction)
+* `replacing`: Only set in the unconfirmed list, and is pointing to a transaction id in the replaced list.
+* `replacedBy`: Only set in the replaced list, and is pointing to a transaction id in the unconfirmed list. 
 
 Note for liquid, `balanceChange` is an array of [AssetMoney](#liquid).
 
