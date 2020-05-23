@@ -19,6 +19,10 @@ using System.Threading.Tasks;
 using NBitcoin.Altcoins.Elements;
 using Xunit;
 using Xunit.Abstractions;
+using System.Net.Http;
+using System.IO;
+using Microsoft.AspNetCore.Mvc.Formatters;
+using System.Runtime.InteropServices;
 
 namespace NBXplorer.Tests
 {
@@ -395,8 +399,10 @@ namespace NBXplorer.Tests
 					{
 						FallbackFeeRate = explicitFee ? null : new FeeRate(Money.Satoshis(100), 1),
 						ExplicitFee = explicitFee ? Money.Coins(0.00001m) : null,
-					}
+					},
+					DisableFingerprintRandomization = true
 				});
+				Assert.Null(psbt.Suggestions);
 				Assert.NotEqual(LockTime.Zero, psbt.PSBT.GetGlobalTransaction().LockTime);
 				psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
 				Assert.True(psbt.PSBT.TryGetFee(out var fee));
@@ -612,7 +618,8 @@ namespace NBXplorer.Tests
 				ReserveChangeAddress = false,
 				MinConfirmations = 1
 			});
-
+			// We always signed with lowR so this should be always true
+			Assert.True(psbt2.Suggestions.ShouldEnforceLowR);
 			Logs.Tester.LogInformation("Let's check includeOutpoint and excludeOutpoints");
 			txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
 			tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
@@ -689,6 +696,7 @@ namespace NBXplorer.Tests
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
 				Version = 2,
+				RBF = false,
 				LockTime = new LockTime(1_000_000),
 				ExcludeOutpoints = new List<OutPoint>() { outpoints[0] },
 				Destinations =
@@ -732,6 +740,7 @@ namespace NBXplorer.Tests
 							}
 						},
 				DiscourageFeeSniping = false,
+				RBF = false,
 				FeePreference = new FeePreference()
 				{
 					ExplicitFee = Money.Coins(0.000001m),

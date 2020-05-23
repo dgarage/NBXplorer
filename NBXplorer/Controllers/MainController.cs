@@ -21,6 +21,7 @@ using System.Net.WebSockets;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
+using NBXplorer.Analytics;
 
 namespace NBXplorer.Controllers
 {
@@ -39,7 +40,8 @@ namespace NBXplorer.Controllers
 			ScanUTXOSetServiceAccessor scanUTXOSetService,
 			RebroadcasterHostedService rebroadcaster,
 			KeyPathTemplates keyPathTemplates,
-			MvcNewtonsoftJsonOptions jsonOptions
+			MvcNewtonsoftJsonOptions jsonOptions,
+			Analytics.FingerprintHostedService fingerprintService
 			)
 		{
 			ExplorerConfiguration = explorerConfiguration;
@@ -51,10 +53,12 @@ namespace NBXplorer.Controllers
 			Waiters = waiters;
 			Rebroadcaster = rebroadcaster;
 			this.keyPathTemplates = keyPathTemplates;
+			this.fingerprintService = fingerprintService;
 			AddressPoolService = addressPoolService.Instance;
 		}
 		EventAggregator _EventAggregator;
 		private readonly KeyPathTemplates keyPathTemplates;
+		private readonly FingerprintHostedService fingerprintService;
 
 		public BitcoinDWaiters Waiters
 		{

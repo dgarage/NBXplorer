@@ -162,6 +162,9 @@ namespace NBXplorer
 			services.AddSingleton<IHostedService, RebroadcasterHostedService>(o => o.GetRequiredService<RebroadcasterHostedService>());
 			services.AddSingleton<IHostedService, BrokerHostedService>();
 
+			services.AddSingleton<Analytics.FingerprintHostedService>();
+			services.AddSingleton<IHostedService, Analytics.FingerprintHostedService>(o => o.GetRequiredService<Analytics.FingerprintHostedService>());
+
 			services.AddSingleton<ExplorerConfiguration>(o => o.GetRequiredService<IOptions<ExplorerConfiguration>>().Value);
 
 			services.AddSingleton<KeyPathTemplates>(o =>

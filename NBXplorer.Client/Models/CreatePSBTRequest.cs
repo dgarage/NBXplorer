@@ -25,10 +25,11 @@ namespace NBXplorer.Models
 		/// Discourage fee sniping (Default: true)
 		/// </summary>
 		public bool? DiscourageFeeSniping { get; set; }
+
 		/// <summary>
 		/// Whether this transaction should use RBF or not.
 		/// </summary>
-		public bool RBF { get; set; }
+		public bool? RBF { get; set; }
 		/// <summary>
 		/// The destinations where to send the money
 		/// </summary>
@@ -72,6 +73,11 @@ namespace NBXplorer.Models
 		/// </summary>
 
 		public Money MinValue { get; set; }
+
+		/// <summary>
+		/// Disabling the randomization of unspecified parameters to match the network's fingerprint distribution
+		/// </summary>
+		public bool? DisableFingerprintRandomization { get; set; }
 	}
 	public class PSBTRebaseKeyRules
 	{
