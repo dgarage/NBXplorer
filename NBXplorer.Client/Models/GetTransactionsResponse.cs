@@ -94,5 +94,8 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
+		public uint256 ReplacedBy { get; set; }
+		public uint256 Replacing { get; set; }
+		public bool Replaceable { get; set; }
 	}
 }

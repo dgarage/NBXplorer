@@ -856,12 +856,39 @@ namespace NBXplorer.Tests
 				var payment1 = Money.Coins(0.04m);
 				var payment2 = Money.Coins(0.08m);
 
+				Logs.Tester.LogInformation("Tx1 get spent by Tx2, then Tx3 is replacing Tx1. So Tx1 and Tx2 should also appear replaced");
 				var tx1 = tester.RPC.SendToAddress(a1.ScriptPubKey, payment1, replaceable: true);
 				tester.Notifications.WaitForTransaction(bob, tx1);
+				Logs.Tester.LogInformation($"Tx1: {tx1}");
 				var utxo = tester.Client.GetUTXOs(bob); //Wait tx received
 				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 
-				var tx = tester.RPC.GetRawTransaction(new uint256(tx1));
+				var a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+				var tx2psbt = (await tester.Client.CreatePSBTAsync(bob, new CreatePSBTRequest()
+				{
+					RBF = false,
+					Destinations = new List<CreatePSBTDestination>()
+					{
+						new CreatePSBTDestination()
+						{
+							SubstractFees = true,
+							Destination = a2.Address,
+							Amount = payment1,
+						}
+					},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Satoshis(400)
+					}
+				})).PSBT;
+				tester.SignPSBT(tx2psbt);
+				tx2psbt.Finalize();
+				var tx2 = tx2psbt.ExtractTransaction();
+				await tester.Client.BroadcastAsync(tx2);
+				tester.Notifications.WaitForTransaction(bob, tx2.GetHash());
+				Logs.Tester.LogInformation($"Tx2: {tx2.GetHash()}");
+
+				var tx = tester.RPC.GetRawTransaction(tx1);
 				foreach (var input in tx.Inputs)
 				{
 					input.ScriptSig = Script.Empty; //Strip signatures
@@ -871,19 +898,26 @@ namespace NBXplorer.Tests
 				var output = tx.Outputs.First(o => o.Value == payment1);
 				output.Value = payment2;
 				var replacement = tester.RPC.SignRawTransaction(tx);
-
+				Logs.Tester.LogInformation($"Tx3: {replacement.GetHash()}");
 				tester.RPC.SendRawTransaction(replacement);
 				tester.Notifications.WaitForTransaction(bob, replacement.GetHash());
 				var prevUtxo = utxo;
 				utxo = tester.Client.GetUTXOs(bob); //Wait tx received
-				Assert.Equal(replacement.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
+				Assert.Equal(replacement.GetHash(), utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 
 				var txs = tester.Client.GetTransactions(bob);
 				Assert.Single(txs.UnconfirmedTransactions.Transactions);
 				Assert.Equal(replacement.GetHash(), txs.UnconfirmedTransactions.Transactions[0].TransactionId);
-				Assert.Single(txs.ReplacedTransactions.Transactions);
-				Assert.Equal(tx1, txs.ReplacedTransactions.Transactions[0].TransactionId);
+				Assert.Equal(tx1, txs.UnconfirmedTransactions.Transactions[0].Replacing);
+
+				Assert.Equal(2, txs.ReplacedTransactions.Transactions.Count);
+				Assert.Equal(tx2.GetHash(), txs.ReplacedTransactions.Transactions[0].TransactionId);
+				Assert.False(txs.ReplacedTransactions.Transactions[0].Replaceable);
+				Assert.Equal(tx1, txs.ReplacedTransactions.Transactions[1].TransactionId);
+				Assert.False(txs.ReplacedTransactions.Transactions[1].Replaceable);
+
+				Assert.Equal(replacement.GetHash(), txs.ReplacedTransactions.Transactions[0].ReplacedBy);
 
 				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should fail");
 				var rebroadcaster = tester.GetService<RebroadcasterHostedService>();
