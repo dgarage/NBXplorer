@@ -23,6 +23,7 @@ namespace NBXplorer
 			InitUfo(networkType);
 			InitViacoin(networkType);
 			InitMonoeci(networkType);
+			InitVerge(networkType);
 			InitGobyte(networkType);
 			InitColossus(networkType);
 			InitChaincoin(networkType);
