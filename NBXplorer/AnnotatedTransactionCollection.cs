@@ -207,7 +207,22 @@ namespace NBXplorer
 				else
 				{
 					UnconfirmedTransactions.Add(tx);
-					tx.Replaceable = tx.Record.Transaction?.RBF is true;
+					// A transaction is replaceable if it is RBF and we control all inputs
+					tx.Replaceable = tx.Record.Transaction?.RBF is true &&
+									tx.Record.Transaction?.Inputs.Count() is int txInputCount &&
+									tx.Record.SpentOutpoints.Count == txInputCount;
+					if (tx.Replaceable)
+					{
+						// Parents of a transaction should not be replaceable (technically can in the protocol)
+						// but we don't want user cancelling a chain of transaction
+						foreach (var parentOutpoint in tx.Record.SpentOutpoints)
+						{
+							if (_TxById.TryGetValue(parentOutpoint.Hash, out var parent) && parent.Height is null)
+							{
+								parent.Replaceable = false;
+							}
+						}
+					}
 				}
 				this.Add(tx);
 			}

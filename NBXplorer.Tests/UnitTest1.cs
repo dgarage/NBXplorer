@@ -23,6 +23,7 @@ using System.Net.Http;
 using System.IO;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using System.Runtime.InteropServices;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace NBXplorer.Tests
 {
@@ -856,7 +857,7 @@ namespace NBXplorer.Tests
 				var payment1 = Money.Coins(0.04m);
 				var payment2 = Money.Coins(0.08m);
 
-				Logs.Tester.LogInformation("Tx1 get spent by Tx2, then Tx3 is replacing Tx1. So Tx1 and Tx2 should also appear replaced");
+				Logs.Tester.LogInformation("Tx1 get spent by Tx2, then Tx3 is replacing Tx1. So Tx1 and Tx2 should also appear replaced. Tx4 then spends Tx3.");
 				var tx1 = tester.RPC.SendToAddress(a1.ScriptPubKey, payment1, replaceable: true);
 				tester.Notifications.WaitForTransaction(bob, tx1);
 				Logs.Tester.LogInformation($"Tx1: {tx1}");
@@ -930,16 +931,50 @@ namespace NBXplorer.Tests
 				rebroadcast = await rebroadcaster.RebroadcastAll();
 				Assert.Single(rebroadcast.Rebroadcasted); // Success
 
+				Logs.Tester.LogInformation("Now tx4 is spending the tx3");
+				var tx4psbt = (await tester.Client.CreatePSBTAsync(bob, new CreatePSBTRequest()
+				{
+					RBF = true,
+					Destinations = new List<CreatePSBTDestination>()
+					{
+						new CreatePSBTDestination()
+						{
+							SubstractFees = true,
+							Destination = a2.Address,
+							Amount = Money.Satoshis(500),
+						}
+					},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Satoshis(400)
+					}
+				})).PSBT;
+				tester.SignPSBT(tx4psbt);
+				tx4psbt.Finalize();
+				var tx4 = tx4psbt.ExtractTransaction();
+				Logs.Tester.LogInformation($"Tx4: {tx4.GetHash()}");
+				var r = await tester.Client.BroadcastAsync(tx4);
+				tester.Notifications.WaitForTransaction(bob, tx4.GetHash());
+				txs = tester.Client.GetTransactions(bob);
+				Assert.Equal(2, txs.UnconfirmedTransactions.Transactions.Count);
+				Assert.True(txs.UnconfirmedTransactions.Transactions[0].Replaceable);
+				// Can't replace a transaction inside an unconfirmed chain.
+				Assert.False(txs.UnconfirmedTransactions.Transactions[1].Replaceable);
+
 				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 
-				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should clean one tx record (the unconf one) from the list");
+				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should clean two tx record (tx3 and tx4) from the list");
 				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
 				rebroadcast = await rebroadcaster.RebroadcastAll();
-				// The unconf record should be cleaned
-				var cleaned = Assert.Single(rebroadcast.Cleaned);
-				Assert.Null(cleaned.BlockHash);
+				Assert.Equal(2, rebroadcast.Cleaned.Count);
+				foreach (var cleaned in rebroadcast.Cleaned)
+				{
+					Assert.Null(cleaned.BlockHash);
+				}
+				Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == tx4.GetHash() && o.BlockHash is null);
+				Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == replacement.GetHash());
 				// Only one missing input, as there is only one txid
-				Assert.Single(rebroadcast.MissingInputs);
+				Assert.Equal(2, rebroadcast.MissingInputs.Count);
 
 				// Nothing should be cleaned now
 				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
@@ -954,8 +989,10 @@ namespace NBXplorer.Tests
 
 				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
 				rebroadcast = await rebroadcaster.RebroadcastAll();
-				cleaned = Assert.Single(rebroadcast.Cleaned);
-				Assert.Equal(orphanedBlock, cleaned.BlockHash);
+				{
+					var cleaned = Assert.Single(rebroadcast.Cleaned);
+					Assert.Equal(orphanedBlock, cleaned.BlockHash);
+				}
 			}
 		}
 
