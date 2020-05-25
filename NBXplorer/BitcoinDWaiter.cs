@@ -216,6 +216,10 @@ namespace NBXplorer
 			catch when (token.IsCancellationRequested)
 			{
 			}
+			finally
+			{
+				EnsureNodeDisposed();
+			}
 		}
 
 		private async Task Wait(int errors, Signaler tick, CancellationToken token)
