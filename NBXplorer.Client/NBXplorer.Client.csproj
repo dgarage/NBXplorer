@@ -17,15 +17,15 @@
       	<ItemGroup Condition=" '$(Configuration)' == 'Release' ">
 		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
 	</ItemGroup>
-        <PropertyGroup  Condition=" '$(Configuration)' == 'Release' ">
+        <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
              	<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<EmbedUntrackedSources>true</EmbedUntrackedSources>
 		<DebugType>portable</DebugType>
 		<Optimize>true</Optimize>
         </PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="5.0.38" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="2.0.11" />
+		<PackageReference Include="NBitcoin" Version="5.0.40" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="2.0.12" />
 		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.18" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>
