@@ -40,7 +40,7 @@ namespace NBXplorer.Controllers
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
 
 			CreatePSBTSuggestions suggestions = null;
-			if (!(request.DisableFingerprintRandomization is true))
+			if (!(request.DisableFingerprintRandomization is true) && network.CryptoCode == "BTC")
 			{
 				suggestions ??= new CreatePSBTSuggestions();
 				var distribution = fingerprintService.GetDistribution(network);

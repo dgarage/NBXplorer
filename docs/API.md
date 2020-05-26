@@ -983,6 +983,8 @@ Fields:
 * `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key prefixed by the master public key fingerprint.
 * `disableFingerprintRandomization`: Disable the randomization of default parameter's value to match the network's fingerprint distribution. (randomized default values are `version`, `timeLock`, `rbf`, `discourageFeeSniping`)
 
+Fingerprint randomization is only available on Bitcoin.
+
 Response:
 
 ```json
