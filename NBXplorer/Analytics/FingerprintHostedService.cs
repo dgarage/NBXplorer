@@ -19,6 +19,7 @@ namespace NBXplorer.Analytics
 		{
 			internal BitcoinDWaiter waiter;
 			internal FingerprintDistribution Distribution;
+			internal FingerprintDistribution DefaultDistribution;
 			internal Queue<FingerprintDistribution> BlockDistributions = new Queue<FingerprintDistribution>();
 		}
 
@@ -26,13 +27,17 @@ namespace NBXplorer.Analytics
 		private readonly Dictionary<NBXplorerNetwork, NetworkFingerprintData> data = new Dictionary<NBXplorerNetwork, NetworkFingerprintData>();
 		IDisposable subscription;
 		public FingerprintHostedService(EventAggregator eventAggregator,
-									    NBXplorerNetworkProvider networkProvider,
+										NBXplorerNetworkProvider networkProvider,
 										BitcoinDWaiters waiters)
 		{
 			this.eventAggregator = eventAggregator;
 			foreach (var network in networkProvider.GetAll())
 			{
-				data.Add(network, new NetworkFingerprintData() { waiter = waiters.GetWaiter(network) });
+				data.Add(network, new NetworkFingerprintData()
+				{
+					waiter = waiters.GetWaiter(network),
+					DefaultDistribution = network.CryptoCode == "BTC" ? _DefaultBTC : null
+				});
 			}
 		}
 		public Task StartAsync(CancellationToken cancellationToken)
@@ -60,7 +65,7 @@ namespace NBXplorer.Analytics
 
 		public FingerprintDistribution GetDistribution(NBXplorerNetwork network)
 		{
-			return data[network].Distribution ?? _Default;
+			return data[network].Distribution ?? data[network].DefaultDistribution;
 		}
 
 		public Task StopAsync(CancellationToken cancellationToken)
@@ -70,7 +75,7 @@ namespace NBXplorer.Analytics
 		}
 
 		// Generated via test GenerateDefaultDistribution
-		static FingerprintDistribution _Default = new FingerprintDistribution(new Dictionary<Fingerprint, int>()
+		static FingerprintDistribution _DefaultBTC = new FingerprintDistribution(new Dictionary<Fingerprint, int>()
 		{
 			{ Fingerprint.V1 | Fingerprint.SpendFromP2PKH | Fingerprint.TimelockZero | Fingerprint.SequenceAllFinal, 602 },
 			{ Fingerprint.V1 | Fingerprint.SpendFromP2PKH | Fingerprint.LowR | Fingerprint.TimelockZero | Fingerprint.SequenceAllFinal, 432 },
