@@ -8,6 +8,7 @@ namespace NBXplorer
 		public NBXplorerNetworkProvider(NetworkType networkType)
 		{
 			NetworkType = networkType;
+			InitArgoneum(networkType);
 			InitBitcoin(networkType);
 			InitBitcore(networkType);
 			InitLitecoin(networkType);

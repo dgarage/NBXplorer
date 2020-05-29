@@ -11,6 +11,10 @@ namespace NBXplorer.Tests
 		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(NetworkType.Regtest);
 		private void SetEnvironment()
 		{
+			//CryptoCode = "AGM";
+			//nodeDownloadData = NodeDownloadData.Argoneum.v1_4_1;
+			//Network = NBitcoin.Altcoins.Argoneum.Instance.Regtest;
+
 			//CryptoCode = "LTC";
 			//nodeDownloadData = NodeDownloadData.Litecoin.v0_16_3;
 			//Network = NBitcoin.Altcoins.Litecoin.Instance.Regtest;
