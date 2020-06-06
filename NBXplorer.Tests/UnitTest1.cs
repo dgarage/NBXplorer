@@ -842,6 +842,32 @@ namespace NBXplorer.Tests
 			});
 			Assert.True(psbt2.PSBT.TryGetEstimatedFeeRate(out var feeRate));
 			Assert.Equal(new FeeRate(1.0m), feeRate);
+
+			if (segwit)
+			{
+				// some PSBT signers are incompliant with spec and require the non_witness_utxo even for segwit inputs
+			
+				Logs.Tester.LogInformation("Let's check that if we can create or update a psbt with non_witness_utxo filled even for segwit inputs");
+				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+					{
+						new CreatePSBTDestination()
+						{
+							Destination = newAddress.Address,
+							Amount = Money.Coins(0.0001m)
+						}
+					},
+					TrySetFullUTXOTransaction = true
+				});
+
+				//in our case, we should have the tx to load this, but if someone restored the wallet and has a pruned node, this may not be set 
+				foreach (var psbtInput in psbt2.PSBT.Inputs)
+				{
+					Assert.NotNull(psbtInput.NonWitnessUtxo);
+				}
+			}
+			
 		}
 
 		[Fact]

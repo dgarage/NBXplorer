@@ -1,4 +1,4 @@
-﻿using NBitcoin;
+using NBitcoin;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -78,6 +78,11 @@ namespace NBXplorer.Models
 		/// Disabling the randomization of unspecified parameters to match the network's fingerprint distribution
 		/// </summary>
 		public bool? DisableFingerprintRandomization { get; set; }
+		
+		/// <summary>
+		/// Attempt setting non_witness_utxo for all inputs even if they are segwit.
+		/// </summary>
+		public bool TrySetFullUTXOTransaction { get; set; }
 	}
 	public class PSBTRebaseKeyRules
 	{
