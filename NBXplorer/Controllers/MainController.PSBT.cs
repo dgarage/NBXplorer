@@ -282,7 +282,7 @@ namespace NBXplorer.Controllers
 				DerivationScheme = strategy,
 				PSBT = psbt,
 				RebaseKeyPaths = request.RebaseKeyPaths,				
-				TrySetFullUTXOTransaction = request.TrySetFullUTXOTransaction
+				AlwaysIncludeNonWitnessUTXO = request.AlwaysIncludeNonWitnessUTXO
 			};
 			await UpdatePSBTCore(update, network);
 			var resp = new CreatePSBTResponse()
@@ -324,7 +324,7 @@ namespace NBXplorer.Controllers
 				await UpdateHDKeyPathsWitnessAndRedeem(update, repo);
 			}
 
-			if (!update.TrySetFullUTXOTransaction)
+			if (!update.AlwaysIncludeNonWitnessUTXO)
 			{
 				foreach (var input in update.PSBT.Inputs)
 					input.TrySlimUTXO();
@@ -438,7 +438,7 @@ namespace NBXplorer.Controllers
 			{
 				AnnotatedTransactionCollection txs = null;
 				// First, we check for data in our history
-				foreach (var input in update.PSBT.Inputs.Where(psbtInput => update.TrySetFullUTXOTransaction || NeedUTXO(psbtInput)))
+				foreach (var input in update.PSBT.Inputs.Where(psbtInput => update.AlwaysIncludeNonWitnessUTXO || NeedUTXO(psbtInput)))
 				{
 					txs = txs ?? await GetAnnotatedTransactions(repo, ChainProvider.GetChain(repo.Network), new DerivationSchemeTrackedSource(derivationScheme));
 					if (txs.GetByTxId(input.PrevOut.Hash) is AnnotatedTransaction tx)
@@ -458,7 +458,7 @@ namespace NBXplorer.Controllers
 
 			// then, we search data in the saved transactions
 			await Task.WhenAll(update.PSBT.Inputs
-							.Where(psbtInput => update.TrySetFullUTXOTransaction || NeedUTXO(psbtInput))
+							.Where(psbtInput => update.AlwaysIncludeNonWitnessUTXO || NeedUTXO(psbtInput))
 							.Select(async (input) =>
 							{
 								// If this is not segwit, or we are unsure of it, let's try to grab from our saved transactions
@@ -477,7 +477,7 @@ namespace NBXplorer.Controllers
 			{
 				var batch = rpc.RPC.PrepareBatch();
 				var getTransactions = Task.WhenAll(update.PSBT.Inputs
-					.Where(psbtInput => update.TrySetFullUTXOTransaction || NeedUTXO(psbtInput))
+					.Where(psbtInput => update.AlwaysIncludeNonWitnessUTXO || NeedUTXO(psbtInput))
 					.Where(input => input.NonWitnessUtxo == null)
 					.Select(async input =>
 				   {

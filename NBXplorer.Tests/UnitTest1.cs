@@ -858,7 +858,11 @@ namespace NBXplorer.Tests
 							Amount = Money.Coins(0.0001m)
 						}
 					},
-					TrySetFullUTXOTransaction = true
+					FeePreference = new FeePreference()
+					{
+						FallbackFeeRate = new FeeRate(1.0m)
+					},
+					AlwaysIncludeNonWitnessUTXO = true
 				});
 
 				//in our case, we should have the tx to load this, but if someone restored the wallet and has a pruned node, this may not be set 

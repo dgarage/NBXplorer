@@ -82,7 +82,7 @@ namespace NBXplorer.Models
 		/// <summary>
 		/// Attempt setting non_witness_utxo for all inputs even if they are segwit.
 		/// </summary>
-		public bool TrySetFullUTXOTransaction { get; set; }
+		public bool AlwaysIncludeNonWitnessUTXO { get; set; }
 	}
 	public class PSBTRebaseKeyRules
 	{
