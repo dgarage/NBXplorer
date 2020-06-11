@@ -84,5 +84,24 @@ namespace NBXplorer
 					  .ToArray();
 			return evtsObj;
 		}
+
+		public NewEventBase[] GetLatestEvents(int limit = 10, CancellationToken cancellation = default)
+		{
+			return GetLatestEventsAsync(limit, cancellation).GetAwaiter().GetResult();
+		}
+
+		public async Task<NewEventBase[]> GetLatestEventsAsync(int limit = 10, CancellationToken cancellation = default)
+		{
+			List<string> parameters = new List<string>();
+			if (limit != 10)
+				parameters.Add($"limit={limit}");
+			var parametersString = parameters.Count == 0 ? string.Empty : $"?{String.Join("&", parameters.ToArray<object>())}";
+			var evts = await Client.SendAsync<JArray>(HttpMethod.Get, null, $"v1/cryptos/{Client.CryptoCode}/events/latest{parametersString}", null, cancellation);
+
+			var evtsObj = evts.Select(ev => NewEventBase.ParseEvent((JObject)ev, Client.Serializer.Settings))
+					  .OfType<NewEventBase>()
+					  .ToArray();
+			return evtsObj;
+		}
 	}
 }

@@ -429,7 +429,7 @@ namespace NBXplorer.Controllers
 		[Route("cryptos/{cryptoCode}/events")]
 		public async Task<JArray> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false, CancellationToken cancellationToken = default)
 		{
-			if (limit != null && limit.Value < 0)
+			if (limit != null && limit.Value < 1)
 				throw new NBXplorerError(400, "invalid-limit", "limit should be more than 0").AsException();
 			var network = GetNetwork(cryptoCode, false);
 			TaskCompletionSource<bool> waitNextEvent = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -459,6 +459,18 @@ namespace NBXplorer.Controllers
 				}
 				return new JArray(result.Select(o => o.ToJObject(repo.Serializer.Settings)));
 			}
+		}
+
+
+		[Route("cryptos/{cryptoCode}/events/latest")]
+		public async Task<JArray> GetLatestEvents(string cryptoCode, int limit = 10)
+		{
+			if (limit < 1)
+				throw new NBXplorerError(400, "invalid-limit", "limit should be more than 0").AsException();
+			var network = GetNetwork(cryptoCode, false);
+			var repo = RepositoryProvider.GetRepository(network);
+			var result = await repo.GetLatestEvents(limit);
+			return new JArray(result.Select(o => o.ToJObject(repo.Serializer.Settings)));
 		}
 
 
