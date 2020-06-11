@@ -456,6 +456,39 @@ namespace NBXplorer
 			});
 		}
 		long lastKnownEventIndex = -1;
+		public Task<IList<NewEventBase>> GetLatestEvents(int limit = 10)
+		{
+			return _TxContext.DoAsync((tx) =>
+			{
+				if (limit < 1)
+					return new List<NewEventBase>();
+				tx.ValuesLazyLoadingIsOn = false;
+				// Find the last event id
+				var idx = GetEventsIndex(tx);
+				var lastEventIndexMaybe = idx.SelectLong(0);
+				var lastEventIndex = lastEventIndexMaybe.HasValue ? lastEventIndexMaybe.Value : lastKnownEventIndex;
+				// If less than 1, no events exist
+				if (lastEventIndex < 1)
+					return new List<NewEventBase>();
+				// Find where we want to start selecting
+				// smallest value ex. limit = 1, lastEventIndex = 1
+				// 1 - 1 = 0 So we will never select index 0 (Which stores last index)
+				var startId = lastEventIndex - limit;
+				// Event must exist since lastEventIndex >= 1, set minimum to 0.
+				var lastEventId = startId < 0 ? 0 : startId;
+				// SelectFrom returns the first event after lastEventId
+				// to lastEventId = 0 means it will select starting from the first event
+				var query = idx.SelectFrom(lastEventId, limit);
+				IList<NewEventBase> evts = new List<NewEventBase>(query.Length);
+				foreach (var value in query)
+				{
+					var evt = NewEventBase.ParseEvent(ToObject<JObject>(value.Value), Serializer.Settings);
+					evt.EventId = value.Key;
+					evts.Add(evt);
+				}
+				return evts;
+			});
+		}
 		public Task<IList<NewEventBase>> GetEvents(long lastEventId, int? limit = null)
 		{
 			if (lastEventId < 1 && limit.HasValue && limit.Value != int.MaxValue)

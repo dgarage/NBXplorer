@@ -134,6 +134,27 @@ namespace NBXplorer.Tests
 				}
 				evts = await tester.Repository.GetEvents(0);
 				Assert.Equal(23, evts.Count);
+
+				// Test GetLatestEvents
+				var latestEvtsNoArg = await tester.Repository.GetLatestEvents();
+				Assert.Equal(10, latestEvtsNoArg.Count);
+				Assert.Equal(14, ((NewBlockEvent)latestEvtsNoArg[0]).Height);
+				Assert.Equal(23, ((NewBlockEvent)latestEvtsNoArg[9]).Height);
+
+				var latestEvts1 = await tester.Repository.GetLatestEvents(1);
+				Assert.Equal(1, latestEvts1.Count);
+				Assert.Equal(23, ((NewBlockEvent)latestEvts1[0]).Height);
+
+				var latestEvts10 = await tester.Repository.GetLatestEvents(10);
+				Assert.Equal(10, latestEvts10.Count);
+				Assert.Equal(14, ((NewBlockEvent)latestEvts10[0]).Height);
+				Assert.Equal(23, ((NewBlockEvent)latestEvts10[9]).Height);
+
+				var latestEvts50 = await tester.Repository.GetLatestEvents(50);
+				Assert.Equal(23, latestEvts50.Count);
+				Assert.Equal(1, ((NewBlockEvent)latestEvts50[0]).Height);
+				Assert.Equal(23, ((NewBlockEvent)latestEvts50[22]).Height);
+
 				int prev = 0;
 				foreach (var item in evts)
 				{

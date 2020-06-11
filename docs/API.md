@@ -27,6 +27,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Get fee rate](#feerate)
 * [Scan UTXO Set](#scanUtxoSet)
 * [Query event stream](#eventStream)
+* [Query event stream from most recent](#eventStreamLatest)
 * [Create Partially Signed Bitcoin Transaction](#psbt)
 * [Update Partially Signed Bitcoin Transaction](#updatepsbt)
 * [Attach metadata to a derivation scheme](#metadata)
@@ -901,6 +902,16 @@ The smallest `eventId` is 1.
   }
 ]
 ```
+
+## <a name="eventStreamLatest"></a>Query event stream (from most recent)
+
+Exact same as [event stream](#eventStream) but it returns a maximum number `#limit` of the most recent events.
+
+HTTP GET v1/cryptos/{cryptoCode}/events/latest
+
+Query parameters:
+
+* `limit`: Limit the maximum number of events to return (default: 10)
 
 ## <a name="psbt"></a>Create Partially Signed Bitcoin Transaction
 
