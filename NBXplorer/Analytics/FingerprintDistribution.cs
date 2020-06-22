@@ -199,7 +199,7 @@ namespace NBXplorer.Analytics
 			{
 				feature |= Fingerprint.SpendFromMixed;
 			}
-			else if (groupedScriptPubKeys[0].Key != 0)
+			else if (groupedScriptPubKeys.Count == 1 && groupedScriptPubKeys[0].Key != 0)
 			{
 				feature |= groupedScriptPubKeys[0].Key;
 			}
