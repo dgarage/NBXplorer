@@ -186,6 +186,7 @@ namespace NBXplorer
 				ex.RPCCode == RPCErrorCode.RPC_TRANSACTION_ALREADY_IN_CHAIN ||
 				ex.Message.EndsWith("Missing inputs", StringComparison.OrdinalIgnoreCase) ||
 				ex.Message.EndsWith("bad-txns-inputs-spent", StringComparison.OrdinalIgnoreCase) ||
+				ex.Message.EndsWith("bad-txns-inputs-missingorspent", StringComparison.OrdinalIgnoreCase) ||
 				ex.Message.EndsWith("txn-mempool-conflict", StringComparison.OrdinalIgnoreCase))
 				{
 					result.MissingInputs.Add(tx);
