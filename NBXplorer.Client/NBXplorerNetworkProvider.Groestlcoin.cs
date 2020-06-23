@@ -15,5 +15,10 @@ namespace NBXplorer
 				CoinType = NetworkType == NetworkType.Mainnet ? new KeyPath("17'") : new KeyPath("1'")
 			});
 		}
+
+		public NBXplorerNetwork GetGRS()
+		{
+			return GetFromCryptoCode(NBitcoin.Altcoins.Groestlcoin.Instance.CryptoCode);
+		}
 	}
 }
