@@ -1,5 +1,4 @@
-﻿using DBriize;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using System;
@@ -17,6 +16,10 @@ using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using Newtonsoft.Json.Linq;
 using static NBXplorer.TrackedTransaction;
+using Microsoft.Extensions.Hosting;
+using Microsoft.JSInterop;
+using System.Buffers;
+using DBTrie;
 
 namespace NBXplorer
 {
@@ -34,47 +37,19 @@ namespace NBXplorer
 		public int? MinAddresses { get; set; }
 		public int? MaxAddresses { get; set; }
 	}
-	public class RepositoryProvider
+	public class RepositoryProvider : IHostedService
 	{
-		DBriizeEngine _Engine;
+		DBTrie.DBTrieEngine _Engine;
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
 		private readonly KeyPathTemplates keyPathTemplates;
 		ExplorerConfiguration _Configuration;
+		private readonly NBXplorerNetworkProvider networks;
+
 		public RepositoryProvider(NBXplorerNetworkProvider networks, KeyPathTemplates keyPathTemplates, ExplorerConfiguration configuration)
 		{
 			this.keyPathTemplates = keyPathTemplates;
 			_Configuration = configuration;
-			var directory = Path.Combine(configuration.DataDir, "db");
-			if (!Directory.Exists(directory))
-				Directory.CreateDirectory(directory);
-
-			int tried = 0;
-		retry:
-			try
-			{
-				_Engine = new DBriizeEngine(new DBriizeConfiguration()
-				{
-					DBriizeDataFolderName = directory
-				});
-			}
-			catch when (tried < 10)
-			{
-				tried++;
-				Thread.Sleep(tried * 500);
-				goto retry;
-			}
-			foreach (var net in networks.GetAll())
-			{
-				var settings = GetChainSetting(net);
-				if (settings != null)
-				{
-					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
-					repo.MaxPoolSize = configuration.MaxGapSize;
-					repo.MinPoolSize = configuration.MinGapSize;
-					repo.MinUtxoValue = settings.MinUtxoValue;
-					_Repositories.Add(net.CryptoCode, repo);
-				}
-			}
+			this.networks = networks;
 		}
 
 		private ChainConfiguration GetChainSetting(NBXplorerNetwork net)
@@ -82,9 +57,43 @@ namespace NBXplorer
 			return _Configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
 		}
 
-		public async Task StartAsync()
+		public Repository GetRepository(NBXplorerNetwork network)
 		{
-			await Task.WhenAll(_Repositories.Select(kv => kv.Value.StartAsync()).ToArray());
+			_Repositories.TryGetValue(network.CryptoCode, out Repository repository);
+			return repository;
+		}
+
+		public async Task StartAsync(CancellationToken cancellationToken)
+		{
+			var directory = Path.Combine(_Configuration.DataDir, "db");
+			if (!Directory.Exists(directory))
+				Directory.CreateDirectory(directory);
+
+			int tried = 0;
+			retry:
+			try
+			{
+				_Engine = await DBTrie.DBTrieEngine.OpenFromFolder(directory);
+			}
+			catch when (tried < 10)
+			{
+				tried++;
+				await Task.Delay(500, cancellationToken);
+				goto retry;
+			}
+
+			foreach (var net in networks.GetAll())
+			{
+				var settings = GetChainSetting(net);
+				if (settings != null)
+				{
+					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
+					repo.MaxPoolSize = _Configuration.MaxGapSize;
+					repo.MinPoolSize = _Configuration.MinGapSize;
+					repo.MinUtxoValue = settings.MinUtxoValue;
+					_Repositories.Add(net.CryptoCode, repo);
+				}
+			}
 			foreach (var repo in _Repositories.Select(kv => kv.Value))
 			{
 				if (GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
@@ -95,21 +104,11 @@ namespace NBXplorer
 			}
 		}
 
-		public IEnumerable<Repository> GetAll()
+		public async Task StopAsync(CancellationToken cancellationToken)
 		{
-			return _Repositories.Values;
-		}
-
-		public Repository GetRepository(NBXplorerNetwork network)
-		{
-			_Repositories.TryGetValue(network.CryptoCode, out Repository repository);
-			return repository;
-		}
-
-		public async Task DisposeAsync()
-		{
-			await Task.WhenAll(_Repositories.Select(kv => kv.Value.DisposeAsync()).ToArray());
-			_Engine.Dispose();
+			if (_Engine is null)
+				return;
+			await _Engine.DisposeAsync();
 		}
 	}
 
@@ -119,50 +118,46 @@ namespace NBXplorer
 
 		public async Task Ping()
 		{
-			await _TxContext.DoAsync((tx) =>
-			{
-			});
+			using var tx = await engine.OpenTransaction();
 		}
 
 		public async Task CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)
 		{
 			if (keyPaths.Length == 0)
 				return;
-			await _TxContext.DoAsync(tx =>
-			{
-				bool needCommit = false;
-				var featuresPerKeyPaths = keyPathTemplates.GetSupportedDerivationFeatures()
-				.Select(f => (Feature: f, KeyPathTemplate: keyPathTemplates.GetKeyPathTemplate(f)))
-				.ToDictionary(o => o.KeyPathTemplate, o => o.Feature);
+			using var tx = await engine.OpenTransaction();
+			bool needCommit = false;
+			var featuresPerKeyPaths = keyPathTemplates.GetSupportedDerivationFeatures()
+			.Select(f => (Feature: f, KeyPathTemplate: keyPathTemplates.GetKeyPathTemplate(f)))
+			.ToDictionary(o => o.KeyPathTemplate, o => o.Feature);
 
-				var groups = keyPaths.Where(k => k.Indexes.Length > 0).GroupBy(k => keyPathTemplates.GetKeyPathTemplate(k));
-				foreach (var group in groups)
+			var groups = keyPaths.Where(k => k.Indexes.Length > 0).GroupBy(k => keyPathTemplates.GetKeyPathTemplate(k));
+			foreach (var group in groups)
+			{
+				if (featuresPerKeyPaths.TryGetValue(group.Key, out DerivationFeature feature))
 				{
-					if (featuresPerKeyPaths.TryGetValue(group.Key, out DerivationFeature feature))
+					var reserved = GetReservedKeysIndex(tx, strategy, feature);
+					var available = GetAvailableKeysIndex(tx, strategy, feature);
+					foreach (var keyPath in group)
 					{
-						var reserved = GetReservedKeysIndex(tx, strategy, feature);
-						var available = GetAvailableKeysIndex(tx, strategy, feature);
-						foreach (var keyPath in group)
-						{
-							var key = (int)keyPath.Indexes.Last();
-							var data = reserved.SelectBytes(key);
-							if (data == null)
-								continue;
-							reserved.RemoveKey(key);
-							available.Insert(key, data);
-							needCommit = true;
-						}
+						var key = (int)keyPath.Indexes.Last();
+						using var data = await reserved.SelectBytes(key);
+						if (data == null)
+							continue;
+						await reserved.RemoveKey(data.Key);
+						await available.Insert(data.Key, await data.ReadValue());
+						needCommit = true;
 					}
 				}
-				if (needCommit)
-					tx.Commit();
-			});
+			}
+			if (needCommit)
+				await tx.Commit();
 		}
 
 		class Index
 		{
-			DBriize.Transactions.Transaction tx;
-			public Index(DBriize.Transactions.Transaction tx, string tableName, string primaryKey)
+			DBTrie.Transaction tx;
+			public Index(DBTrie.Transaction tx, string tableName, string primaryKey)
 			{
 				TableName = tableName;
 				PrimaryKey = primaryKey;
@@ -179,126 +174,181 @@ namespace NBXplorer
 				get; set;
 			}
 
-			public byte[] SelectBytes(int index)
+			public ValueTask<DBTrie.IRow> SelectBytes(int index)
 			{
-				var bytes = tx.Select<string, byte[]>(TableName, $"{PrimaryKey}-{index:D10}");
-				if (bytes == null || !bytes.Exists)
-					return null;
-				return bytes.Value;
+				return tx.GetOrCreateTable(TableName).Get($"{PrimaryKey}-{index:D10}");
+			}
+			public async ValueTask<bool> RemoveKey(string key)
+			{
+				return await tx.GetOrCreateTable(TableName).Delete($"{PrimaryKey}-{key}");
+			}
+			public async ValueTask RemoveKey(ReadOnlyMemory<byte> key)
+			{
+				await tx.GetOrCreateTable(TableName).Delete(key);
 			}
 
-			public void RemoveKey(string index)
+			public async ValueTask Insert(int index, ReadOnlyMemory<byte> value)
 			{
-				tx.RemoveKey(TableName, $"{PrimaryKey}-{index}");
+				await tx.GetOrCreateTable(TableName).Insert($"{index:D10}", value);
+			}
+			public async ValueTask Insert(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value)
+			{
+				await (tx.GetOrCreateTable(TableName)).Insert(key, value);
 			}
 
-			public void Insert(string key, byte[] value)
-			{
-				tx.Insert(TableName, $"{PrimaryKey}-{key}", value);
-			}
-
-			public (string Key, byte[] Value)[] SelectForwardSkip(int n, string startWith = null)
+			public async IAsyncEnumerable<DBTrie.IRow> SelectForwardSkip(int n, string startWith = null)
 			{
 				if (startWith == null)
 					startWith = PrimaryKey;
 				else
 					startWith = $"{PrimaryKey}-{startWith}";
-				return tx.SelectForwardStartsWith<string, byte[]>(TableName, startWith).Skip(n).Select(c => (c.Key, c.Value)).ToArray();
+				var table = tx.GetOrCreateTable(TableName);
+				int skipped = 0;
+				await foreach (var row in table.Enumerate(startWith))
+				{
+					if (skipped < n)
+					{
+						row.Dispose();
+						skipped++;
+					}
+					else
+						yield return row;
+				}
 			}
 
-			public (long Key, byte[] Value)[] SelectFrom(long key, int? limit)
+			public async IAsyncEnumerable<DBTrie.IRow> SelectFrom(long key, int? limit)
 			{
-				return tx.SelectForwardStartFrom<string, byte[]>(TableName, $"{PrimaryKey}-{key:D20}", false)
-						.Take(limit == null ? Int32.MaxValue : limit.Value)
-						.Where(r => r.Exists && r.Value != null)
-						.Select(r => (ExtractLong(r.Key), r.Value))
-						.ToArray();
+				var table = tx.GetOrCreateTable(TableName);
+				var remaining = limit is int l ? l : int.MaxValue;
+				if (remaining is 0)
+					yield break;
+				await foreach (var row in EnumerateFromKey(table, $"{PrimaryKey}-{key:D20}"))
+				{
+					yield return row;
+					remaining--;
+					if (remaining is 0)
+						yield break;
+				}
 			}
 
-			private long ExtractLong(string key)
+			private async IAsyncEnumerable<IRow> EnumerateFromKey(Table table, string key)
 			{
-				var span = key.AsSpan();
-				var sep = span.LastIndexOf('-');
-				span = span.Slice(sep + 1);
-				return long.Parse(span);
+				var thisKey = Encoding.UTF8.GetBytes(key).AsMemory();
+				bool returns = false;
+				await foreach (var row in table.Enumerate())
+				{
+					if (returns)
+					{
+						yield return row;
+					}
+					else
+					{
+						var comparison = thisKey.Span.SequenceCompareTo(row.Key.Span);
+						if (comparison <= 0)
+						{
+							returns = true;
+						}
+						if (comparison < 0)
+						{
+							yield return row;
+						}
+						else
+						{
+							row.Dispose();
+						}
+					}
+				}
 			}
 
-			public int Count()
+			public async Task<int> Count()
 			{
-				return tx.SelectForwardStartsWith<string, byte[]>(TableName, PrimaryKey).Count();
+				int count = 0;
+				var table = tx.GetOrCreateTable(TableName);
+				await foreach (var item in table.Enumerate(PrimaryKey))
+				{
+					using (item)
+					{
+						count++;
+					}
+				}
+				return count;
 			}
 
-			public void Insert(int key, byte[] value)
+			public async ValueTask Insert(int key, byte[] value)
 			{
-				Insert($"{key:D10}", value);
+				await Insert($"{key:D10}", value);
 			}
-			public void Insert(long key, byte[] value)
+			public async ValueTask Insert(long key, byte[] value)
 			{
-				Insert($"{key:D20}", value);
+				await Insert($"{key:D20}", value);
 			}
-			public void RemoveKey(int index)
+			public async ValueTask Insert(string key, byte[] value)
 			{
-				RemoveKey($"{index:D10}");
+				await tx.GetOrCreateTable(TableName).Insert($"{PrimaryKey}-{key}", value);
 			}
-			public int? SelectInt(int index)
+			public async Task<int?> SelectInt(int index)
 			{
-				var bytes = SelectBytes(index);
-				if (bytes == null)
+				using var row = await SelectBytes(index);
+				if (row == null)
 					return null;
-				bytes[0] = (byte)(bytes[0] & ~0x80);
-				return (int)NBitcoin.Utils.ToUInt32(bytes, false);
+				var v = await row.ReadValue();
+				uint value = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(v.Span);
+				value = value & ~0x8000_0000U;
+				return (int)value;
 			}
-			public long? SelectLong(int index)
+			public async Task<long?> SelectLong(int index)
 			{
-				var bytes = SelectBytes(index);
-				if (bytes == null)
+				using var row = await SelectBytes(index);
+				if (row == null)
 					return null;
-				bytes[0] = (byte)(bytes[0] & ~0x80);
-				return (int)NBitcoin.Utils.ToUInt64(bytes, false);
+				var v = await row.ReadValue();
+				ulong value = System.Buffers.Binary.BinaryPrimitives.ReadUInt64BigEndian(v.Span);
+				value = value & ~0x8000_0000_0000_0000UL;
+				return (long)value;
 			}
-			public void Insert(int key, int value)
+			public async ValueTask Insert(int key, int value)
 			{
 				var bytes = NBitcoin.Utils.ToBytes((uint)value, false);
-				Insert(key, bytes);
+				await Insert(key, bytes);
 			}
-			public void Insert(int key, long value)
+			public async ValueTask Insert(int key, long value)
 			{
 				var bytes = NBitcoin.Utils.ToBytes((ulong)value, false);
-				Insert(key, bytes);
+				await Insert(key, bytes);
 			}
 		}
 
-		Index GetAvailableKeysIndex(DBriize.Transactions.Transaction tx, DerivationStrategyBase trackedSource, DerivationFeature feature)
+		Index GetAvailableKeysIndex(DBTrie.Transaction tx, DerivationStrategyBase trackedSource, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}AvailableKeys", $"{trackedSource.GetHash()}-{feature}");
 		}
 
-		Index GetScriptsIndex(DBriize.Transactions.Transaction tx, Script scriptPubKey)
+		Index GetScriptsIndex(DBTrie.Transaction tx, Script scriptPubKey)
 		{
 			return new Index(tx, $"{_Suffix}Scripts", $"{scriptPubKey.Hash}");
 		}
 
-		Index GetHighestPathIndex(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
+		Index GetHighestPathIndex(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}HighestPath", $"{strategy.GetHash()}-{feature}");
 		}
 
-		Index GetReservedKeysIndex(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
+		Index GetReservedKeysIndex(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}ReservedKeys", $"{strategy.GetHash()}-{feature}");
 		}
 
-		Index GetTransactionsIndex(DBriize.Transactions.Transaction tx, TrackedSource trackedSource)
+		Index GetTransactionsIndex(DBTrie.Transaction tx, TrackedSource trackedSource)
 		{
 			return new Index(tx, $"{_Suffix}Transactions", $"{trackedSource.GetHash()}");
 		}
 
-		Index GetMetadataIndex(DBriize.Transactions.Transaction tx, TrackedSource trackedSource)
+		Index GetMetadataIndex(DBTrie.Transaction tx, TrackedSource trackedSource)
 		{
 			return new Index(tx, $"{_Suffix}Metadata", $"{trackedSource.GetHash()}");
 		}
 
-		Index GetEventsIndex(DBriize.Transactions.Transaction tx)
+		Index GetEventsIndex(DBTrie.Transaction tx)
 		{
 			return new Index(tx, $"{_Suffix}Events", string.Empty);
 		}
@@ -315,8 +365,8 @@ namespace NBXplorer
 			}
 		}
 
-		DBriizeTransactionContext _TxContext;
-		internal Repository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc)
+		DBTrie.DBTrieEngine engine;
+		internal Repository(DBTrie.DBTrieEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc)
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
@@ -325,70 +375,52 @@ namespace NBXplorer
 			this.rpc = rpc;
 			Serializer = new Serializer(_Network);
 			_Network = network;
-			_TxContext = new DBriizeTransactionContext(engine);
-			_TxContext.UnhandledException += (s, ex) =>
-			{
-				Logs.Explorer.LogCritical(ex, $"{network.CryptoCode}: Unhandled exception in the repository");
-			};
+			this.engine = engine;
 			_Suffix = network.CryptoCode == "BTC" ? "" : network.CryptoCode;
 		}
 
-		public Task StartAsync()
-		{
-			return _TxContext.StartAsync();
-		}
-		public Task DisposeAsync()
-		{
-			return _TxContext.DisposeAsync();
-		}
-
 		public string _Suffix;
-		public Task<BlockLocator> GetIndexProgress()
+		public async Task<BlockLocator> GetIndexProgress()
 		{
-			return _TxContext.DoAsync<BlockLocator>(tx =>
-			{
-				tx.ValuesLazyLoadingIsOn = false;
-				var existingRow = tx.Select<string, byte[]>($"{_Suffix}IndexProgress", "");
-				if (existingRow == null || !existingRow.Exists)
-					return null;
-				BlockLocator locator = new BlockLocator();
-				locator.FromBytes(existingRow.Value);
-				return locator;
-			});
+			using var tx = await engine.OpenTransaction();
+			using var existingRow = await tx.GetOrCreateTable($"{_Suffix}IndexProgress").Get("");
+			if (existingRow == null)
+				return null;
+			BlockLocator locator = new BlockLocator();
+			locator.FromBytes(DBTrie.PublicExtensions.GetUnderlyingArraySegment(await existingRow.ReadValue()).Array);
+			return locator;
 		}
 
-		public Task SetIndexProgress(BlockLocator locator)
+		public async Task SetIndexProgress(BlockLocator locator)
 		{
-			return _TxContext.DoAsync(tx =>
-			{
-				if (locator == null)
-					tx.RemoveKey($"{_Suffix}IndexProgress", "");
-				else
-					tx.Insert($"{_Suffix}IndexProgress", "", locator.ToBytes());
-				tx.Commit();
-			});
+			using var tx = await engine.OpenTransaction();
+			if (locator == null)
+				await tx.GetOrCreateTable($"{_Suffix}IndexProgress").Delete(string.Empty);
+			else
+				await tx.GetOrCreateTable($"{_Suffix}IndexProgress").Insert(string.Empty, locator.ToBytes());
+			await tx.Commit();
 		}
 
 		public async Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve)
 		{
-			var keyInfo = await _TxContext.DoAsync((tx) =>
+			KeyPathInformation keyInfo = null;
+			using (var tx = await engine.OpenTransaction())
 			{
-				tx.ValuesLazyLoadingIsOn = false;
 				var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
 				var reservedTable = GetReservedKeysIndex(tx, strategy, derivationFeature);
 				var rows = availableTable.SelectForwardSkip(n);
-				if (rows.Length == 0)
+				await using var enumerator = rows.GetAsyncEnumerator();
+				if (!await enumerator.MoveNextAsync())
 					return null;
-
-				var keyInfo = ToObject<KeyPathInformation>(rows[0].Value).AddAddress(Network.NBitcoinNetwork);
+				using var row = enumerator.Current;
+				keyInfo = ToObject<KeyPathInformation>(await row.ReadValue()).AddAddress(Network.NBitcoinNetwork);
 				if (reserve)
 				{
-					availableTable.RemoveKey(keyInfo.GetIndex());
-					reservedTable.Insert(keyInfo.GetIndex(), rows[0].Value);
-					tx.Commit();
+					await availableTable.RemoveKey(row.Key);
+					await reservedTable.Insert(row.Key, await row.ReadValue());
+					await tx.Commit();
 				}
-				return keyInfo;
-			});
+			}
 			if (keyInfo != null)
 			{
 				await ImportAddressToRPC(keyInfo.TrackedSource, keyInfo.Address, keyInfo.KeyPath);
@@ -396,22 +428,22 @@ namespace NBXplorer
 			return keyInfo;
 		}
 
-		int GetAddressToGenerateCount(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
+		async Task<int> GetAddressToGenerateCount(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
 			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
-			var currentlyAvailable = availableTable.Count();
+			var currentlyAvailable = await availableTable.Count();
 			if (currentlyAvailable >= MinPoolSize)
 				return 0;
 			return Math.Max(0, MaxPoolSize - currentlyAvailable);
 		}
 
-		private void RefillAvailable(DBriize.Transactions.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature, int toGenerate)
+		private async ValueTask RefillAvailable(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature, int toGenerate)
 		{
 			if (toGenerate <= 0)
 				return;
 			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
 			var highestTable = GetHighestPathIndex(tx, strategy, derivationFeature);
-			int highestGenerated = highestTable.SelectInt(0) ?? -1;
+			int highestGenerated = (await highestTable.SelectInt(0)) ?? -1;
 			var feature = strategy.GetLineFor(keyPathTemplates.GetKeyPathTemplate(derivationFeature));
 
 			KeyPathInformation[] keyPathInformations = new KeyPathInformation[toGenerate];
@@ -431,134 +463,137 @@ namespace NBXplorer
 				var index = highestGenerated + i + 1;
 				var info = keyPathInformations[i];
 				var bytes = ToBytes(info);
-				GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{strategy.GetHash()}-{derivationFeature}", bytes);
-				availableTable.Insert(index, bytes);
+				await GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{strategy.GetHash()}-{derivationFeature}", bytes);
+				await availableTable.Insert(index, bytes);
 			}
-			highestTable.Insert(0, highestGenerated + toGenerate);
-			tx.Commit();
+			await highestTable.Insert(0, highestGenerated + toGenerate);
+			await tx.Commit();
 		}
 
-		public Task<long> SaveEvent(NewEventBase evt)
+		public async Task<long> SaveEvent(NewEventBase evt)
 		{
 			// Fetch the lastEventId on row 0
 			// Increment it,
 			// Insert event
-			return _TxContext.DoAsync((tx) =>
-			{
-				var idx = GetEventsIndex(tx);
-				var lastEventIndexMaybe = idx.SelectLong(0);
-				var lastEventIndex = lastEventIndexMaybe.HasValue ? lastEventIndexMaybe.Value + 1 : 1;
-				idx.Insert(0, lastEventIndex);
-				idx.Insert(lastEventIndex, this.ToBytes(evt.ToJObject(Serializer.Settings)));
-				tx.Commit();
-				lastKnownEventIndex = lastEventIndex;
-				return lastEventIndex;
-			});
+			using var tx = await engine.OpenTransaction();
+			var idx = GetEventsIndex(tx);
+			var lastEventIndexMaybe = await idx.SelectLong(0);
+			var lastEventIndex = lastEventIndexMaybe.HasValue ? lastEventIndexMaybe.Value + 1 : 1;
+			await idx.Insert(0, lastEventIndex);
+			await idx.Insert(lastEventIndex, this.ToBytes(evt.ToJObject(Serializer.Settings)));
+			await tx.Commit();
+			lastKnownEventIndex = lastEventIndex;
+			return lastEventIndex;
 		}
 		long lastKnownEventIndex = -1;
-		public Task<IList<NewEventBase>> GetLatestEvents(int limit = 10)
+		public async Task<IList<NewEventBase>> GetLatestEvents(int limit = 10)
 		{
-			return _TxContext.DoAsync((tx) =>
+			using var tx = await engine.OpenTransaction();
+			if (limit < 1)
+				return new List<NewEventBase>();
+			// Find the last event id
+			var idx = GetEventsIndex(tx);
+			var lastEventIndexMaybe = await idx.SelectLong(0);
+			var lastEventIndex = lastEventIndexMaybe.HasValue ? lastEventIndexMaybe.Value : lastKnownEventIndex;
+			// If less than 1, no events exist
+			if (lastEventIndex < 1)
+				return new List<NewEventBase>();
+			// Find where we want to start selecting
+			// smallest value ex. limit = 1, lastEventIndex = 1
+			// 1 - 1 = 0 So we will never select index 0 (Which stores last index)
+			var startId = lastEventIndex - limit;
+			// Event must exist since lastEventIndex >= 1, set minimum to 0.
+			var lastEventId = startId < 0 ? 0 : startId;
+			// SelectFrom returns the first event after lastEventId
+			// to lastEventId = 0 means it will select starting from the first event
+			var query = idx.SelectFrom(lastEventId, limit);
+			IList<NewEventBase> evts = new List<NewEventBase>();
+			await foreach (var value in query)
 			{
-				if (limit < 1)
-					return new List<NewEventBase>();
-				tx.ValuesLazyLoadingIsOn = false;
-				// Find the last event id
-				var idx = GetEventsIndex(tx);
-				var lastEventIndexMaybe = idx.SelectLong(0);
-				var lastEventIndex = lastEventIndexMaybe.HasValue ? lastEventIndexMaybe.Value : lastKnownEventIndex;
-				// If less than 1, no events exist
-				if (lastEventIndex < 1)
-					return new List<NewEventBase>();
-				// Find where we want to start selecting
-				// smallest value ex. limit = 1, lastEventIndex = 1
-				// 1 - 1 = 0 So we will never select index 0 (Which stores last index)
-				var startId = lastEventIndex - limit;
-				// Event must exist since lastEventIndex >= 1, set minimum to 0.
-				var lastEventId = startId < 0 ? 0 : startId;
-				// SelectFrom returns the first event after lastEventId
-				// to lastEventId = 0 means it will select starting from the first event
-				var query = idx.SelectFrom(lastEventId, limit);
-				IList<NewEventBase> evts = new List<NewEventBase>(query.Length);
-				foreach (var value in query)
+				using (value)
 				{
-					var evt = NewEventBase.ParseEvent(ToObject<JObject>(value.Value), Serializer.Settings);
-					evt.EventId = value.Key;
+					var id = ExtractLong(value.Key);
+					var evt = NewEventBase.ParseEvent(ToObject<JObject>(await value.ReadValue()), Serializer.Settings);
+					evt.EventId = id;
 					evts.Add(evt);
 				}
-				return evts;
-			});
+			}
+			return evts;
 		}
-		public Task<IList<NewEventBase>> GetEvents(long lastEventId, int? limit = null)
+
+		private long ExtractLong(ReadOnlyMemory<byte> key)
+		{
+			var span = Encoding.UTF8.GetString(key.Span).AsSpan();
+			var sep = span.LastIndexOf('-');
+			span = span.Slice(sep + 1);
+			return long.Parse(span);
+		}
+
+		public async Task<IList<NewEventBase>> GetEvents(long lastEventId, int? limit = null)
 		{
 			if (lastEventId < 1 && limit.HasValue && limit.Value != int.MaxValue)
 				limit = limit.Value + 1; // The row with key 0 holds the lastEventId
-			return _TxContext.DoAsync((tx) =>
+			using var tx = await engine.OpenTransaction();
+			if (lastKnownEventIndex != -1 && lastKnownEventIndex == lastEventId)
+				return new List<NewEventBase>();
+			var idx = GetEventsIndex(tx);
+			var query = idx.SelectFrom(lastEventId, limit);
+			IList<NewEventBase> evts = new List<NewEventBase>();
+			await foreach (var value in query)
 			{
-				if (lastKnownEventIndex != -1 && lastKnownEventIndex == lastEventId)
-					return new List<NewEventBase>();
-				tx.ValuesLazyLoadingIsOn = false;
-				var idx = GetEventsIndex(tx);
-				var query = idx.SelectFrom(lastEventId, limit);
-				IList<NewEventBase> evts = new List<NewEventBase>(query.Length);
-				foreach (var value in query)
+				using (value)
 				{
-					if (value.Key == 0) // Last Index
+					var id = ExtractLong(value.Key);
+					if (id == 0) // Last Index
 						continue;
-					var evt = NewEventBase.ParseEvent(ToObject<JObject>(value.Value), Serializer.Settings);
-					evt.EventId = value.Key;
+					var evt = NewEventBase.ParseEvent(ToObject<JObject>(await value.ReadValue()), Serializer.Settings);
+					evt.EventId = id;
 					evts.Add(evt);
 				}
-				return evts;
-			});
+			}
+			return evts;
 		}
 
-		public Task SaveKeyInformations(KeyPathInformation[] keyPathInformations)
+		public async Task SaveKeyInformations(KeyPathInformation[] keyPathInformations)
 		{
-			return _TxContext.DoAsync((tx) =>
+			using var tx = await engine.OpenTransaction();
+			foreach (var info in keyPathInformations)
 			{
-				foreach (var info in keyPathInformations)
-				{
-					var bytes = ToBytes(info);
-					GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{info.DerivationStrategy.GetHash()}-{info.Feature}", bytes);
-				}
-				tx.Commit();
-			});
-		}
-
-		public Task Track(IDestination address)
-		{
-			return _TxContext.DoAsync((tx) =>
-			{
-				var info = new KeyPathInformation()
-				{
-					ScriptPubKey = address.ScriptPubKey,
-					TrackedSource = (TrackedSource)address,
-					Address = (address as BitcoinAddress) ?? address.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork)
-				};
 				var bytes = ToBytes(info);
-				GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
-				tx.Commit();
-			});
+				await GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{info.DerivationStrategy.GetHash()}-{info.Feature}", bytes);
+			}
+			await tx.Commit();
+		}
+
+		public async Task Track(IDestination address)
+		{
+			using var tx = await engine.OpenTransaction();
+			var info = new KeyPathInformation()
+			{
+				ScriptPubKey = address.ScriptPubKey,
+				TrackedSource = (TrackedSource)address,
+				Address = (address as BitcoinAddress) ?? address.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork)
+			};
+			var bytes = ToBytes(info);
+			await GetScriptsIndex(tx, address.ScriptPubKey).Insert(address.ScriptPubKey.Hash.ToString(), bytes);
+			await tx.Commit();
 		}
 
 		public Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int maxAddresses)
 		{
 			return GenerateAddresses(strategy, derivationFeature, new GenerateAddressQuery(null, maxAddresses));
 		}
-		public Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, GenerateAddressQuery query = null)
+		public async Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, GenerateAddressQuery query = null)
 		{
 			query = query ?? new GenerateAddressQuery();
-			return _TxContext.DoAsync((tx) =>
-			{
-				var toGenerate = GetAddressToGenerateCount(tx, strategy, derivationFeature);
-				if (query.MaxAddresses is int max)
-					toGenerate = Math.Min(max, toGenerate);
-				if (query.MinAddresses is int min)
-					toGenerate = Math.Max(min, toGenerate);
-				RefillAvailable(tx, strategy, derivationFeature, toGenerate);
-				return toGenerate;
-			});
+			using var tx = await engine.OpenTransaction();
+			var toGenerate = await GetAddressToGenerateCount(tx, strategy, derivationFeature);
+			if (query.MaxAddresses is int max)
+				toGenerate = Math.Min(max, toGenerate);
+			if (query.MinAddresses is int min)
+				toGenerate = Math.Max(min, toGenerate);
+			await RefillAvailable(tx, strategy, derivationFeature, toGenerate);
+			return toGenerate;
 		}
 
 		class TimeStampedTransaction : IBitcoinSerializable
@@ -568,20 +603,21 @@ namespace NBXplorer
 			{
 
 			}
-			public TimeStampedTransaction(Network network, byte[] hex)
+			public TimeStampedTransaction(Network network, ReadOnlyMemory<byte> hex)
 			{
-				var stream = new BitcoinStream(hex);
+				var segment = DBTrie.PublicExtensions.GetUnderlyingArraySegment(hex);
+				var stream = new BitcoinStream(segment.Array, segment.Offset, segment.Count);
 				stream.ConsensusFactory = network.Consensus.ConsensusFactory;
 				this.ReadWrite(stream);
 			}
 
-			public TimeStampedTransaction(Transaction tx, ulong timestamp)
+			public TimeStampedTransaction(NBitcoin.Transaction tx, ulong timestamp)
 			{
 				_TimeStamp = timestamp;
 				_Transaction = tx;
 			}
-			Transaction _Transaction;
-			public Transaction Transaction
+			NBitcoin.Transaction _Transaction;
+			public NBitcoin.Transaction Transaction
 			{
 				get
 				{
@@ -629,19 +665,17 @@ namespace NBXplorer
 				return result;
 			foreach (var batch in transactions.Batch(BatchSize))
 			{
-				await _TxContext.DoAsync(tx =>
+				using var tx = await engine.OpenTransaction();
+				var date = NBitcoin.Utils.DateTimeToUnixTime(now);
+				foreach (var btx in batch)
 				{
-					var date = NBitcoin.Utils.DateTimeToUnixTime(now);
-					foreach (var btx in batch)
-					{
-						var timestamped = new TimeStampedTransaction(btx, date);
-						var key = blockHash == null ? "0" : blockHash.ToString();
-						var value = timestamped.ToBytes();
-						tx.Insert($"{_Suffix}tx-" + btx.GetHash().ToString(), key, value);
-						result.Add(ToSavedTransaction(Network.NBitcoinNetwork, key, value));
-					}
-					tx.Commit();
-				});
+					var timestamped = new TimeStampedTransaction(btx, date);
+					var key = blockHash == null ? "0" : blockHash.ToString();
+					var value = timestamped.ToBytes();
+					await tx.GetOrCreateTable($"{_Suffix}tx-" + btx.GetHash().ToString()).Insert(key, value);
+					result.Add(ToSavedTransaction(Network.NBitcoinNetwork, key, value));
+				}
+				await tx.Commit();
 			}
 			return result;
 		}
@@ -666,22 +700,30 @@ namespace NBXplorer
 		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
 		{
 			List<SavedTransaction> saved = new List<SavedTransaction>();
-			await _TxContext.DoAsync(tx =>
+			using var tx = await engine.OpenTransaction();
+			var table = tx.GetOrCreateTable($"{_Suffix}tx-" + txid.ToString());
+			await foreach (var row in table.Enumerate())
 			{
-				foreach (var row in tx.SelectForward<string, byte[]>($"{_Suffix}tx-" + txid.ToString()))
+				using (row)
 				{
-					SavedTransaction t = ToSavedTransaction(Network.NBitcoinNetwork, row.Key, row.Value);
+					SavedTransaction t = ToSavedTransaction(Network.NBitcoinNetwork, row.Key, await row.ReadValue());
 					saved.Add(t);
 				}
-			});
+			}
 			return saved.ToArray();
 		}
 
-		private static SavedTransaction ToSavedTransaction(Network network, string key, byte[] value)
+		private static SavedTransaction ToSavedTransaction(Network network, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value)
+		{
+			return ToSavedTransaction(network, Encoding.UTF8.GetString(key.Span), value);
+		}
+		private static SavedTransaction ToSavedTransaction(Network network, string key, ReadOnlyMemory<byte> value)
 		{
 			SavedTransaction t = new SavedTransaction();
 			if (key.Length != 1)
+			{
 				t.BlockHash = new uint256(key);
+			}
 			var timeStamped = new TimeStampedTransaction(network, value);
 			t.Transaction = timeStamped.Transaction;
 			t.Timestamp = NBitcoin.Utils.UnixTimeToDateTime(timeStamped.TimeStamp);
@@ -695,22 +737,28 @@ namespace NBXplorer
 				return result;
 			foreach (var batch in scripts.Batch(BatchSize))
 			{
-				await _TxContext.DoAsync(tx =>
+				using var tx = await engine.OpenTransaction();
+				foreach (var script in batch)
 				{
-					tx.ValuesLazyLoadingIsOn = false;
-					foreach (var script in batch)
+					var table = GetScriptsIndex(tx, script);
+					var keyInfos = new List<KeyPathInformation>();
+					await foreach(var row in table.SelectForwardSkip(0))
 					{
-						var table = GetScriptsIndex(tx, script);
-						var keyInfos = table.SelectForwardSkip(0)
-											.Select(r => ToObject<KeyPathInformation>(r.Value).AddAddress(Network.NBitcoinNetwork))
-											// Because xpub are mutable (several xpub map to same script)
-											// an attacker could generate lot's of xpub mapping to the same script
-											// and this would blow up here. This we take only 5 results max.
-											.Take(5)
-											.ToArray();
-						result.AddRange(script, keyInfos);
+						using (row)
+						{
+							var keyInfo = ToObject<KeyPathInformation>(await row.ReadValue())
+											.AddAddress(Network.NBitcoinNetwork);
+
+							// Because xpub are mutable (several xpub map to same script)
+							// an attacker could generate lot's of xpub mapping to the same script
+							// and this would blow up here. This we take only 5 results max.
+							keyInfos.Add(keyInfo);
+							if (keyInfos.Count == 5)
+								break;
+						}
 					}
-				});
+					result.AddRange(script, keyInfos);
+				}
 			}
 			return result;
 		}
@@ -720,7 +768,7 @@ namespace NBXplorer
 			get; private set;
 		}
 
-		private T ToObject<T>(byte[] value)
+		private T ToObject<T>(ReadOnlyMemory<byte> value)
 		{
 			var result = Serializer.ToObject<T>(Unzip(value));
 
@@ -750,9 +798,10 @@ namespace NBXplorer
 			}
 			return ms.ToArray();
 		}
-		private string Unzip(byte[] bytes)
+		private string Unzip(ReadOnlyMemory<byte> bytes)
 		{
-			MemoryStream ms = new MemoryStream(bytes);
+			var segment = DBTrie.PublicExtensions.GetUnderlyingArraySegment(bytes);
+			MemoryStream ms = new MemoryStream(segment.Array, segment.Offset, segment.Count);
 			using (GZipStream gzip = new GZipStream(ms, CompressionMode.Decompress))
 			{
 				StreamReader reader = new StreamReader(gzip, Encoding.UTF8);
@@ -779,33 +828,36 @@ namespace NBXplorer
 			Dictionary<uint256, long> firstSeenList = new Dictionary<uint256, long>();
 			HashSet<ITrackedTransactionSerializable> needRemove = new HashSet<ITrackedTransactionSerializable>();
 			HashSet<ITrackedTransactionSerializable> needUpdate = new HashSet<ITrackedTransactionSerializable>();
-			var transactions = await _TxContext.DoAsync(tx =>
+
+			var transactions = new List<ITrackedTransactionSerializable>();
+			using (var tx = await engine.OpenTransaction())
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
-				tx.ValuesLazyLoadingIsOn = false;
-				var result = new List<ITrackedTransactionSerializable>();
-				foreach (var row in table.SelectForwardSkip(0, txId?.ToString()))
-				{
-					MemoryStream ms = new MemoryStream(row.Value);
-					BitcoinStream bs = new BitcoinStream(ms, false);
-					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-					var data = CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey.Parse(row.Key));
-					data.ReadWrite(bs);
-					result.Add(data);
-					long firstSeen;
-					if (firstSeenList.TryGetValue(data.Key.TxId, out firstSeen))
-					{
-						if (firstSeen > data.FirstSeenTickCount)
-							firstSeenList[data.Key.TxId] = firstSeen;
-					}
-					else
-					{
-						firstSeenList.Add(data.Key.TxId, data.FirstSeenTickCount);
-					}
 
+				await foreach (var row in table.SelectForwardSkip(0, txId?.ToString()))
+				{
+					using (row)
+					{
+						var seg = DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
+						MemoryStream ms = new MemoryStream(seg.Array, seg.Offset, seg.Count);
+						BitcoinStream bs = new BitcoinStream(ms, false);
+						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
+						var data = CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey.Parse(row.Key.Span));
+						data.ReadWrite(bs);
+						transactions.Add(data);
+						long firstSeen;
+						if (firstSeenList.TryGetValue(data.Key.TxId, out firstSeen))
+						{
+							if (firstSeen > data.FirstSeenTickCount)
+								firstSeenList[data.Key.TxId] = firstSeen;
+						}
+						else
+						{
+							firstSeenList.Add(data.Key.TxId, data.FirstSeenTickCount);
+						}
+					}
 				}
-				return result;
-			}, cancellation);
+			}
 
 			ITrackedTransactionSerializable previousConfirmed = null;
 			foreach (var tx in transactions)
@@ -844,23 +896,27 @@ namespace NBXplorer
 			if (needUpdate.Count != 0 || needRemove.Count != 0)
 			{
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-				// This can be eventually consistent, let's not waste one round trip waiting for this
-				_TxContext.DoAsync(tx =>
-				{
-					var table = GetTransactionsIndex(tx, trackedSource);
-					foreach (var data in needUpdate.Where(t => !needRemove.Contains(t)))
-					{
-						table.Insert(data.Key.ToString(), data.ToBytes());
-					}
-					foreach (var data in needRemove)
-					{
-						table.RemoveKey(data.Key.ToString());
-					}
-					tx.Commit();
-				});
+				Cleanup(trackedSource, needRemove, needUpdate);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 			}
 			return transactions.Where(tt => !needRemove.Contains(tt)).Select(c => ToTrackedTransaction(c, trackedSource)).ToArray();
+		}
+
+		private async Task Cleanup(TrackedSource trackedSource, HashSet<ITrackedTransactionSerializable> needRemove, HashSet<ITrackedTransactionSerializable> needUpdate)
+		{
+			using (var tx = await engine.OpenTransaction())
+			{
+				var table = GetTransactionsIndex(tx, trackedSource);
+				foreach (var data in needUpdate.Where(t => !needRemove.Contains(t)))
+				{
+					await table.Insert(data.Key.ToString(), data.ToBytes());
+				}
+				foreach (var data in needRemove)
+				{
+					await table.RemoveKey(data.Key.ToString());
+				}
+				await tx.Commit();
+			}
 		}
 
 		TrackedTransaction ToTrackedTransaction(ITrackedTransactionSerializable tx, TrackedSource trackedSource)
@@ -873,21 +929,19 @@ namespace NBXplorer
 
 		public async Task SaveMetadata<TMetadata>(TrackedSource source, string key, TMetadata value) where TMetadata : class
 		{
-			await _TxContext.DoAsync(tx =>
+			using var tx = await engine.OpenTransaction();
+			var table = GetMetadataIndex(tx, source);
+			if (value != null)
 			{
-				var table = GetMetadataIndex(tx, source);
-				if (value != null)
-				{
-					table.Insert(key, Zip(Serializer.ToString(value)));
-					_NoMetadataCache.Remove((source, key));
-				}
-				else
-				{
-					table.RemoveKey(key);
-					_NoMetadataCache.Add((source, key));
-				}
-				tx.Commit();
-			});
+				await table.Insert(key, Zip(Serializer.ToString(value)));
+				_NoMetadataCache.Remove((source, key));
+			}
+			else
+			{
+				await table.RemoveKey(key);
+				_NoMetadataCache.Add((source, key));
+			}
+			await tx.Commit();
 		}
 
 		FixedSizeCache<(TrackedSource, String), string> _NoMetadataCache = new FixedSizeCache<(TrackedSource, String), string>(100, (kv) => $"{kv.Item1}:{kv.Item2}");
@@ -895,16 +949,18 @@ namespace NBXplorer
 		{
 			if (_NoMetadataCache.Contains((source, key)))
 				return default;
-			return await _TxContext.DoAsync(tx =>
+			using var tx = await engine.OpenTransaction();
+			var table = GetMetadataIndex(tx, source);
+			var qw = await tx.GetOrCreateTable(table.TableName).Get(key);
+			await foreach (var row in table.SelectForwardSkip(0, key))
 			{
-				var table = GetMetadataIndex(tx, source);
-				foreach (var row in table.SelectForwardSkip(0, key))
+				using (row)
 				{
-					return Serializer.ToObject<TMetadata>(Unzip(row.Value));
+					return Serializer.ToObject<TMetadata>(Unzip(await row.ReadValue()));
 				}
-				_NoMetadataCache.Add((source, key));
-				return null;
-			});
+			}
+			_NoMetadataCache.Add((source, key));
+			return null;
 		}
 
 		public async Task SaveMatches(TrackedTransaction[] transactions)
@@ -913,129 +969,111 @@ namespace NBXplorer
 				return;
 			var groups = transactions.GroupBy(i => i.TrackedSource);
 
-			await _TxContext.DoAsync(tx =>
+			using var tx = await engine.OpenTransaction();
+			foreach (var group in groups)
 			{
-				foreach (var group in groups)
-				{
-					var table = GetTransactionsIndex(tx, group.Key);
+				var table = GetTransactionsIndex(tx, group.Key);
 
-					foreach (var value in group)
+				foreach (var value in group)
+				{
+					if (group.Key is DerivationSchemeTrackedSource s)
 					{
-						if (group.Key is DerivationSchemeTrackedSource s)
+						foreach (var kv in value.KnownKeyPathMapping)
 						{
-							foreach (var kv in value.KnownKeyPathMapping)
+							var derivation = s.DerivationStrategy.GetDerivation(kv.Value);
+							var info = new KeyPathInformation(derivation, s, keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, _Network);
+							var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
+							var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
+							var index = info.GetIndex();
+							var bytes = await availableIndex.SelectBytes(index);
+							if (bytes != null)
 							{
-								var derivation = s.DerivationStrategy.GetDerivation(kv.Value);
-								var info = new KeyPathInformation(derivation, s, keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, _Network);
-								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
-								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
-								var index = info.GetIndex();
-								var bytes = availableIndex.SelectBytes(index);
-								if (bytes != null)
-								{
-									availableIndex.RemoveKey(index);
-								}
-								bytes = reservedIndex.SelectBytes(index);
-								if (bytes != null)
-								{
-									reservedIndex.RemoveKey(index);
-								}
+								await availableIndex.RemoveKey(bytes.Key);
+							}
+							bytes = await reservedIndex.SelectBytes(index);
+							if (bytes != null)
+							{
+								bytes.Dispose();
+								await reservedIndex.RemoveKey(bytes.Key);
 							}
 						}
-						var ms = new MemoryStream();
-						BitcoinStream bs = new BitcoinStream(ms, true);
-						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-						var data = value.CreateBitcoinSerializable();
-						bs.ReadWrite(data);
-						table.Insert(data.Key.ToString(), ms.ToArrayEfficient());
 					}
+					var ms = new MemoryStream();
+					BitcoinStream bs = new BitcoinStream(ms, true);
+					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
+					var data = value.CreateBitcoinSerializable();
+					bs.ReadWrite(data);
+					await table.Insert(data.Key.ToString(), ms.ToArrayEfficient());
 				}
-				tx.Commit();
-			});
+			}
+			await tx.Commit();
 		}
 
-		internal Task Prune(TrackedSource trackedSource, List<TrackedTransaction> prunable)
+		internal async Task Prune(TrackedSource trackedSource, List<TrackedTransaction> prunable)
 		{
 			if (prunable == null || prunable.Count == 0)
-				return Task.CompletedTask;
-			return _TxContext.DoAsync(tx =>
-			{
-				var table = GetTransactionsIndex(tx, trackedSource);
-				foreach (var tracked in prunable)
-				{
-					table.RemoveKey(tracked.Key.ToString());
-				}
-				tx.Commit();
-			});
-		}
-
-		public async Task CleanTransactions(TrackedSource trackedSource, List<TrackedTransaction> cleanList)
-		{
-			if (cleanList == null || cleanList.Count == 0)
 				return;
-			await _TxContext.DoAsync(tx =>
+			using var tx = await engine.OpenTransaction();
+			var table = GetTransactionsIndex(tx, trackedSource);
+			foreach (var tracked in prunable)
 			{
-				var table = GetTransactionsIndex(tx, trackedSource);
-				foreach (var tracked in cleanList)
-				{
-					table.RemoveKey(tracked.Key.ToString());
-				}
-				tx.Commit();
-			});
+				await table.RemoveKey(tracked.Key.ToString());
+			}
+			await tx.Commit();
 		}
 
-		internal Task UpdateAddressPool(DerivationSchemeTrackedSource trackedSource, Dictionary<DerivationFeature, int?> highestKeyIndexFound)
+		internal async Task UpdateAddressPool(DerivationSchemeTrackedSource trackedSource, Dictionary<DerivationFeature, int?> highestKeyIndexFound)
 		{
-			return _TxContext.DoAsync(tx =>
+			using var tx = await engine.OpenTransaction();
+			foreach (var kv in highestKeyIndexFound)
 			{
-				tx.ValuesLazyLoadingIsOn = false;
-				foreach (var kv in highestKeyIndexFound)
+				if (kv.Value == null)
+					continue;
+				var index = GetAvailableKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+				bool needRefill = await CleanUsed(kv.Value.Value, index);
+				index = GetReservedKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+				needRefill |= await CleanUsed(kv.Value.Value, index);
+				if (needRefill)
 				{
-					if (kv.Value == null)
-						continue;
-					var index = GetAvailableKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-					bool needRefill = CleanUsed(kv.Value.Value, index);
-					index = GetReservedKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-					needRefill |= CleanUsed(kv.Value.Value, index);
-					if (needRefill)
-					{
-						var hIndex = GetHighestPathIndex(tx, trackedSource.DerivationStrategy, kv.Key);
-						int highestGenerated = hIndex.SelectInt(0) ?? -1;
-						if (highestGenerated < kv.Value.Value)
-							hIndex.Insert(0, kv.Value.Value);
-						var toGenerate = GetAddressToGenerateCount(tx, trackedSource.DerivationStrategy, kv.Key);
-						RefillAvailable(tx, trackedSource.DerivationStrategy, kv.Key, toGenerate);
-					}
+					var hIndex = GetHighestPathIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+					int highestGenerated = (await hIndex.SelectInt(0)) ?? -1;
+					if (highestGenerated < kv.Value.Value)
+						await hIndex.Insert(0, kv.Value.Value);
+					var toGenerate = await GetAddressToGenerateCount(tx, trackedSource.DerivationStrategy, kv.Key);
+					await RefillAvailable(tx, trackedSource.DerivationStrategy, kv.Key, toGenerate);
 				}
-				tx.Commit();
-			});
+			}
+			await tx.Commit();
 		}
 
-		private bool CleanUsed(int highestIndex, Index index)
+		private async Task<bool> CleanUsed(int highestIndex, Index index)
 		{
 			bool needRefill = false;
-			foreach (var row in index.SelectForwardSkip(0))
+			await foreach (var row in index.SelectForwardSkip(0))
 			{
-				var keyInfo = ToObject<KeyPathInformation>(row.Value);
-				if (keyInfo.GetIndex() <= highestIndex)
+				using (row)
 				{
-					index.RemoveKey(keyInfo.GetIndex());
-					needRefill = true;
+					var keyInfo = ToObject<KeyPathInformation>(await row.ReadValue());
+					if (keyInfo.GetIndex() <= highestIndex)
+					{
+						await index.RemoveKey(row.Key);
+						needRefill = true;
+					}
 				}
 			}
 			return needRefill;
 		}
 
 		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
-		public Task<TrackedTransaction[]> GetMatches(Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
+		public Task<TrackedTransaction[]> GetMatches(NBitcoin.Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
 			return GetMatches(new[] { tx }, blockId, now, useCache);
 		}
-		public async Task<TrackedTransaction[]> GetMatches(IList<Transaction> txs, uint256 blockId, DateTimeOffset now, bool useCache)
+		public async Task<TrackedTransaction[]> GetMatches(IList<NBitcoin.Transaction> txs, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
 			foreach (var tx in txs)
 				tx.PrecomputeHash(false, true);
-			var transactionsPerScript = new MultiValueDictionary<Script, Transaction>();
+			var transactionsPerScript = new MultiValueDictionary<Script, NBitcoin.Transaction>();
 			var matches = new Dictionary<string, TrackedTransaction>();
 			HashSet<Script> scripts = new HashSet<Script>(txs.Count);
 			var noMatchTransactions = new HashSet<uint256>(txs.Count);
@@ -1108,7 +1146,7 @@ namespace NBXplorer
 			}
 			return matches.Values.Count == 0 ? Array.Empty<TrackedTransaction>() : matches.Values.ToArray();
 		}
-		public virtual TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, Transaction tx, Dictionary<Script, KeyPath> knownScriptMapping)
+		public virtual TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, NBitcoin.Transaction tx, Dictionary<Script, KeyPath> knownScriptMapping)
 		{
 			return new TrackedTransaction(transactionKey, trackedSource, tx, knownScriptMapping);
 		}

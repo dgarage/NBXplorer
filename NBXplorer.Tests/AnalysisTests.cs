@@ -13,7 +13,6 @@ using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using Microsoft.IdentityModel.Tokens;
 using NBitcoin.Crypto;
-using DBriize.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using NBXplorer.Analytics;
 

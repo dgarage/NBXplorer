@@ -24,6 +24,8 @@ namespace NBXplorer.Analytics
 		}
 
 		private readonly EventAggregator eventAggregator;
+		private readonly NBXplorerNetworkProvider networkProvider;
+		private readonly BitcoinDWaiters waiters;
 		private readonly Dictionary<NBXplorerNetwork, NetworkFingerprintData> data = new Dictionary<NBXplorerNetwork, NetworkFingerprintData>();
 		IDisposable subscription;
 		public FingerprintHostedService(EventAggregator eventAggregator,
@@ -31,6 +33,11 @@ namespace NBXplorer.Analytics
 										BitcoinDWaiters waiters)
 		{
 			this.eventAggregator = eventAggregator;
+			this.networkProvider = networkProvider;
+			this.waiters = waiters;
+		}
+		public Task StartAsync(CancellationToken cancellationToken)
+		{
 			foreach (var network in networkProvider.GetAll())
 			{
 				data.Add(network, new NetworkFingerprintData()
@@ -39,9 +46,6 @@ namespace NBXplorer.Analytics
 					DefaultDistribution = network.CryptoCode == "BTC" ? _DefaultBTC : null
 				});
 			}
-		}
-		public Task StartAsync(CancellationToken cancellationToken)
-		{
 			subscription = this.eventAggregator.Subscribe<RawBlockEvent>(evt =>
 			{
 				var d = data[evt.Network];

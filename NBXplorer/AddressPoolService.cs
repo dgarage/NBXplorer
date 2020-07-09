@@ -11,16 +11,6 @@ using System.Threading.Tasks;
 
 namespace NBXplorer
 {
-	/// <summary>
-	/// Hack, ASP.NET core DI does not support having one singleton for multiple interfaces
-	/// </summary>
-	public class AddressPoolServiceAccessor
-	{
-		public AddressPoolService Instance
-		{
-			get; set;
-		}
-	}
 	public class AddressPoolService : IHostedService
 	{
 		class RefillPoolRequest
@@ -77,17 +67,20 @@ namespace NBXplorer
 			}
 		}
 
-		public AddressPoolService(NBXplorerNetworkProvider networks, RepositoryProvider repositoryProvider, KeyPathTemplates keyPathTemplates, AddressPoolServiceAccessor accessor)
+		public AddressPoolService(NBXplorerNetworkProvider networks, RepositoryProvider repositoryProvider, KeyPathTemplates keyPathTemplates)
 		{
-			accessor.Instance = this;
-			_AddressPoolByNetwork = networks.GetAll().ToDictionary(o => o, o => new AddressPool(repositoryProvider.GetRepository(o)));
+			this.networks = networks;
+			this.repositoryProvider = repositoryProvider;
 			this.keyPathTemplates = keyPathTemplates;
 		}
 		Dictionary<NBXplorerNetwork, AddressPool> _AddressPoolByNetwork;
+		private readonly NBXplorerNetworkProvider networks;
+		private readonly RepositoryProvider repositoryProvider;
 		private readonly KeyPathTemplates keyPathTemplates;
 
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
+			_AddressPoolByNetwork = networks.GetAll().ToDictionary(o => o, o => new AddressPool(repositoryProvider.GetRepository(o)));
 			return Task.WhenAll(_AddressPoolByNetwork.Select(kv => kv.Value.StartAsync(cancellationToken)));
 		}
 

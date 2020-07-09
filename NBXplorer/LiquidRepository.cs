@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using DBriize;
 using NBitcoin;
 using NBitcoin.Altcoins.Elements;
 using NBXplorer.Altcoins.Liquid;
@@ -16,7 +15,7 @@ namespace NBXplorer
 	{
 		private readonly RPCClient _rpcClient;
 
-		internal LiquidRepository(DBriizeEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates,
+		internal LiquidRepository(DBTrie.DBTrieEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates,
 			RPCClient rpcClient) : base(engine, network, keyPathTemplates, rpcClient)
 		{
 			_rpcClient = rpcClient;

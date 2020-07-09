@@ -341,6 +341,36 @@ namespace NBXplorer.Tests
 			}
 		}
 
+
+		//[Fact]
+		//public async Task GenerateLotsOfTransactions()
+		//{
+		//	//var mnemonic = new Mnemonic("lounge theory point patient process ice trust couch patient august punch pitch", Wordlist.English);
+		//	//using (var tester = ServerTester.Create())
+		//	//{
+		//	//	var extkey = mnemonic.DeriveExtKey().GetWif(tester.Network);
+		//	//	var extpubkey = extkey.Neuter();
+		//	//	var bob = tester.CreateDerivationStrategy(extpubkey);
+		//	//	await tester.Client.TrackAsync(bob);
+		//	//	for (int i = 0; i < 100_000; i ++)
+		//	//	{
+		//	//		var now = DateTimeOffset.UtcNow;
+		//	//		var balance = await tester.Client.GetBalanceAsync(bob);
+		//	//		var timespan = DateTimeOffset.UtcNow - now;
+		//	//		//var dest = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, reserve: true);
+		//	//		//await tester.SendToAddressAsync(dest.Address, Money.Coins(1.0m));
+		//	//		//if (i % 5 == 0)
+		//	//		//	await tester.RPC.GenerateAsync(1);
+		//	//		//if (i % 100 == 0)
+		//	//		//{
+		//	//		//	var now = DateTimeOffset.UtcNow;
+		//	//		//	var balance = await tester.Client.GetBalanceAsync(bob);
+		//	//		//	var timespan = DateTimeOffset.UtcNow - now;
+		//	//		//}
+		//	//	}
+		//	//}
+		//}
+
 		[Fact]
 		public void CanCreatePSBT()
 		{
