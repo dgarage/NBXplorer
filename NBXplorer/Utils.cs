@@ -11,27 +11,59 @@ namespace NBXplorer
 	{
 		public static ICollection<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
 		{
-			return transactions.TopologicalSort(
-				dependsOn: t => t.Record.SpentOutpoints.Select(o => o.Hash),
-				getKey: t => t.Record.TransactionHash,
-				getValue: t => t,
-				solveTies: AnnotatedTransactionComparer.OldToYoung);
+			var confirmed = new MultiValueDictionary<int, AnnotatedTransaction>();
+			var unconfirmed = new List<AnnotatedTransaction>();
+			var result = new List<AnnotatedTransaction>(transactions.Count);
+			foreach (var tx in transactions)
+			{
+				if (tx.Height is int h)
+					confirmed.Add(h, tx);
+				else
+					unconfirmed.Add(tx);
+			}
+			foreach (var tx in confirmed.OrderBy(o => o.Key))
+			{
+				if (tx.Value.Count == 1)
+					result.Add(tx.Value.First());
+				else
+				{
+					foreach (var tx2 in tx.Value.TopologicalSortCore())
+					{
+						result.Add(tx2);
+					}
+				}
+			}
+			foreach (var tx in unconfirmed.TopologicalSortCore())
+			{
+				result.Add(tx);
+			}
+			return result;
 		}
-		public static List<T> TopologicalSort<T>(this ICollection<T> nodes, Func<T, IEnumerable<T>> dependsOn)
+
+		static ICollection<AnnotatedTransaction> TopologicalSortCore(this IReadOnlyCollection<AnnotatedTransaction> transactions)
+		{
+			return transactions.TopologicalSort(
+			   dependsOn: t => t.Record.SpentOutpoints.Select(o => o.Hash),
+			   getKey: t => t.Record.TransactionHash,
+			   getValue: t => t,
+			   solveTies: AnnotatedTransactionComparer.OldToYoung);
+		}
+
+		public static List<T> TopologicalSort<T>(this IReadOnlyCollection<T> nodes, Func<T, IEnumerable<T>> dependsOn)
 		{
 			return nodes.TopologicalSort(dependsOn, k => k, k => k);
 		}
 
-		public static List<T> TopologicalSort<T, TDepend>(this ICollection<T> nodes, Func<T, IEnumerable<TDepend>> dependsOn, Func<T, TDepend> getKey)
+		public static List<T> TopologicalSort<T, TDepend>(this IReadOnlyCollection<T> nodes, Func<T, IEnumerable<TDepend>> dependsOn, Func<T, TDepend> getKey)
 		{
 			return nodes.TopologicalSort(dependsOn, getKey, o => o);
 		}
 
-		public static List<TValue> TopologicalSort<T, TDepend, TValue>(this ICollection<T> nodes,
-												Func<T, IEnumerable<TDepend>> dependsOn,
-												Func<T, TDepend> getKey,
-												Func<T, TValue> getValue,
-												IComparer<T> solveTies = null)
+		public static List<TValue> TopologicalSort<T, TDepend, TValue>(this IReadOnlyCollection<T> nodes,
+									  Func<T, IEnumerable<TDepend>> dependsOn,
+									  Func<T, TDepend> getKey,
+									  Func<T, TValue> getValue,
+									  IComparer<T> solveTies = null)
 		{
 			if (nodes.Count == 0)
 				return new List<TValue>();
@@ -47,7 +79,7 @@ namespace NBXplorer
 			foreach (var node in nodes)
 				allKeys.Add(getKey(node));
 			var dependenciesByValues = nodes.ToDictionary(node => node,
-										   node => new HashSet<TDepend>(dependsOn(node).Where(n => allKeys.Contains(n))));
+									node => new HashSet<TDepend>(dependsOn(node).Where(n => allKeys.Contains(n))));
 			foreach (var e in dependenciesByValues.Where(x => x.Value.Count == 0))
 			{
 				noDependencies.Add(e.Key, e.Value);
@@ -81,14 +113,14 @@ namespace NBXplorer
 		{
 			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
 			var oldest = result
-							.Where(o => o.Timestamp != noDate)
-							.OrderBy(o => o.Timestamp).FirstOrDefault() ?? result.First();
+						.Where(o => o.Timestamp != noDate)
+						.OrderBy(o => o.Timestamp).FirstOrDefault() ?? result.First();
 
 			var confBlock = result
-						.Where(r => r.BlockHash != null)
-						.Select(r => chain.GetBlock(r.BlockHash))
-						.Where(r => r != null)
-						.FirstOrDefault();
+					 .Where(r => r.BlockHash != null)
+					 .Select(r => chain.GetBlock(r.BlockHash))
+					 .Where(r => r != null)
+					 .FirstOrDefault();
 
 			var conf = confBlock == null ? 0 : chain.Height - confBlock.Height + 1;
 

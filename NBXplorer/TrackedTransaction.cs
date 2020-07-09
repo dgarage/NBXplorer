@@ -184,7 +184,9 @@ namespace NBXplorer
 				return true;
 			if (((object)a == null) || ((object)b == null))
 				return false;
-			return a.ToString() == b.ToString();
+			return a.IsPruned == b.IsPruned &&
+				 a.TxId == b.TxId &&
+				 a.BlockHash == b.BlockHash;
 		}
 
 		public static bool operator !=(TrackedTransactionKey a, TrackedTransactionKey b)
@@ -194,7 +196,7 @@ namespace NBXplorer
 
 		public override int GetHashCode()
 		{
-			return ToString().GetHashCode();
+			return HashCode.Combine(IsPruned, TxId, BlockHash);
 		}
 
 		public override string ToString()
