@@ -156,19 +156,13 @@ namespace NBXplorer
 
 		class Index
 		{
-			DBTrie.Transaction tx;
+			DBTrie.Table table;
 			public Index(DBTrie.Transaction tx, string tableName, string primaryKey)
 			{
-				TableName = tableName;
 				PrimaryKey = primaryKey;
-				this.tx = tx;
+				this.table = tx.GetTable(tableName);
 			}
 
-
-			public string TableName
-			{
-				get; set;
-			}
 			public string PrimaryKey
 			{
 				get; set;
@@ -176,24 +170,24 @@ namespace NBXplorer
 
 			public ValueTask<DBTrie.IRow> SelectBytes(int index)
 			{
-				return tx.GetOrCreateTable(TableName).Get($"{PrimaryKey}-{index:D10}");
+				return table.Get($"{PrimaryKey}-{index:D10}");
 			}
 			public async ValueTask<bool> RemoveKey(string key)
 			{
-				return await tx.GetOrCreateTable(TableName).Delete($"{PrimaryKey}-{key}");
+				return await table.Delete($"{PrimaryKey}-{key}");
 			}
 			public async ValueTask RemoveKey(ReadOnlyMemory<byte> key)
 			{
-				await tx.GetOrCreateTable(TableName).Delete(key);
+				await table.Delete(key);
 			}
 
 			public async ValueTask Insert(int index, ReadOnlyMemory<byte> value)
 			{
-				await tx.GetOrCreateTable(TableName).Insert($"{index:D10}", value);
+				await table.Insert($"{index:D10}", value);
 			}
 			public async ValueTask Insert(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value)
 			{
-				await (tx.GetOrCreateTable(TableName)).Insert(key, value);
+				await (table).Insert(key, value);
 			}
 
 			public async IAsyncEnumerable<DBTrie.IRow> SelectForwardSkip(int n, string startWith = null)
@@ -202,7 +196,6 @@ namespace NBXplorer
 					startWith = PrimaryKey;
 				else
 					startWith = $"{PrimaryKey}-{startWith}";
-				var table = tx.GetOrCreateTable(TableName);
 				int skipped = 0;
 				await foreach (var row in table.Enumerate(startWith))
 				{
@@ -218,7 +211,6 @@ namespace NBXplorer
 
 			public async IAsyncEnumerable<DBTrie.IRow> SelectFrom(long key, int? limit)
 			{
-				var table = tx.GetOrCreateTable(TableName);
 				var remaining = limit is int l ? l : int.MaxValue;
 				if (remaining is 0)
 					yield break;
@@ -263,7 +255,6 @@ namespace NBXplorer
 			public async Task<int> Count()
 			{
 				int count = 0;
-				var table = tx.GetOrCreateTable(TableName);
 				await foreach (var item in table.Enumerate(PrimaryKey))
 				{
 					using (item)
@@ -284,7 +275,7 @@ namespace NBXplorer
 			}
 			public async ValueTask Insert(string key, byte[] value)
 			{
-				await tx.GetOrCreateTable(TableName).Insert($"{PrimaryKey}-{key}", value);
+				await table.Insert($"{PrimaryKey}-{key}", value);
 			}
 			public async Task<int?> SelectInt(int index)
 			{
@@ -383,7 +374,7 @@ namespace NBXplorer
 		public async Task<BlockLocator> GetIndexProgress()
 		{
 			using var tx = await engine.OpenTransaction();
-			using var existingRow = await tx.GetOrCreateTable($"{_Suffix}IndexProgress").Get("");
+			using var existingRow = await tx.GetTable($"{_Suffix}IndexProgress").Get("");
 			if (existingRow == null)
 				return null;
 			BlockLocator locator = new BlockLocator();
@@ -395,9 +386,9 @@ namespace NBXplorer
 		{
 			using var tx = await engine.OpenTransaction();
 			if (locator == null)
-				await tx.GetOrCreateTable($"{_Suffix}IndexProgress").Delete(string.Empty);
+				await tx.GetTable($"{_Suffix}IndexProgress").Delete(string.Empty);
 			else
-				await tx.GetOrCreateTable($"{_Suffix}IndexProgress").Insert(string.Empty, locator.ToBytes());
+				await tx.GetTable($"{_Suffix}IndexProgress").Insert(string.Empty, locator.ToBytes());
 			await tx.Commit();
 		}
 
@@ -672,7 +663,7 @@ namespace NBXplorer
 					var timestamped = new TimeStampedTransaction(btx, date);
 					var key = blockHash == null ? "0" : blockHash.ToString();
 					var value = timestamped.ToBytes();
-					await tx.GetOrCreateTable($"{_Suffix}tx-" + btx.GetHash().ToString()).Insert(key, value);
+					await tx.GetTable($"{_Suffix}tx-" + btx.GetHash().ToString()).Insert(key, value);
 					result.Add(ToSavedTransaction(Network.NBitcoinNetwork, key, value));
 				}
 				await tx.Commit();
@@ -701,7 +692,7 @@ namespace NBXplorer
 		{
 			List<SavedTransaction> saved = new List<SavedTransaction>();
 			using var tx = await engine.OpenTransaction();
-			var table = tx.GetOrCreateTable($"{_Suffix}tx-" + txid.ToString());
+			var table = tx.GetTable($"{_Suffix}tx-" + txid.ToString());
 			await foreach (var row in table.Enumerate())
 			{
 				using (row)
@@ -830,7 +821,7 @@ namespace NBXplorer
 			HashSet<ITrackedTransactionSerializable> needUpdate = new HashSet<ITrackedTransactionSerializable>();
 
 			var transactions = new List<ITrackedTransactionSerializable>();
-			using (var tx = await engine.OpenTransaction())
+			using (var tx = await engine.OpenTransaction(cancellation))
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
 
@@ -838,6 +829,7 @@ namespace NBXplorer
 				{
 					using (row)
 					{
+						cancellation.ThrowIfCancellationRequested();
 						var seg = DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
 						MemoryStream ms = new MemoryStream(seg.Array, seg.Offset, seg.Count);
 						BitcoinStream bs = new BitcoinStream(ms, false);
@@ -951,7 +943,6 @@ namespace NBXplorer
 				return default;
 			using var tx = await engine.OpenTransaction();
 			var table = GetMetadataIndex(tx, source);
-			var qw = await tx.GetOrCreateTable(table.TableName).Get(key);
 			await foreach (var row in table.SelectForwardSkip(0, key))
 			{
 				using (row)

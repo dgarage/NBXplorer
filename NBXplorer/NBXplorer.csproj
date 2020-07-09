@@ -18,7 +18,7 @@
     <DefineConstants>$(DefineConstants);NETCOREAPP21</DefineConstants>
   </PropertyGroup>
   <ItemGroup Condition="'$(TargetFramework)' != 'netcoreapp2.1'">
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.1.5" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'netcoreapp2.1'">
 	  <PackageReference Include="Microsoft.AspNetCore.App" Version="2.1.9" />
@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DBTrie" Version="1.0.4" />
+    <PackageReference Include="DBTrie" Version="1.0.8" />
     <PackageReference Include="Microsoft.Azure.ServiceBus" Version="4.1.3" />
     <PackageReference Include="RabbitMQ.Client" Version="5.1.2" />
 	  <PackageReference Include="NicolasDorier.CommandLine" Version="1.0.0.2" />
