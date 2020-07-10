@@ -85,7 +85,7 @@ namespace NBXplorer.Configuration
 		{
 			get; set;
 		} = 30;
-
+		public int DBCache { get; set; }
 		public List<ChainConfiguration> ChainConfigurations
 		{
 			get; set;
@@ -161,7 +161,10 @@ namespace NBXplorer.Configuration
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
 			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);
 			MaxGapSize = config.GetOrDefault<int>("maxgapsize", 30);
-			if(MinGapSize >= MaxGapSize)
+			DBCache = config.GetOrDefault<int>("dbcache", 50);
+			if (DBCache > 0)
+				Logs.Configuration.LogInformation($"DBCache: {DBCache} MB");
+			if (MinGapSize >= MaxGapSize)
 				throw new ConfigException("mingapsize should be equal or lower than maxgapsize");
 			if(!Directory.Exists(BaseDataDir))
 				Directory.CreateDirectory(BaseDataDir);

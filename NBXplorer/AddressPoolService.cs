@@ -78,10 +78,11 @@ namespace NBXplorer
 		private readonly RepositoryProvider repositoryProvider;
 		private readonly KeyPathTemplates keyPathTemplates;
 
-		public Task StartAsync(CancellationToken cancellationToken)
+		public async Task StartAsync(CancellationToken cancellationToken)
 		{
+			await repositoryProvider.StartCompletion;
 			_AddressPoolByNetwork = networks.GetAll().ToDictionary(o => o, o => new AddressPool(repositoryProvider.GetRepository(o)));
-			return Task.WhenAll(_AddressPoolByNetwork.Select(kv => kv.Value.StartAsync(cancellationToken)));
+			await Task.WhenAll(_AddressPoolByNetwork.Select(kv => kv.Value.StartAsync(cancellationToken)));
 		}
 
 		public Task GenerateAddresses(NBXplorerNetwork network, DerivationStrategyBase derivationStrategy, DerivationFeature feature, GenerateAddressQuery generateAddressQuery = null)

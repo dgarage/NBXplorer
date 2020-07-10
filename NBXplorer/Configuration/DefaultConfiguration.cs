@@ -31,7 +31,8 @@ namespace NBXplorer.Configuration
 			app.Option("--regtest | -regtest", $"Use regtest", CommandOptionType.BoolValue);
 			app.Option("--chains", $"Chains to support comma separated (default: btc, available: {chains})", CommandOptionType.SingleValue);
 
-			foreach(var network in provider.GetAll())
+			app.Option($"--dbcache", $"If more than 0, the size of the cache for the database, in MB. Else, no limit on the size of the cache. (default: 50)", CommandOptionType.SingleValue);
+			foreach (var network in provider.GetAll())
 			{
 				var crypto = network.CryptoCode.ToLowerInvariant();
 				app.Option($"--{crypto}rescan", $"Rescan from startheight", CommandOptionType.BoolValue);
@@ -149,6 +150,8 @@ namespace NBXplorer.Configuration
 				builder.AppendLine("## rescan forces a rescan from startheight");
 				builder.AppendLine($"#{cryptoCode}.rescan=0");
 			}
+			builder.AppendLine("## If more than 0, the size of the cache for the database, in MB. Else, no limit on the size of the cache. (default: 50)");
+			builder.AppendLine("#dbcache=50");
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");
 			builder.AppendLine("## Add a server alias to be returned in status response");

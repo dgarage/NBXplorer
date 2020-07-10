@@ -74,6 +74,25 @@ namespace NBXplorer.Tests
 				Start();
 		}
 
+		public async Task Load(string dataName)
+		{
+			datadir = Path.Combine(_Directory, "explorer");
+			if (Directory.Exists(datadir))
+				DeleteFolderRecursive(datadir);
+			Directory.CreateDirectory(_Directory);
+			Directory.CreateDirectory(datadir);
+			datadir = Path.Combine(datadir, "RegTest", "db");
+			Directory.CreateDirectory(datadir);
+			foreach (var file in Directory.GetFiles(Path.Combine("Data", dataName)))
+			{
+				File.Copy(file, Path.Combine(datadir, Path.GetFileName(file)));
+			}
+			LoadedData = true;
+			await using var db = await DBTrie.DBTrieEngine.OpenFromFolder(datadir);
+			using var tx = await db.OpenTransaction();
+			await tx.GetTable("IndexProgress").Delete();
+		}
+
 		public void Start()
 		{
 			try
@@ -94,7 +113,7 @@ namespace NBXplorer.Tests
 					Explorer.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
 
 				datadir = Path.Combine(_Directory, "explorer");
-				if (!KeepPreviousData)
+				if (!KeepPreviousData && !LoadedData)
 					DeleteFolderRecursive(datadir);
 				StartNBXplorer();
 				this.Client.WaitServerStarted();
@@ -374,6 +393,7 @@ namespace NBXplorer.Tests
 			get; set;
 		} = true;
 		public bool KeepPreviousData { get; set; }
+		public bool LoadedData { get; private set; }
 
 		public uint256 SendToAddress(BitcoinAddress address, Money amount)
 		{

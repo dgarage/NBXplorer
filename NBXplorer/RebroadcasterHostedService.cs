@@ -108,11 +108,11 @@ namespace NBXplorer
 
 		public EventAggregator EventAggregator { get; }
 
-		public Task StartAsync(CancellationToken cancellationToken)
+		public async Task StartAsync(CancellationToken cancellationToken)
 		{
+			await _Repositories.StartCompletion;
 			_Cts = new CancellationTokenSource();
 			_Loop = RebroadcastLoop(_Cts.Token);
-			return Task.CompletedTask;
 		}
 
 		public void RebroadcastPeriodically(NBXplorerNetwork network, TrackedSource trackedSource, params TrackedTransactionKey[] txIds)

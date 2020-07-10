@@ -57,6 +57,7 @@ namespace NBXplorer
 		}
 		public async Task StartAsync(CancellationToken cancellationToken)
 		{
+			await repositoryProvider.StartCompletion;
 			_Waiters = networkProvider
 				.GetAll()
 				.Select(s => (Repository: repositoryProvider.GetRepository(s),

@@ -137,6 +137,8 @@ namespace NBXplorer.MessageBrokers
 
 		public async Task StopAsync(CancellationToken cancellationToken)
 		{
+			if (_senderBlock is null)
+				return;
 			_Disposed = true;
 			_subscriptions.Dispose();
 			await Task.WhenAll(_senderBlock.Close(), _senderTransactions.Close());

@@ -20,6 +20,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.JSInterop;
 using System.Buffers;
 using DBTrie;
+using DBTrie.Storage.Cache;
 
 namespace NBXplorer
 {
@@ -57,23 +58,70 @@ namespace NBXplorer
 			return _Configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
 		}
 
-		public Repository GetRepository(NBXplorerNetwork network)
+		public Repository GetRepository(string cryptoCode)
 		{
-			_Repositories.TryGetValue(network.CryptoCode, out Repository repository);
+			_Repositories.TryGetValue(cryptoCode, out Repository repository);
 			return repository;
 		}
+		public Repository GetRepository(NBXplorerNetwork network)
+		{
+			return GetRepository(network.CryptoCode);
+		}
 
+		TaskCompletionSource<bool> _StartCompletion = new TaskCompletionSource<bool>();
+		public Task StartCompletion => _StartCompletion.Task;
 		public async Task StartAsync(CancellationToken cancellationToken)
 		{
-			var directory = Path.Combine(_Configuration.DataDir, "db");
-			if (!Directory.Exists(directory))
-				Directory.CreateDirectory(directory);
+			try
+			{
+				var directory = Path.Combine(_Configuration.DataDir, "db");
+				if (!Directory.Exists(directory))
+					Directory.CreateDirectory(directory);
 
+				_Engine = await OpenEngine(directory, cancellationToken);
+				if (_Configuration.DBCache > 0)
+				{
+					int pageSize = 8192;
+					_Engine.ConfigurePagePool(new PagePool(pageSize, (_Configuration.DBCache * 1000 * 1000) / pageSize));
+				}
+				foreach (var net in networks.GetAll())
+				{
+					var settings = GetChainSetting(net);
+					if (settings != null)
+					{
+						var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
+						repo.MaxPoolSize = _Configuration.MaxGapSize;
+						repo.MinPoolSize = _Configuration.MinGapSize;
+						repo.MinUtxoValue = settings.MinUtxoValue;
+						_Repositories.Add(net.CryptoCode, repo);
+						await repo.DefragmentTables(cancellationToken);
+						await repo.MigrateSavedTransactions(cancellationToken);
+					}
+				}
+				foreach (var repo in _Repositories.Select(kv => kv.Value))
+				{
+					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
+					{
+						Logs.Configuration.LogInformation($"{repo.Network.CryptoCode}: Rescanning the chain...");
+						await repo.SetIndexProgress(null);
+					}
+				}
+				_StartCompletion.TrySetResult(true);
+			}
+			catch
+			{
+				_StartCompletion.TrySetCanceled();
+				throw;
+			}
+		}
+
+		private async ValueTask<DBTrieEngine> OpenEngine(string directory, CancellationToken cancellationToken)
+		{
 			int tried = 0;
 			retry:
 			try
 			{
-				_Engine = await DBTrie.DBTrieEngine.OpenFromFolder(directory);
+				return await DBTrie.DBTrieEngine.OpenFromFolder(directory);
 			}
 			catch when (tried < 10)
 			{
@@ -81,26 +129,9 @@ namespace NBXplorer
 				await Task.Delay(500, cancellationToken);
 				goto retry;
 			}
-
-			foreach (var net in networks.GetAll())
+			catch
 			{
-				var settings = GetChainSetting(net);
-				if (settings != null)
-				{
-					var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
-					repo.MaxPoolSize = _Configuration.MaxGapSize;
-					repo.MinPoolSize = _Configuration.MinGapSize;
-					repo.MinUtxoValue = settings.MinUtxoValue;
-					_Repositories.Add(net.CryptoCode, repo);
-				}
-			}
-			foreach (var repo in _Repositories.Select(kv => kv.Value))
-			{
-				if (GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
-				{
-					Logs.Configuration.LogInformation($"{repo.Network.CryptoCode}: Rescanning the chain...");
-					await repo.SetIndexProgress(null);
-				}
+				throw;
 			}
 		}
 
@@ -190,14 +221,14 @@ namespace NBXplorer
 				await (table).Insert(key, value);
 			}
 
-			public async IAsyncEnumerable<DBTrie.IRow> SelectForwardSkip(int n, string startWith = null)
+			public async IAsyncEnumerable<DBTrie.IRow> SelectForwardSkip(int n, string startWith = null, EnumerationOrder order = EnumerationOrder.Ordered)
 			{
 				if (startWith == null)
 					startWith = PrimaryKey;
 				else
 					startWith = $"{PrimaryKey}-{startWith}";
 				int skipped = 0;
-				await foreach (var row in table.Enumerate(startWith))
+				await foreach (var row in table.Enumerate(startWith, order))
 				{
 					if (skipped < n)
 					{
@@ -402,8 +433,12 @@ namespace NBXplorer
 				var rows = availableTable.SelectForwardSkip(n);
 				await using var enumerator = rows.GetAsyncEnumerator();
 				if (!await enumerator.MoveNextAsync())
+				{
+					await enumerator.DisposeAsync();
 					return null;
+				}
 				using var row = enumerator.Current;
+				await enumerator.DisposeAsync();
 				keyInfo = ToObject<KeyPathInformation>(await row.ReadValue()).AddAddress(Network.NBitcoinNetwork);
 				if (reserve)
 				{
@@ -661,9 +696,9 @@ namespace NBXplorer
 				foreach (var btx in batch)
 				{
 					var timestamped = new TimeStampedTransaction(btx, date);
-					var key = blockHash == null ? "0" : blockHash.ToString();
 					var value = timestamped.ToBytes();
-					await tx.GetTable($"{_Suffix}tx-" + btx.GetHash().ToString()).Insert(key, value);
+					var key = GetSavedTransactionKey(btx.GetHash(), blockHash);
+					await GetSavedTransactionTable(tx).Insert(key, value);
 					result.Add(ToSavedTransaction(Network.NBitcoinNetwork, key, value));
 				}
 				await tx.Commit();
@@ -692,8 +727,8 @@ namespace NBXplorer
 		{
 			List<SavedTransaction> saved = new List<SavedTransaction>();
 			using var tx = await engine.OpenTransaction();
-			var table = tx.GetTable($"{_Suffix}tx-" + txid.ToString());
-			await foreach (var row in table.Enumerate())
+			var table = GetSavedTransactionTable(tx);
+			await foreach (var row in table.Enumerate(GetSavedTransactionKey(txid, null)))
 			{
 				using (row)
 				{
@@ -706,14 +741,10 @@ namespace NBXplorer
 
 		private static SavedTransaction ToSavedTransaction(Network network, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value)
 		{
-			return ToSavedTransaction(network, Encoding.UTF8.GetString(key.Span), value);
-		}
-		private static SavedTransaction ToSavedTransaction(Network network, string key, ReadOnlyMemory<byte> value)
-		{
 			SavedTransaction t = new SavedTransaction();
-			if (key.Length != 1)
+			if (key.Length > 32)
 			{
-				t.BlockHash = new uint256(key);
+				t.BlockHash = new uint256(key.Span.Slice(32));
 			}
 			var timeStamped = new TimeStampedTransaction(network, value);
 			t.Transaction = timeStamped.Transaction;
@@ -733,7 +764,7 @@ namespace NBXplorer
 				{
 					var table = GetScriptsIndex(tx, script);
 					var keyInfos = new List<KeyPathInformation>();
-					await foreach(var row in table.SelectForwardSkip(0))
+					await foreach (var row in table.SelectForwardSkip(0))
 					{
 						using (row)
 						{
@@ -825,7 +856,7 @@ namespace NBXplorer
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
 
-				await foreach (var row in table.SelectForwardSkip(0, txId?.ToString()))
+				await foreach (var row in table.SelectForwardSkip(0, txId?.ToString(), EnumerationOrder.Unordered))
 				{
 					using (row)
 					{
@@ -1040,7 +1071,8 @@ namespace NBXplorer
 		private async Task<bool> CleanUsed(int highestIndex, Index index)
 		{
 			bool needRefill = false;
-			await foreach (var row in index.SelectForwardSkip(0))
+			List<string> toRemove = new List<string>();
+			foreach (var row in await index.SelectForwardSkip(0).ToArrayAsync())
 			{
 				using (row)
 				{
@@ -1194,6 +1226,71 @@ namespace NBXplorer
 
 				}
 			}
+		}
+
+		public async ValueTask DefragmentTables(CancellationToken cancellationToken = default)
+		{
+			using var tx = await engine.OpenTransaction(cancellationToken);
+			var table = tx.GetTable($"{_Suffix}Transactions");
+			var saved = await table.Defragment();
+			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Defragmented transaction table ({PrettyKB(saved)} saved)");
+			await tx.Commit();
+			table.ClearCache();
+		}
+
+		public async ValueTask MigrateSavedTransactions(CancellationToken cancellationToken = default)
+		{
+			using var tx = await engine.OpenTransaction(cancellationToken);
+			var savedTransactions = GetSavedTransactionTable(tx);
+			var legacyTableName = $"{_Suffix}tx-";
+			var legacyTables = await tx.Schema.GetTables(legacyTableName).ToArrayAsync();
+			if (legacyTables.Length == 0)
+				return;
+			Logs.Explorer.LogInformation($"Migrating {legacyTables.Length} legacy tables...");
+			foreach (var batch in legacyTables.Batch(2000))
+			{
+				foreach (var tableName in batch)
+				{
+					var legacyTable = tx.GetTable(tableName);
+					await foreach (var row in legacyTable.Enumerate())
+					{
+						using (row)
+						{
+							var txId = tableName.Substring(legacyTableName.Length);
+							var blockId = Encoding.UTF8.GetString(row.Key.Span);
+							await savedTransactions.Insert(GetSavedTransactionKey(new uint256(txId), blockId == "0" ? null : new uint256(blockId)), await row.ReadValue());
+						}
+					}
+					await legacyTable.Delete();
+				}
+				await tx.Commit();
+			}
+			Logs.Explorer.LogInformation($"Migrated {legacyTables.Length} transaction legacy tables");
+		}
+
+		private ReadOnlyMemory<byte> GetSavedTransactionKey(uint256 txId, uint256 blockId)
+		{
+			var key = new byte[blockId is null ? 32 : 64];
+			txId.ToBytes(key);
+			if (blockId is uint256)
+			{
+				blockId.ToBytes(key.AsSpan().Slice(32));
+			}
+			return key.AsMemory();
+		}
+
+		private Table GetSavedTransactionTable(DBTrie.Transaction tx)
+		{
+			return tx.GetTable($"{_Suffix}Txs");
+		}
+
+		private string PrettyKB(int bytes)
+		{
+			if (bytes < 1024)
+				return $"{bytes} bytes";
+			if (bytes / 1024 < 1024)
+				return $"{Math.Round((double)bytes / 1024.0, 2):0.00} kB";
+			return $"{Math.Round((double)bytes / 1024.0 / 1024.0, 2):0.00} MB";
 		}
 	}
 }
