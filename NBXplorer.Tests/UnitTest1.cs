@@ -1478,6 +1478,12 @@ namespace NBXplorer.Tests
 				allEvents = session.GetEvents();
 				Assert.Equal(15, allEvents.Length);
 				Assert.Contains(allEvents.OfType<NewBlockEvent>(), b => b.Hash == ids.Last());
+				var highestEvent = allEvents.Last().EventId;
+				ids = tester.Explorer.Generate(1);
+				session = tester.Client.CreateLongPollingNotificationSession(0);
+				session.WaitForBlocks(ids);
+				allEvents = session.GetEvents();
+				Assert.Equal(ids[0], Assert.IsType<NewBlockEvent>(allEvents.Last()).Hash);
 			}
 		}
 		[Fact]

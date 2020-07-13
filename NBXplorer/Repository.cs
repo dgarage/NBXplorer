@@ -1338,24 +1338,29 @@ namespace NBXplorer
 			var legacyTables = await tx.Schema.GetTables(legacyTableName).ToArrayAsync();
 			if (legacyTables.Length == 0)
 				return 0;
-
-			foreach (var batch in legacyTables.Batch(1000))
+			int deleted = 0;
+			var lastLogTime = DateTimeOffset.UtcNow;
+			foreach (var tableName in legacyTables)
 			{
-				foreach (var tableName in batch)
+				cancellationToken.ThrowIfCancellationRequested();
+				var legacyTable = tx.GetTable(tableName);
+				await foreach (var row in legacyTable.Enumerate())
 				{
-					var legacyTable = tx.GetTable(tableName);
-					await foreach (var row in legacyTable.Enumerate())
+					using (row)
 					{
-						using (row)
-						{
-							var txId = tableName.Substring(legacyTableName.Length);
-							var blockId = Encoding.UTF8.GetString(row.Key.Span);
-							await savedTransactions.Insert(GetSavedTransactionKey(new uint256(txId), blockId == "0" ? null : new uint256(blockId)), await row.ReadValue());
-						}
+						var txId = tableName.Substring(legacyTableName.Length);
+						var blockId = Encoding.UTF8.GetString(row.Key.Span);
+						await savedTransactions.Insert(GetSavedTransactionKey(new uint256(txId), blockId == "0" ? null : new uint256(blockId)), await row.ReadValue());
 					}
-					await legacyTable.Delete();
 				}
 				await tx.Commit();
+				await legacyTable.Delete();
+				deleted++;
+				if (DateTimeOffset.UtcNow - lastLogTime > TimeSpan.FromMinutes(1.0))
+				{
+					Logs.Explorer.LogInformation($"{Network.CryptoCode}: Still migrating tables {legacyTables.Length - deleted} remaining...");
+					lastLogTime = DateTimeOffset.UtcNow;
+				}
 			}
 			return legacyTables.Length;
 		}
