@@ -94,8 +94,6 @@ namespace NBXplorer
 						repo.MinPoolSize = _Configuration.MinGapSize;
 						repo.MinUtxoValue = settings.MinUtxoValue;
 						_Repositories.Add(net.CryptoCode, repo);
-						await repo.DefragmentTables(cancellationToken);
-						await repo.MigrateSavedTransactions(cancellationToken);
 					}
 				}
 				foreach (var repo in _Repositories.Select(kv => kv.Value))
@@ -106,6 +104,44 @@ namespace NBXplorer
 						await repo.SetIndexProgress(null);
 					}
 				}
+
+				Logs.Explorer.LogInformation("Defragmenting transaction tables...");
+				int saved = 0;
+				foreach (var repo in _Repositories.Select(kv => kv.Value))
+				{
+					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
+					{
+						saved += await repo.DefragmentTables(cancellationToken);
+					}
+				}
+				Logs.Explorer.LogInformation($"Defragmentation succeed, {PrettyKB(saved)} saved");
+
+				Logs.Explorer.LogInformation("Applying migration if needed, do not close NBXplorer...");
+				int migrated = 0;
+				foreach (var repo in _Repositories.Select(kv => kv.Value))
+				{
+					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
+					{
+						migrated += await repo.MigrateSavedTransactions(cancellationToken);
+					}
+				}
+				if (migrated != 0)
+					Logs.Explorer.LogInformation($"Migrated {migrated} tables...");
+
+				if (_Configuration.TrimEvents > 0)
+				{
+					Logs.Explorer.LogInformation("Trimming the event table if needed...");
+					int trimmed = 0;
+					foreach (var repo in _Repositories.Select(kv => kv.Value))
+					{
+						if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
+						{
+							trimmed += await repo.TrimmingEvents(_Configuration.TrimEvents, cancellationToken);
+						}
+					}
+					if (trimmed != 0)
+						Logs.Explorer.LogInformation($"Trimmed {trimmed} events in total...");
+				}
 				_StartCompletion.TrySetResult(true);
 			}
 			catch
@@ -113,6 +149,15 @@ namespace NBXplorer
 				_StartCompletion.TrySetCanceled();
 				throw;
 			}
+		}
+
+		private string PrettyKB(int bytes)
+		{
+			if (bytes < 1024)
+				return $"{bytes} bytes";
+			if (bytes / 1024 < 1024)
+				return $"{Math.Round((double)bytes / 1024.0, 2):0.00} kB";
+			return $"{Math.Round((double)bytes / 1024.0 / 1024.0, 2):0.00} MB";
 		}
 
 		private async ValueTask<DBTrieEngine> OpenEngine(string directory, CancellationToken cancellationToken)
@@ -187,7 +232,7 @@ namespace NBXplorer
 
 		class Index
 		{
-			DBTrie.Table table;
+			public DBTrie.Table table;
 			public Index(DBTrie.Transaction tx, string tableName, string primaryKey)
 			{
 				PrimaryKey = primaryKey;
@@ -1228,26 +1273,73 @@ namespace NBXplorer
 			}
 		}
 
-		public async ValueTask DefragmentTables(CancellationToken cancellationToken = default)
+		public async ValueTask<int> DefragmentTables(CancellationToken cancellationToken = default)
 		{
 			using var tx = await engine.OpenTransaction(cancellationToken);
 			var table = tx.GetTable($"{_Suffix}Transactions");
-			var saved = await table.Defragment();
-			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Defragmented transaction table ({PrettyKB(saved)} saved)");
-			await tx.Commit();
-			table.ClearCache();
+			return await Defragment(tx, table, cancellationToken);
 		}
 
-		public async ValueTask MigrateSavedTransactions(CancellationToken cancellationToken = default)
+		public async ValueTask<int> TrimmingEvents(int maxEvents, CancellationToken cancellationToken = default)
+		{
+			using var tx = await engine.OpenTransaction();
+			var idx = GetEventsIndex(tx);
+			// The first row is not a real event
+			var eventCount = await idx.table.GetRecordCount() - 1;
+			int lastEvent = 0;
+			int deletedEvents = 0;
+			while (eventCount > maxEvents)
+			{
+				var removing = (int)Math.Min(5000, eventCount - maxEvents);
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: There is currently {eventCount} in the event table, removing a batch of {removing} of the oldest one.");
+				var rows = await idx.SelectFrom(lastEvent, removing).ToArrayAsync();
+				foreach (var row in rows)
+				{
+					try
+					{
+						await idx.table.Delete(row.Key);
+						deletedEvents++;
+					}
+					catch (NoMorePageAvailableException)
+					{
+						await tx.Commit();
+					}
+					row.Dispose();
+				}
+				await tx.Commit();
+				eventCount = await idx.table.GetRecordCount() - 1;
+			}
+			await Defragment(tx, idx.table, cancellationToken);
+			return deletedEvents;
+		}
+
+		private async ValueTask<int> Defragment(DBTrie.Transaction tx, Table table, CancellationToken cancellationToken)
+		{
+			int saved = 0;
+			try
+			{
+				saved = await table.Defragment(cancellationToken);
+			}
+			catch when (!cancellationToken.IsCancellationRequested)
+			{
+				Logs.Explorer.LogWarning($"{Network.CryptoCode}: Careful, you are probably running low on storage space, so we attempt defragmentation directly on the table, please do not close NBXplorer during the defragmentation.");
+				saved = await table.UnsafeDefragment(cancellationToken);
+			}
+			await tx.Commit();
+			table.ClearCache();
+			return saved;
+		}
+
+		public async ValueTask<int> MigrateSavedTransactions(CancellationToken cancellationToken = default)
 		{
 			using var tx = await engine.OpenTransaction(cancellationToken);
 			var savedTransactions = GetSavedTransactionTable(tx);
 			var legacyTableName = $"{_Suffix}tx-";
 			var legacyTables = await tx.Schema.GetTables(legacyTableName).ToArrayAsync();
 			if (legacyTables.Length == 0)
-				return;
-			Logs.Explorer.LogInformation($"Migrating {legacyTables.Length} legacy tables...");
-			foreach (var batch in legacyTables.Batch(2000))
+				return 0;
+
+			foreach (var batch in legacyTables.Batch(1000))
 			{
 				foreach (var tableName in batch)
 				{
@@ -1265,7 +1357,7 @@ namespace NBXplorer
 				}
 				await tx.Commit();
 			}
-			Logs.Explorer.LogInformation($"Migrated {legacyTables.Length} transaction legacy tables");
+			return legacyTables.Length;
 		}
 
 		private ReadOnlyMemory<byte> GetSavedTransactionKey(uint256 txId, uint256 blockId)
@@ -1282,15 +1374,6 @@ namespace NBXplorer
 		private Table GetSavedTransactionTable(DBTrie.Transaction tx)
 		{
 			return tx.GetTable($"{_Suffix}Txs");
-		}
-
-		private string PrettyKB(int bytes)
-		{
-			if (bytes < 1024)
-				return $"{bytes} bytes";
-			if (bytes / 1024 < 1024)
-				return $"{Math.Round((double)bytes / 1024.0, 2):0.00} kB";
-			return $"{Math.Round((double)bytes / 1024.0 / 1024.0, 2):0.00} MB";
 		}
 	}
 }

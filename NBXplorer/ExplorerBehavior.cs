@@ -273,7 +273,7 @@ namespace NBXplorer
 				{
 					Logs.Explorer.LogError($"{Network.CryptoCode}: Unhandled error while treating a message");
 					Logs.Explorer.LogError(ex.ToString());
-					this.AttachedNode.DisconnectAsync($"{Network.CryptoCode}: Unhandled error while treating a message", ex);
+					this.AttachedNode?.DisconnectAsync($"{Network.CryptoCode}: Unhandled error while treating a message", ex);
 				}
 			});
 		}

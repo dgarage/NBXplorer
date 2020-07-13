@@ -125,6 +125,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		public int TrimEvents { get; set; } = -1;
 		public bool UseRabbitMQ { get; set; } = false;
 		private void StartNBXplorer()
 		{
@@ -142,6 +143,7 @@ namespace NBXplorer.Tests
 			keyValues.Add(("cachechain", "0"));
 			keyValues.Add(("exposerpc", "1"));
 			keyValues.Add(("rpcnotest", "1"));
+			keyValues.Add(("trimevents", TrimEvents.ToString()));
 			keyValues.Add(("mingapsize", "3"));
 			keyValues.Add(("maxgapsize", "8"));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
@@ -193,10 +195,11 @@ namespace NBXplorer.Tests
 
 		string datadir;
 
-		public void ResetExplorer()
+		public void ResetExplorer(bool deleteAll = true)
 		{
 			Host.Dispose();
-			DeleteFolderRecursive(datadir);
+			if (deleteAll)
+				DeleteFolderRecursive(datadir);
 			StartNBXplorer();
 			this.Client.WaitServerStarted();
 		}

@@ -1461,6 +1461,26 @@ namespace NBXplorer.Tests
 			public string Message { get; set; }
 		}
 		[Fact]
+		public void CanTrimEvents()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var ids = tester.Explorer.Generate(100);
+				var session = tester.Client.CreateLongPollingNotificationSession(0);
+				session.WaitForBlocks(ids);
+				var allEvents = session.GetEvents();
+				Assert.Equal(100, allEvents.Length);
+				tester.TrimEvents = 15;
+				tester.ResetExplorer(false);
+				tester.Client.WaitServerStarted();
+				session = tester.Client.CreateLongPollingNotificationSession(0);
+				allEvents = session.GetEvents();
+				Assert.Equal(15, allEvents.Length);
+				Assert.Contains(allEvents.OfType<NewBlockEvent>(), b => b.Hash == ids.Last());
+			}
+		}
+		[Fact]
 		public void CanGetAndSetMetadata()
 		{
 			using (var tester = ServerTester.Create())

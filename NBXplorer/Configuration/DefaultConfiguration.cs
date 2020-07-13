@@ -63,6 +63,7 @@ namespace NBXplorer.Configuration
 			app.Option("--customkeypathtemplate", $"Define an additional derivation path tracked by NBXplorer (Format: m/1/392/*/29, default: empty)", CommandOptionType.SingleValue);
 			app.Option("--maxgapsize", $"The maximum gap address count on which the explorer will track derivation schemes (default: 30)", CommandOptionType.SingleValue);
 			app.Option("--mingapsize", $"The minimum gap address count on which the explorer will track derivation schemes (default: 20)", CommandOptionType.SingleValue);
+			app.Option("--trimevents", $"When NBXplorer starts, NBXplorer will remove old events to reach this count. No trimming if equals to less than 0 (default: -1)", CommandOptionType.SingleValue);
 			app.Option("--signalfilesdir", $"The directory where files signaling if a chain is ready is created (default: the network specific datadir)", CommandOptionType.SingleValue);
 			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);
 			app.Option("--instancename", $"Define an instance name for this server that, if not null, will show in status response and in HTTP response headers (default: empty)", CommandOptionType.SingleValue);
