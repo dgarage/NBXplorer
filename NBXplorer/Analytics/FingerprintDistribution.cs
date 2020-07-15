@@ -17,7 +17,7 @@ namespace NBXplorer.Analytics
 			return new FingerprintDistribution(block);
 		}
 
-		public static FingerprintDistribution operator+(FingerprintDistribution a, FingerprintDistribution b)
+		public static FingerprintDistribution operator +(FingerprintDistribution a, FingerprintDistribution b)
 		{
 			if (a == null)
 				return b;
@@ -212,23 +212,26 @@ namespace NBXplorer.Analytics
 			{
 				feature |= Fingerprint.SequenceMixed;
 			}
-			else if (groupedSequences[0].Key == 0)
+			else if (groupedSequences.Count == 1)
 			{
-				feature |= Fingerprint.SequenceAllZero;
-			}
-			else if (groupedSequences[0].Key == Sequence.Final)
-			{
-				feature |= Fingerprint.SequenceAllFinal;
-			}
-			else if (groupedSequences[0].Key == Sequence.OptInRBF)
-			{
-				feature |= Fingerprint.SequenceAllMinus2;
-			}
-
-			if (groupedSequences.Count == 1 && groupedSequences[0].Key != Sequence.Final)
-			{
-				if (tx.LockTime != LockTime.Zero)
-					feature |= Fingerprint.FeeSniping;
+				if (groupedSequences[0].Key == 0)
+				{
+					feature |= Fingerprint.SequenceAllZero;
+				}
+				else if (groupedSequences[0].Key == Sequence.Final)
+				{
+					feature |= Fingerprint.SequenceAllFinal;
+				}
+				else if (groupedSequences[0].Key == Sequence.OptInRBF)
+				{
+					feature |= Fingerprint.SequenceAllMinus2;
+				}
+				// no else on purpose
+				if (groupedSequences[0].Key != Sequence.Final)
+				{
+					if (tx.LockTime != LockTime.Zero)
+						feature |= Fingerprint.FeeSniping;
+				}
 			}
 
 			if (tx.RBF)
