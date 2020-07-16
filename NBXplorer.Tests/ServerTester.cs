@@ -80,7 +80,8 @@ namespace NBXplorer.Tests
 			{
 				var cryptoSettings = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode(CryptoCode);
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, _Directory);
-
+				if (KeepPreviousData)
+					NodeBuilder.CleanBeforeStartingNode = false;
 				Explorer = NodeBuilder.CreateNode();
 				Explorer.ConfigParameters.Add("txindex", "1");
 				foreach (var node in NodeBuilder.Nodes)
@@ -89,10 +90,12 @@ namespace NBXplorer.Tests
 					node.CookieAuth = cryptoSettings.SupportCookieAuthentication;
 				}
 				NodeBuilder.StartAll();
-				Explorer.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
+				if (!KeepPreviousData)
+					Explorer.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
 
 				datadir = Path.Combine(_Directory, "explorer");
-				DeleteFolderRecursive(datadir);
+				if (!KeepPreviousData)
+					DeleteFolderRecursive(datadir);
 				StartNBXplorer();
 				this.Client.WaitServerStarted();
 			}
@@ -176,6 +179,7 @@ namespace NBXplorer.Tests
 			Host.Dispose();
 			DeleteFolderRecursive(datadir);
 			StartNBXplorer();
+			this.Client.WaitServerStarted();
 		}
 
 		public LongPollingNotificationSession Notifications { get; set; }
@@ -369,6 +373,7 @@ namespace NBXplorer.Tests
 		{
 			get; set;
 		} = true;
+		public bool KeepPreviousData { get; set; }
 
 		public uint256 SendToAddress(BitcoinAddress address, Money amount)
 		{
