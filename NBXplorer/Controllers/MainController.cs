@@ -36,7 +36,7 @@ namespace NBXplorer.Controllers
 			ChainProvider chainProvider,
 			EventAggregator eventAggregator,
 			BitcoinDWaiters waiters,
-			AddressPoolServiceAccessor addressPoolService,
+			AddressPoolService addressPoolService,
 			ScanUTXOSetServiceAccessor scanUTXOSetService,
 			RebroadcasterHostedService rebroadcaster,
 			KeyPathTemplates keyPathTemplates,
@@ -54,7 +54,7 @@ namespace NBXplorer.Controllers
 			Rebroadcaster = rebroadcaster;
 			this.keyPathTemplates = keyPathTemplates;
 			this.fingerprintService = fingerprintService;
-			AddressPoolService = addressPoolService.Instance;
+			AddressPoolService = addressPoolService;
 		}
 		EventAggregator _EventAggregator;
 		private readonly KeyPathTemplates keyPathTemplates;

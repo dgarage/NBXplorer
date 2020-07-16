@@ -151,9 +151,10 @@ namespace NBXplorer
 
 			services.TryAddSingleton<CookieRepository>();
 			services.TryAddSingleton<RepositoryProvider>();
+			services.AddSingleton<IHostedService, RepositoryProvider>(o => o.GetRequiredService<RepositoryProvider>());
 			services.TryAddSingleton<EventAggregator>();
-			services.TryAddSingleton<AddressPoolServiceAccessor>();
-			services.AddSingleton<IHostedService, AddressPoolService>();
+			services.TryAddSingleton<AddressPoolService>();
+			services.AddSingleton<IHostedService, AddressPoolService>(o => o.GetRequiredService<AddressPoolService>());
 			services.TryAddSingleton<BitcoinDWaiters>();
 			services.TryAddSingleton<RebroadcasterHostedService>();
 			services.AddSingleton<IHostedService, ScanUTXOSetService>();

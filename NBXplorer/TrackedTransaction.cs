@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
@@ -141,6 +142,10 @@ namespace NBXplorer
 		public uint256 TxId { get; }
 		public uint256 BlockHash { get; }
 
+		public static TrackedTransactionKey Parse(ReadOnlySpan<byte> str)
+		{
+			return Parse(Encoding.UTF8.GetString(str));
+		}
 		public static TrackedTransactionKey Parse(string str)
 		{
 			str = str.Split('-').Last();

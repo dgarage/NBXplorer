@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.RPC;
+using NBXplorer.Configuration;
 using NBXplorer.Events;
 using NBXplorer.Logging;
 using NBXplorer.Models;
@@ -87,15 +88,18 @@ namespace NBXplorer
 		RepositoryProvider _Repositories;
 		private BitcoinDWaiters _Waiters;
 		Dictionary<NBXplorerNetwork, RebroadcastedTransactions> _BroadcastedTransactionsByCryptoCode;
-		public RebroadcasterHostedService(RepositoryProvider repositories, BitcoinDWaiters waiters, EventAggregator eventAggregator)
+		public RebroadcasterHostedService(
+			NBXplorerNetworkProvider networkProvider,
+			ExplorerConfiguration configuration, 
+			RepositoryProvider repositories, BitcoinDWaiters waiters, EventAggregator eventAggregator)
 		{
 			_Repositories = repositories;
 			_Waiters = waiters;
 			EventAggregator = eventAggregator;
-			_BroadcastedTransactionsByCryptoCode = repositories.GetAll()
+			_BroadcastedTransactionsByCryptoCode = configuration.ChainConfigurations
 													.Select(r => new RebroadcastedTransactions()
 													{
-														Network = r.Network
+														Network = networkProvider.GetFromCryptoCode(r.CryptoCode)
 													}).ToDictionary(t => t.Network);
 		}
 
@@ -104,11 +108,11 @@ namespace NBXplorer
 
 		public EventAggregator EventAggregator { get; }
 
-		public Task StartAsync(CancellationToken cancellationToken)
+		public async Task StartAsync(CancellationToken cancellationToken)
 		{
+			await _Repositories.StartCompletion;
 			_Cts = new CancellationTokenSource();
 			_Loop = RebroadcastLoop(_Cts.Token);
-			return Task.CompletedTask;
 		}
 
 		public void RebroadcastPeriodically(NBXplorerNetwork network, TrackedSource trackedSource, params TrackedTransactionKey[] txIds)
@@ -229,7 +233,7 @@ namespace NBXplorer
 				{
 					EventAggregator.Publish(new EvictedTransactionEvent(tx.TransactionHash));
 				}
-				await repository.CleanTransactions(trackedSource, cleaned.ToList());
+				await repository.Prune(trackedSource, cleaned.ToList());
 			}
 			return result;
 		}

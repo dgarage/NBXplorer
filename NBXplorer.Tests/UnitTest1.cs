@@ -1461,6 +1461,32 @@ namespace NBXplorer.Tests
 			public string Message { get; set; }
 		}
 		[Fact]
+		public void CanTrimEvents()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				tester.Client.WaitServerStarted();
+				var ids = tester.Explorer.Generate(100);
+				var session = tester.Client.CreateLongPollingNotificationSession(0);
+				session.WaitForBlocks(ids);
+				var allEvents = session.GetEvents();
+				Assert.Equal(100, allEvents.Length);
+				tester.TrimEvents = 15;
+				tester.ResetExplorer(false);
+				tester.Client.WaitServerStarted();
+				session = tester.Client.CreateLongPollingNotificationSession(0);
+				allEvents = session.GetEvents();
+				Assert.Equal(15, allEvents.Length);
+				Assert.Contains(allEvents.OfType<NewBlockEvent>(), b => b.Hash == ids.Last());
+				var highestEvent = allEvents.Last().EventId;
+				ids = tester.Explorer.Generate(1);
+				session = tester.Client.CreateLongPollingNotificationSession(0);
+				session.WaitForBlocks(ids);
+				allEvents = session.GetEvents();
+				Assert.Equal(ids[0], Assert.IsType<NewBlockEvent>(allEvents.Last()).Hash);
+			}
+		}
+		[Fact]
 		public void CanGetAndSetMetadata()
 		{
 			using (var tester = ServerTester.Create())
@@ -1793,6 +1819,20 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		[Fact]
+		public async Task CanMigrateTable()
+		{
+			using (var tester = ServerTester.CreateNoAutoStart())
+			{
+				await tester.Load("CanMigrateSavedTransactions");
+				tester.Start();
+				var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+				var txs = await repo.GetSavedTransactions(new uint256("2c374fa299503ea4740a4a60451bb57cdb73ee5cf216978e3ce5366891f98287"));
+				Assert.Equal(2, txs.Length);
+				Assert.Null(txs[0].BlockHash);
+				Assert.Equal(new uint256("4c6585d568dc854059f392130a52e48c44ee4a3fdfd5aceb441a60de3628ea20"), txs[1].BlockHash);
+			}
+		}
 
 		[Fact]
 		public void CanTrack4()

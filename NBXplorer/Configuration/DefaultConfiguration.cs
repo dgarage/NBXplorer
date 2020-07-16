@@ -31,7 +31,8 @@ namespace NBXplorer.Configuration
 			app.Option("--regtest | -regtest", $"Use regtest", CommandOptionType.BoolValue);
 			app.Option("--chains", $"Chains to support comma separated (default: btc, available: {chains})", CommandOptionType.SingleValue);
 
-			foreach(var network in provider.GetAll())
+			app.Option($"--dbcache", $"If more than 0, the size of the cache for the database, in MB. Else, no limit on the size of the cache. (default: 50)", CommandOptionType.SingleValue);
+			foreach (var network in provider.GetAll())
 			{
 				var crypto = network.CryptoCode.ToLowerInvariant();
 				app.Option($"--{crypto}rescan", $"Rescan from startheight", CommandOptionType.BoolValue);
@@ -62,6 +63,7 @@ namespace NBXplorer.Configuration
 			app.Option("--customkeypathtemplate", $"Define an additional derivation path tracked by NBXplorer (Format: m/1/392/*/29, default: empty)", CommandOptionType.SingleValue);
 			app.Option("--maxgapsize", $"The maximum gap address count on which the explorer will track derivation schemes (default: 30)", CommandOptionType.SingleValue);
 			app.Option("--mingapsize", $"The minimum gap address count on which the explorer will track derivation schemes (default: 20)", CommandOptionType.SingleValue);
+			app.Option("--trimevents", $"When NBXplorer starts, NBXplorer will remove old events to reach this count. No trimming if equals to less than 0 (default: -1)", CommandOptionType.SingleValue);
 			app.Option("--signalfilesdir", $"The directory where files signaling if a chain is ready is created (default: the network specific datadir)", CommandOptionType.SingleValue);
 			app.Option("--noauth", $"Disable cookie authentication", CommandOptionType.BoolValue);
 			app.Option("--instancename", $"Define an instance name for this server that, if not null, will show in status response and in HTTP response headers (default: empty)", CommandOptionType.SingleValue);
@@ -149,6 +151,8 @@ namespace NBXplorer.Configuration
 				builder.AppendLine("## rescan forces a rescan from startheight");
 				builder.AppendLine($"#{cryptoCode}.rescan=0");
 			}
+			builder.AppendLine("## If more than 0, the size of the cache for the database, in MB. Else, no limit on the size of the cache. (default: 50)");
+			builder.AppendLine("#dbcache=50");
 			builder.AppendLine("## Disable cookie, local ip authorization (unsecured)");
 			builder.AppendLine("#noauth=0");
 			builder.AppendLine("## Add a server alias to be returned in status response");
