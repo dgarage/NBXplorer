@@ -1286,24 +1286,20 @@ namespace NBXplorer
 			var idx = GetEventsIndex(tx);
 			// The first row is not a real event
 			var eventCount = await idx.table.GetRecordCount() - 1;
-			int lastEvent = 0;
 			int deletedEvents = 0;
 			while (eventCount > maxEvents)
 			{
 				var removing = (int)Math.Min(5000, eventCount - maxEvents);
 				Logs.Explorer.LogInformation($"{Network.CryptoCode}: There is currently {eventCount} in the event table, removing a batch of {removing} of the oldest one.");
-				var rows = await idx.SelectFrom(lastEvent, removing).ToArrayAsync();
+				var rows = await idx.SelectFrom(0, removing).ToArrayAsync();
 				foreach (var row in rows)
 				{
-					try
-					{
-						await idx.table.Delete(row.Key);
-						deletedEvents++;
-					}
-					catch (NoMorePageAvailableException)
-					{
+					// Low evictable page, we should commit
+					if (idx.table.PagePool.FreePageCount == 0 &&
+						(idx.table.PagePool.EvictablePageCount < idx.table.PagePool.MaxPageCount / 10))
 						await tx.Commit();
-					}
+					await idx.table.Delete(row.Key);
+					deletedEvents++;
 					row.Dispose();
 				}
 				await tx.Commit();
