@@ -88,7 +88,7 @@ namespace NBXplorer.Tests
 			//nodeDownloadData = NodeDownloadData.Qtum.v0_18_3;
 			//NBXplorerNetwork = _Provider.GetQTUM();
 			
-			//CryptoCode = "MUE";
+			//CryptoCode = "MUE"; 
 			//nodeDownloadData = NodeDownloadData.MonetaryUnit.v2_1_6;
 			//Network = NBitcoin.Altcoins.MonetaryUnit.Instance.Regtest;
 
