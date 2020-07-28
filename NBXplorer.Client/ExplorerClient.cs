@@ -645,7 +645,11 @@ namespace NBXplorer
 			if (body != null)
 			{
 				if (body is byte[])
-					message.Content = new ByteArrayContent((byte[])body);
+				{
+					var content = new ByteArrayContent((byte[])body);
+					content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+					message.Content = content;
+				}
 				else
 					message.Content = new StringContent(Serializer.ToString(body), Encoding.UTF8, "application/json");
 			}
