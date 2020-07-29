@@ -1835,6 +1835,28 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public async Task DoNotLoseTimestampForLongConfirmations()
+		{
+			using (var tester = ServerTester.Create())
+			{
+				var bob = new BitcoinExtKey(new ExtKey(), tester.Network);
+				var bobPubKey = tester.CreateDerivationStrategy(bob.Neuter());
+				tester.Client.Track(bobPubKey);
+				var id = tester.SendToAddress(tester.AddressOf(bob, "0/1"), Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(bobPubKey, id);
+				var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+				var transactions = await repo.GetTransactions(new DerivationSchemeTrackedSource(bobPubKey), id);
+				var tx = Assert.Single(transactions);
+				var timestamp = tx.FirstSeen;
+				var match = (await repo.GetMatches(tx.Transaction, null, DateTimeOffset.UtcNow + TimeSpan.FromSeconds(2), false));
+				await repo.SaveMatches(match);
+				transactions = await repo.GetTransactions(new DerivationSchemeTrackedSource(bobPubKey), id);
+				tx = Assert.Single(transactions);
+				Assert.Equal(timestamp, tx.FirstSeen);
+			}
+		}
+
+		[Fact]
 		public void CanTrack4()
 		{
 			using (var tester = ServerTester.Create())

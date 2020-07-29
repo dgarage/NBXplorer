@@ -349,9 +349,9 @@ namespace NBXplorer
 			{
 				await Insert($"{key:D20}", value);
 			}
-			public async ValueTask Insert(string key, byte[] value)
+			public async ValueTask Insert(string key, byte[] value, bool replace = true)
 			{
-				await table.Insert($"{PrimaryKey}-{key}", value);
+				await table.Insert($"{PrimaryKey}-{key}", value, replace);
 			}
 			public async Task<int?> SelectInt(int index)
 			{
@@ -1070,7 +1070,7 @@ namespace NBXplorer
 					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
 					var data = value.CreateBitcoinSerializable();
 					bs.ReadWrite(data);
-					await table.Insert(data.Key.ToString(), ms.ToArrayEfficient());
+					await table.Insert(data.Key.ToString(), ms.ToArrayEfficient(), false);
 				}
 			}
 			await tx.Commit();
