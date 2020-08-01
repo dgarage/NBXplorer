@@ -108,6 +108,29 @@ namespace NBXplorer.DerivationStrategy
 			return GetChild(keyPath);
 		}
 
+		class HDRedeemScriptPubKey : IHDScriptPubKey
+		{
+			private readonly DerivationStrategyBase strategyBase;
+			public HDRedeemScriptPubKey(DerivationStrategyBase strategyBase)
+			{
+				this.strategyBase = strategyBase;
+			}
+			public Script ScriptPubKey => strategyBase.GetDerivation().Redeem;
+
+			public bool CanDeriveHardenedPath()
+			{
+				return strategyBase.CanDeriveHardenedPath();
+			}
+			public IHDScriptPubKey Derive(KeyPath keyPath)
+			{
+				return strategyBase.GetChild(keyPath).AsHDRedeemScriptPubKey();
+			}
+		}
+		public IHDScriptPubKey AsHDRedeemScriptPubKey()
+		{
+			return new HDRedeemScriptPubKey(this);
+		}
+
 		public bool CanDeriveHardenedPath()
 		{
 			return false;
