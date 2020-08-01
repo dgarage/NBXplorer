@@ -413,7 +413,7 @@ namespace NBXplorer.Controllers
 					{
 						var childPubKey = pubkey.Derive(keyInfo.KeyPath);
 						NBitcoin.Extensions.AddOrReplace(c.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
-						if (keyInfo.Redeem != null)
+						if (keyInfo.Redeem != null && c.RedeemScript is null && c.WitnessScript is null)
 							redeems.Add(keyInfo.Redeem);
 					}
 				}
