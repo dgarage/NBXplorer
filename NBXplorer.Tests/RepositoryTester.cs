@@ -34,13 +34,13 @@ namespace NBXplorer.Tests
 													   }
 												   }
 											   });
-			_Provider.StartAsync().GetAwaiter().GetResult();
+			_Provider.StartAsync(default).GetAwaiter().GetResult();
 			_Repository = _Provider.GetRepository(new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode("BTC"));
 		}
 
 		public void Dispose()
 		{
-			_Provider.DisposeAsync().GetAwaiter().GetResult();
+			_Provider.StopAsync(default).GetAwaiter().GetResult();
 			ServerTester.DeleteFolderRecursive(_Name);
 		}
 

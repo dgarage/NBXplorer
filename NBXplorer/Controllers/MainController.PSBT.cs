@@ -82,7 +82,7 @@ namespace NBXplorer.Controllers
 					fingerprint = distribution.KnowingThat(known.ToArray())
 											  .PickFingerprint(txBuilder.ShuffleRandom);
 				}
-				catch(InvalidOperationException)
+				catch (InvalidOperationException)
 				{
 
 				}
@@ -149,7 +149,7 @@ namespace NBXplorer.Controllers
 					txBuilder.SetLockTime(new LockTime(0));
 				}
 			}
-			var utxos = (await GetUTXOs(network.CryptoCode, strategy, null)).As<UTXOChanges>().GetUnspentCoins(request.MinConfirmations);
+			var utxos = (await GetUTXOs(network.CryptoCode, strategy, null)).As<UTXOChanges>().GetUnspentUTXOs(request.MinConfirmations);
 			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)
 			{
@@ -165,9 +165,27 @@ namespace NBXplorer.Controllers
 
 			if (request.MinValue != null)
 			{
-				availableCoinsByOutpoint = availableCoinsByOutpoint.Where(c => request.MinValue >= c.Value.Amount).ToDictionary(o => o.Key, o => o.Value);
+				availableCoinsByOutpoint = availableCoinsByOutpoint.Where(c => request.MinValue >= (Money)c.Value.Value).ToDictionary(o => o.Key, o => o.Value);
 			}
-			txBuilder.AddCoins(availableCoinsByOutpoint.Values);
+
+			ICoin[] coins = null;
+			if (strategy.GetDerivation().Redeem != null)
+			{
+				// We need to add the redeem script to the coins
+				var hdKeys = strategy.AsHDRedeemScriptPubKey().AsHDKeyCache();
+				var arr = availableCoinsByOutpoint.Values.ToArray();
+				coins = new ICoin[arr.Length];
+				// Can be very intense CPU wise
+				Parallel.For(0, coins.Length, i =>
+				{
+					coins[i] = ((Coin)arr[i].AsCoin()).ToScriptCoin(hdKeys.Derive(arr[i].KeyPath).ScriptPubKey);
+				});
+			}
+			else
+			{
+				coins = availableCoinsByOutpoint.Values.Select(v => v.AsCoin()).ToArray();
+			}
+			txBuilder.AddCoins(coins);
 
 			foreach (var dest in request.Destinations)
 			{
@@ -281,7 +299,7 @@ namespace NBXplorer.Controllers
 			{
 				DerivationScheme = strategy,
 				PSBT = psbt,
-				RebaseKeyPaths = request.RebaseKeyPaths,				
+				RebaseKeyPaths = request.RebaseKeyPaths,
 				AlwaysIncludeNonWitnessUTXO = request.AlwaysIncludeNonWitnessUTXO
 			};
 			await UpdatePSBTCore(update, network);
@@ -395,7 +413,7 @@ namespace NBXplorer.Controllers
 					{
 						var childPubKey = pubkey.Derive(keyInfo.KeyPath);
 						NBitcoin.Extensions.AddOrReplace(c.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
-						if (keyInfo.Redeem != null)
+						if (keyInfo.Redeem != null && c.RedeemScript is null && c.WitnessScript is null)
 							redeems.Add(keyInfo.Redeem);
 					}
 				}

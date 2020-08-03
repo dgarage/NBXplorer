@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
@@ -141,6 +142,10 @@ namespace NBXplorer
 		public uint256 TxId { get; }
 		public uint256 BlockHash { get; }
 
+		public static TrackedTransactionKey Parse(ReadOnlySpan<byte> str)
+		{
+			return Parse(Encoding.UTF8.GetString(str));
+		}
 		public static TrackedTransactionKey Parse(string str)
 		{
 			str = str.Split('-').Last();
@@ -184,7 +189,9 @@ namespace NBXplorer
 				return true;
 			if (((object)a == null) || ((object)b == null))
 				return false;
-			return a.ToString() == b.ToString();
+			return a.IsPruned == b.IsPruned &&
+				 a.TxId == b.TxId &&
+				 a.BlockHash == b.BlockHash;
 		}
 
 		public static bool operator !=(TrackedTransactionKey a, TrackedTransactionKey b)
@@ -194,7 +201,7 @@ namespace NBXplorer
 
 		public override int GetHashCode()
 		{
-			return ToString().GetHashCode();
+			return HashCode.Combine(IsPruned, TxId, BlockHash);
 		}
 
 		public override string ToString()

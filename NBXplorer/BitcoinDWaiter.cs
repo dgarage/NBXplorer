@@ -30,17 +30,34 @@ namespace NBXplorer
 	public class BitcoinDWaiters : IHostedService
 	{
 		Dictionary<string, BitcoinDWaiter> _Waiters;
+		private readonly AddressPoolService addressPool;
+		private readonly NBXplorerNetworkProvider networkProvider;
+		private readonly ChainProvider chains;
 		private readonly RepositoryProvider repositoryProvider;
+		private readonly ExplorerConfiguration config;
+		private readonly RPCClientProvider rpcProvider;
+		private readonly EventAggregator eventAggregator;
 
 		public BitcoinDWaiters(
-							AddressPoolServiceAccessor addressPool,
-								NBXplorerNetworkProvider networkProvider,
+							AddressPoolService addressPool,
+							  NBXplorerNetworkProvider networkProvider,
 							  ChainProvider chains,
 							  RepositoryProvider repositoryProvider,
 							  ExplorerConfiguration config,
 							  RPCClientProvider rpcProvider,
 							  EventAggregator eventAggregator)
 		{
+			this.addressPool = addressPool;
+			this.networkProvider = networkProvider;
+			this.chains = chains;
+			this.repositoryProvider = repositoryProvider;
+			this.config = config;
+			this.rpcProvider = rpcProvider;
+			this.eventAggregator = eventAggregator;
+		}
+		public async Task StartAsync(CancellationToken cancellationToken)
+		{
+			await repositoryProvider.StartCompletion;
 			_Waiters = networkProvider
 				.GetAll()
 				.Select(s => (Repository: repositoryProvider.GetRepository(s),
@@ -53,21 +70,15 @@ namespace NBXplorer
 												networkProvider.GetFromCryptoCode(s.Network.CryptoCode),
 												s.Chain,
 												s.Repository,
-												addressPool.Instance,
+												addressPool,
 												eventAggregator))
 				.ToDictionary(s => s.Network.CryptoCode, s => s);
-			this.repositoryProvider = repositoryProvider;
-		}
-		public async Task StartAsync(CancellationToken cancellationToken)
-		{
-			await repositoryProvider.StartAsync();
 			await Task.WhenAll(_Waiters.Select(s => s.Value.StartAsync(cancellationToken)).ToArray());
 		}
 
 		public async Task StopAsync(CancellationToken cancellationToken)
 		{
 			await Task.WhenAll(_Waiters.Select(s => s.Value.StopAsync(cancellationToken)).ToArray());
-			await repositoryProvider.DisposeAsync();
 		}
 
 		public BitcoinDWaiter GetWaiter(NBXplorerNetwork network)

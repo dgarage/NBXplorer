@@ -157,7 +157,7 @@ namespace NBXplorer
 								toReplace.ReplacedBy = toKeep.Record.TransactionHash;
 								toReplace.Replaceable = false;
 								toKeep.Replacing = toReplace.Record.TransactionHash;
-								replaced.Add(toReplace.Record.TransactionHash, toReplace);
+								replaced.TryAdd(toReplace.Record.TransactionHash, toReplace);
 							}
 							else
 							{

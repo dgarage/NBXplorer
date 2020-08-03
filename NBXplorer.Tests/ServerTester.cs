@@ -74,13 +74,33 @@ namespace NBXplorer.Tests
 				Start();
 		}
 
+		public async Task Load(string dataName)
+		{
+			datadir = Path.Combine(_Directory, "explorer");
+			if (Directory.Exists(datadir))
+				DeleteFolderRecursive(datadir);
+			Directory.CreateDirectory(_Directory);
+			Directory.CreateDirectory(datadir);
+			datadir = Path.Combine(datadir, "RegTest", "db");
+			Directory.CreateDirectory(datadir);
+			foreach (var file in Directory.GetFiles(Path.Combine("Data", dataName)))
+			{
+				File.Copy(file, Path.Combine(datadir, Path.GetFileName(file)));
+			}
+			LoadedData = true;
+			await using var db = await DBTrie.DBTrieEngine.OpenFromFolder(datadir);
+			using var tx = await db.OpenTransaction();
+			await tx.GetTable("IndexProgress").Delete();
+		}
+
 		public void Start()
 		{
 			try
 			{
 				var cryptoSettings = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode(CryptoCode);
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, _Directory);
-
+				if (KeepPreviousData)
+					NodeBuilder.CleanBeforeStartingNode = false;
 				Explorer = NodeBuilder.CreateNode();
 				Explorer.ConfigParameters.Add("txindex", "1");
 				foreach (var node in NodeBuilder.Nodes)
@@ -89,10 +109,12 @@ namespace NBXplorer.Tests
 					node.CookieAuth = cryptoSettings.SupportCookieAuthentication;
 				}
 				NodeBuilder.StartAll();
-				Explorer.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
+				if (!KeepPreviousData)
+					Explorer.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
 
 				datadir = Path.Combine(_Directory, "explorer");
-				DeleteFolderRecursive(datadir);
+				if (!KeepPreviousData && !LoadedData)
+					DeleteFolderRecursive(datadir);
 				StartNBXplorer();
 				this.Client.WaitServerStarted();
 			}
@@ -103,6 +125,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		public int TrimEvents { get; set; } = -1;
 		public bool UseRabbitMQ { get; set; } = false;
 		private void StartNBXplorer()
 		{
@@ -120,6 +143,7 @@ namespace NBXplorer.Tests
 			keyValues.Add(("cachechain", "0"));
 			keyValues.Add(("exposerpc", "1"));
 			keyValues.Add(("rpcnotest", "1"));
+			keyValues.Add(("trimevents", TrimEvents.ToString()));
 			keyValues.Add(("mingapsize", "3"));
 			keyValues.Add(("maxgapsize", "8"));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
@@ -171,11 +195,13 @@ namespace NBXplorer.Tests
 
 		string datadir;
 
-		public void ResetExplorer()
+		public void ResetExplorer(bool deleteAll = true)
 		{
 			Host.Dispose();
-			DeleteFolderRecursive(datadir);
+			if (deleteAll)
+				DeleteFolderRecursive(datadir);
 			StartNBXplorer();
+			this.Client.WaitServerStarted();
 		}
 
 		public LongPollingNotificationSession Notifications { get; set; }
@@ -369,6 +395,8 @@ namespace NBXplorer.Tests
 		{
 			get; set;
 		} = true;
+		public bool KeepPreviousData { get; set; }
+		public bool LoadedData { get; private set; }
 
 		public uint256 SendToAddress(BitcoinAddress address, Money amount)
 		{
