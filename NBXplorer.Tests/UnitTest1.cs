@@ -1470,7 +1470,6 @@ namespace NBXplorer.Tests
 				var session = tester.Client.CreateLongPollingNotificationSession(0);
 				session.WaitForBlocks(ids);
 				var allEvents = session.GetEvents();
-				Assert.Equal(100, allEvents.Length);
 				tester.TrimEvents = 15;
 				tester.ResetExplorer(false);
 				tester.Client.WaitServerStarted();
