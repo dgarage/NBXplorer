@@ -24,7 +24,7 @@
 		<Optimize>true</Optimize>
         </PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="5.0.48" />
+		<PackageReference Include="NBitcoin" Version="5.0.49" />
 		<PackageReference Include="NBitcoin.Altcoins" Version="2.0.18" />
 		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.18" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
