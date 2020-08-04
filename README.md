@@ -40,6 +40,7 @@ It currently supports the following altcoins:
 * Groestlcoin
 * Litecoin
 * Monacoin
+* MonetaryUnit
 * Monoeci
 * Polis
 * Qtum
