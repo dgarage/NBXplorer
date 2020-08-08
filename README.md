@@ -29,7 +29,6 @@ It currently supports the following altcoins:
 * Argoneum
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
-* Bitcoin
 * Bitcore
 * Chaincoin 
 * ColossusXT
