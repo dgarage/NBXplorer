@@ -92,29 +92,22 @@ namespace NBXplorer.Configuration
 		{
 			var network = networkInfo.NBitcoinNetwork;
 			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
+
+
 			try
 			{
-				var address = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, network);
 				int time = 0;
-				while(true)
+				retry:
+				try
 				{
+					(await rpcClient.SendCommandAsync("getblockchaininfo")).ThrowIfError();
+				}
+				catch (RPCException ex) when (IsTransient(ex))
+				{
+					Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Transient error '{ex.Message}', retrying soon...");
 					time++;
-					try
-					{
-
-						var isValid = ((JObject)(await rpcClient.SendCommandAsync("validateaddress", address.ToString())).Result)["isvalid"].Value<bool>();
-						if(!isValid)
-						{
-							Logs.Configuration.LogError($"{networkInfo.CryptoCode}: The RPC Server is on a different blockchain than the one configured for tumbling");
-							throw new ConfigException();
-						}
-						break;
-					}
-					catch(RPCException ex) when(IsTransient(ex))
-					{
-						Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Transient error '{ex.Message}', retrying soon...");
-						await Task.Delay(Math.Min(1000 * time, 10000), cancellation);
-					}
+					await Task.Delay(Math.Min(1000 * time, 10000), cancellation);
+					goto retry;
 				}
 			}
 			catch(ConfigException)
@@ -131,9 +124,10 @@ namespace NBXplorer.Configuration
 				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: Error connecting to RPC server " + ex.Message);
 				throw new ConfigException();
 			}
+
 			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: RPC connection successful");
 			var capabilities = await rpcClient.ScanRPCCapabilitiesAsync();
-			if(capabilities.Version < networkInfo.MinRPCVersion)
+			if (capabilities.Version < networkInfo.MinRPCVersion)
 			{
 				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: The minimum node version required is {networkInfo.MinRPCVersion} (detected: {capabilities.Version})");
 				throw new ConfigException();
