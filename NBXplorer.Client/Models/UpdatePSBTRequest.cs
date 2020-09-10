@@ -25,6 +25,11 @@ namespace NBXplorer.Models
 		/// Attempt setting non_witness_utxo for all inputs even if they are segwit.
 		/// </summary>
 		public bool AlwaysIncludeNonWitnessUTXO { get; set; }
+
+		/// <summary>
+		/// Whether the include the global xpub in the PSBT (default: false)
+		/// </summary>
+		public bool? IncludeGlobalXPub { get; set; }
 	}
 	public class UpdatePSBTResponse
 	{

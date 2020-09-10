@@ -27,6 +27,10 @@ namespace NBXplorer.Models
 		public bool? DiscourageFeeSniping { get; set; }
 
 		/// <summary>
+		/// Whether the include the global xpub in the PSBT (default: false)
+		/// </summary>
+		public bool? IncludeGlobalXPub { get; set; }
+		/// <summary>
 		/// Whether this transaction should use RBF or not.
 		/// </summary>
 		public bool? RBF { get; set; }

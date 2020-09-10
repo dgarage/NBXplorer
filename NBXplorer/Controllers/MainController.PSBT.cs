@@ -300,7 +300,8 @@ namespace NBXplorer.Controllers
 				DerivationScheme = strategy,
 				PSBT = psbt,
 				RebaseKeyPaths = request.RebaseKeyPaths,
-				AlwaysIncludeNonWitnessUTXO = request.AlwaysIncludeNonWitnessUTXO
+				AlwaysIncludeNonWitnessUTXO = request.AlwaysIncludeNonWitnessUTXO,
+				IncludeGlobalXPub = request.IncludeGlobalXPub
 			};
 			await UpdatePSBTCore(update, network);
 			var resp = new CreatePSBTResponse()
@@ -332,16 +333,17 @@ namespace NBXplorer.Controllers
 			var repo = RepositoryProvider.GetRepository(network);
 			var rpc = Waiters.GetWaiter(network);
 			await UpdateUTXO(update, repo, rpc);
-
 			if (update.DerivationScheme is DerivationStrategyBase derivationScheme)
 			{
-				foreach (var extpub in derivationScheme.GetExtPubKeys().Select(e => e.GetWif(network.NBitcoinNetwork)))
+				if (update.IncludeGlobalXPub is true)
 				{
-					update.PSBT.GlobalXPubs.AddOrReplace(extpub, new RootedKeyPath(extpub, new KeyPath()));
+					foreach (var extpub in derivationScheme.GetExtPubKeys().Select(e => e.GetWif(network.NBitcoinNetwork)))
+					{
+						update.PSBT.GlobalXPubs.AddOrReplace(extpub, new RootedKeyPath(extpub, new KeyPath()));
+					}
 				}
 				await UpdateHDKeyPathsWitnessAndRedeem(update, repo);
 			}
-
 			if (!update.AlwaysIncludeNonWitnessUTXO)
 			{
 				foreach (var input in update.PSBT.Inputs)

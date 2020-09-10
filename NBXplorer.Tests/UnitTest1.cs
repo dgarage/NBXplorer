@@ -424,6 +424,7 @@ namespace NBXplorer.Tests
 					},
 					DisableFingerprintRandomization = true
 				});
+				Assert.Empty(psbt.PSBT.GlobalXPubs);
 				Assert.Null(psbt.Suggestions);
 				Assert.NotEqual(LockTime.Zero, psbt.PSBT.GetGlobalTransaction().LockTime);
 				psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
@@ -828,7 +829,8 @@ namespace NBXplorer.Tests
 							AccountKey = userDerivationScheme.GetExtPubKeys().First().GetWif(tester.Network),
 							AccountKeyPath = new RootedKeyPath(rootHD, new KeyPath("49'/0'"))
 						}
-					}
+					},
+				IncludeGlobalXPub = true
 			});
 			var globalXPub = psbt2.PSBT.GlobalXPubs[userDerivationScheme.GetExtPubKeys().First().GetWif(tester.Network)];
 			Assert.Equal(new KeyPath("49'/0'"), globalXPub.KeyPath);
