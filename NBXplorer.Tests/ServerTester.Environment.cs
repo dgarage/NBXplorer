@@ -96,15 +96,14 @@ namespace NBXplorer.Tests
 			//nodeDownloadData = NodeDownloadData.Elements.v0_18_1_1;
 			//NBXplorerNetwork = _Provider.GetLBTC();
 			//
-			//CryptoCode = "BTC";
-			//nodeDownloadData = NodeDownloadData.Bitcoin.v0_19_0_1;
-			//NBXplorerNetwork = _Provider.GetBTC();
+			CryptoCode = "BTC";
+			nodeDownloadData = NodeDownloadData.Bitcoin.v0_19_0_1;
+			NBXplorerNetwork = _Provider.GetBTC();
 
-			CryptoCode = "DOGEC";
-			nodeDownloadData = NodeDownloadData.DogeCash.v5_1_1;
-			NBXplorerNetwork = _Provider.GetDOGEC();
-			//RPCSupportSegwit = false;
-			RPCStringAmount = false;
+			//CryptoCode = "DOGEC";
+			//nodeDownloadData = NodeDownloadData.DogeCash.v5_1_1;
+			//NBXplorerNetwork = _Provider.GetDOGEC();
+			//RPCStringAmount = false;
 		}
 	}
 }
