@@ -430,7 +430,7 @@ namespace NBXplorer.Controllers
 			if (input.IsFinalized())
 				return false;
 			var needNonWitnessUTXO = !input.PSBT.Network.Consensus.NeverNeedPreviousTxForSigning &&
-									!((input.GetSignableCoin() ?? input.GetCoin())?.GetHashVersion() is HashVersion.Witness);
+									!((input.GetSignableCoin() ?? input.GetCoin())?.IsMalleable is false);
 			if (needNonWitnessUTXO)
 				return input.NonWitnessUtxo == null;
 			else

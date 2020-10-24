@@ -28,6 +28,8 @@ namespace NBXplorer.Altcoins.Liquid
 
 		public bool CanGetScriptCode => innerCoin.CanGetScriptCode;
 
+		public bool IsMalleable => innerCoin.IsMalleable;
+
 		public HashVersion GetHashVersion()
 		{
 			return innerCoin.GetHashVersion();
