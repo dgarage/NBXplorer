@@ -112,7 +112,7 @@ namespace NBXplorer
 					{
 						annotatedTransaction.Replaceable = false;
 						annotatedTransaction.ReplacedBy = parent.ReplacedBy;
-						replaced.Add(annotatedTransaction.Record.TransactionHash, annotatedTransaction);
+						replaced.TryAdd(annotatedTransaction.Record.TransactionHash, annotatedTransaction);
 						toRemove.Add(annotatedTransaction.Record.TransactionHash);
 						goto nextTransaction;
 					}
