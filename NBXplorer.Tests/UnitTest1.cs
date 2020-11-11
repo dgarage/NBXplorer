@@ -1845,7 +1845,7 @@ namespace NBXplorer.Tests
 				tester.Client.Track(bobPubKey);
 				var id = tester.SendToAddress(tester.AddressOf(bob, "0/1"), Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(bobPubKey, id);
-				var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Network.NetworkSet.CryptoCode);
 				var transactions = await repo.GetTransactions(new DerivationSchemeTrackedSource(bobPubKey), id);
 				var tx = Assert.Single(transactions);
 				var timestamp = tx.FirstSeen;

@@ -20,8 +20,8 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Litecoin.Instance.Regtest;
 
 			//CryptoCode = "BCH";
-			//nodeDownloadData = NodeDownloadData.BCash.v0_16_2;
-			//Network = NBitcoin.Altcoins.BCash.Instance.Regtest;
+			//nodeDownloadData = NodeDownloadData.BCash.v22_1_0;
+			//NBXplorerNetwork = _Provider.GetBCH();
 
 			//Tests of DOGE are broken because it outpoint locking seems to work differently
 			//CryptoCode = "DOGE";
@@ -87,7 +87,7 @@ namespace NBXplorer.Tests
 			//CryptoCode = "QTUM";
 			//nodeDownloadData = NodeDownloadData.Qtum.v0_18_3;
 			//NBXplorerNetwork = _Provider.GetQTUM();
-			
+
 			//CryptoCode = "MUE";
 			//nodeDownloadData = NodeDownloadData.MonetaryUnit.v2_1_6;
 			//Network = NBitcoin.Altcoins.MonetaryUnit.Instance.Regtest;
@@ -97,7 +97,7 @@ namespace NBXplorer.Tests
 			//NBXplorerNetwork = _Provider.GetLBTC();
 			//
 			CryptoCode = "BTC";
-			nodeDownloadData = NodeDownloadData.Bitcoin.v0_19_0_1;
+			nodeDownloadData = NodeDownloadData.Bitcoin.v0_20_1;
 			NBXplorerNetwork = _Provider.GetBTC();
 		}
 	}
