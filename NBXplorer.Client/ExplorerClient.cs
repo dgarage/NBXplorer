@@ -313,13 +313,23 @@ namespace NBXplorer
 			CancelReservationAsync(strategy, keyPaths, cancellation).GetAwaiter().GetResult();
 		}
 
-		public GetBalanceResponse GetBalance(DerivationStrategyBase userDerivationScheme, CancellationToken cancellation = default)
+		public GetBalanceResponse GetBalance(DerivationStrategyBase userDerivationScheme)
 		{
 			return GetBalanceAsync(userDerivationScheme).GetAwaiter().GetResult();
 		}
 		public Task<GetBalanceResponse> GetBalanceAsync(DerivationStrategyBase userDerivationScheme, CancellationToken cancellation = default)
 		{
 			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/balance", new[] { CryptoCode, userDerivationScheme.ToString() }, cancellation);
+		}
+
+
+		public GetBalanceResponse GetBalance(string address)
+		{
+			return GetBalanceAsync(address).GetAwaiter().GetResult();
+		}
+		public Task<GetBalanceResponse> GetBalanceAsync(string address, CancellationToken cancellation = default)
+		{
+			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, "v1/cryptos/{0}/addresses/{1}/balance", new[] { CryptoCode, address }, cancellation);
 		}
 
 		public Task CancelReservationAsync(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default)
