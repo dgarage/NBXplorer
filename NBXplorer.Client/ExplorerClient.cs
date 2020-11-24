@@ -78,7 +78,7 @@ namespace NBXplorer
 			}
 		}
 
-		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress = null): this(network, serverAddress, null)
+		public ExplorerClient(NBXplorerNetwork network, Uri serverAddress = null) : this(network, serverAddress, null)
 		{
 
 		}
@@ -315,11 +315,21 @@ namespace NBXplorer
 
 		public GetBalanceResponse GetBalance(DerivationStrategyBase userDerivationScheme, CancellationToken cancellation = default)
 		{
-			return GetBalanceAsync(userDerivationScheme).GetAwaiter().GetResult();
+			return GetBalanceAsync(userDerivationScheme, cancellation).GetAwaiter().GetResult();
 		}
 		public Task<GetBalanceResponse> GetBalanceAsync(DerivationStrategyBase userDerivationScheme, CancellationToken cancellation = default)
 		{
 			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, "v1/cryptos/{0}/derivations/{1}/balance", new[] { CryptoCode, userDerivationScheme.ToString() }, cancellation);
+		}
+
+
+		public GetBalanceResponse GetBalance(BitcoinAddress address, CancellationToken cancellation = default)
+		{
+			return GetBalanceAsync(address, cancellation).GetAwaiter().GetResult();
+		}
+		public Task<GetBalanceResponse> GetBalanceAsync(BitcoinAddress address, CancellationToken cancellation = default)
+		{
+			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, "v1/cryptos/{0}/addresses/{1}/balance", new[] { CryptoCode, address.ToString() }, cancellation);
 		}
 
 		public Task CancelReservationAsync(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default)
@@ -533,7 +543,7 @@ namespace NBXplorer
 		{
 			SetMetadataAsync<TMetadata>(derivationScheme, key, value, cancellationToken).GetAwaiter().GetResult();
 		}
-		
+
 		public Task SetMetadataAsync<TMetadata>(DerivationStrategyBase derivationScheme, string key, TMetadata value, CancellationToken cancellationToken = default)
 		{
 			return SendAsync<string>(HttpMethod.Post, value, "v1/cryptos/{0}/derivations/{1}/metadata/{2}", new object[] { CryptoCode, derivationScheme, key }, cancellationToken);
@@ -622,7 +632,7 @@ namespace NBXplorer
 			{
 				return default(T);
 			}
-			if(result.StatusCode == HttpStatusCode.GatewayTimeout || result.StatusCode == HttpStatusCode.RequestTimeout)
+			if (result.StatusCode == HttpStatusCode.GatewayTimeout || result.StatusCode == HttpStatusCode.RequestTimeout)
 			{
 				throw new HttpRequestException($"HTTP error {(int)result.StatusCode}", new TimeoutException());
 			}
