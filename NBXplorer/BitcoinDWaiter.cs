@@ -586,7 +586,7 @@ namespace NBXplorer
 					return false;
 				}
 			}
-			catch (RPCException r) when (r.RPCCode == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
+			catch (RPCException r) when (r.RPCCode == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY || r.RPCCode == RPCErrorCode.RPC_INVALID_PARAMETER)
 			{
 				return false;
 			}
