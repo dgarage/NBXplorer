@@ -484,7 +484,7 @@ namespace NBXplorer
 							chainLoaded = true;
 							var peer = (await _RPCWithTimeout.GetPeersInfoAsync())
 										.FirstOrDefault(p => p.SubVersion == userAgent);
-							if (peer != null && !peer.IsWhiteListed)
+							if (IsWhitelisted(peer))
 							{
 								var addressStr = peer.Address?.Address?.ToString();
 								if (addressStr == null)
@@ -544,6 +544,17 @@ namespace NBXplorer
 				EnsureNodeDisposed(node ?? _Node);
 				throw;
 			}
+		}
+
+		private bool IsWhitelisted(PeerInfo peer)
+		{
+			if (peer is null)
+				return false;
+			if (peer.IsWhiteListed)
+				return true;
+			if (peer.Permissions.Contains("noban", StringComparer.OrdinalIgnoreCase))
+				return true;
+			return false;
 		}
 
 		private void Node_StateChanged(Node node, NodeState oldState)
