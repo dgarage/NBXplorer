@@ -8,7 +8,7 @@ jobs:
       - run:
           command: |
             dotnet --info
-            dotnet build -c Release /p:TreatWarningsAsErrors=true
+            dotnet build -c Release
             dotnet test -c Release --no-build ./NBXplorer.Tests/NBXplorer.Tests.csproj --filter "Azure!=Azure&Broker!=RabbitMq" -v n < /dev/null
 
   # publish jobs require $DOCKERHUB_REPO, $DOCKERHUB_USER, $DOCKERHUB_PASS defined
