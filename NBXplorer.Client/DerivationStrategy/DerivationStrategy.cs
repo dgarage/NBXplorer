@@ -51,7 +51,6 @@ namespace NBXplorer.DerivationStrategy
 		public HashSet<string> AuthorizedOptions { get; } = new HashSet<string>();
 
 		readonly Regex MultiSigRegex = new Regex("^([0-9]{1,2})-of(-[A-Za-z0-9]+)+$");
-		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 		public DerivationStrategyBase Parse(string str)
 		{
 			var strategy = ParseCore(str);

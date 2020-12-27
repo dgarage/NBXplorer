@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
+using NBitcoin.Scripting;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using NBXplorer.Logging;
@@ -57,7 +58,7 @@ namespace NBXplorer
 		class ScannedItems
 		{
 			public Dictionary<Script, KeyPathInformation> KeyPathInformations = new Dictionary<Script, KeyPathInformation>();
-			public List<ScanTxoutSetObject> Descriptors = new List<ScanTxoutSetObject>();
+			public List<OutputDescriptor> Descriptors = new List<OutputDescriptor>();
 		}
 
 		public ScanUTXOSetService(ScanUTXOSetServiceAccessor accessor,
@@ -324,7 +325,7 @@ namespace NBXplorer
 							  var derivation = lineDerivation.Derive((uint)index);
 							  var info = new KeyPathInformation(derivation, derivationStrategy, feature,
 								  keyPathTemplate.GetKeyPath(index, false), network);
-							  items.Descriptors.Add(new ScanTxoutSetObject(ScanTxoutDescriptor.Raw(info.ScriptPubKey)));
+							  items.Descriptors.Add(OutputDescriptor.NewRaw(info.ScriptPubKey));
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
 							  return info;
 						  }).All(_ => true);

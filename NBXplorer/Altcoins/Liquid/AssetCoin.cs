@@ -27,6 +27,7 @@ namespace NBXplorer.Altcoins.Liquid
 		public TxOut TxOut => innerCoin.TxOut;
 
 		public bool CanGetScriptCode => innerCoin.CanGetScriptCode;
+		public bool IsMalleable => innerCoin.IsMalleable;
 
 		public HashVersion GetHashVersion()
 		{

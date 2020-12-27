@@ -1,9 +1,7 @@
 using NBXplorer.DerivationStrategy;
-using System.Linq;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Text;
 
 namespace NBXplorer.Models
 {
