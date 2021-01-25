@@ -29,6 +29,7 @@ namespace NBXplorer.Configuration
 			app.Option("-n | --network", $"Set the network among (mainnet,testnet,regtest) (default: mainnet)", CommandOptionType.SingleValue);
 			app.Option("--testnet | -testnet", $"Use testnet", CommandOptionType.BoolValue);
 			app.Option("--regtest | -regtest", $"Use regtest", CommandOptionType.BoolValue);
+			app.Option("--signet | -signet", $"Use signet", CommandOptionType.BoolValue);
 			app.Option("--chains", $"Chains to support comma separated (default: btc, available: {chains})", CommandOptionType.SingleValue);
 
 			app.Option($"--dbcache", $"If more than 0, the size of the cache for the database, in MB. Else, no limit on the size of the cache. (default: 50)", CommandOptionType.SingleValue);
