@@ -8,7 +8,7 @@ namespace NBXplorer.Tests
 {
     public partial class ServerTester
     {
-		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(NetworkType.Regtest);
+		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(ChainName.Regtest);
 		private void SetEnvironment()
 		{
 			//CryptoCode = "AGM";

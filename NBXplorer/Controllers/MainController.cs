@@ -237,7 +237,7 @@ namespace NBXplorer.Controllers
 
 			var status = new StatusResult()
 			{
-				NetworkType = network.NBitcoinNetwork.NetworkType,
+				NetworkType = network.NBitcoinNetwork.ChainName,
 				CryptoCode = network.CryptoCode,
 				Version = typeof(MainController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version,
 				SupportedCryptoCodes = Waiters.All().Select(w => w.Network.CryptoCode).ToArray(),

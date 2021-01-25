@@ -12,7 +12,7 @@ namespace NBXplorer
 	{
 		public class LiquidNBXplorerNetwork : NBXplorerNetwork
 		{
-			internal LiquidNBXplorerNetwork(INetworkSet networkSet, NetworkType networkType) : base(networkSet, networkType)
+			internal LiquidNBXplorerNetwork(INetworkSet networkSet, ChainName networkType) : base(networkSet, networkType)
 			{
 			}
 
@@ -44,12 +44,12 @@ namespace NBXplorer
 				return blindingKey;
 			}
 		}
-		private void InitLiquid(NetworkType networkType)
+		private void InitLiquid(ChainName networkType)
 		{
 			Add(new LiquidNBXplorerNetwork(NBitcoin.Altcoins.Liquid.Instance, networkType)
 			{
 				MinRPCVersion = 150000,
-				CoinType = networkType == NetworkType.Mainnet ? new KeyPath("1776'") : new KeyPath("1'"),
+				CoinType = networkType == ChainName.Mainnet ? new KeyPath("1776'") : new KeyPath("1'"),
 			});
 		}
 

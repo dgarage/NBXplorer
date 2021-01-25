@@ -7,7 +7,7 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitDogecoin(NetworkType networkType)
+		private void InitDogecoin(ChainName networkType)
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Dogecoin.Instance, networkType)
 			{
@@ -15,7 +15,7 @@ namespace NBXplorer
 				ChainLoadingTimeout = TimeSpan.FromHours(1),
 				ChainCacheLoadingTimeout = TimeSpan.FromMinutes(2),
 				SupportCookieAuthentication = false,
-				CoinType = NetworkType == NetworkType.Mainnet ? new KeyPath("3'") : new KeyPath("1'")
+				CoinType = NetworkType == ChainName.Mainnet ? new KeyPath("3'") : new KeyPath("1'")
 			});
 		}
 

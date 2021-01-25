@@ -7,12 +7,12 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitUfo(NetworkType networkType)
+		private void InitUfo(ChainName networkType)
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Ufo.Instance, networkType)
 			{
 				MinRPCVersion = 150000,
-				CoinType = NetworkType == NetworkType.Mainnet ? new KeyPath("202'") : new KeyPath("1'")
+				CoinType = NetworkType == ChainName.Mainnet ? new KeyPath("202'") : new KeyPath("1'")
 			});
 		}
 

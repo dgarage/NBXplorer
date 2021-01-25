@@ -74,8 +74,8 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
-		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
-		public NetworkType NetworkType
+		[JsonConverter(typeof(NBitcoin.JsonConverters.ChainNameJsonConverter))]
+		public ChainName NetworkType
 		{
 			get;
 			set;

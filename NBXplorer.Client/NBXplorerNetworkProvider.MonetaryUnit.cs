@@ -7,7 +7,7 @@ namespace NBXplorer
 {
 	public partial class NBXplorerNetworkProvider
 	{
-		private void InitMonetaryUnit(NetworkType networkType)
+		private void InitMonetaryUnit(ChainName networkType)
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.MonetaryUnit.Instance, networkType)
 			{

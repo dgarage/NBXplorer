@@ -7,12 +7,12 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitViacoin(NetworkType networkType)
+		private void InitViacoin(ChainName networkType)
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Viacoin.Instance, networkType)
 			{
 				MinRPCVersion = 140200,
-				CoinType = NetworkType == NetworkType.Mainnet ? new KeyPath("14'") : new KeyPath("1'")
+				CoinType = NetworkType == ChainName.Mainnet ? new KeyPath("14'") : new KeyPath("1'")
 			});
 		}
 

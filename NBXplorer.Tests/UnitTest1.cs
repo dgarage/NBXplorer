@@ -34,7 +34,7 @@ namespace NBXplorer.Tests
 			Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
 			Logs.LogProvider = new XUnitLogProvider(helper);
 		}
-		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(NetworkType.Regtest);
+		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(ChainName.Regtest);
 		private NBXplorerNetwork GetNetwork(INetworkSet network)
 		{
 			return _Provider.GetFromCryptoCode(network.CryptoCode);
@@ -43,9 +43,9 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanCreateNetworkProvider()
 		{
-			foreach (var networkType in Enum.GetValues(typeof(NetworkType)))
+			foreach (var networkType in new[] { ChainName.Mainnet, ChainName.Testnet, ChainName.Regtest })
 			{
-				_ = new NBXplorerNetworkProvider((NetworkType)networkType);
+				_ = new NBXplorerNetworkProvider((ChainName)networkType);
 			}
 		}
 
@@ -1275,7 +1275,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(tester.Client.Network.CryptoCode, (string)cryptoCode);
 
 				//Configure JSON custom serialization
-				NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode((string)cryptoCode);
+				NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode((string)cryptoCode);
 				JsonSerializerSettings settings = new JsonSerializerSettings();
 				new Serializer(networkForDeserializion).ConfigureSerializer(settings);
 
@@ -1365,7 +1365,7 @@ namespace NBXplorer.Tests
 				var message = Encoding.UTF8.GetString(result.Body);
 
 				//Configure JSON custom serialization
-				NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode((string)cryptoCode);
+				NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode((string)cryptoCode);
 				JsonSerializerSettings settings = new JsonSerializerSettings();
 				new Serializer(networkForDeserializion).ConfigureSerializer(settings);
 
@@ -1446,7 +1446,7 @@ namespace NBXplorer.Tests
 				var message = Encoding.UTF8.GetString(result.Body);
 
 				//Configure JSON custom serialization
-				NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode((string)cryptoCode);
+				NBXplorerNetwork networkForDeserializion = new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode((string)cryptoCode);
 				JsonSerializerSettings settings = new JsonSerializerSettings();
 				new Serializer(networkForDeserializion).ConfigureSerializer(settings);
 
@@ -2334,7 +2334,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(1.0, status.BitcoinStatus.VerificationProgress);
 				Assert.NotNull(status.Version);
 				Assert.Equal(tester.CryptoCode, status.CryptoCode);
-				Assert.Equal(NetworkType.Regtest, status.NetworkType);
+				Assert.Equal(ChainName.Regtest, status.NetworkType);
 				Assert.Equal(tester.CryptoCode, status.SupportedCryptoCodes[0]);
 				Assert.Single(status.SupportedCryptoCodes);
 				Assert.NotNull(status.BitcoinStatus.Capabilities);

@@ -7,7 +7,7 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitColossus(NetworkType networkType)
+		private void InitColossus(ChainName networkType)
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Colossus.Instance, networkType)
 			{

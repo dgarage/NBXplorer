@@ -7,12 +7,12 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitArgoneum(NetworkType networkType)
+		private void InitArgoneum(ChainName networkType)
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Argoneum.Instance, networkType)
 			{
 				MinRPCVersion = 1040000,
-				CoinType = networkType == NetworkType.Mainnet ? new KeyPath("421'") : new KeyPath("1'")
+				CoinType = networkType == ChainName.Mainnet ? new KeyPath("421'") : new KeyPath("1'")
 			});
 		}
 

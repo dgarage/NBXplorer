@@ -279,7 +279,7 @@ namespace NBXplorer
 					{
 						blockchainInfo = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
 						if (_Network.CryptoCode == "BTC" &&
-							_Network.NBitcoinNetwork.NetworkType == NetworkType.Mainnet &&
+							_Network.NBitcoinNetwork.ChainName == ChainName.Mainnet &&
 							!_BanListLoaded)
 						{
 							try
@@ -292,7 +292,7 @@ namespace NBXplorer
 								Logs.Explorer.LogWarning($"{Network.CryptoCode}: Error while trying to load the ban list, skipping... ({ex.Message})");
 							}
 						}
-						if (blockchainInfo != null && _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest)
+						if (blockchainInfo != null && _Network.NBitcoinNetwork.ChainName == ChainName.Regtest)
 						{
 							if (await WarmupBlockchain())
 							{
@@ -461,7 +461,7 @@ namespace NBXplorer
 							node.VersionHandshake(handshakeTimeout.Token);
 							handshaked = true;
 							Logs.Explorer.LogInformation($"{Network.CryptoCode}: Handshaked");
-							var loadChainTimeout = _Network.NBitcoinNetwork.NetworkType == NetworkType.Regtest ? TimeSpan.FromSeconds(5) : _Network.ChainCacheLoadingTimeout;
+							var loadChainTimeout = _Network.NBitcoinNetwork.ChainName == ChainName.Regtest ? TimeSpan.FromSeconds(5) : _Network.ChainCacheLoadingTimeout;
 							if (_Chain.Height < 5)
 								loadChainTimeout = TimeSpan.FromDays(7); // unlimited
 							Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Loading chain from node");
@@ -716,7 +716,7 @@ namespace NBXplorer
 		{
 			if (blockchainInfo.InitialBlockDownload == true)
 				return true;
-			if (blockchainInfo.MedianTime.HasValue && _Network.NBitcoinNetwork.NetworkType != NetworkType.Regtest)
+			if (blockchainInfo.MedianTime.HasValue && _Network.NBitcoinNetwork.ChainName != ChainName.Regtest)
 			{
 				var time = NBitcoin.Utils.UnixTimeToDateTime(blockchainInfo.MedianTime.Value);
 				// 5 month diff? probably synching...

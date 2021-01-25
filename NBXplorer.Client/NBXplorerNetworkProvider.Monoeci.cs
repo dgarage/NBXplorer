@@ -7,12 +7,12 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitMonoeci(NetworkType networkType)
+		private void InitMonoeci(ChainName networkType)
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Monoeci.Instance, networkType)
 			{
 				MinRPCVersion = 120203,
-				CoinType = NetworkType == NetworkType.Mainnet ? new KeyPath("1998'") : new KeyPath("1'")
+				CoinType = NetworkType == ChainName.Mainnet ? new KeyPath("1998'") : new KeyPath("1'")
 			});
 		}
 

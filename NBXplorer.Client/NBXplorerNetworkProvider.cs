@@ -5,7 +5,7 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		public NBXplorerNetworkProvider(NetworkType networkType)
+		public NBXplorerNetworkProvider(ChainName networkType)
 		{
 			NetworkType = networkType;
 			InitArgoneum(networkType);
@@ -36,7 +36,7 @@ namespace NBXplorer
 			}
 		}
 
-		public NetworkType NetworkType
+		public ChainName NetworkType
 		{
 			get;
 			private set;

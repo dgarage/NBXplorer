@@ -11,7 +11,7 @@ namespace NBXplorer
 {
 	public class NBXplorerNetwork
 	{
-		internal NBXplorerNetwork(INetworkSet networkSet, NetworkType networkType)
+		internal NBXplorerNetwork(INetworkSet networkSet, ChainName networkType)
 		{
 			NBitcoinNetwork = networkSet.GetNetwork(networkType);
 			CryptoCode = networkSet.CryptoCode;

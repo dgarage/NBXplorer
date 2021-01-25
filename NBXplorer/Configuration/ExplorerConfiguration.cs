@@ -156,7 +156,7 @@ namespace NBXplorer.Configuration
 			}
 			var invalidChains = String.Join(',', supportedChains.Where(s => !validChains.Contains(s)).ToArray());
 			if(!string.IsNullOrEmpty(invalidChains))
-				throw new ConfigException($"Invalid chains {invalidChains}");
+				throw new ConfigException($"Invalid chains {invalidChains} for {NetworkProvider.NetworkType}");
 
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
 			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);

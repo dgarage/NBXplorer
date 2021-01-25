@@ -20,7 +20,7 @@ namespace NBXplorer.Tests
 		{
 			_Name = name;
 			ServerTester.DeleteFolderRecursive(name);
-			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(NetworkType.Regtest),
+			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(ChainName.Regtest),
 											   KeyPathTemplates.Default,
 											   new Configuration.ExplorerConfiguration()
 											   {
@@ -35,7 +35,7 @@ namespace NBXplorer.Tests
 												   }
 											   });
 			_Provider.StartAsync(default).GetAwaiter().GetResult();
-			_Repository = _Provider.GetRepository(new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode("BTC"));
+			_Repository = _Provider.GetRepository(new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode("BTC"));
 		}
 
 		public void Dispose()

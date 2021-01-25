@@ -97,7 +97,7 @@ namespace NBXplorer.Tests
 		{
 			try
 			{
-				var cryptoSettings = new NBXplorerNetworkProvider(NetworkType.Regtest).GetFromCryptoCode(CryptoCode);
+				var cryptoSettings = new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode(CryptoCode);
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, _Directory);
 				if (KeepPreviousData)
 					NodeBuilder.CleanBeforeStartingNode = false;

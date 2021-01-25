@@ -7,12 +7,12 @@ namespace NBXplorer
 {
     public partial class NBXplorerNetworkProvider
     {
-		private void InitQtum(NetworkType networkType)
+		private void InitQtum(ChainName networkType)
 		{
 			Add(new NBXplorerNetwork(NBitcoin.Altcoins.Qtum.Instance, networkType)
 			{
 				MinRPCVersion = 140200,
-				CoinType = networkType == NetworkType.Mainnet ? new KeyPath("2301'") : new KeyPath("1'")
+				CoinType = networkType == ChainName.Mainnet ? new KeyPath("2301'") : new KeyPath("1'")
 			});
 		}
 
