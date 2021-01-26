@@ -486,6 +486,10 @@ namespace NBXplorer
 										.FirstOrDefault(p => p.SubVersion == userAgent);
 							if (IsWhitelisted(peer))
 							{
+								Logs.Explorer.LogInformation($"{Network.CryptoCode}: NBXplorer is correctly whitelisted by the node");
+							}
+							else
+							{
 								var addressStr = peer.Address?.Address?.ToString();
 								if (addressStr == null)
 								{
@@ -497,10 +501,6 @@ namespace NBXplorer
 
 								Logs.Explorer.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
 									$" you should add \"whitelist={addressStr}\" to the configuration file of your node. (Or use whitebind)");
-							}
-							if (peer != null && peer.IsWhiteListed)
-							{
-								Logs.Explorer.LogInformation($"{Network.CryptoCode}: NBXplorer is correctly whitelisted by the node");
 							}
 						}
 						catch
