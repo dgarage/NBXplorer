@@ -26,6 +26,7 @@ It has a bunch of feature:
 
 It currently supports the following altcoins:
 
+* Althash
 * Argoneum
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
