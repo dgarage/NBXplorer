@@ -98,6 +98,8 @@ Check [the API documentation](docs/API.md), you can then use any client library:
 * [NBXplorer.NodeJS](https://github.com/junderw/NBXplorer.NodeJS) for NodeJS clients.
 * [NBXplorer.Client](https://www.nuget.org/packages/NBxplorer.Client) for .NET clients.
 
+Here is [a small C# example](Examples/MultiSig/Program.cs) showing a 2-2 multisig with Alice and Bob that you can run on regtest.
+
 ## With Docker
 
 Use [our image](https://hub.docker.com/r/nicolasdorier/nbxplorer/).
