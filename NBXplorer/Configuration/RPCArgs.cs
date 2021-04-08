@@ -93,14 +93,15 @@ namespace NBXplorer.Configuration
 			var network = networkInfo.NBitcoinNetwork;
 			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
 
-
+			RPCResponse blockchainInfo = null;
 			try
 			{
 				int time = 0;
 				retry:
 				try
 				{
-					(await rpcClient.SendCommandAsync("getblockchaininfo")).ThrowIfError();
+					blockchainInfo = await rpcClient.SendCommandAsync("getblockchaininfo");
+					blockchainInfo.ThrowIfError();
 				}
 				catch (RPCException ex) when (IsTransient(ex))
 				{
@@ -126,6 +127,18 @@ namespace NBXplorer.Configuration
 			}
 
 			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: RPC connection successful");
+			if (blockchainInfo?.Result["chain"]?.Value<string>() is string rpcChain)
+			{
+				List<string> expectedNames = new List<string>();
+				expectedNames.Add(network.ChainName.ToString());
+				expectedNames.Add(network.ChainName.ToString().Replace("net", string.Empty, StringComparison.OrdinalIgnoreCase));
+				if (!expectedNames.Any(e => rpcChain.Equals(e, StringComparison.OrdinalIgnoreCase)))
+				{
+					Logs.Configuration.LogError($"{networkInfo.CryptoCode}: NBXplorer expected chain is '{network.ChainName}', but the RPC node is running '{rpcChain}'");
+					throw new ConfigException();
+				}
+			}
+
 			var capabilities = await rpcClient.ScanRPCCapabilitiesAsync();
 			if (capabilities.Version < networkInfo.MinRPCVersion)
 			{
