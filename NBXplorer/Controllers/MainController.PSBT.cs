@@ -469,7 +469,7 @@ namespace NBXplorer.Controllers
 						}
 						else
 						{
-							input.WitnessUtxo = tx.Record.ReceivedCoins.FirstOrDefault(c => c.Outpoint.N == input.Index)
+							input.WitnessUtxo = tx.Record.ReceivedCoins.FirstOrDefault(c => c.Outpoint.N == input.PrevOut.N)
 								?.TxOut;
 						}
 					}
