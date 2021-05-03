@@ -66,7 +66,7 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Groestlcoin.Instance.Regtest;
 
 			//CryptoCode = "BTX";
-			//nodeDownloadData = NodeDownloadData.Bitcore.v0_15_2;
+			//nodeDownloadData = NodeDownloadData.Bitcore.v0_90_9_10;
 			//Network = NBitcoin.Altcoins.Bitcore.Instance.Regtest;
 
 			//CryptoCode = "XMCC";
