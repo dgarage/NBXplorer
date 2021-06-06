@@ -9,7 +9,7 @@ The explorer supports P2SH,P2PKH,P2WPKH,P2WSH and Multi-sig derivation.
 
 This explorer is not meant to be exposed on internet, but should be used as an internal tool for tracking the UTXOs of your own service.
 
-It has a bunch of feature:
+It has a bunch of features:
 
 * Can pass arguments via environment variable, command line or configuration file
 * Automatically reconnect to your node if the connection goes temporarily down
