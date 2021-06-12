@@ -31,6 +31,7 @@ namespace NBXplorer
 			InitQtum(networkType);
 			InitAlthash(networkType);
 			InitMonetaryUnit(networkType);
+			InitDogeCash(networkType);
 			foreach (var chain in _Networks.Values)
 			{
 				chain.DerivationStrategyFactory ??= chain.CreateStrategyFactory();

@@ -99,6 +99,11 @@ namespace NBXplorer.Tests
 			CryptoCode = "BTC";
 			nodeDownloadData = NodeDownloadData.Bitcoin.v0_21_0;
 			NBXplorerNetwork = _Provider.GetBTC();
+
+			//CryptoCode = "DOGEC";
+			//nodeDownloadData = NodeDownloadData.DogeCash.v5_1_1;
+			//NBXplorerNetwork = _Provider.GetDOGEC();
+			//RPCStringAmount = false;
 		}
 	}
 }
