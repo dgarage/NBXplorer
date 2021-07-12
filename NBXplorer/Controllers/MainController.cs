@@ -86,11 +86,11 @@ namespace NBXplorer.Controllers
 		[Consumes("application/json", "application/json-rpc")]
 		public async Task<IActionResult> RPCProxy(string cryptoCode)
 		{
-			if (!ExplorerConfiguration.ExposeRPC)
+			var network = GetNetwork(cryptoCode, true);
+			if (!ExplorerConfiguration.ChainConfigurations.First(configuration => configuration.CryptoCode.Equals(cryptoCode, StringComparison.InvariantCultureIgnoreCase)).ExposeRPC)
 			{
 				throw new NBXplorerError(401, "json-rpc-not-exposed", $"JSON-RPC is not configured to be exposed.").AsException();
 			}
-			var network = GetNetwork(cryptoCode, true);
 			var waiter = Waiters.GetWaiter(network);
 			var jsonRPC = string.Empty;
 			using (var reader = new StreamReader(Request.Body, Encoding.UTF8))

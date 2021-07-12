@@ -48,6 +48,7 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public bool HasTxIndex { get; set; }
+		public bool ExposeRPC { get; set; }
 	}
 	public class ExplorerConfiguration
 	{
@@ -110,6 +111,7 @@ namespace NBXplorer.Configuration
 									  .Split(',', StringSplitOptions.RemoveEmptyEntries)
 									  .Select(t => t.ToUpperInvariant());
 			var validChains = new List<string>();
+			var exposeRPCGlobal = config.GetOrDefault<bool>("exposerpc", false);
 			foreach(var network in NetworkProvider.GetAll())
 			{
 				if(supportedChains.Contains(network.CryptoCode))
@@ -150,7 +152,7 @@ namespace NBXplorer.Configuration
 					}
 					
 					chainConfiguration.HasTxIndex = config.GetOrDefault<bool>($"{network.CryptoCode}.hastxindex", false);
-
+					chainConfiguration.ExposeRPC = config.GetOrDefault<bool>($"{network.CryptoCode}.exposerpc", exposeRPCGlobal);
 					ChainConfigurations.Add(chainConfiguration);
 				}
 			}
@@ -176,7 +178,6 @@ namespace NBXplorer.Configuration
 			if (!Directory.Exists(SignalFilesDir))
 				Directory.CreateDirectory(SignalFilesDir);
 			CacheChain = config.GetOrDefault<bool>("cachechain", true);
-			ExposeRPC = config.GetOrDefault<bool>("exposerpc", false);
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 			InstanceName = config.GetOrDefault<string>("instancename", "");
 			TrimEvents = config.GetOrDefault<int>("trimevents", -1);
@@ -272,7 +273,6 @@ namespace NBXplorer.Configuration
         public string RabbitMqPassword { get; set; }
         public string RabbitMqTransactionExchange { get; set; }
         public string RabbitMqBlockExchange { get; set; }
-        public bool ExposeRPC { get; set; }
 
 		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
     }
