@@ -105,12 +105,18 @@ namespace NBXplorer.Controllers
 			if (jsonRPC.StartsWith("["))
 			{
 				var batchRPC = waiter.RPC.PrepareBatch();
-				var results = network.Serializer.ToObject<RPCRequest[]>(jsonRPC).Select(rpcRequest => batchRPC.SendCommandAsync(rpcRequest, false)).ToList();
+				var results = network.Serializer.ToObject<RPCRequest[]>(jsonRPC).Select(rpcRequest =>
+				{
+					rpcRequest.ThrowIfRPCError = false;
+					return batchRPC.SendCommandAsync(rpcRequest);
+				}).ToList();
 				await batchRPC.SendBatchAsync();
 				return Json(results.Select(task => task.Result));
 			}
 
-			return Json(await waiter.RPC.SendCommandAsync(network.Serializer.ToObject<RPCRequest>(jsonRPC), false));
+			var req = network.Serializer.ToObject<RPCRequest>(jsonRPC);
+			req.ThrowIfRPCError = false;
+			return Json(await waiter.RPC.SendCommandAsync(req));
 		}
 		
 		[HttpGet]
@@ -224,8 +230,8 @@ namespace NBXplorer.Controllers
 				try
 				{
 					var rpc = waiter.RPC.Clone();
-					rpc.RequestTimeout = TimeSpan.FromMinutes(1.0);
-					blockchainInfo = await rpc.GetBlockchainInfoAsyncEx();
+					using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1.0));
+					blockchainInfo = await rpc.GetBlockchainInfoAsyncEx(cts.Token);
 				}
 				catch (HttpRequestException ex) when (ex.InnerException is IOException) { } // Sometimes "The response ended prematurely."
 				catch (IOException) { } // Sometimes "The response ended prematurely."
@@ -985,7 +991,7 @@ namespace NBXplorer.Controllers
 			{
 				if (testMempoolAccept)
 				{
-					var mempoolAccept = await waiter.RPC.TestMempoolAcceptAsync(tx);
+					var mempoolAccept = await waiter.RPC.TestMempoolAcceptAsync(tx, default);
 					if (mempoolAccept.IsAllowed)
 						return new BroadcastResult(true);
 					var rpcCode = GetRPCCodeFromReason(mempoolAccept.RejectReason);

@@ -99,7 +99,6 @@ namespace NBXplorer
 
 	public class BitcoinDWaiter : IHostedService
 	{
-		RPCClient _RPCWithTimeout;
 		RPCClient _OriginalRPC;
 		NBXplorerNetwork _Network;
 		ExplorerConfiguration _Configuration;
@@ -121,8 +120,6 @@ namespace NBXplorer
 			if (addressPoolService == null)
 				throw new ArgumentNullException(nameof(addressPoolService));
 			_OriginalRPC = rpc;
-			_RPCWithTimeout = rpc.Clone();
-			_RPCWithTimeout.RequestTimeout = TimeSpan.FromMinutes(1.0);
 			_Configuration = configuration;
 			_Network = network;
 			_Chain = chain;
@@ -154,7 +151,7 @@ namespace NBXplorer
 		{
 			get
 			{
-				return _RPCWithTimeout;
+				return _OriginalRPC;
 			}
 		}
 
@@ -272,12 +269,12 @@ namespace NBXplorer
 			switch (State)
 			{
 				case BitcoinDWaiterState.NotStarted:
-					await RPCArgs.TestRPCAsync(_Network, _RPCWithTimeout, token);
-					_OriginalRPC.Capabilities = _RPCWithTimeout.Capabilities;
+					await RPCArgs.TestRPCAsync(_Network, _OriginalRPC, token);
+					_OriginalRPC.Capabilities = _OriginalRPC.Capabilities;
 					GetBlockchainInfoResponse blockchainInfo = null;
 					try
 					{
-						blockchainInfo = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
+						blockchainInfo = await _OriginalRPC.GetBlockchainInfoAsyncEx();
 						if (_Network.CryptoCode == "BTC" &&
 							_Network.NBitcoinNetwork.ChainName == ChainName.Mainnet &&
 							!_BanListLoaded)
@@ -296,7 +293,7 @@ namespace NBXplorer
 						{
 							if (await WarmupBlockchain())
 							{
-								blockchainInfo = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
+								blockchainInfo = await _OriginalRPC.GetBlockchainInfoAsyncEx();
 							}
 						}
 					}
@@ -319,7 +316,7 @@ namespace NBXplorer
 					GetBlockchainInfoResponse blockchainInfo2 = null;
 					try
 					{
-						blockchainInfo2 = await _RPCWithTimeout.GetBlockchainInfoAsyncEx();
+						blockchainInfo2 = await _OriginalRPC.GetBlockchainInfoAsyncEx();
 					}
 					catch (Exception ex)
 					{
@@ -363,7 +360,7 @@ namespace NBXplorer
 			if (changed)
 			{
 				if (oldState == BitcoinDWaiterState.NotStarted)
-					NetworkInfo = await _RPCWithTimeout.GetNetworkInfoAsync();
+					NetworkInfo = await _OriginalRPC.GetNetworkInfoAsync();
 				_EventAggregator.Publish(new BitcoinDStateChangedEvent(_Network, oldState, State));
 				if (State == BitcoinDWaiterState.Ready)
 				{
@@ -402,11 +399,11 @@ namespace NBXplorer
 				content = reader.ReadToEnd();
 			}
 			var bannedLines = content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-			var batch = _RPCWithTimeout.PrepareBatch();
+			var batch = _OriginalRPC.PrepareBatch();
 			var commands = bannedLines
 						.Where(o => o.Length > 0 && o[0] != '#')
 						.Select(b => b.Split(' ')[2])
-						.Select(ip => batch.SendCommandAsync(new RPCRequest("setban", new object[] { ip, "add", 31557600 }), false))
+						.Select(ip => batch.SendCommandAsync(new RPCRequest("setban", new object[] { ip, "add", 31557600 }) { ThrowIfRPCError = false }))
 						.ToArray();
 			await batch.SendBatchAsync();
 			foreach (var command in commands)
@@ -430,7 +427,7 @@ namespace NBXplorer
 				if (_Configuration.CacheChain)
 				{
 					LoadChainFromCache();
-					if (!await HasBlock(_RPCWithTimeout, _Chain.Tip))
+					if (!await HasBlock(_OriginalRPC, _Chain.Tip))
 					{
 						Logs.Configuration.LogInformation($"{_Network.CryptoCode}: The cached chain contains a tip unknown to the node, dropping the cache...");
 						_Chain.ResetToGenesis();
@@ -482,7 +479,7 @@ namespace NBXplorer
 							}
 							Logs.Explorer.LogInformation($"{Network.CryptoCode}: Chain loaded");
 							chainLoaded = true;
-							var peer = (await _RPCWithTimeout.GetPeersInfoAsync())
+							var peer = (await _OriginalRPC.GetPeersInfoAsync())
 										.FirstOrDefault(p => p.SubVersion == userAgent);
 							if (IsWhitelisted(peer))
 							{
@@ -490,15 +487,7 @@ namespace NBXplorer
 							}
 							else
 							{
-								var addressStr = peer.Address?.Address?.ToString();
-								if (addressStr == null)
-								{
-									addressStr = peer.AddressString;
-									var portDelimiter = addressStr.LastIndexOf(':');
-									if (portDelimiter != -1)
-										addressStr = addressStr.Substring(0, portDelimiter);
-								}
-
+								var addressStr = peer.Address is IPEndPoint end ? end.Address.ToString() : peer.Address?.ToString();
 								Logs.Explorer.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
 									$" you should add \"whitelist={addressStr}\" to the configuration file of your node. (Or use whitebind)");
 							}
@@ -683,29 +672,29 @@ namespace NBXplorer
 
 		private async Task<bool> WarmupBlockchain()
 		{
-			if (await _RPCWithTimeout.GetBlockCountAsync() < _Network.NBitcoinNetwork.Consensus.CoinbaseMaturity)
+			if (await _OriginalRPC.GetBlockCountAsync() < _Network.NBitcoinNetwork.Consensus.CoinbaseMaturity)
 			{
 				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Less than {_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity} blocks, mining some block for regtest");
-				await _RPCWithTimeout.EnsureGenerateAsync(_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity + 1);
+				await _OriginalRPC.EnsureGenerateAsync(_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity + 1);
 				return true;
 			}
 			else
 			{
-				var hash = await _RPCWithTimeout.GetBestBlockHashAsync();
+				var hash = await _OriginalRPC.GetBestBlockHashAsync();
 
 				BlockHeader header = null;
 				try
 				{
-					header = await _RPCWithTimeout.GetBlockHeaderAsync(hash);
+					header = await _OriginalRPC.GetBlockHeaderAsync(hash);
 				}
 				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
 				{
-					header = (await _RPCWithTimeout.GetBlockAsync(hash)).Header;
+					header = (await _OriginalRPC.GetBlockAsync(hash)).Header;
 				}
 				if ((DateTimeOffset.UtcNow - header.BlockTime) > TimeSpan.FromSeconds(24 * 60 * 60))
 				{
 					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: It has been a while nothing got mined on regtest... mining 10 blocks");
-					await _RPCWithTimeout.GenerateAsync(10);
+					await _OriginalRPC.GenerateAsync(10);
 					return true;
 				}
 				return false;

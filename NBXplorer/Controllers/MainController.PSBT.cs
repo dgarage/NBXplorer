@@ -293,7 +293,8 @@ namespace NBXplorer.Controllers
 			var tx = psbt.GetOriginalTransaction();
 			if (request.Version is uint v)
 				tx.Version = v;
-			psbt = txBuilder.CreatePSBTFrom(tx, false, SigHash.All);
+			txBuilder.SetSigningOptions(SigHash.All);
+			psbt = txBuilder.CreatePSBTFrom(tx, false);
 
 			var update = new UpdatePSBTRequest()
 			{

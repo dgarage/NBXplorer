@@ -206,7 +206,7 @@ namespace NBXplorer
 						}
 						else
 						{
-							var resultRPC = await waiter.RPC.SendCommandAsync(new RPCRequest("getblockheader", new[] { savedTx.BlockHash }), throwIfRPCError: false);
+							var resultRPC = await waiter.RPC.SendCommandAsync(new RPCRequest("getblockheader", new[] { savedTx.BlockHash }) { ThrowIfRPCError = false });
 							if (resultRPC.Error?.Code is RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
 							{
 								cleaned.Add(savedTx);

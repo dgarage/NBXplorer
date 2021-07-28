@@ -67,7 +67,7 @@ namespace NBXplorer
 		}
 		public static async Task<DateTimeOffset?> GetBlockTimeAsync(this RPCClient client, uint256 blockId, bool throwIfNotFound = true)
 		{
-			var response = await client.SendCommandAsync(new RPCRequest("getblockheader", new object[] { blockId }), throwIfNotFound).ConfigureAwait(false);
+			var response = await client.SendCommandAsync(new RPCRequest("getblockheader", new object[] { blockId }) { ThrowIfRPCError = throwIfNotFound }).ConfigureAwait(false);
 			if(throwIfNotFound)
 				response.ThrowIfError();
 			if(response.Error != null && response.Error.Code == RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)

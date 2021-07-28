@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using NBXplorer.Models;
 using NBitcoin.DataEncoders;
+using System.Threading;
 
 namespace NBXplorer
 {
@@ -73,9 +74,9 @@ namespace NBXplorer
 
 	public static class RPCClientExtensions
     {
-		public static async Task<GetBlockchainInfoResponse> GetBlockchainInfoAsyncEx(this RPCClient client)
+		public static async Task<GetBlockchainInfoResponse> GetBlockchainInfoAsyncEx(this RPCClient client, CancellationToken cancellationToken = default)
 		{
-			var result = await client.SendCommandAsync("getblockchaininfo").ConfigureAwait(false);
+			var result = await client.SendCommandAsync("getblockchaininfo", cancellationToken).ConfigureAwait(false);
 			return JsonConvert.DeserializeObject<GetBlockchainInfoResponse>(result.ResultString);
 		}
 
@@ -100,8 +101,8 @@ namespace NBXplorer
 
 		public static async Task<Repository.SavedTransaction> TryGetRawTransaction(this RPCClient client, uint256 txId)
 		{
-			var request = new RPCRequest(RPCOperations.getrawtransaction, new object[] { txId, true });
-			var response = await client.SendCommandAsync(request, false);
+			var request = new RPCRequest(RPCOperations.getrawtransaction, new object[] { txId, true }) { ThrowIfRPCError = false };
+			var response = await client.SendCommandAsync(request);
 			if (response.Error == null && response.Result is JToken rpcResult && rpcResult["hex"] != null)
 			{
 				uint256 blockHash = null;

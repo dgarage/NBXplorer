@@ -911,7 +911,7 @@ namespace NBXplorer.Tests
 				var payment2 = Money.Coins(0.08m);
 
 				Logs.Tester.LogInformation("Tx1 get spent by Tx2, then Tx3 is replacing Tx1. So Tx1 and Tx2 should also appear replaced. Tx4 then spends Tx3.");
-				var tx1 = tester.RPC.SendToAddress(a1.ScriptPubKey, payment1, replaceable: true);
+				var tx1 = tester.RPC.SendToAddress(a1.ScriptPubKey, payment1, new SendToAddressParameters() { Replaceable = true });
 				tester.Notifications.WaitForTransaction(bob, tx1);
 				Logs.Tester.LogInformation($"Tx1: {tx1}");
 				var utxo = tester.Client.GetUTXOs(bob); //Wait tx received
@@ -1656,7 +1656,7 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForTransaction(pubkey, spending1);
 				LockTestCoins(tester.RPC, new HashSet<Script>());
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, coinDestination.KeyPath.ToString()));
-				var spending2 = tester.RPC.SendToAddress(new Key().ScriptPubKey, Money.Coins(0.01m));
+				var spending2 = tester.RPC.SendToAddress(new Key().GetScriptPubKey(ScriptPubKeyType.Legacy), Money.Coins(0.01m));
 				tester.Notifications.WaitForTransaction(pubkey, spending2);
 				Logs.Tester.LogInformation($"Spent again the coin in spending2({spending2})");
 				var tx = tester.RPC.GetRawTransactionAsync(spending2).Result;
@@ -2657,7 +2657,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(new KeyPath("0/3"), utxo.Confirmed.UTXOs[2].KeyPath);
 
 				Logs.Tester.LogInformation("Making sure we can query a transaction our wallet does not know about if txindex=1");
-				txId = tester.SendToAddress(new Key().ScriptPubKey, Money.Coins(1.0m));
+				txId = tester.SendToAddress(new Key().GetScriptPubKey(ScriptPubKeyType.Legacy), Money.Coins(1.0m));
 				Assert.NotNull(tester.Client.GetTransaction(txId));
 				var blockId = tester.Explorer.Generate(1);
 				tester.Notifications.WaitForBlocks(blockId);

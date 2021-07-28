@@ -139,8 +139,6 @@ namespace NBXplorer
 					}
 					Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning {workItem.DerivationStrategy.ToPrettyString()} from index {workItem.Options.From} with gap limit {workItem.Options.GapLimit}, batch size {workItem.Options.BatchSize}");
 					var rpc = RpcClients.GetRPCClient(workItem.Network);
-					rpc = rpc.Clone();
-					rpc.RequestTimeout = TimeSpan.FromMinutes(10.0);
 					try
 					{
 						var repo = Repositories.GetRepository(workItem.Network);
@@ -157,7 +155,7 @@ namespace NBXplorer
 						workItem.State.Progress.UpdateRemainingBatches(workItem.Options.GapLimit);
 						workItem.State.Status = ScanUTXOStatus.Pending;
 						var scannedItems = GetScannedItems(workItem, workItem.State.Progress, workItem.Network);
-						var scanning = rpc.StartScanTxoutSetAsync(scannedItems.Descriptors.ToArray());
+						var scanning = rpc.StartScanTxoutSetAsync(new ScanTxoutSetParameters(scannedItems.Descriptors));
 
 						while (true)
 						{
@@ -209,7 +207,7 @@ namespace NBXplorer
 									{
 										scannedItems = GetScannedItems(workItem, progressObj, workItem.Network);
 										workItem.State.Progress = progressObj;
-										scanning = rpc.StartScanTxoutSetAsync(scannedItems.Descriptors.ToArray());
+										scanning = rpc.StartScanTxoutSetAsync(new ScanTxoutSetParameters(scannedItems.Descriptors));
 									}
 								}
 								catch (OperationCanceledException) when (cts.Token.IsCancellationRequested)
@@ -325,7 +323,7 @@ namespace NBXplorer
 							  var derivation = lineDerivation.Derive((uint)index);
 							  var info = new KeyPathInformation(derivation, derivationStrategy, feature,
 								  keyPathTemplate.GetKeyPath(index, false), network);
-							  items.Descriptors.Add(OutputDescriptor.NewRaw(info.ScriptPubKey));
+							  items.Descriptors.Add(OutputDescriptor.NewRaw(info.ScriptPubKey, network.NBitcoinNetwork));
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
 							  return info;
 						  }).All(_ => true);

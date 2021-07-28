@@ -100,7 +100,7 @@ namespace NBXplorer.Configuration
 				retry:
 				try
 				{
-					blockchainInfo = await rpcClient.SendCommandAsync("getblockchaininfo");
+					blockchainInfo = await rpcClient.SendCommandAsync("getblockchaininfo", cancellation);
 					blockchainInfo.ThrowIfError();
 				}
 				catch (RPCException ex) when (IsTransient(ex))
@@ -128,7 +128,7 @@ namespace NBXplorer.Configuration
 
 			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: RPC connection successful");
 
-			var capabilities = await rpcClient.ScanRPCCapabilitiesAsync();
+			var capabilities = await rpcClient.ScanRPCCapabilitiesAsync(cancellation);
 			if (capabilities.Version < networkInfo.MinRPCVersion)
 			{
 				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: The minimum node version required is {networkInfo.MinRPCVersion} (detected: {capabilities.Version})");
