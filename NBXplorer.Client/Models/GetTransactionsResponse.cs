@@ -23,6 +23,11 @@ namespace NBXplorer.Models
 			get; set;
 		} = new TransactionInformationSet();
 
+		public TransactionInformationSet ImmatureTransactions
+		{
+			get; set;
+		} = new TransactionInformationSet();
+
 		public TransactionInformationSet ReplacedTransactions
 		{
 			get; set;
@@ -64,6 +69,11 @@ namespace NBXplorer.Models
 			get; set;
 		}
 		public int? Height
+		{
+			get; set;
+		}
+
+		public bool IsMature
 		{
 			get; set;
 		}
