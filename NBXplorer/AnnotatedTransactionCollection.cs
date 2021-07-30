@@ -298,6 +298,11 @@ namespace NBXplorer
 			get; set;
 		} = new List<AnnotatedTransaction>();
 
+		public List<AnnotatedTransaction> ImmatureTransactions
+		{
+			get; set;
+		} = new List<AnnotatedTransaction>();
+
 		public List<AnnotatedTransaction> UnconfirmedTransactions
 		{
 			get; set;
