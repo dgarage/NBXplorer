@@ -54,10 +54,6 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     hostname: rabbitmq
-    environment:
-      "RABBITMQ_DEFAULT_PASS": "guest"
-      "RABBITMQ_DEFAULT_USER": "guest"
-      "RABBITMQ_DEFAULT_VHOST": "/"
     ports:
       - 4369:4369
       - 5671:5671
