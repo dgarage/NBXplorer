@@ -203,7 +203,12 @@ namespace NBXplorer
 			foreach (var tx in sortedTransactions)
 			{
 				if (tx.Height is int)
-					ConfirmedTransactions.Add(tx);
+				{
+					if(tx.IsMature)
+						ConfirmedTransactions.Add(tx);
+					else
+						ImmatureTransactions.Add(tx);
+				}
 				else
 				{
 					UnconfirmedTransactions.Add(tx);
