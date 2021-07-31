@@ -36,12 +36,11 @@ namespace NBXplorer.Tests
 				}
 			}
 		}
-
-		public static void WaitForBlocks(this LongPollingNotificationSession session, params uint256[] txIds)
+		public static void WaitForBlocks(this LongPollingNotificationSession session, params uint256[] blockIds)
 		{
-			if (txIds == null || txIds.Length == 0)
+			if (blockIds == null || blockIds.Length == 0)
 				return;
-			HashSet<uint256> txidsSet = new HashSet<uint256>(txIds);
+			HashSet<uint256> txidsSet = new HashSet<uint256>(blockIds);
 			using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20)))
 			{
 				while (true)

@@ -858,9 +858,10 @@ namespace NBXplorer.Controllers
 			{
 				Confirmed = CalculateBalance(network, transactions.ConfirmedTransactions),
 				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions),
-				Immature = CalculateBalance(network,transactions.ImmatureTransactions),
-			};
-			balance.Total = balance.Confirmed.Add(balance.Unconfirmed).Add(balance.Immature);
+				Immature = CalculateBalance(network, transactions.ImmatureTransactions)
+		};
+			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
+			balance.Available = balance.Total.Sub(balance.Immature);
 			return Json(balance, jsonResult.SerializerSettings);
 		}
 

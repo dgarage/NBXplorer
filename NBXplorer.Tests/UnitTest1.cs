@@ -2663,6 +2663,45 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForBlocks(blockId);
 				var savedTx = tester.Client.GetTransaction(txId);
 				Assert.Equal(blockId[0], savedTx.BlockId);
+
+				// Ensure the current state is correct
+				var balance = tester.Client.GetBalance(pubkey);
+				Assert.Equal(Money.Coins(2.5m), balance.Confirmed);
+				Assert.Equal(Money.Coins(0.0m), balance.Unconfirmed);
+				Assert.Equal(Money.Coins(2.5m), balance.Total);
+				Assert.Equal(Money.Coins(0.0m), balance.Immature);
+				Assert.Equal(Money.Coins(2.5m), balance.Available);
+				Logs.Tester.LogInformation("Let's mine, and check that the balance is not updated until maturity occurs");
+				var blkid = tester.RPC.GenerateToAddress(1, tester.AddressOf(key, "0/0"))[0];
+				var blk = tester.RPC.GetBlock(blkid);
+				var minedTxId = blk.Transactions[0].GetHash();
+				tester.Notifications.WaitForTransaction(pubkey, minedTxId);
+				balance = tester.Client.GetBalance(pubkey);
+				Assert.Equal(Money.Coins(52.5m), balance.Confirmed);
+				Assert.Equal(Money.Coins(0.0m), balance.Unconfirmed);
+				Assert.Equal(Money.Coins(52.5m), balance.Total);
+				Assert.Equal(Money.Coins(50.0m), balance.Immature);
+				Assert.Equal(Money.Coins(2.5m), balance.Available);
+				var utxos = tester.Client.GetUTXOs(pubkey);
+				Assert.DoesNotContain(utxos.Confirmed.UTXOs, u => u.Outpoint.Hash == minedTxId);
+				Assert.DoesNotContain(utxos.Unconfirmed.UTXOs, u => u.Outpoint.Hash == minedTxId);
+				var transactions = tester.Client.GetTransactions(pubkey);
+				Assert.Contains(transactions.ConfirmedTransactions.Transactions, u => u.TransactionId == minedTxId);
+				Assert.Contains(transactions.ImmatureTransactions.Transactions, u => u.TransactionId == minedTxId);
+				// Let's generate enough block and see if the transaction is finally mature
+				var blockIds = tester.RPC.Generate(tester.Network.Consensus.CoinbaseMaturity);
+				tester.Notifications.WaitForBlocks(blockIds);
+				balance = tester.Client.GetBalance(pubkey);
+				Assert.Equal(Money.Coins(52.5m), balance.Confirmed);
+				Assert.Equal(Money.Coins(0.0m), balance.Unconfirmed);
+				Assert.Equal(Money.Coins(52.5m), balance.Total);
+				Assert.Equal(Money.Coins(0.0m), balance.Immature);
+				Assert.Equal(Money.Coins(52.5m), balance.Available);
+				transactions = tester.Client.GetTransactions(pubkey);
+				utxos = tester.Client.GetUTXOs(pubkey);
+				Assert.Empty(transactions.ImmatureTransactions.Transactions);
+				Assert.Contains(utxos.Confirmed.UTXOs, u => u.Outpoint.Hash == minedTxId);
+				Assert.Contains(transactions.ConfirmedTransactions.Transactions, u => u.TransactionId == minedTxId);
 			}
 		}
 		[Fact]
