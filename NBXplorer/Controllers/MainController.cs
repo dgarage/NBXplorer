@@ -621,6 +621,11 @@ namespace NBXplorer.Controllers
 						TxSet = response.ReplacedTransactions,
 						AnnotatedTx = txs.ReplacedTransactions
 					},
+					new
+					{
+						TxSet = response.ImmatureTransactions,
+						AnnotatedTx = txs.ImmatureTransactions
+					},
 				})
 			{
 				foreach (var tx in item.AnnotatedTx)
@@ -629,6 +634,7 @@ namespace NBXplorer.Controllers
 					{
 						BlockHash = tx.Height.HasValue ? tx.Record.BlockHash : null,
 						Height = tx.Height,
+						IsMature = tx.IsMature,
 						TransactionId = tx.Record.TransactionHash,
 						Transaction = includeTransaction ? tx.Record.Transaction : null,
 						Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
@@ -851,9 +857,10 @@ namespace NBXplorer.Controllers
 			var balance = new GetBalanceResponse()
 			{
 				Confirmed = CalculateBalance(network, transactions.ConfirmedTransactions),
-				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions)
+				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions),
+				Immature = CalculateBalance(network,transactions.ImmatureTransactions),
 			};
-			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
+			balance.Total = balance.Confirmed.Add(balance.Unconfirmed).Add(balance.Immature);
 			return Json(balance, jsonResult.SerializerSettings);
 		}
 

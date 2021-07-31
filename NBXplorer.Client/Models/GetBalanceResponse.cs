@@ -9,6 +9,7 @@ namespace NBXplorer.Models
 	{
 		public IMoney Unconfirmed { get; set; }
 		public IMoney Confirmed { get; set; }
+		public IMoney Immature { get; set; }
 		public IMoney Total { get; set; }
 	}
 }
