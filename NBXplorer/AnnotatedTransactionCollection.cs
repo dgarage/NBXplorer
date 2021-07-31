@@ -204,9 +204,8 @@ namespace NBXplorer
 			{
 				if (tx.Height is int)
 				{
-					if(tx.IsMature)
-						ConfirmedTransactions.Add(tx);
-					else
+					ConfirmedTransactions.Add(tx);
+					if (!tx.IsMature)
 						ImmatureTransactions.Add(tx);
 				}
 				else

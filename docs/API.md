@@ -19,8 +19,8 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Get connection status to the chain](#status)
 * [Get a new unused address](#unused)
 * [Get scriptPubKey information of a Derivation Scheme](#scriptPubKey)
-* [Get Unspent Transaction Outputs (UTXOs)](#utxos)
-* [Get Unspent Transaction Outputs of a specific address](#address-utxos)
+* [Get available Unspent Transaction Outputs (UTXOs)](#utxos)
+* [Get available Unspent Transaction Outputs of a specific address](#address-utxos)
 * [Notifications via websocket](#websocket)
 * [Broadcast a transaction](#broadcast)
 * [Rescan a transaction](#rescan)
@@ -233,15 +233,20 @@ Returns:
         "replacedBy": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1"
       }
     ]
-  }
+  },
+  "immatureTransactions": {
+    "transactions": []
+   }
 }
 ```
 
 * `replaceable`: `true` if the transaction can be replaced (the transaction has RBF activated, is in the unconfirmed list and is not an intermediate transaction in a chain of unconfirmed transaction)
 * `replacing`: Only set in the unconfirmed list, and is pointing to a transaction id in the replaced list.
 * `replacedBy`: Only set in the replaced list, and is pointing to a transaction id in the unconfirmed list. 
+* `immatureTransactions`: Coinbase transactions with less than 100 confirmations.
 
 Note for liquid, `balanceChange` is an array of [AssetMoney](#liquid).
+Note that the list of confirmed transaction also include immature transactions.
 
 ## <a name="address-transactions"></a>Query transactions associated to a specific address
 
@@ -351,10 +356,20 @@ Returns:
 {
   "unconfirmed": 110000000,
   "confirmed": 100000000,
+  "available": 210000000,
+  "immature": 0,
   "total": 210000000
 }
 ```
 Note for liquid, the values are array of [AssetMoney](#liquid).
+
+* `unconfirmed`: How the confirmed balance would be updated once all the unconfirmed transactions were confirmed.
+* `confirmed`: The balance of all funds in confirmed transactions.
+* `total`: The total of funds owned (ie, `confirmed + unconfirmed`)
+* `immature`: The total unspendable funds (ie, coinbase reward which need 100 confirmations before being spendable)
+* `available`: The total spendable balance. (ie, `total - immature`)
+
+Immature funds is the sum of UTXO's belonging to a coinbase transaction with less than 100 confirmations.
 
 ## <a name="gettransaction"></a>Get a transaction
 
@@ -470,7 +485,7 @@ Returns:
 }
 ```
 
-## <a name="utxos"></a>Get Unspent Transaction Outputs (UTXOs)
+## <a name="utxos"></a>Get available Unspent Transaction Outputs (UTXOs)
 
 HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos
 
@@ -526,8 +541,9 @@ Result:
 ```
 
 This call does not returns conflicted unconfirmed UTXOs.
+Note that confirmed utxo, do not include immature UTXOs. (ie. UTXOs belonging to a coinbase transaction with less than 100 confirmations)
 
-## <a name="address-utxos"></a>Get Unspent Transaction Outputs of a specific address
+## <a name="address-utxos"></a>Get available Unspent Transaction Outputs of a specific address
 
 Assuming you use Track on this specific address:
 
