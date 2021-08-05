@@ -266,6 +266,7 @@ namespace NBXplorer.Controllers
 					{
 						CanScanTxoutSet = waiter.RPC.Capabilities.SupportScanUTXOSet,
 						CanSupportSegwit = waiter.RPC.Capabilities.SupportSegwit,
+						CanSupportTaproot = waiter.RPC.Capabilities.SupportTaproot,
 						CanSupportTransactionCheck = waiter.RPC.Capabilities.SupportTestMempoolAccept
 					},
 					ExternalAddresses = (networkInfo.localaddresses ?? Array.Empty<GetNetworkInfoResponse.LocalAddress>())

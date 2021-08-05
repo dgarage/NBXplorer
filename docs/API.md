@@ -415,6 +415,7 @@ Returns:
     "capabilities": {
       "canScanTxoutSet": true,
       "canSupportSegwit": true,
+      "canSupportTaproot": true,
       "canSupportTransactionCheck": true
     }
   },
