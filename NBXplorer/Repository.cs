@@ -89,7 +89,7 @@ namespace NBXplorer
 					var settings = GetChainSetting(net);
 					if (settings != null)
 					{
-						var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC, _Configuration) : new Repository(_Engine, net, keyPathTemplates, settings.RPC, _Configuration);
+						var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
 						repo.MaxPoolSize = _Configuration.MaxGapSize;
 						repo.MinPoolSize = _Configuration.MinGapSize;
 						repo.MinUtxoValue = settings.MinUtxoValue;
@@ -433,14 +433,13 @@ namespace NBXplorer
 		}
 
 		DBTrie.DBTrieEngine engine;
-		internal Repository(DBTrie.DBTrieEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc, ExplorerConfiguration configuration)
+		internal Repository(DBTrie.DBTrieEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc)
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			this.keyPathTemplates = keyPathTemplates;
 			this.rpc = rpc;
-			Configuration = configuration;
 			Serializer = new Serializer(_Network);
 			_Network = network;
 			this.engine = engine;
@@ -890,7 +889,6 @@ namespace NBXplorer
 		{
 			get; set;
 		} = Money.Satoshis(1);
-		public ExplorerConfiguration Configuration { get; }
 
 		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, CancellationToken cancellation = default)
 		{
@@ -1314,30 +1312,15 @@ namespace NBXplorer
 		private async ValueTask<int> Defragment(DBTrie.Transaction tx, Table table, CancellationToken cancellationToken)
 		{
 			int saved = 0;
-			var defrag = Path.Combine(Configuration.DataDir, $"defrag-{table.Name}.lock");
-			var unsafeDefrag = File.Exists(defrag);
-			if (!unsafeDefrag)
+			try
 			{
-				File.Create(defrag).Close();
-				try
-				{
-					saved = await table.Defragment(cancellationToken);
-					if (File.Exists(defrag))
-						File.Delete(defrag);
-				}
-				catch when (!cancellationToken.IsCancellationRequested)
-				{
-					unsafeDefrag = true;
-				}
+				saved = await table.Defragment(cancellationToken);
 			}
-			if (unsafeDefrag)
+			catch when (!cancellationToken.IsCancellationRequested)
 			{
 				Logs.Explorer.LogWarning($"{Network.CryptoCode}: Careful, you are probably running low on storage space, so we attempt defragmentation directly on the table, please do not close NBXplorer during the defragmentation.");
 				saved = await table.UnsafeDefragment(cancellationToken);
-				if (File.Exists(defrag))
-					File.Delete(defrag);
 			}
-
 			await tx.Commit();
 			table.ClearCache();
 			return saved;
