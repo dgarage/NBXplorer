@@ -8,6 +8,7 @@ using NBitcoin.RPC;
 using NBXplorer.Models;
 using System;
 using NBXplorer.DerivationStrategy;
+using NBXplorer.Configuration;
 
 namespace NBXplorer
 {
@@ -16,7 +17,7 @@ namespace NBXplorer
 		private readonly RPCClient _rpcClient;
 
 		internal LiquidRepository(DBTrie.DBTrieEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates,
-			RPCClient rpcClient) : base(engine, network, keyPathTemplates, rpcClient)
+			RPCClient rpcClient, ExplorerConfiguration conf) : base(engine, network, keyPathTemplates, rpcClient, conf)
 		{
 			_rpcClient = rpcClient;
 		}
