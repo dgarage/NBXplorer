@@ -107,14 +107,26 @@ namespace NBXplorer
 
 				Logs.Explorer.LogInformation("Defragmenting transaction tables...");
 				int saved = 0;
-				foreach (var repo in _Repositories.Select(kv => kv.Value))
+				var defragFile = Path.Combine(Path.Combine(_Configuration.DataDir), "defrag-lock");
+				if (!File.Exists(defragFile))
 				{
-					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
+					File.Create(defragFile).Close();
+					foreach (var repo in _Repositories.Select(kv => kv.Value))
 					{
-						saved += await repo.DefragmentTables(cancellationToken);
+
+						if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
+						{
+							saved += await repo.DefragmentTables(cancellationToken);
+						}
+						if (File.Exists(defragFile))
+							File.Delete(defragFile);
 					}
+					Logs.Explorer.LogInformation($"Defragmentation succeed, {PrettyKB(saved)} saved");
 				}
-				Logs.Explorer.LogInformation($"Defragmentation succeed, {PrettyKB(saved)} saved");
+				else
+				{
+					Logs.Explorer.LogWarning($"Defragmentation skipped, it seems to have crashed your NBXplorer before. (file {defragFile} already exists)");
+				}
 
 				Logs.Explorer.LogInformation("Applying migration if needed, do not close NBXplorer...");
 				int migrated = 0;
