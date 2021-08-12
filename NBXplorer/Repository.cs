@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using System;
@@ -175,7 +175,7 @@ namespace NBXplorer
 		private async ValueTask<DBTrieEngine> OpenEngine(string directory, CancellationToken cancellationToken)
 		{
 			int tried = 0;
-			retry:
+		retry:
 			try
 			{
 				return await DBTrie.DBTrieEngine.OpenFromFolder(directory);
@@ -1173,14 +1173,98 @@ namespace NBXplorer
 		{
 			return GetMatches(new[] { tx }, blockId, now, useCache);
 		}
+
+		private bool isTaproot(TxIn input)
+		{
+			// return true;
+			return input.ScriptSig.IsScriptType(ScriptType.Taproot);
+		}
+
+		private bool isTaproot(TxOut output)
+		{
+			return output.ScriptPubKey.IsScriptType(ScriptType.Taproot);
+		}
+
+		private NBitcoin.Transaction getTransaction(uint256 txid)
+		{
+			return rpc.GetRawTransaction(txid);	
+		}
+
+		private (IList<Script>, IList<OutPoint>) ExtractInfo(NBitcoin.Transaction txn)
+		{
+			var scripts = new List<Script>();
+			var taprootOutpoints = new List<OutPoint>();
+			if (!txn.IsCoinBase)
+			{
+				foreach (var input in txn.Inputs)
+				{
+					if (isTaproot(input))
+					{
+						// Right now outpoints only recorded when they are taproot outpoints
+						taprootOutpoints.Add(input.PrevOut);
+					}
+					else
+					{
+						var signer = input.GetSigner();
+						if (signer != null)
+						{
+							scripts.Add(signer.ScriptPubKey);
+						}
+					}
+				}
+			}
+			foreach (var output in txn.Outputs)
+			{
+				if (MinUtxoValue != null && output.Value < MinUtxoValue)
+					continue;
+				scripts.Add(output.ScriptPubKey);
+			}
+			return (scripts, taprootOutpoints);
+		}
+
+		private void recordMatches(
+									IReadOnlyCollection<NBitcoin.Transaction> txs,
+									IReadOnlyCollection<KeyPathInformation> keyPathInformations,
+									ref MultiValueDictionary<TrackedTransaction, KeyPathInformation> keyPathInformationsByTrackedTransaction,
+									ref HashSet<uint256> noMatchTransactions,
+									ref Dictionary<string, TrackedTransaction> matches,
+									uint256 blockId,
+									DateTimeOffset now
+									)
+		{
+			foreach (var tx in txs)
+			{
+				if (keyPathInformations.Count != 0)
+					noMatchTransactions.Remove(tx.GetHash());
+				foreach (var keyInfo in keyPathInformations)
+				{
+					var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
+					if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
+					{
+						match = CreateTrackedTransaction(keyInfo.TrackedSource,
+							new TrackedTransactionKey(tx.GetHash(), blockId, false),
+							tx,
+							new Dictionary<Script, KeyPath>());
+						match.FirstSeen = now;
+						match.Inserted = now;
+						matches.Add(matchesGroupingKey, match);
+					}
+					if (keyInfo.KeyPath != null)
+						match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
+					keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
+				}
+			}
+		}
 		public async Task<TrackedTransaction[]> GetMatches(IList<NBitcoin.Transaction> txs, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
 			foreach (var tx in txs)
 				tx.PrecomputeHash(false, true);
 			var transactionsPerScript = new MultiValueDictionary<Script, NBitcoin.Transaction>();
+			var transactionsPerOutpoint = new MultiValueDictionary<OutPoint, NBitcoin.Transaction>();
 			var matches = new Dictionary<string, TrackedTransaction>();
 			HashSet<Script> scripts = new HashSet<Script>(txs.Count);
 			var noMatchTransactions = new HashSet<uint256>(txs.Count);
+			var taprootOutpoints = new List<OutPoint>();
 			foreach (var tx in txs)
 			{
 				if (blockId != null && useCache && noMatchCache.Contains(tx.GetHash()))
@@ -1188,52 +1272,55 @@ namespace NBXplorer
 					continue;
 				}
 				noMatchTransactions.Add(tx.GetHash());
-				foreach (var input in tx.Inputs)
-				{
-					var signer = input.GetSigner();
-					if (signer != null)
-					{
-						scripts.Add(signer.ScriptPubKey);
-						transactionsPerScript.Add(signer.ScriptPubKey, tx);
-					}
-				}
-				foreach (var output in tx.Outputs)
-				{
-					if (MinUtxoValue != null && output.Value < MinUtxoValue)
-						continue;
-					scripts.Add(output.ScriptPubKey);
-					transactionsPerScript.Add(output.ScriptPubKey, tx);
-				}
+				var (txScripts, txTaprootOutpoints) = ExtractInfo(tx);
+
+				foreach (var script in txScripts)
+					transactionsPerScript.Add(script, tx);
+				foreach ( var input in tx.Inputs)
+					transactionsPerOutpoint.Add(input.PrevOut,tx);
+
+				scripts.AddRange<Script>(txScripts);
+				taprootOutpoints.AddRange(txTaprootOutpoints);
 			}
-			if (scripts.Count == 0)
+			
+			if (scripts.Count==0)
 				return Array.Empty<TrackedTransaction>();
+			
 			var keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
-			var keyInformations = await GetKeyInformations(scripts.ToArray());
-			foreach (var keyInfoByScripts in keyInformations)
+
+			if (scripts.Count > 0)
 			{
-				foreach (var tx in transactionsPerScript[keyInfoByScripts.Key])
+				var keyInformations = await GetKeyInformations(scripts.ToArray());
+				foreach (var keyInfoByScripts in keyInformations)
 				{
-					if (keyInfoByScripts.Value.Count != 0)
-						noMatchTransactions.Remove(tx.GetHash());
-					foreach (var keyInfo in keyInfoByScripts.Value)
-					{
-						var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
-						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
-						{
-							match = CreateTrackedTransaction(keyInfo.TrackedSource,
-								new TrackedTransactionKey(tx.GetHash(), blockId, false),
-								tx,
-								new Dictionary<Script, KeyPath>());
-							match.FirstSeen = now;
-							match.Inserted = now;
-							matches.Add(matchesGroupingKey, match);
-						}
-						if (keyInfo.KeyPath != null)
-							match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
-						keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
-					}
+					recordMatches(
+						transactionsPerScript[keyInfoByScripts.Key],
+						keyInfoByScripts.Value,
+						ref keyPathInformationsByTrackedTransaction,
+						ref noMatchTransactions,
+						ref matches,
+						blockId,
+						now
+					);
 				}
 			}
+			if (taprootOutpoints.Count > 0)
+			{
+				var keyInformations = await GetKeyInformations(taprootOutpoints.ToArray());
+				foreach (var keyInfoByOutpoints in keyInformations)
+				{
+					recordMatches(
+						transactionsPerOutpoint[keyInfoByOutpoints.Key],
+						keyInfoByOutpoints.Value,
+						ref keyPathInformationsByTrackedTransaction,
+						ref noMatchTransactions,
+						ref matches,
+						blockId,
+						now
+					);
+				}
+			}
+			
 			foreach (var m in matches.Values)
 			{
 				m.KnownKeyPathMappingUpdated();
