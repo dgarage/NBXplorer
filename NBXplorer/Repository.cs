@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using System;
@@ -808,6 +808,30 @@ namespace NBXplorer
 			t.Timestamp = NBitcoin.Utils.UnixTimeToDateTime(timeStamped.TimeStamp);
 			t.Transaction.PrecomputeHash(true, false);
 			return t;
+		}
+		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations(OutPoint[] outpoints)
+		{
+			// This is a unoptimized code, written so that it just gives the expected output.
+			// Should be replaced later on by a code like in GetKeyInformations(Script[] scripts)
+			MultiValueDictionary<OutPoint, KeyPathInformation> result = new MultiValueDictionary<OutPoint, KeyPathInformation>();
+			Dictionary<OutPoint, Script> outpointToScript = new Dictionary<OutPoint, Script>();
+			var scripts = new List<Script>();
+			foreach (var outpoint in outpoints)
+			{
+				var prevOutTxn = getTransaction(outpoint.Hash);
+				if (prevOutTxn != null)
+				{
+					scripts.Add(prevOutTxn.Outputs[outpoint.N].ScriptPubKey);
+					outpointToScript[outpoint] = prevOutTxn.Outputs[outpoint.N].ScriptPubKey;
+				}
+			}
+
+			var keyInformation = await GetKeyInformations(scripts.ToArray());
+			foreach (var outpoint in outpoints)
+			{
+				result.AddRange(outpoint, keyInformation[outpointToScript[outpoint]]);
+			}
+			return result;
 		}
 		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{
