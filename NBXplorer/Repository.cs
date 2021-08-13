@@ -846,27 +846,33 @@ namespace NBXplorer
 			t.Transaction.PrecomputeHash(true, false);
 			return t;
 		}
-		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations(OutPoint[] outpoints)
+		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations(OutPoint[] outPoints)
 		{
 			// This is a unoptimized code, written so that it just gives the expected output.
 			// Should be replaced later on by a code like in GetKeyInformations(Script[] scripts)
 			MultiValueDictionary<OutPoint, KeyPathInformation> result = new MultiValueDictionary<OutPoint, KeyPathInformation>();
-			Dictionary<OutPoint, Script> outpointToScript = new Dictionary<OutPoint, Script>();
-			var scripts = new List<Script>();
-			foreach (var outpoint in outpoints)
+			if (outPoints.Length == 0)
+				return result;
+			foreach (var batch in outPoints.Batch(BatchSize))
 			{
-				var prevOutTxn = getTransaction(outpoint.Hash);
-				if (prevOutTxn != null)
+				using var tx = await engine.OpenTransaction();
+				foreach (var outPoint in batch)
 				{
-					scripts.Add(prevOutTxn.Outputs[outpoint.N].ScriptPubKey);
-					outpointToScript[outpoint] = prevOutTxn.Outputs[outpoint.N].ScriptPubKey;
+					var table = GetOutPointsIndex(tx, outPoint);
+					var keyInfos = new List<KeyPathInformation>();
+					await foreach (var row in table.SelectForwardSkip(0))
+					{
+						using (row)
+						{
+							var keyInfo = ToObject<KeyPathInformation>(await row.ReadValue())
+											.AddAddress(Network.NBitcoinNetwork);
+							keyInfos.Add(keyInfo);
+							if (keyInfos.Count == 5)
+								break;
+						}
+					}
+					result.AddRange(outPoint, keyInfos);
 				}
-			}
-
-			var keyInformation = await GetKeyInformations(scripts.ToArray());
-			foreach (var outpoint in outpoints)
-			{
-				result.AddRange(outpoint, keyInformation[outpointToScript[outpoint]]);
 			}
 			return result;
 		}
