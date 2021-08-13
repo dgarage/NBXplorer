@@ -772,10 +772,10 @@ namespace NBXplorer
 				var date = NBitcoin.Utils.DateTimeToUnixTime(now);
 				foreach (var btx in batch)
 				{
-					for (int i = 0; i < btx.Outputs.Count; ++i)
+					foreach (var coin in btx.Outputs.AsCoins())
 					{
-						scripts.Add(btx.Outputs[i].ScriptPubKey);
-						outPointToPubScript.Add(new OutPoint(btx, i), btx.Outputs[i].ScriptPubKey);
+						scripts.Add(coin.ScriptPubKey);
+						outPointToPubScript.Add(coin.Outpoint,coin.ScriptPubKey);
 					}
 					var timestamped = new TimeStampedTransaction(btx, date);
 					var value = timestamped.ToBytes();
