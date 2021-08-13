@@ -759,6 +759,8 @@ namespace NBXplorer
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
+			var outPointToPubScript = new Dictionary<OutPoint, Script>();
+			var scripts = new HashSet<Script>();
 			if (transactions.Length == 0)
 				return result;
 			foreach (var batch in transactions.Batch(BatchSize))
@@ -767,6 +769,11 @@ namespace NBXplorer
 				var date = NBitcoin.Utils.DateTimeToUnixTime(now);
 				foreach (var btx in batch)
 				{
+					for (int i = 0; i < btx.Outputs.Count; ++i)
+					{
+						scripts.Add(btx.Outputs[i].ScriptPubKey);
+						outPointToPubScript.Add(new OutPoint(btx, i), btx.Outputs[i].ScriptPubKey);
+					}
 					var timestamped = new TimeStampedTransaction(btx, date);
 					var value = timestamped.ToBytes();
 					var key = GetSavedTransactionKey(btx.GetHash(), blockHash);
@@ -775,6 +782,21 @@ namespace NBXplorer
 				}
 				await tx.Commit();
 			}
+
+			var keyInfoByScripts = await GetKeyInformations(scripts.ToArray());
+			var outPointWithKeyPath = new List<(OutPoint, KeyPathInformation)>();
+			foreach (var kv in outPointToPubScript)
+			{
+				if (keyInfoByScripts.TryGetValue(kv.Value, out var keyPaths))
+				{
+					foreach (var keyPath in keyPaths)
+					{
+						outPointWithKeyPath.Add((kv.Key, keyPath));
+					}
+				}
+			}
+			await SaveKeyInformations(outPointWithKeyPath.ToArray());
+
 			return result;
 		}
 
