@@ -656,8 +656,8 @@ namespace NBXplorer
 			using var tx = await engine.OpenTransaction();
 			foreach (var info in keyPathInformations)
 			{
-				var bytes = ToBytes(info);
 				var (outPoint, keyInfo) = info;
+				var bytes = ToBytes(keyInfo);
 				await GetOutPointsIndex(tx, outPoint).Insert($"{keyInfo.DerivationStrategy.GetHash()}-{keyInfo.Feature}", bytes);
 			}
 			await tx.Commit();
