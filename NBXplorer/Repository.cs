@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using System;
@@ -407,6 +407,10 @@ namespace NBXplorer
 			return new Index(tx, $"{_Suffix}Scripts", $"{scriptPubKey.Hash}");
 		}
 
+		Index GetOutPointsIndex(DBTrie.Transaction tx, OutPoint outPoint)
+		{
+			return new Index(tx, $"{_Suffix}OutPoints", $"{outPoint}");
+		}
 		Index GetHighestPathIndex(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}HighestPath", $"{strategy.GetHash()}-{feature}");
