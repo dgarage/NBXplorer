@@ -651,6 +651,17 @@ namespace NBXplorer
 			}
 			await tx.Commit();
 		}
+		public async Task SaveKeyInformations((OutPoint, KeyPathInformation)[] keyPathInformations)
+		{
+			using var tx = await engine.OpenTransaction();
+			foreach (var info in keyPathInformations)
+			{
+				var bytes = ToBytes(info);
+				var (outPoint, keyInfo) = info;
+				await GetOutPointsIndex(tx, outPoint).Insert($"{keyInfo.DerivationStrategy.GetHash()}-{keyInfo.Feature}", bytes);
+			}
+			await tx.Commit();
+		}
 
 		public async Task Track(IDestination address)
 		{
