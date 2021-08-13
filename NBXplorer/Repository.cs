@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using System;
@@ -1217,43 +1217,20 @@ namespace NBXplorer
 			return GetMatches(new[] { tx }, blockId, now, useCache);
 		}
 
-		private bool isTaproot(TxIn input)
-		{
-			// return true;
-			return input.ScriptSig.IsScriptType(ScriptType.Taproot);
-		}
-
-		private bool isTaproot(TxOut output)
-		{
-			return output.ScriptPubKey.IsScriptType(ScriptType.Taproot);
-		}
-
-		private NBitcoin.Transaction getTransaction(uint256 txid)
-		{
-			return rpc.GetRawTransaction(txid);	
-		}
-
 		private (IList<Script>, IList<OutPoint>) ExtractInfo(NBitcoin.Transaction txn)
 		{
 			var scripts = new List<Script>();
-			var taprootOutpoints = new List<OutPoint>();
+			var outPoints = new List<OutPoint>();
 			if (!txn.IsCoinBase)
 			{
 				foreach (var input in txn.Inputs)
 				{
-					if (isTaproot(input))
-					{
-						// Right now outpoints only recorded when they are taproot outpoints
-						taprootOutpoints.Add(input.PrevOut);
-					}
-					else
-					{
-						var signer = input.GetSigner();
-						if (signer != null)
-						{
-							scripts.Add(signer.ScriptPubKey);
-						}
-					}
+					outPoints.Add(input.PrevOut);
+					// var signer = input.GetSigner();
+					// if (signer != null)
+					// {
+					// 	scripts.Add(signer.ScriptPubKey);
+					// }
 				}
 			}
 			foreach (var output in txn.Outputs)
@@ -1262,7 +1239,7 @@ namespace NBXplorer
 					continue;
 				scripts.Add(output.ScriptPubKey);
 			}
-			return (scripts, taprootOutpoints);
+			return (scripts, outPoints);
 		}
 
 		private void recordMatches(
@@ -1307,7 +1284,7 @@ namespace NBXplorer
 			var matches = new Dictionary<string, TrackedTransaction>();
 			HashSet<Script> scripts = new HashSet<Script>(txs.Count);
 			var noMatchTransactions = new HashSet<uint256>(txs.Count);
-			var taprootOutpoints = new List<OutPoint>();
+			var outPoints = new List<OutPoint>();
 			foreach (var tx in txs)
 			{
 				if (blockId != null && useCache && noMatchCache.Contains(tx.GetHash()))
@@ -1319,16 +1296,16 @@ namespace NBXplorer
 
 				foreach (var script in txScripts)
 					transactionsPerScript.Add(script, tx);
-				foreach ( var input in tx.Inputs)
-					transactionsPerOutpoint.Add(input.PrevOut,tx);
+				foreach (var input in tx.Inputs)
+					transactionsPerOutpoint.Add(input.PrevOut, tx);
 
 				scripts.AddRange<Script>(txScripts);
-				taprootOutpoints.AddRange(txTaprootOutpoints);
+				outPoints.AddRange(txTaprootOutpoints);
 			}
-			
-			if (scripts.Count==0)
+
+			if (scripts.Count == 0)
 				return Array.Empty<TrackedTransaction>();
-			
+
 			var keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
 
 			if (scripts.Count > 0)
@@ -1347,9 +1324,9 @@ namespace NBXplorer
 					);
 				}
 			}
-			if (taprootOutpoints.Count > 0)
+			if (outPoints.Count > 0)
 			{
-				var keyInformations = await GetKeyInformations(taprootOutpoints.ToArray());
+				var keyInformations = await GetKeyInformations(outPoints.ToArray());
 				foreach (var keyInfoByOutpoints in keyInformations)
 				{
 					recordMatches(
@@ -1363,7 +1340,7 @@ namespace NBXplorer
 					);
 				}
 			}
-			
+
 			foreach (var m in matches.Values)
 			{
 				m.KnownKeyPathMappingUpdated();
