@@ -666,6 +666,23 @@ namespace NBXplorer
 			await tx.Commit();
 		}
 
+		public async Task SaveOutPointToScript((OutPoint outPoint,Script script)[] mapping)
+		{
+			var keyInfoByScripts = await GetKeyInformations(mapping.Select(m => m.script).ToArray());
+			var outPointWithKeyPath = new List<(OutPoint, KeyPathInformation)>();
+			foreach (var map in mapping)
+			{
+				if (keyInfoByScripts.TryGetValue(map.script, out var keyPaths))
+				{
+					foreach (var keyPath in keyPaths)
+					{
+						outPointWithKeyPath.Add((map.outPoint, keyPath));
+					}
+				}
+			}
+			await SaveKeyInformations(outPointWithKeyPath.ToArray());
+		}
+
 		public async Task Track(IDestination address)
 		{
 			using var tx = await engine.OpenTransaction();
@@ -762,7 +779,7 @@ namespace NBXplorer
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
-			var outPointToPubScript = new Dictionary<OutPoint, Script>();
+			var outPointToPubScript = new List<(OutPoint, Script)>();
 			var scripts = new HashSet<Script>();
 			if (transactions.Length == 0)
 				return result;
@@ -774,8 +791,7 @@ namespace NBXplorer
 				{
 					foreach (var coin in btx.Outputs.AsCoins())
 					{
-						scripts.Add(coin.ScriptPubKey);
-						outPointToPubScript.Add(coin.Outpoint,coin.ScriptPubKey);
+						outPointToPubScript.Add((coin.Outpoint,coin.ScriptPubKey));
 					}
 					var timestamped = new TimeStampedTransaction(btx, date);
 					var value = timestamped.ToBytes();
@@ -785,20 +801,8 @@ namespace NBXplorer
 				}
 				await tx.Commit();
 			}
-
-			var keyInfoByScripts = await GetKeyInformations(scripts.ToArray());
-			var outPointWithKeyPath = new List<(OutPoint, KeyPathInformation)>();
-			foreach (var kv in outPointToPubScript)
-			{
-				if (keyInfoByScripts.TryGetValue(kv.Value, out var keyPaths))
-				{
-					foreach (var keyPath in keyPaths)
-					{
-						outPointWithKeyPath.Add((kv.Key, keyPath));
-					}
-				}
-			}
-			await SaveKeyInformations(outPointWithKeyPath.ToArray());
+			
+			await SaveOutPointToScript(outPointToPubScript.ToArray());
 
 			return result;
 		}
