@@ -286,6 +286,12 @@ namespace NBXplorer
 						return false;
 					return p.KeyPath.Indexes.Last() <= highest.Value;
 				}).ToArray());
+			
+			await repo.SaveKeyInformations(
+				outputs.Select( 
+					o => (o.Coin.Outpoint,scannedItems.KeyPathInformations[o.Coin.ScriptPubKey])
+				).ToArray()
+			);
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
 			await gettingBlockHeaders;
 			DateTimeOffset now = DateTimeOffset.UtcNow;
