@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using System;
@@ -658,7 +658,10 @@ namespace NBXplorer
 			{
 				var (outPoint, keyInfo) = info;
 				var bytes = ToBytes(keyInfo);
-				await GetOutPointsIndex(tx, outPoint).Insert($"{keyInfo.DerivationStrategy.GetHash()}-{keyInfo.Feature}", bytes);
+				if(keyInfo.DerivationStrategy is null)
+					await GetOutPointsIndex(tx, outPoint).Insert(keyInfo.ScriptPubKey.Hash.ToString(), bytes);
+				else
+					await GetOutPointsIndex(tx, outPoint).Insert($"{keyInfo.DerivationStrategy.GetHash()}-{keyInfo.Feature}", bytes);
 			}
 			await tx.Commit();
 		}
