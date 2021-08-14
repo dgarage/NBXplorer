@@ -666,10 +666,11 @@ namespace NBXplorer
 			await tx.Commit();
 		}
 
-		public async Task SaveOutPointToScript((OutPoint outPoint,Script script)[] mapping)
+		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> SaveOutPointToScript((OutPoint outPoint, Script script)[] mapping)
 		{
 			var keyInfoByScripts = await GetKeyInformations(mapping.Select(m => m.script).ToArray());
 			var outPointWithKeyPath = new List<(OutPoint, KeyPathInformation)>();
+			var KeyPathByOutPoints = new MultiValueDictionary<OutPoint, KeyPathInformation>();
 			foreach (var map in mapping)
 			{
 				if (keyInfoByScripts.TryGetValue(map.script, out var keyPaths))
@@ -677,10 +678,12 @@ namespace NBXplorer
 					foreach (var keyPath in keyPaths)
 					{
 						outPointWithKeyPath.Add((map.outPoint, keyPath));
+						KeyPathByOutPoints.Add(map.outPoint, keyPath);
 					}
 				}
 			}
 			await SaveKeyInformations(outPointWithKeyPath.ToArray());
+			return KeyPathByOutPoints;
 		}
 
 		public async Task Track(IDestination address)
@@ -881,6 +884,16 @@ namespace NBXplorer
 					result.AddRange(outPoint, keyInfos);
 				}
 			}
+			return result;
+		}
+		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations((OutPoint outPoint, Script script)[] outPointWithScript)
+		{
+
+			var result = await GetKeyInformations(outPointWithScript.Where(o => o.script is null).Select(o => o.outPoint).ToArray());
+			var leftOver = outPointWithScript.Where(o => !(o.script is null)).ToArray();
+			var leftOverResult = await SaveOutPointToScript(leftOver);
+			foreach (var kv in leftOverResult)
+				result.AddRange(kv.Key, kv.Value);
 			return result;
 		}
 		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
@@ -1298,15 +1311,13 @@ namespace NBXplorer
 					continue;
 				}
 				noMatchTransactions.Add(tx.GetHash());
-				var (txScripts, txTaprootOutpoints) = ExtractInfo(tx);
+				var txOutPointsWithScripts = ExtractInfo(tx);
 
-				foreach (var script in txScripts)
-					transactionsPerScript.Add(script, tx);
-				foreach (var input in tx.Inputs)
-					transactionsPerOutpoint.Add(input.PrevOut, tx);
-
-				scripts.AddRange<Script>(txScripts);
-				outPoints.AddRange(txTaprootOutpoints);
+				foreach (var outPointWithScript in txOutPointsWithScripts)
+				{
+					transactionsPerOutpoint.Add(outPointWithScript.outPoint, tx);
+				}
+				outPointsWithScripts.AddRange(txOutPointsWithScripts);
 			}
 
 			var keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
