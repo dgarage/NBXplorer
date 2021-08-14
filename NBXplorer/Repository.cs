@@ -651,39 +651,16 @@ namespace NBXplorer
 			}
 			await tx.Commit();
 		}
-		public async Task SaveKeyInformations((OutPoint, KeyPathInformation)[] keyPathInformations)
+
+		public async Task SaveOutPointToScript((OutPoint outPoint, Script script)[] mapping)
 		{
 			using var tx = await engine.OpenTransaction();
-			foreach (var info in keyPathInformations)
+			foreach (var (outPoint, script) in mapping)
 			{
-				var (outPoint, keyInfo) = info;
-				var bytes = ToBytes(keyInfo);
-				if (keyInfo.DerivationStrategy is null)
-					await GetOutPointsIndex(tx, outPoint).Insert(keyInfo.ScriptPubKey.Hash.ToString(), bytes);
-				else
-					await GetOutPointsIndex(tx, outPoint).Insert($"{keyInfo.DerivationStrategy.GetHash()}-{keyInfo.Feature}", bytes);
+				var bytes = ToBytes(script);
+				await GetOutPointsIndex(tx, outPoint).Insert($"{script.Hash}", bytes);
 			}
 			await tx.Commit();
-		}
-
-		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> SaveOutPointToScript((OutPoint outPoint, Script script)[] mapping)
-		{
-			var keyInfoByScripts = await GetKeyInformations(mapping.Select(m => m.script).ToArray());
-			var outPointWithKeyPath = new List<(OutPoint, KeyPathInformation)>();
-			var KeyPathByOutPoints = new MultiValueDictionary<OutPoint, KeyPathInformation>();
-			foreach (var map in mapping)
-			{
-				if (keyInfoByScripts.TryGetValue(map.script, out var keyPaths))
-				{
-					foreach (var keyPath in keyPaths)
-					{
-						outPointWithKeyPath.Add((map.outPoint, keyPath));
-						KeyPathByOutPoints.Add(map.outPoint, keyPath);
-					}
-				}
-			}
-			await SaveKeyInformations(outPointWithKeyPath.ToArray());
-			return KeyPathByOutPoints;
 		}
 
 		public async Task Track(IDestination address)
@@ -889,12 +866,8 @@ namespace NBXplorer
 		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations((OutPoint outPoint, Script script)[] outPointWithScript)
 		{
 
-			var result = await GetKeyInformations(outPointWithScript.Where(o => o.script is null).Select(o => o.outPoint).ToArray());
-			var leftOver = outPointWithScript.Where(o => !(o.script is null)).ToArray();
-			var leftOverResult = await SaveOutPointToScript(leftOver);
-			foreach (var kv in leftOverResult)
-				result.AddRange(kv.Key, kv.Value);
-			return result;
+			await SaveOutPointToScript(outPointWithScript.Where( o => !(o.script is null)).ToArray());
+			return await GetKeyInformations(outPointWithScript.Select( o => o.outPoint).ToArray());
 		}
 		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{

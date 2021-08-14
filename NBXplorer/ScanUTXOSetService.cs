@@ -287,9 +287,9 @@ namespace NBXplorer
 					return p.KeyPath.Indexes.Last() <= highest.Value;
 				}).ToArray());
 			
-			await repo.SaveKeyInformations(
+			await repo.SaveOutPointToScript(
 				outputs.Select( 
-					o => (o.Coin.Outpoint,scannedItems.KeyPathInformations[o.Coin.ScriptPubKey])
+					o => (o.Coin.Outpoint,o.Coin.ScriptPubKey)
 				).ToArray()
 			);
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
