@@ -791,7 +791,7 @@ namespace NBXplorer
 				{
 					foreach (var coin in btx.Outputs.AsCoins())
 					{
-						outPointToPubScript.Add((coin.Outpoint,coin.ScriptPubKey));
+						outPointToPubScript.Add((coin.Outpoint, coin.ScriptPubKey));
 					}
 					var timestamped = new TimeStampedTransaction(btx, date);
 					var value = timestamped.ToBytes();
@@ -801,7 +801,7 @@ namespace NBXplorer
 				}
 				await tx.Commit();
 			}
-			
+
 			await SaveOutPointToScript(outPointToPubScript.ToArray());
 
 			return result;
@@ -1289,9 +1289,8 @@ namespace NBXplorer
 			var transactionsPerScript = new MultiValueDictionary<Script, NBitcoin.Transaction>();
 			var transactionsPerOutpoint = new MultiValueDictionary<OutPoint, NBitcoin.Transaction>();
 			var matches = new Dictionary<string, TrackedTransaction>();
-			HashSet<Script> scripts = new HashSet<Script>(txs.Count);
 			var noMatchTransactions = new HashSet<uint256>(txs.Count);
-			var outPoints = new List<OutPoint>();
+			var outPointsWithScripts = new HashSet<(OutPoint outPoint, Script script)>();
 			foreach (var tx in txs)
 			{
 				if (blockId != null && useCache && noMatchCache.Contains(tx.GetHash()))
@@ -1310,30 +1309,11 @@ namespace NBXplorer
 				outPoints.AddRange(txTaprootOutpoints);
 			}
 
-			if (scripts.Count == 0)
-				return Array.Empty<TrackedTransaction>();
-
 			var keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
 
-			if (scripts.Count > 0)
+			if (outPointsWithScripts.Count > 0)
 			{
-				var keyInformations = await GetKeyInformations(scripts.ToArray());
-				foreach (var keyInfoByScripts in keyInformations)
-				{
-					recordMatches(
-						transactionsPerScript[keyInfoByScripts.Key],
-						keyInfoByScripts.Value,
-						ref keyPathInformationsByTrackedTransaction,
-						ref noMatchTransactions,
-						ref matches,
-						blockId,
-						now
-					);
-				}
-			}
-			if (outPoints.Count > 0)
-			{
-				var keyInformations = await GetKeyInformations(outPoints.ToArray());
+				var keyInformations = await GetKeyInformations(outPointsWithScripts.ToArray());
 				foreach (var keyInfoByOutpoints in keyInformations)
 				{
 					recordMatches(
