@@ -658,7 +658,7 @@ namespace NBXplorer
 			{
 				var (outPoint, keyInfo) = info;
 				var bytes = ToBytes(keyInfo);
-				if(keyInfo.DerivationStrategy is null)
+				if (keyInfo.DerivationStrategy is null)
 					await GetOutPointsIndex(tx, outPoint).Insert(keyInfo.ScriptPubKey.Hash.ToString(), bytes);
 				else
 					await GetOutPointsIndex(tx, outPoint).Insert($"{keyInfo.DerivationStrategy.GetHash()}-{keyInfo.Feature}", bytes);
@@ -1237,29 +1237,23 @@ namespace NBXplorer
 			return GetMatches(new[] { tx }, blockId, now, useCache);
 		}
 
-		private (IList<Script>, IList<OutPoint>) ExtractInfo(NBitcoin.Transaction txn)
+		private IList<(OutPoint outPoint, Script script)> ExtractInfo(NBitcoin.Transaction txn)
 		{
-			var scripts = new List<Script>();
-			var outPoints = new List<OutPoint>();
+			var outPointWithScript = new List<(OutPoint, Script)>();
 			if (!txn.IsCoinBase)
 			{
 				foreach (var input in txn.Inputs)
 				{
-					outPoints.Add(input.PrevOut);
-					// var signer = input.GetSigner();
-					// if (signer != null)
-					// {
-					// 	scripts.Add(signer.ScriptPubKey);
-					// }
+					outPointWithScript.Add((input.PrevOut, null));
 				}
 			}
-			foreach (var output in txn.Outputs)
+			foreach (var coin in txn.Outputs.AsCoins())
 			{
-				if (MinUtxoValue != null && output.Value < MinUtxoValue)
+				if (MinUtxoValue != null && coin.Amount < MinUtxoValue)
 					continue;
-				scripts.Add(output.ScriptPubKey);
+				outPointWithScript.Add((coin.Outpoint, coin.ScriptPubKey));
 			}
-			return (scripts, outPoints);
+			return outPointWithScript;
 		}
 
 		private void recordMatches(
