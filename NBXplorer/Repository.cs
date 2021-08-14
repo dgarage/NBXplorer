@@ -835,39 +835,23 @@ namespace NBXplorer
 		}
 		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations(OutPoint[] outPoints)
 		{
-			// This is a unoptimized code, written so that it just gives the expected output.
-			// Should be replaced later on by a code like in GetKeyInformations(Script[] scripts)
 			MultiValueDictionary<OutPoint, KeyPathInformation> result = new MultiValueDictionary<OutPoint, KeyPathInformation>();
 			if (outPoints.Length == 0)
 				return result;
-			foreach (var batch in outPoints.Batch(BatchSize))
+			var outPointToScript = await GetOutPointToScript(outPoints);
+			var scriptToKeyPaths = await GetKeyInformations(outPointToScript.Select(kv => kv.Value).Where(s => !(s is null)).ToArray());
+			foreach (var (outPoint, script) in outPointToScript)
 			{
-				using var tx = await engine.OpenTransaction();
-				foreach (var outPoint in batch)
-				{
-					var table = GetOutPointsIndex(tx, outPoint);
-					var keyInfos = new List<KeyPathInformation>();
-					await foreach (var row in table.SelectForwardSkip(0))
-					{
-						using (row)
-						{
-							var keyInfo = ToObject<KeyPathInformation>(await row.ReadValue())
-											.AddAddress(Network.NBitcoinNetwork);
-							keyInfos.Add(keyInfo);
-							if (keyInfos.Count == 5)
-								break;
-						}
-					}
-					result.AddRange(outPoint, keyInfos);
-				}
+				if (!(script is null))
+					result.AddRange(outPoint, scriptToKeyPaths[script]);
 			}
 			return result;
 		}
 		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations((OutPoint outPoint, Script script)[] outPointWithScript)
 		{
 
-			await SaveOutPointToScript(outPointWithScript.Where( o => !(o.script is null)).ToArray());
-			return await GetKeyInformations(outPointWithScript.Select( o => o.outPoint).ToArray());
+			await SaveOutPointToScript(outPointWithScript.Where(o => !(o.script is null)).ToArray());
+			return await GetKeyInformations(outPointWithScript.Select(o => o.outPoint).ToArray());
 		}
 		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{
