@@ -674,8 +674,13 @@ namespace NBXplorer
 				{
 					var table = GetOutPointsIndex(tx, outPoint);
 					var rawScript = await table.SelectBytes(0);
-					var rawScriptAsByte = await rawScript.ReadValue();
-					result.Add(outPoint, ToObject<Script>(rawScriptAsByte));
+					if (rawScript is null)
+						result.Add(outPoint, null);
+					else
+					{
+						var rawScriptAsByte = await rawScript.ReadValue();
+						result[outPoint] = ToObject<Script>(rawScriptAsByte);
+					}
 				}
 			}
 			return result;
