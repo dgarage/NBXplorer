@@ -658,9 +658,27 @@ namespace NBXplorer
 			foreach (var (outPoint, script) in mapping)
 			{
 				var bytes = ToBytes(script);
-				await GetOutPointsIndex(tx, outPoint).Insert($"{script.Hash}", bytes);
+				await GetOutPointsIndex(tx, outPoint).Insert(0, bytes);
 			}
 			await tx.Commit();
+		}
+		public async Task<Dictionary<OutPoint, Script>> GetOutPointToScript(OutPoint[] outPoints)
+		{
+			var result = new Dictionary<OutPoint, Script>();
+			if (outPoints.Length == 0)
+				return result;
+			foreach (var batch in outPoints.Batch(BatchSize))
+			{
+				using var tx = await engine.OpenTransaction();
+				foreach (var outPoint in batch)
+				{
+					var table = GetOutPointsIndex(tx, outPoint);
+					var rawScript = await table.SelectBytes(0);
+					var rawScriptAsByte = await rawScript.ReadValue();
+					result.Add(outPoint, ToObject<Script>(rawScriptAsByte));
+				}
+			}
+			return result;
 		}
 
 		public async Task Track(IDestination address)
