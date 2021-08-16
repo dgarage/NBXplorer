@@ -1217,58 +1217,6 @@ namespace NBXplorer
 			return GetMatches(new[] { tx }, blockId, now, useCache);
 		}
 
-		private IList<(OutPoint outPoint, Script script)> ExtractInfo(NBitcoin.Transaction txn)
-		{
-			var outPointWithScript = new List<(OutPoint, Script)>();
-			if (!txn.IsCoinBase)
-			{
-				foreach (var input in txn.Inputs)
-				{
-					outPointWithScript.Add((input.PrevOut, null));
-				}
-			}
-			foreach (var coin in txn.Outputs.AsCoins())
-			{
-				if (MinUtxoValue != null && coin.Amount < MinUtxoValue)
-					continue;
-				outPointWithScript.Add((coin.Outpoint, coin.ScriptPubKey));
-			}
-			return outPointWithScript;
-		}
-
-		private void recordMatches(
-									IReadOnlyCollection<NBitcoin.Transaction> txs,
-									IReadOnlyCollection<KeyPathInformation> keyPathInformations,
-									ref MultiValueDictionary<TrackedTransaction, KeyPathInformation> keyPathInformationsByTrackedTransaction,
-									ref HashSet<uint256> noMatchTransactions,
-									ref Dictionary<string, TrackedTransaction> matches,
-									uint256 blockId,
-									DateTimeOffset now
-									)
-		{
-			foreach (var tx in txs)
-			{
-				if (keyPathInformations.Count != 0)
-					noMatchTransactions.Remove(tx.GetHash());
-				foreach (var keyInfo in keyPathInformations)
-				{
-					var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
-					if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
-					{
-						match = CreateTrackedTransaction(keyInfo.TrackedSource,
-							new TrackedTransactionKey(tx.GetHash(), blockId, false),
-							tx,
-							new Dictionary<Script, KeyPath>());
-						match.FirstSeen = now;
-						match.Inserted = now;
-						matches.Add(matchesGroupingKey, match);
-					}
-					if (keyInfo.KeyPath != null)
-						match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
-					keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
-				}
-			}
-		}
 		public async Task<TrackedTransaction[]> GetMatches(IList<NBitcoin.Transaction> txs, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
 			foreach (var tx in txs)
@@ -1285,13 +1233,22 @@ namespace NBXplorer
 					continue;
 				}
 				noMatchTransactions.Add(tx.GetHash());
-				var txOutPointsWithScripts = ExtractInfo(tx);
-
-				foreach (var outPointWithScript in txOutPointsWithScripts)
+				if (!tx.IsCoinBase)
 				{
-					transactionsPerOutpoint.Add(outPointWithScript.outPoint, tx);
+					foreach (var input in tx.Inputs)
+					{
+						outPointsWithScripts.Add((input.PrevOut, null));
+						transactionsPerOutpoint.Add(input.PrevOut, tx);
+					}
 				}
-				outPointsWithScripts.AddRange(txOutPointsWithScripts);
+				foreach (var coin in tx.Outputs.AsCoins())
+				{
+					if (MinUtxoValue != null && coin.Amount < MinUtxoValue)
+						continue;
+					outPointsWithScripts.Add((coin.Outpoint, coin.ScriptPubKey));
+					transactionsPerOutpoint.Add(coin.Outpoint, tx);
+
+				}
 			}
 
 			var keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
@@ -1301,15 +1258,28 @@ namespace NBXplorer
 				var keyInformations = await GetKeyInformations(outPointsWithScripts.ToArray());
 				foreach (var keyInfoByOutpoints in keyInformations)
 				{
-					recordMatches(
-						transactionsPerOutpoint[keyInfoByOutpoints.Key],
-						keyInfoByOutpoints.Value,
-						ref keyPathInformationsByTrackedTransaction,
-						ref noMatchTransactions,
-						ref matches,
-						blockId,
-						now
-					);
+					foreach (var tx in transactionsPerOutpoint[keyInfoByOutpoints.Key])
+					{
+						if (keyInfoByOutpoints.Value.Count != 0)
+							noMatchTransactions.Remove(tx.GetHash());
+						foreach (var keyInfo in keyInfoByOutpoints.Value)
+						{
+							var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
+							if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
+							{
+								match = CreateTrackedTransaction(keyInfo.TrackedSource,
+									new TrackedTransactionKey(tx.GetHash(), blockId, false),
+									tx,
+									new Dictionary<Script, KeyPath>());
+								match.FirstSeen = now;
+								match.Inserted = now;
+								matches.Add(matchesGroupingKey, match);
+							}
+							if (keyInfo.KeyPath != null)
+								match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
+							keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
+						}
+					}
 				}
 			}
 
