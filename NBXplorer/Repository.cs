@@ -673,14 +673,15 @@ namespace NBXplorer
 				foreach (var outPoint in batch)
 				{
 					var table = GetOutPointsIndex(tx, outPoint);
-					var rawScript = await table.SelectBytes(0);
-					if (rawScript is null)
-						result.Add(outPoint, null);
-					else
+					await foreach (var row in table.SelectForwardSkip(0))
 					{
-						var rawScriptAsByte = await rawScript.ReadValue();
-						result[outPoint] = ToObject<Script>(rawScriptAsByte);
+						using (row)
+						{
+							var script = ToObject<Script>(await row.ReadValue());
+							result[outPoint] = script;
+						}
 					}
+
 				}
 			}
 			return result;
@@ -874,7 +875,8 @@ namespace NBXplorer
 		{
 
 			await SaveOutPointToScript(outPointWithScript.Where(o => !(o.script is null)).ToArray());
-			return await GetKeyInformations(outPointWithScript.Select(o => o.outPoint).ToArray());
+			var distinctOutPoints = new HashSet<OutPoint>(outPointWithScript.Select(o => o.outPoint));
+			return await GetKeyInformations(distinctOutPoints.ToArray());
 		}
 		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{
