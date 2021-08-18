@@ -652,20 +652,22 @@ namespace NBXplorer
 			await tx.Commit();
 		}
 
-		public async Task SaveOutPointToScript((OutPoint outPoint, Script script)[] mapping)
+		public async Task SaveOutPointToScript(IEnumerable<(OutPoint outPoint, Script script)> mapping)
 		{
 			using var tx = await engine.OpenTransaction();
 			foreach (var (outPoint, script) in mapping)
 			{
+				if (script is null)
+					continue;
 				var bytes = ToBytes(script);
 				await GetOutPointsIndex(tx, outPoint).Insert(0, bytes);
 			}
 			await tx.Commit();
 		}
-		public async Task<Dictionary<OutPoint, Script>> GetOutPointToScript(OutPoint[] outPoints)
+		public async Task<Dictionary<OutPoint, Script>> GetOutPointToScript(IList<OutPoint> outPoints)
 		{
 			var result = new Dictionary<OutPoint, Script>();
-			if (outPoints.Length == 0)
+			if (outPoints.Count == 0)
 				return result;
 			foreach (var batch in outPoints.Batch(BatchSize))
 			{
@@ -783,8 +785,7 @@ namespace NBXplorer
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
-			var outPointToPubScript = new List<(OutPoint, Script)>();
-			var scripts = new HashSet<Script>();
+			var outPointToPubScript = new List<(OutPoint, Script)>(transactions.SelectMany(t => t.Outputs).Count());
 			if (transactions.Length == 0)
 				return result;
 			foreach (var batch in transactions.Batch(BatchSize))
@@ -806,7 +807,7 @@ namespace NBXplorer
 				await tx.Commit();
 			}
 
-			await SaveOutPointToScript(outPointToPubScript.ToArray());
+			await SaveOutPointToScript(outPointToPubScript);
 
 			return result;
 		}
@@ -857,10 +858,10 @@ namespace NBXplorer
 			t.Transaction.PrecomputeHash(true, false);
 			return t;
 		}
-		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations(OutPoint[] outPoints)
+		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations(IList<OutPoint> outPoints)
 		{
 			MultiValueDictionary<OutPoint, KeyPathInformation> result = new MultiValueDictionary<OutPoint, KeyPathInformation>();
-			if (outPoints.Length == 0)
+			if (outPoints.Count == 0)
 				return result;
 			var outPointToScript = await GetOutPointToScript(outPoints);
 			var scriptToKeyPaths = await GetKeyInformations(outPointToScript.Select(kv => kv.Value).Where(s => !(s is null)).ToArray());
@@ -871,12 +872,12 @@ namespace NBXplorer
 			}
 			return result;
 		}
-		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations((OutPoint outPoint, Script script)[] outPointWithScript)
+		public async Task<MultiValueDictionary<OutPoint, KeyPathInformation>> GetKeyInformations(IList<(OutPoint outPoint, Script script)> outPointWithScript)
 		{
-
-			await SaveOutPointToScript(outPointWithScript.Where(o => !(o.script is null)).ToArray());
-			var distinctOutPoints = new HashSet<OutPoint>(outPointWithScript.Select(o => o.outPoint));
-			return await GetKeyInformations(distinctOutPoints.ToArray());
+			await SaveOutPointToScript(outPointWithScript);
+			var outpoints = new List<OutPoint>(outPointWithScript.Count);
+			outpoints.AddRange(outPointWithScript.Select(o => o.outPoint));
+			return await GetKeyInformations(outpoints);
 		}
 		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
 		{
@@ -1223,11 +1224,10 @@ namespace NBXplorer
 		{
 			foreach (var tx in txs)
 				tx.PrecomputeHash(false, true);
-			var transactionsPerScript = new MultiValueDictionary<Script, NBitcoin.Transaction>();
 			var transactionsPerOutpoint = new MultiValueDictionary<OutPoint, NBitcoin.Transaction>();
 			var matches = new Dictionary<string, TrackedTransaction>();
 			var noMatchTransactions = new HashSet<uint256>(txs.Count);
-			var outPointsWithScripts = new HashSet<(OutPoint outPoint, Script script)>();
+			var outPointsWithScripts = new List<(OutPoint outPoint, Script script)>();
 			foreach (var tx in txs)
 			{
 				if (blockId != null && useCache && noMatchCache.Contains(tx.GetHash()))
@@ -1254,33 +1254,29 @@ namespace NBXplorer
 			}
 
 			var keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
-
-			if (outPointsWithScripts.Count > 0)
+			var keyInformations = await GetKeyInformations(outPointsWithScripts);
+			foreach (var keyInfoByOutpoints in keyInformations)
 			{
-				var keyInformations = await GetKeyInformations(outPointsWithScripts.ToArray());
-				foreach (var keyInfoByOutpoints in keyInformations)
+				foreach (var tx in transactionsPerOutpoint[keyInfoByOutpoints.Key])
 				{
-					foreach (var tx in transactionsPerOutpoint[keyInfoByOutpoints.Key])
+					if (keyInfoByOutpoints.Value.Count != 0)
+						noMatchTransactions.Remove(tx.GetHash());
+					foreach (var keyInfo in keyInfoByOutpoints.Value)
 					{
-						if (keyInfoByOutpoints.Value.Count != 0)
-							noMatchTransactions.Remove(tx.GetHash());
-						foreach (var keyInfo in keyInfoByOutpoints.Value)
+						var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
+						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 						{
-							var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
-							if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
-							{
-								match = CreateTrackedTransaction(keyInfo.TrackedSource,
-									new TrackedTransactionKey(tx.GetHash(), blockId, false),
-									tx,
-									new Dictionary<Script, KeyPath>());
-								match.FirstSeen = now;
-								match.Inserted = now;
-								matches.Add(matchesGroupingKey, match);
-							}
-							if (keyInfo.KeyPath != null)
-								match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
-							keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
+							match = CreateTrackedTransaction(keyInfo.TrackedSource,
+								new TrackedTransactionKey(tx.GetHash(), blockId, false),
+								tx,
+								new Dictionary<Script, KeyPath>());
+							match.FirstSeen = now;
+							match.Inserted = now;
+							matches.Add(matchesGroupingKey, match);
 						}
+						if (keyInfo.KeyPath != null)
+							match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
+						keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
 					}
 				}
 			}

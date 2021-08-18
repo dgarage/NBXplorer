@@ -290,7 +290,7 @@ namespace NBXplorer
 			await repo.SaveOutPointToScript(
 				outputs.Select( 
 					o => (o.Coin.Outpoint,o.Coin.ScriptPubKey)
-				).ToArray()
+				)
 			);
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
 			await gettingBlockHeaders;
