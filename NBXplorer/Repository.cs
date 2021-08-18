@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
 using System;
@@ -175,7 +175,7 @@ namespace NBXplorer
 		private async ValueTask<DBTrieEngine> OpenEngine(string directory, CancellationToken cancellationToken)
 		{
 			int tried = 0;
-			retry:
+		retry:
 			try
 			{
 				return await DBTrie.DBTrieEngine.OpenFromFolder(directory);
@@ -407,6 +407,10 @@ namespace NBXplorer
 			return new Index(tx, $"{_Suffix}Scripts", $"{scriptPubKey.Hash}");
 		}
 
+		Index GetOutPointsIndex(DBTrie.Transaction tx, OutPoint outPoint)
+		{
+			return new Index(tx, $"{_Suffix}OutPoints", $"{outPoint}");
+		}
 		Index GetHighestPathIndex(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}HighestPath", $"{strategy.GetHash()}-{feature}");
@@ -647,6 +651,30 @@ namespace NBXplorer
 			}
 			await tx.Commit();
 		}
+		public async Task<Dictionary<OutPoint, Script>> GetOutPointToScript(IList<OutPoint> outPoints)
+		{
+			var result = new Dictionary<OutPoint, Script>();
+			if (outPoints.Count == 0)
+				return result;
+			foreach (var batch in outPoints.Batch(BatchSize))
+			{
+				using var tx = await engine.OpenTransaction();
+				foreach (var outPoint in batch)
+				{
+					var table = GetOutPointsIndex(tx, outPoint);
+					await foreach (var row in table.SelectForwardSkip(0))
+					{
+						using (row)
+						{
+							var script = ToObject<Script>(await row.ReadValue());
+							result[outPoint] = script;
+						}
+					}
+
+				}
+			}
+			return result;
+		}
 
 		public async Task Track(IDestination address)
 		{
@@ -809,10 +837,10 @@ namespace NBXplorer
 			t.Transaction.PrecomputeHash(true, false);
 			return t;
 		}
-		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(Script[] scripts)
+		public async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(IList<Script> scripts)
 		{
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
-			if (scripts.Length == 0)
+			if (scripts.Count == 0)
 				return result;
 			foreach (var batch in scripts.Batch(BatchSize))
 			{
@@ -1083,6 +1111,12 @@ namespace NBXplorer
 					var data = value.CreateBitcoinSerializable();
 					bs.ReadWrite(data);
 					await table.Insert(data.Key.ToString(), ms.ToArrayEfficient(), false);
+
+					foreach (var coin in CreateTrackedTransaction(group.Key, data).ReceivedCoins)
+					{
+						var bytes = ToBytes(coin.TxOut.ScriptPubKey);
+						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
+					}
 				}
 			}
 			await tx.Commit();
@@ -1149,14 +1183,23 @@ namespace NBXplorer
 		{
 			return GetMatches(new[] { tx }, blockId, now, useCache);
 		}
+
 		public async Task<TrackedTransaction[]> GetMatches(IList<NBitcoin.Transaction> txs, uint256 blockId, DateTimeOffset now, bool useCache)
 		{
 			foreach (var tx in txs)
 				tx.PrecomputeHash(false, true);
-			var transactionsPerScript = new MultiValueDictionary<Script, NBitcoin.Transaction>();
+
+			var outputCount = txs.Select(tx => tx.Outputs.Count).Sum();
+			var inputCount = txs.Select(tx => tx.Inputs.Count).Sum();
+			var outpointCount = inputCount + outputCount;
+
+			var scripts = new List<Script>(outpointCount);
+			var transactionsPerOutpoint = new MultiValueDictionary<OutPoint, NBitcoin.Transaction>(inputCount);
+			var transactionsPerScript = new MultiValueDictionary<Script, NBitcoin.Transaction>(outpointCount);
+
 			var matches = new Dictionary<string, TrackedTransaction>();
-			HashSet<Script> scripts = new HashSet<Script>(txs.Count);
 			var noMatchTransactions = new HashSet<uint256>(txs.Count);
+			var outpoints = new List<OutPoint>(inputCount);
 			foreach (var tx in txs)
 			{
 				if (blockId != null && useCache && noMatchCache.Contains(tx.GetHash()))
@@ -1164,13 +1207,12 @@ namespace NBXplorer
 					continue;
 				}
 				noMatchTransactions.Add(tx.GetHash());
-				foreach (var input in tx.Inputs)
+				if (!tx.IsCoinBase)
 				{
-					var signer = input.GetSigner();
-					if (signer != null)
+					foreach (var input in tx.Inputs)
 					{
-						scripts.Add(signer.ScriptPubKey);
-						transactionsPerScript.Add(signer.ScriptPubKey, tx);
+						outpoints.Add(input.PrevOut);
+						transactionsPerOutpoint.Add(input.PrevOut, tx);
 					}
 				}
 				foreach (var output in tx.Outputs)
@@ -1181,10 +1223,20 @@ namespace NBXplorer
 					transactionsPerScript.Add(output.ScriptPubKey, tx);
 				}
 			}
+			foreach(var kv in await GetOutPointToScript(outpoints))
+			{
+				if (kv.Value is null)
+					continue;
+				scripts.Add(kv.Value);
+				foreach (var tx in transactionsPerOutpoint[kv.Key])
+				{
+					transactionsPerScript.Add(kv.Value, tx);
+				}
+			}
 			if (scripts.Count == 0)
 				return Array.Empty<TrackedTransaction>();
 			var keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
-			var keyInformations = await GetKeyInformations(scripts.ToArray());
+			var keyInformations = await GetKeyInformations(scripts);
 			foreach (var keyInfoByScripts in keyInformations)
 			{
 				foreach (var tx in transactionsPerScript[keyInfoByScripts.Key])
