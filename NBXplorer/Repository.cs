@@ -130,14 +130,19 @@ namespace NBXplorer
 
 				Logs.Explorer.LogInformation("Applying migration if needed, do not close NBXplorer...");
 				int migrated = 0;
-				int outPointMigration = 0;
 				foreach (var repo in _Repositories.Select(kv => kv.Value))
 				{
+					bool outPointMigration = false;
 					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
 					{
 						migrated += await repo.MigrateSavedTransactions(cancellationToken);
-						outPointMigration += await repo.MigrateOutPoints(cancellationToken);
+						outPointMigration = await repo.MigrateOutPoints(cancellationToken);
 					}
+					if (outPointMigration)
+					{
+						Logs.Explorer.LogInformation($"Created OutPoint table for {repo.Network.CryptoCode} ...");
+					}
+
 				}
 				if (migrated != 0)
 					Logs.Explorer.LogInformation($"Migrated {migrated} tables...");
@@ -1427,19 +1432,19 @@ namespace NBXplorer
 			return legacyTables.Length;
 		}
 
-		public async ValueTask<int> MigrateOutPoints(CancellationToken cancellationToken = default)
+		public async ValueTask<bool> MigrateOutPoints(CancellationToken cancellationToken = default)
 		{
 			using var tx = await engine.OpenTransaction(cancellationToken);
 			var outPointPrefix = $"{_Suffix}OutPoints";
 			var tableNameList = await tx.Schema.GetTables(outPointPrefix).ToArrayAsync();
 			if (tableNameList.Length > 0)
-				return 0;
+				return false;
 			var txnPrefix = $"{_Suffix}Transactions";
 			tableNameList = await tx.Schema.GetTables(txnPrefix).ToArrayAsync();
 			if (tableNameList.Length == 0)
 			{
-				Logs.Explorer.LogWarning($"{Network.CryptoCode}: No Transactions table found for migration...");
-				return 0;
+				Logs.Explorer.LogWarning($"{Network.CryptoCode}: No Transactions table found for OutPoint table creation...");
+				return false;
 			}
 			var lastLogTime = DateTimeOffset.UtcNow;
 			var txnTable = tx.GetTable(tableNameList.First());
@@ -1463,7 +1468,7 @@ namespace NBXplorer
 			}
 			await tx.Commit();
 
-			return 1;
+			return true;
 		}
 
 		private ReadOnlyMemory<byte> GetSavedTransactionKey(uint256 txId, uint256 blockId)
