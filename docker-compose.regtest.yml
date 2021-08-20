@@ -14,6 +14,8 @@ services:
       NBXPLORER_CHAINS: "btc,lbtc"
       NBXPLORER_BTCRPCURL: http://bitcoind:43782/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
+      NBXPLORER_BTCRPCUSER: liquid
+      NBXPLORER_BTCRPCPASSWORD: liquid
       NBXPLORER_RMQHOST: rabbitmq
       NBXPLORER_RMQVIRTUAL: / 
       NBXPLORER_RMQUSER: guest
@@ -63,7 +65,7 @@ services:
   elementsd-liquid:
     restart: always
     container_name: btcpayserver_elementsd_liquid
-    image: btcpayserver/elements:0.18.1.1
+    image: btcpayserver/elements:0.18.1.7
     environment:
       ELEMENTS_CHAIN: elementsregtest
       ELEMENTS_EXTRA_ARGS: |
