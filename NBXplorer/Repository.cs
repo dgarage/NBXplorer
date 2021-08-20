@@ -130,11 +130,13 @@ namespace NBXplorer
 
 				Logs.Explorer.LogInformation("Applying migration if needed, do not close NBXplorer...");
 				int migrated = 0;
+				int outPointMigration = 0;
 				foreach (var repo in _Repositories.Select(kv => kv.Value))
 				{
 					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
 					{
 						migrated += await repo.MigrateSavedTransactions(cancellationToken);
+						outPointMigration += await repo.MigrateOutPoints(cancellationToken);
 					}
 				}
 				if (migrated != 0)
@@ -1223,7 +1225,7 @@ namespace NBXplorer
 					transactionsPerScript.Add(output.ScriptPubKey, tx);
 				}
 			}
-			foreach(var kv in await GetOutPointToScript(outpoints))
+			foreach (var kv in await GetOutPointToScript(outpoints))
 			{
 				if (kv.Value is null)
 					continue;
@@ -1423,6 +1425,45 @@ namespace NBXplorer
 				}
 			}
 			return legacyTables.Length;
+		}
+
+		public async ValueTask<int> MigrateOutPoints(CancellationToken cancellationToken = default)
+		{
+			using var tx = await engine.OpenTransaction(cancellationToken);
+			var outPointPrefix = $"{_Suffix}OutPoints";
+			var tableNameList = await tx.Schema.GetTables(outPointPrefix).ToArrayAsync();
+			if (tableNameList.Length > 0)
+				return 0;
+			var txnPrefix = $"{_Suffix}Transactions";
+			tableNameList = await tx.Schema.GetTables(txnPrefix).ToArrayAsync();
+			if (tableNameList.Length == 0)
+			{
+				Logs.Explorer.LogWarning($"{Network.CryptoCode}: No Transactions table found for migration...");
+				return 0;
+			}
+			var lastLogTime = DateTimeOffset.UtcNow;
+			var txnTable = tx.GetTable(tableNameList.First());
+			await foreach (var row in txnTable.Enumerate())
+			{
+				using (row)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					var seg = DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
+					MemoryStream ms = new MemoryStream(seg.Array, seg.Offset, seg.Count);
+					BitcoinStream bs = new BitcoinStream(ms, false);
+					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
+					var data = CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey.Parse(row.Key.Span));
+					data.ReadWrite(bs);
+					foreach (var coin in data.GetCoins())
+					{
+						var bytes = ToBytes(coin.TxOut.ScriptPubKey);
+						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
+					}
+				}
+			}
+			await tx.Commit();
+
+			return 1;
 		}
 
 		private ReadOnlyMemory<byte> GetSavedTransactionKey(uint256 txId, uint256 blockId)
