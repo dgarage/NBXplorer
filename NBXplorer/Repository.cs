@@ -1454,7 +1454,7 @@ namespace NBXplorer
 					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
 					var data = CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey.Parse(row.Key.Span));
 					data.ReadWrite(bs);
-					foreach (var coin in data.GetCoins())
+					foreach (var coin in data.Transaction.Outputs.AsCoins())
 					{
 						var bytes = ToBytes(coin.TxOut.ScriptPubKey);
 						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
