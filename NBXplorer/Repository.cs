@@ -136,7 +136,7 @@ namespace NBXplorer
 					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
 					{
 						migrated += await repo.MigrateSavedTransactions(cancellationToken);
-						outPointMigration = await repo.MigrateOutPoints(cancellationToken);
+						outPointMigration = await repo.MigrateOutPoints(_Configuration.DataDir, cancellationToken);
 					}
 					if (outPointMigration)
 					{
@@ -1432,13 +1432,28 @@ namespace NBXplorer
 			return legacyTables.Length;
 		}
 
-		public async ValueTask<bool> MigrateOutPoints(CancellationToken cancellationToken = default)
+		public async ValueTask<bool> MigrateOutPoints(string directory, CancellationToken cancellationToken = default)
 		{
 			using var tx = await engine.OpenTransaction(cancellationToken);
 			var outPointPrefix = $"{_Suffix}OutPoints";
 			var tableNameList = await tx.Schema.GetTables(outPointPrefix).ToArrayAsync();
-			if (tableNameList.Length > 0)
+			bool prevInterupted = false;
+			string markerFileName = "outpoint.tmp";
+			prevInterupted = File.Exists(Path.Combine(directory, markerFileName));
+			if (tableNameList.Length == 0)
+			{
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: No OutPoint Table found...");
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting the Outpoint Migration...");
+			}
+			else if (prevInterupted)
+			{
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: OutPoint migration was interupted last time...");
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Restarting the Outpoint Migration...");
+			}
+			else
+			{
 				return false;
+			}
 			var txnPrefix = $"{_Suffix}Transactions";
 			tableNameList = await tx.Schema.GetTables(txnPrefix).ToArrayAsync();
 			if (tableNameList.Length == 0)
@@ -1448,8 +1463,13 @@ namespace NBXplorer
 			}
 			var lastLogTime = DateTimeOffset.UtcNow;
 			var txnTable = tx.GetTable(tableNameList.First());
+			int txnCount = 0;
+			int batchSize = 100;
+
+			File.Create(Path.Combine(directory, markerFileName));
 			await foreach (var row in txnTable.Enumerate())
 			{
+				txnCount++;
 				using (row)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
@@ -1465,8 +1485,12 @@ namespace NBXplorer
 						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
 					}
 				}
+				if (txnCount % batchSize == 0)
+					await tx.Commit();
 			}
+
 			await tx.Commit();
+			File.Delete(Path.Combine(directory, markerFileName));
 
 			return true;
 		}
