@@ -1466,7 +1466,7 @@ namespace NBXplorer
 			int txnCount = 0;
 			int batchSize = 100;
 
-			File.Create(Path.Combine(directory, markerFileName));
+			File.Create(Path.Combine(directory, markerFileName)).Close();
 			await foreach (var row in txnTable.Enumerate())
 			{
 				txnCount++;
