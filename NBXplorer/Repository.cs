@@ -135,6 +135,10 @@ namespace NBXplorer
 					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
 					{
 						migrated += await repo.MigrateSavedTransactions(cancellationToken);
+						if (await repo.MigrateOutPoints(_Configuration.DataDir, cancellationToken))
+						{
+							Logs.Explorer.LogInformation($"Created OutPoint table for {repo.Network.CryptoCode}...");
+						}
 					}
 				}
 				if (migrated != 0)
@@ -1223,7 +1227,7 @@ namespace NBXplorer
 					transactionsPerScript.Add(output.ScriptPubKey, tx);
 				}
 			}
-			foreach(var kv in await GetOutPointToScript(outpoints))
+			foreach (var kv in await GetOutPointToScript(outpoints))
 			{
 				if (kv.Value is null)
 					continue;
@@ -1423,6 +1427,54 @@ namespace NBXplorer
 				}
 			}
 			return legacyTables.Length;
+		}
+
+		public async ValueTask<bool> MigrateOutPoints(string directory, CancellationToken cancellationToken = default)
+		{
+			using var tx = await engine.OpenTransaction(cancellationToken);
+			var tableNameList = await tx.Schema.GetTables($"{_Suffix}OutPoints").ToArrayAsync();
+			string markerFilePath = Path.Combine(directory, "outpoint-migration.lock");
+			if (tableNameList.Length == 0)
+			{
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: No OutPoint Table found...");
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting the Outpoint Migration...");
+			}
+			else if (File.Exists(markerFilePath))
+			{
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: OutPoint migration was interupted last time...");
+				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Restarting the Outpoint Migration...");
+			}
+			else
+			{
+				return false;
+			}
+			int txnCount = 0;
+			File.Create(markerFilePath).Close();
+			await foreach (var row in tx.GetTable($"{_Suffix}Transactions").Enumerate())
+			{
+				txnCount++;
+				using (row)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					var seg = DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
+					MemoryStream ms = new MemoryStream(seg.Array, seg.Offset, seg.Count);
+					BitcoinStream bs = new BitcoinStream(ms, false);
+					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
+					var data = CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey.Parse(row.Key.Span));
+					data.ReadWrite(bs);
+					foreach (var coin in data.GetCoins())
+					{
+						var bytes = ToBytes(coin.TxOut.ScriptPubKey);
+						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
+					}
+				}
+				if (txnCount % BatchSize == 0)
+					await tx.Commit();
+			}
+
+			await tx.Commit();
+			File.Delete(markerFilePath);
+			return true;
 		}
 
 		private ReadOnlyMemory<byte> GetSavedTransactionKey(uint256 txId, uint256 blockId)

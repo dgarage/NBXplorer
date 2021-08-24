@@ -1836,6 +1836,54 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public async Task CanMigrateOutPointsFromTransactions()
+		{
+			using (var tester = ServerTester.CreateNoAutoStart())
+			{
+				await tester.Load("CanMigrateOutpointFromTransactions");
+				tester.Start();
+				var expected = new Dictionary<OutPoint, Script>();
+				expected[new OutPoint(new uint256("37b4ecec674cc5d677964617eeffb79c9a91a960b2f3c13d52f51ae5f9dec6d7"), 1)] = new Script("0 21d0d8e24d62fc0c2432984cb4ede88cf370b97b");
+				expected[new OutPoint(new uint256("53c190c5057db8f80053ab72b72b81645971d33f77ef73dcbdcba07d0274f85d"), 0)] = new Script("0 e420c288db9967c7c74586e65aa68832e2e03f7b");
+				expected[new OutPoint(new uint256("919938739b6e1f5de7baf0a035c864d849061c1fdfd61cc73ef6e00b4871687d"), 0)] = new Script("0 e420c288db9967c7c74586e65aa68832e2e03f7b");
+				expected[new OutPoint(new uint256("f61fa9f5b2a86697d1f5b7b78bde252a4cb1ddde0beaff5f56ce8dcedd0de9e6"), 0)] = new Script("0 08425b0d3147fc57fe98d519a84ef0a4b65ed005");
+				expected[new OutPoint(new uint256("fbb6044d03959bcd6486e8bac86a2afd35fe2f45dbcb81a5d3d0d90a11450896"), 1)] = new Script("0 41715def383c214237ca2f572b5b1e0cfdff3aff");
+
+				async Task AssertMigration()
+				{
+					var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+					var actual = await repo.GetOutPointToScript(new List<OutPoint>(expected.Keys));
+					Assert.Equal(expected, actual);
+				}
+				await AssertMigration();
+				tester.ResetExplorer(false);
+				await AssertMigration();
+				
+			}
+		}
+
+		[Fact]
+		public async Task CanMigrateOutpointFromTransactionsWithPrunedTrackedTransactions()
+		{
+			using (var tester = ServerTester.CreateNoAutoStart())
+			{
+				await tester.Load("CanMigrateOutpointFromTransactionsWithPrunedTrackedTransactions");
+				tester.Start();
+				var expected = new Dictionary<OutPoint, Script>();
+				expected[new OutPoint(new uint256("5a4205fad0d1bf4de0554574396ac30c27ae2bd442e7f2f5f185527988a7fdc2"), 1)] = new Script("0 2ed257e4e992041a5659a1d91a50398cabb9c61a");
+				async Task AssertMigration()
+				{
+					var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+					var actual = await repo.GetOutPointToScript(new List<OutPoint>(expected.Keys));
+					Assert.Equal(expected, actual);
+				}
+				await AssertMigration();
+				tester.ResetExplorer(false);
+				await AssertMigration();
+			}
+		}
+
+		[Fact]
 		public async Task DoNotLoseTimestampForLongConfirmations()
 		{
 			using (var tester = ServerTester.Create())

@@ -196,9 +196,22 @@ namespace NBXplorer
 
 			public virtual IEnumerable<Coin> GetCoins()
 			{
-				foreach (var coinData in _CoinsData)
+				if (_CoinsData is null)
 				{
-					yield return new Coin(new OutPoint(Key.TxId, (int)coinData.Index), coinData.TxOut);
+					int idx = -1;
+					foreach (var output in Transaction.Outputs)
+					{
+						idx++;
+						if (KnownKeyPathMapping.ContainsKey(output.ScriptPubKey))
+							yield return new Coin(new OutPoint(Key.TxId, idx), output);
+					}
+				}
+				else
+				{
+					foreach (var coinData in _CoinsData)
+					{
+						yield return new Coin(new OutPoint(Key.TxId, (int)coinData.Index), coinData.TxOut);
+					}
 				}
 			}
 		}
