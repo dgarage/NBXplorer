@@ -1868,6 +1868,27 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
+		public async Task CanMigrateOutpointFromTransactionsWithPrunedTrackedTransactions()
+		{
+			using (var tester = ServerTester.CreateNoAutoStart())
+			{
+				await tester.Load("CanMigrateOutpointFromTransactionsWithPrunedTrackedTransactions");
+				tester.Start();
+				var expected = new Dictionary<OutPoint, Script>();
+				expected[new OutPoint(new uint256("5a4205fad0d1bf4de0554574396ac30c27ae2bd442e7f2f5f185527988a7fdc2"), 1)] = new Script("0 2ed257e4e992041a5659a1d91a50398cabb9c61a");
+				async Task AssertMigration()
+				{
+					var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+					var actual = await repo.GetOutPointToScript(new List<OutPoint>(expected.Keys));
+					Assert.Equal(expected, actual);
+				}
+				await AssertMigration();
+				tester.ResetExplorer(false);
+				await AssertMigration();
+			}
+		}
+
+		[Fact]
 		public async Task DoNotLoseTimestampForLongConfirmations()
 		{
 			using (var tester = ServerTester.Create())
