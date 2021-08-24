@@ -1852,8 +1852,8 @@ namespace NBXplorer.Tests
 				async Task AssertMigration()
 				{
 					var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
-					var actual = await repo.GetOutPointToScript(new List<OutPoint>(expected.Keys));
-					Assert.Equal(expected, actual);
+					var actual = await repo.GetOutPointToTxOut(new List<OutPoint>(expected.Keys));
+					Assert.Equal(expected, actual.ToDictionary(a => a.Key, a => a.Value.ScriptPubKey));
 				}
 				await AssertMigration();
 				tester.ResetExplorer(false);
@@ -1874,8 +1874,8 @@ namespace NBXplorer.Tests
 				async Task AssertMigration()
 				{
 					var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
-					var actual = await repo.GetOutPointToScript(new List<OutPoint>(expected.Keys));
-					Assert.Equal(expected, actual);
+					var actual = await repo.GetOutPointToTxOut(new List<OutPoint>(expected.Keys));
+					Assert.Equal(expected, actual.ToDictionary(a => a.Key, a => a.Value.ScriptPubKey));
 				}
 				await AssertMigration();
 				tester.ResetExplorer(false);
