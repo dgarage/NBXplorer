@@ -132,17 +132,14 @@ namespace NBXplorer
 				int migrated = 0;
 				foreach (var repo in _Repositories.Select(kv => kv.Value))
 				{
-					bool outPointMigration = false;
 					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
 					{
 						migrated += await repo.MigrateSavedTransactions(cancellationToken);
-						outPointMigration = await repo.MigrateOutPoints(_Configuration.DataDir, cancellationToken);
+						if (await repo.MigrateOutPoints(_Configuration.DataDir, cancellationToken))
+						{
+							Logs.Explorer.LogInformation($"Created OutPoint table for {repo.Network.CryptoCode}...");
+						}
 					}
-					if (outPointMigration)
-					{
-						Logs.Explorer.LogInformation($"Created OutPoint table for {repo.Network.CryptoCode} ...");
-					}
-
 				}
 				if (migrated != 0)
 					Logs.Explorer.LogInformation($"Migrated {migrated} tables...");
@@ -1435,17 +1432,14 @@ namespace NBXplorer
 		public async ValueTask<bool> MigrateOutPoints(string directory, CancellationToken cancellationToken = default)
 		{
 			using var tx = await engine.OpenTransaction(cancellationToken);
-			var outPointPrefix = $"{_Suffix}OutPoints";
-			var tableNameList = await tx.Schema.GetTables(outPointPrefix).ToArrayAsync();
-			bool prevInterupted = false;
-			string markerFileName = "outpoint.tmp";
-			prevInterupted = File.Exists(Path.Combine(directory, markerFileName));
+			var tableNameList = await tx.Schema.GetTables($"{_Suffix}OutPoints").ToArrayAsync();
+			string markerFilePath = Path.Combine(directory, "outpoint-migration.lock");
 			if (tableNameList.Length == 0)
 			{
 				Logs.Explorer.LogInformation($"{Network.CryptoCode}: No OutPoint Table found...");
 				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Starting the Outpoint Migration...");
 			}
-			else if (prevInterupted)
+			else if (File.Exists(markerFilePath))
 			{
 				Logs.Explorer.LogInformation($"{Network.CryptoCode}: OutPoint migration was interupted last time...");
 				Logs.Explorer.LogInformation($"{Network.CryptoCode}: Restarting the Outpoint Migration...");
@@ -1454,20 +1448,9 @@ namespace NBXplorer
 			{
 				return false;
 			}
-			var txnPrefix = $"{_Suffix}Transactions";
-			tableNameList = await tx.Schema.GetTables(txnPrefix).ToArrayAsync();
-			if (tableNameList.Length == 0)
-			{
-				Logs.Explorer.LogWarning($"{Network.CryptoCode}: No Transactions table found for OutPoint table creation...");
-				return false;
-			}
-			var lastLogTime = DateTimeOffset.UtcNow;
-			var txnTable = tx.GetTable(tableNameList.First());
 			int txnCount = 0;
-			int batchSize = 100;
-
-			File.Create(Path.Combine(directory, markerFileName)).Close();
-			await foreach (var row in txnTable.Enumerate())
+			File.Create(markerFilePath).Close();
+			await foreach (var row in tx.GetTable($"{_Suffix}Transactions").Enumerate())
 			{
 				txnCount++;
 				using (row)
@@ -1485,13 +1468,12 @@ namespace NBXplorer
 						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
 					}
 				}
-				if (txnCount % batchSize == 0)
+				if (txnCount % BatchSize == 0)
 					await tx.Commit();
 			}
 
 			await tx.Commit();
-			File.Delete(Path.Combine(directory, markerFileName));
-
+			File.Delete(markerFilePath);
 			return true;
 		}
 

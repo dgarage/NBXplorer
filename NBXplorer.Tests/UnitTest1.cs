@@ -1842,7 +1842,6 @@ namespace NBXplorer.Tests
 			{
 				await tester.Load("CanMigrateOutpointFromTransactions");
 				tester.Start();
-				var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
 				var expected = new Dictionary<OutPoint, Script>();
 				expected[new OutPoint(new uint256("37b4ecec674cc5d677964617eeffb79c9a91a960b2f3c13d52f51ae5f9dec6d7"), 0)] = new Script("0 b2c157cbe0ab29e96c237016b2efdce1e9b113f1");
 				expected[new OutPoint(new uint256("37b4ecec674cc5d677964617eeffb79c9a91a960b2f3c13d52f51ae5f9dec6d7"), 1)] = new Script("0 21d0d8e24d62fc0c2432984cb4ede88cf370b97b");
@@ -1855,10 +1854,16 @@ namespace NBXplorer.Tests
 				expected[new OutPoint(new uint256("fbb6044d03959bcd6486e8bac86a2afd35fe2f45dbcb81a5d3d0d90a11450896"), 0)] = new Script("0 1d10936b08664075886460585ce8322e88e5bbd2");
 				expected[new OutPoint(new uint256("fbb6044d03959bcd6486e8bac86a2afd35fe2f45dbcb81a5d3d0d90a11450896"), 1)] = new Script("0 41715def383c214237ca2f572b5b1e0cfdff3aff");
 
-				var actual = await repo.GetOutPointToScript(new List<OutPoint>(expected.Keys));
-
-				Assert.Equal(expected, actual);
-
+				async Task AssertMigration()
+				{
+					var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+					var actual = await repo.GetOutPointToScript(new List<OutPoint>(expected.Keys));
+					Assert.Equal(expected, actual);
+				}
+				await AssertMigration();
+				tester.ResetExplorer(false);
+				await AssertMigration();
+				
 			}
 		}
 

@@ -14,8 +14,6 @@ services:
       NBXPLORER_CHAINS: "btc,lbtc"
       NBXPLORER_BTCRPCURL: http://bitcoind:43782/
       NBXPLORER_BTCNODEENDPOINT: bitcoind:39388
-      NBXPLORER_BTCRPCUSER: liquid
-      NBXPLORER_BTCRPCPASSWORD: liquid
       NBXPLORER_RMQHOST: rabbitmq
       NBXPLORER_RMQVIRTUAL: / 
       NBXPLORER_RMQUSER: guest
