@@ -655,9 +655,9 @@ namespace NBXplorer
 			}
 			await tx.Commit();
 		}
-		public async Task<Dictionary<OutPoint, Script>> GetOutPointToScript(IList<OutPoint> outPoints)
+		public async Task<Dictionary<OutPoint, TxOut>> GetOutPointToTxOut(IList<OutPoint> outPoints)
 		{
-			var result = new Dictionary<OutPoint, Script>();
+			var result = new Dictionary<OutPoint, TxOut>();
 			if (outPoints.Count == 0)
 				return result;
 			foreach (var batch in outPoints.Batch(BatchSize))
@@ -670,8 +670,11 @@ namespace NBXplorer
 					{
 						using (row)
 						{
-							var script = ToObject<Script>(await row.ReadValue());
-							result[outPoint] = script;
+							
+							var bytes = await row.ReadValue();
+							var txout = Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
+							txout.ReadWrite(bytes.ToArray(), Network.NBitcoinNetwork);
+							result[outPoint] = txout;
 						}
 					}
 
@@ -1118,7 +1121,7 @@ namespace NBXplorer
 
 					foreach (var coin in CreateTrackedTransaction(group.Key, data).ReceivedCoins)
 					{
-						var bytes = ToBytes(coin.TxOut.ScriptPubKey);
+						var bytes = coin.TxOut.ToBytes();
 						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
 					}
 				}
@@ -1227,14 +1230,14 @@ namespace NBXplorer
 					transactionsPerScript.Add(output.ScriptPubKey, tx);
 				}
 			}
-			foreach (var kv in await GetOutPointToScript(outpoints))
+			foreach (var kv in await GetOutPointToTxOut(outpoints))
 			{
 				if (kv.Value is null)
 					continue;
-				scripts.Add(kv.Value);
+				scripts.Add(kv.Value.ScriptPubKey);
 				foreach (var tx in transactionsPerOutpoint[kv.Key])
 				{
-					transactionsPerScript.Add(kv.Value, tx);
+					transactionsPerScript.Add(kv.Value.ScriptPubKey, tx);
 				}
 			}
 			if (scripts.Count == 0)
@@ -1464,7 +1467,7 @@ namespace NBXplorer
 					data.ReadWrite(bs);
 					foreach (var coin in data.GetCoins())
 					{
-						var bytes = ToBytes(coin.TxOut.ScriptPubKey);
+						var bytes = coin.TxOut.ToBytes();
 						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
 					}
 				}
