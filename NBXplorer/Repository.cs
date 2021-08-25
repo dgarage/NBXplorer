@@ -670,7 +670,6 @@ namespace NBXplorer
 					{
 						using (row)
 						{
-							
 							var bytes = await row.ReadValue();
 							var txout = Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
 							txout.ReadWrite(bytes.ToArray(), Network.NBitcoinNetwork);
@@ -1206,9 +1205,12 @@ namespace NBXplorer
 
 			var matches = new Dictionary<string, TrackedTransaction>();
 			var noMatchTransactions = new HashSet<uint256>(txs.Count);
+			var transactions = new Dictionary<uint256, NBitcoin.Transaction>(txs.Count);
 			var outpoints = new List<OutPoint>(inputCount);
 			foreach (var tx in txs)
 			{
+				if (!transactions.TryAdd(tx.GetHash(), tx))
+					continue;
 				if (blockId != null && useCache && noMatchCache.Contains(tx.GetHash()))
 				{
 					continue;
@@ -1218,8 +1220,20 @@ namespace NBXplorer
 				{
 					foreach (var input in tx.Inputs)
 					{
-						outpoints.Add(input.PrevOut);
 						transactionsPerOutpoint.Add(input.PrevOut, tx);
+						if (transactions.TryGetValue(input.PrevOut.Hash, out var prevtx))
+						{
+							// Maybe this tx is spending another tx in the same block, in which case, it will not be fetched by GetOutPointToTxOut,
+							// so we need to add it here.
+							var txout = prevtx.Outputs[input.PrevOut.N];
+							scripts.Add(txout.ScriptPubKey);
+							transactionsPerScript.Add(txout.ScriptPubKey, tx);
+						}
+						else
+						{
+							// Else, let's try to fetch it later.
+							outpoints.Add(input.PrevOut);
+						}
 					}
 				}
 				foreach (var output in tx.Outputs)

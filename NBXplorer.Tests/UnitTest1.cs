@@ -1858,7 +1858,23 @@ namespace NBXplorer.Tests
 				await AssertMigration();
 				tester.ResetExplorer(false);
 				await AssertMigration();
-				
+
+				var trackedScriptPubKey = new Script("0 41715def383c214237ca2f572b5b1e0cfdff3aff");
+
+				// GetMatches can be called with tx1 and tx2, where tx2 spends tx1. And tx1 never indexed before.
+				// This test make sure that we are properly matching tx2.
+				var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+				var tx1 = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
+				tx1.Inputs.Add(new OutPoint(new uint256("47b4ecec674cc5d677964617eeffb79c9a91a960b2f3c13d52f51ae5f9dec6d7"), 1));
+				tx1.Outputs.Add(Money.Coins(1.0m), trackedScriptPubKey);
+
+				var tx2 = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
+				tx2.Inputs.Add(tx1.Outputs.AsCoins().First().Outpoint);
+				tx2.Outputs.Add(Money.Coins(1.0m), new Key().GetScriptPubKey(ScriptPubKeyType.Legacy));
+				var matches = await repo.GetMatches(new Transaction[] { tx1, tx2 }, null, DateTimeOffset.UtcNow, false);
+				Assert.Equal(2, matches.Length);
+				Assert.Single(matches[0].ReceivedCoins);
+				Assert.Empty(matches[1].ReceivedCoins);
 			}
 		}
 
