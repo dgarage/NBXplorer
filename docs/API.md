@@ -98,12 +98,15 @@ Here a documentation of the different derivation scheme supported:
 | Multi-sig P2WSH | 2-of-xpub1-xpub2 |
 | Multi-sig P2SH-P2WSH | 2-of-xpub1-xpub2-[p2sh] |
 | Multi-sig P2SH | 2-of-xpub1-xpub2-[legacy] |
+| Taproot | xpub1-[taproot] |
 
 For multisig, the public keys are ordered before generating the address by default for privacy reason, use `-[keeporder]` to disable it.
 
 You can use more than one options at same time, example: `2-of-xpub1-xpub2-[legacy]-[keeporder]`
 
 Most of routes asks for a `cryptoCode`. This identify the crypto currency to request data from. (eg. `BTC`, `LTC`...)
+
+Note: Taproot is incompatible with all other options.
 
 ## <a name="track"></a>Track a derivation scheme
 
