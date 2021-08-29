@@ -367,23 +367,24 @@ namespace NBXplorer.Tests
 				Assert.NotNull(spendingPSBT.Inputs[0].WitnessUtxo);
 				///////////////////////////
 
-				CanCreatePSBTCore(tester, true);
-				CanCreatePSBTCore(tester, false);
+				CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
+				CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
+				CanCreatePSBTCore(tester, ScriptPubKeyType.TaprootBIP86);
 			}
 		}
 
-		private static void CanCreatePSBTCore(ServerTester tester, bool segwit)
+		private static void CanCreatePSBTCore(ServerTester tester, ScriptPubKeyType type)
 		{
 			var userExtKey = new ExtKey();
 			var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
 			{
-				ScriptPubKeyType = segwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy
+				ScriptPubKeyType = type
 			});
 			tester.Client.Track(userDerivationScheme);
 			var userExtKey2 = new ExtKey();
 			var userDerivationScheme2 = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey2.Neuter(), new DerivationStrategyOptions()
 			{
-				ScriptPubKeyType = segwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy
+				ScriptPubKeyType = type
 			});
 			tester.Client.Track(userDerivationScheme2);
 			var newAddress2 = tester.Client.GetUnused(userDerivationScheme2, DerivationFeature.Deposit, skip: 2);
@@ -797,7 +798,7 @@ namespace NBXplorer.Tests
 			actual = tester.Client.UpdatePSBT(new UpdatePSBTRequest() { PSBT = actual, DerivationScheme = userDerivationScheme }).PSBT;
 			Assert.Equal(expected, actual);
 
-			Assert.All(expected.Inputs, i => Assert.Equal(segwit, i.NonWitnessUtxo == null));
+			Assert.All(expected.Inputs, i => Assert.Equal(type != ScriptPubKeyType.Legacy, i.NonWitnessUtxo is null));
 
 			Logs.Tester.LogInformation("We should be able to rebase hdkeys");
 
@@ -837,7 +838,7 @@ namespace NBXplorer.Tests
 
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 			Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
-			var selfchange = Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Key.GetAddress(segwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy, tester.Network).ScriptPubKey == newAddress.ScriptPubKey)));
+			var selfchange = Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Key.GetAddress(type, tester.Network).ScriptPubKey == newAddress.ScriptPubKey)));
 			Assert.All(psbt2.PSBT.Inputs.Concat<PSBTCoin>(new[] { selfchange }).SelectMany(i => i.HDKeyPaths), i =>
 			{
 				Assert.Equal(rootHD, i.Value.MasterFingerprint);
@@ -866,7 +867,7 @@ namespace NBXplorer.Tests
 			Assert.True(psbt2.PSBT.TryGetEstimatedFeeRate(out var feeRate));
 			Assert.Equal(new FeeRate(1.0m), feeRate);
 
-			if (segwit)
+			if (type == ScriptPubKeyType.Segwit)
 			{
 				// some PSBT signers are incompliant with spec and require the non_witness_utxo even for segwit inputs
 
@@ -2373,6 +2374,11 @@ namespace NBXplorer.Tests
 			factory.AuthorizedOptions.Add("b");
 			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[b]-[keeporder]-[a]-[legacy]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[legacy]-[keeporder]-[a]-[b]").ToString());
 			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[a]-[p2sh]-[keeporder]-[b]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[keeporder]-[p2sh]-[a]-[b]").ToString());
+
+			var taproot = factory.Parse($"{toto}-[taproot]");
+			Assert.Equal($"{toto}-[taproot]",taproot.ToString());
+			generated = Generate(taproot);
+			Assert.IsType<TaprootPubKey>(generated.ScriptPubKey.GetDestination());
 		}
 
 		private static Derivation Generate(DerivationStrategyBase strategy)

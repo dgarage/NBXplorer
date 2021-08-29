@@ -16,7 +16,8 @@ namespace NBXplorer.JsonConverters
 			{
 				{ "Legacy", ScriptPubKeyType.Legacy },
 				{ "Segwit", ScriptPubKeyType.Segwit },
-				{ "SegwitP2SH", ScriptPubKeyType.SegwitP2SH }
+				{ "SegwitP2SH", ScriptPubKeyType.SegwitP2SH },
+				{ "Taproot", ScriptPubKeyType.TaprootBIP86 }
 			};
 			_ScriptPubKeyTypeReverse = _ScriptPubKeyType.ToDictionary(kv => kv.Value, kv => kv.Key);
 		}
