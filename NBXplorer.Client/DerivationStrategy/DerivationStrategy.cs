@@ -97,7 +97,9 @@ namespace NBXplorer.DerivationStrategy
 			if (optionsDictionary.Remove("taproot"))
 			{
 				taproot = true;
+#pragma warning disable CS0618 // Type or member is obsolete
 				type = ScriptPubKeyType.TaprootBIP86;
+#pragma warning restore CS0618 // Type or member is obsolete
 			}
 			if (!legacy && !_Network.Consensus.SupportSegwit)
 				throw new FormatException("Segwit is not supported you need to specify option '-[legacy]'");
@@ -168,7 +170,9 @@ namespace NBXplorer.DerivationStrategy
 		{
 			options = options ?? new DerivationStrategyOptions();
 			DerivationStrategyBase strategy = null;
+#pragma warning disable CS0618 // Type or member is obsolete
 			if (options.ScriptPubKeyType != ScriptPubKeyType.TaprootBIP86)
+#pragma warning restore CS0618 // Type or member is obsolete
 			{
 				strategy = new DirectDerivationStrategy(publicKey, options.ScriptPubKeyType != ScriptPubKeyType.Legacy, options.AdditionalOptions);
 				if (options.ScriptPubKeyType == ScriptPubKeyType.Segwit && !_Network.Consensus.SupportSegwit)

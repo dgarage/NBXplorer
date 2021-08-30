@@ -17,7 +17,9 @@ namespace NBXplorer.JsonConverters
 				{ "Legacy", ScriptPubKeyType.Legacy },
 				{ "Segwit", ScriptPubKeyType.Segwit },
 				{ "SegwitP2SH", ScriptPubKeyType.SegwitP2SH },
+#pragma warning disable CS0618 // Type or member is obsolete
 				{ "Taproot", ScriptPubKeyType.TaprootBIP86 }
+#pragma warning restore CS0618 // Type or member is obsolete
 			};
 			_ScriptPubKeyTypeReverse = _ScriptPubKeyType.ToDictionary(kv => kv.Value, kv => kv.Key);
 		}
