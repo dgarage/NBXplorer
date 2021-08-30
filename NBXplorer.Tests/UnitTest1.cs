@@ -867,7 +867,7 @@ namespace NBXplorer.Tests
 			Assert.True(psbt2.PSBT.TryGetEstimatedFeeRate(out var feeRate));
 			Assert.Equal(new FeeRate(1.0m), feeRate);
 
-			if (type == ScriptPubKeyType.Segwit)
+			if (type == ScriptPubKeyType.Segwit || type == ScriptPubKeyType.TaprootBIP86)
 			{
 				// some PSBT signers are incompliant with spec and require the non_witness_utxo even for segwit inputs
 
