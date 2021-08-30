@@ -21,7 +21,7 @@ namespace NBXplorer.DerivationStrategy
 		{
 			get; set;
 		}
-		
+
 		public ReadOnlyDictionary<string, bool> AdditionalOptions { get; set; }
 	}
 	public class DerivationStrategyFactory
@@ -37,12 +37,16 @@ namespace NBXplorer.DerivationStrategy
 		}
 		public DerivationStrategyFactory(Network network)
 		{
-			if(network == null)
+			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_Network = network;
 			if (_Network.Consensus.SupportSegwit)
 			{
 				AuthorizedOptions.Add("p2sh");
+			}
+			if (_Network.Consensus.SupportTaproot)
+			{
+				AuthorizedOptions.Add("taproot");
 			}
 			AuthorizedOptions.Add("keeporder");
 			AuthorizedOptions.Add("legacy");
@@ -63,6 +67,8 @@ namespace NBXplorer.DerivationStrategy
 			bool legacy = false;
 			bool p2sh = false;
 			bool keepOrder = false;
+			bool taproot = false;
+			ScriptPubKeyType type = ScriptPubKeyType.Segwit;
 
 			Dictionary<string, bool> optionsDictionary = new Dictionary<string, bool>(5);
 			foreach (Match optionMatch in _OptionRegex.Matches(str))
@@ -77,14 +83,21 @@ namespace NBXplorer.DerivationStrategy
 			if (optionsDictionary.Remove("legacy"))
 			{
 				legacy = true;
+				type = ScriptPubKeyType.Legacy;
 			}
 			if (optionsDictionary.Remove("p2sh"))
 			{
 				p2sh = true;
+				type = ScriptPubKeyType.SegwitP2SH;
 			}
 			if (optionsDictionary.Remove("keeporder"))
 			{
 				keepOrder = true;
+			}
+			if (optionsDictionary.Remove("taproot"))
+			{
+				taproot = true;
+				type = ScriptPubKeyType.TaprootBIP86;
 			}
 			if (!legacy && !_Network.Consensus.SupportSegwit)
 				throw new FormatException("Segwit is not supported you need to specify option '-[legacy]'");
@@ -92,16 +105,31 @@ namespace NBXplorer.DerivationStrategy
 			if (legacy && p2sh)
 				throw new FormatException("The option 'legacy' is incompatible with 'p2sh'");
 
+			if (taproot)
+			{
+				if (!_Network.Consensus.SupportTaproot)
+				{
+					throw new FormatException("Taproot is not supported, you need to remove option '-[taproot]'");
+				}
+				else
+				{
+					if (p2sh)
+						throw new FormatException("The option 'taproot' is incompatible with 'p2sh'");
+					if (legacy)
+						throw new FormatException("The option 'taproot' is incompatible with 'legacy'");
+					if (keepOrder)
+						throw new FormatException("The option 'taproot' is incompatible with 'keeporder'");
+				}
+			}
+
 			var options = new DerivationStrategyOptions()
 			{
 				KeepOrder = keepOrder,
-				ScriptPubKeyType = legacy ? ScriptPubKeyType.Legacy :
-									p2sh ? ScriptPubKeyType.SegwitP2SH :
-									ScriptPubKeyType.Segwit,
+				ScriptPubKeyType = type,
 				AdditionalOptions = new ReadOnlyDictionary<string, bool>(optionsDictionary)
 			};
 			var match = MultiSigRegex.Match(str);
-			if(match.Success)
+			if (match.Success)
 			{
 				var sigCount = int.Parse(match.Groups[1].Value);
 				var pubKeys = match.Groups
@@ -139,15 +167,35 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase strategy = new DirectDerivationStrategy(publicKey, options.ScriptPubKeyType != ScriptPubKeyType.Legacy, options.AdditionalOptions);
-			if(options.ScriptPubKeyType != ScriptPubKeyType.Legacy && !_Network.Consensus.SupportSegwit)
-				throw new InvalidOperationException("This crypto currency does not support segwit");
-
-			if(options.ScriptPubKeyType == ScriptPubKeyType.SegwitP2SH)
+			DerivationStrategyBase strategy = null;
+			if (options.ScriptPubKeyType != ScriptPubKeyType.TaprootBIP86)
 			{
-				strategy = new P2SHDerivationStrategy(strategy, true);
+				strategy = new DirectDerivationStrategy(publicKey, options.ScriptPubKeyType != ScriptPubKeyType.Legacy, options.AdditionalOptions);
+				if (options.ScriptPubKeyType == ScriptPubKeyType.Segwit && !_Network.Consensus.SupportSegwit)
+					throw new InvalidOperationException("This crypto currency does not support segwit");
+
+				if (options.ScriptPubKeyType == ScriptPubKeyType.SegwitP2SH)
+				{
+					strategy = new P2SHDerivationStrategy(strategy, true);
+				}
+			}
+			else
+			{
+				if (!_Network.Consensus.SupportTaproot)
+					throw new InvalidOperationException("This crypto currency does not support taproot");
+				strategy = new TaprootDerivationStrategy(publicKey, options.AdditionalOptions);
 			}
 			return strategy;
+		}
+		/// <summary>
+		/// Create a taproot signature derivation strategy from public key
+		/// </summary>
+		/// <param name="publicKey">The public key of the wallet</param>
+		/// <param name="options">Derivation options</param>
+		/// <returns></returns>
+		public TaprootDerivationStrategy CreateTaprootDerivationStrategy(BitcoinExtPubKey publicKey, ReadOnlyDictionary<string, bool> options = null)
+		{
+			return new TaprootDerivationStrategy(publicKey, options);
 		}
 
 		/// <summary>
@@ -173,13 +221,13 @@ namespace NBXplorer.DerivationStrategy
 		{
 			options = options ?? new DerivationStrategyOptions();
 			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options.ScriptPubKeyType == ScriptPubKeyType.Legacy, !options.KeepOrder, options.AdditionalOptions);
-			if(options.ScriptPubKeyType == ScriptPubKeyType.Legacy)
+			if (options.ScriptPubKeyType == ScriptPubKeyType.Legacy)
 				return new P2SHDerivationStrategy(derivationStrategy, false);
 
-			if(!_Network.Consensus.SupportSegwit)
+			if (!_Network.Consensus.SupportSegwit)
 				throw new InvalidOperationException("This crypto currency does not support segwit");
 			derivationStrategy = new P2WSHDerivationStrategy(derivationStrategy);
-			if(options.ScriptPubKeyType == ScriptPubKeyType.SegwitP2SH)
+			if (options.ScriptPubKeyType == ScriptPubKeyType.SegwitP2SH)
 			{
 				derivationStrategy = new P2SHDerivationStrategy(derivationStrategy, true);
 			}
@@ -189,11 +237,11 @@ namespace NBXplorer.DerivationStrategy
 		private void ReadBool(ref string str, string attribute, ref bool value)
 		{
 			value = str.Contains($"[{attribute}]");
-			if(value)
+			if (value)
 			{
 				str = str.Replace($"[{attribute}]", string.Empty);
 				str = str.Replace("--", "-");
-				if(str.EndsWith("-"))
+				if (str.EndsWith("-"))
 					str = str.Substring(0, str.Length - 1);
 			}
 		}
