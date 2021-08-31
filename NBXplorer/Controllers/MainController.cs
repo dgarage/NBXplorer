@@ -118,7 +118,7 @@ namespace NBXplorer.Controllers
 			req.ThrowIfRPCError = false;
 			return Json(await waiter.RPC.SendCommandAsync(req));
 		}
-		
+
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/fees/{blockCount}")]
 		public async Task<GetFeeRateResult> GetFeeRate(int blockCount, string cryptoCode)
@@ -175,7 +175,7 @@ namespace NBXplorer.Controllers
 		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/cancelreservation")]
 		public async Task<IActionResult> CancelReservation(string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase strategy, [FromBody]KeyPath[] keyPaths)
+			DerivationStrategyBase strategy, [FromBody] KeyPath[] keyPaths)
 		{
 			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
@@ -860,7 +860,7 @@ namespace NBXplorer.Controllers
 				Confirmed = CalculateBalance(network, transactions.ConfirmedTransactions),
 				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions),
 				Immature = CalculateBalance(network, transactions.ImmatureTransactions)
-		};
+			};
 			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
 			balance.Available = balance.Total.Sub(balance.Immature);
 			return Json(balance, jsonResult.SerializerSettings);
@@ -1061,10 +1061,10 @@ namespace NBXplorer.Controllers
 			return rejectReason switch
 			{
 				"Transaction already in block chain" => RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN,
-				"Transaction rejected by AcceptToMemoryPool" => RPCErrorCode. RPC_TRANSACTION_REJECTED,
-				"AcceptToMemoryPool failed" => RPCErrorCode. RPC_TRANSACTION_REJECTED,
-				"insufficient fee" => RPCErrorCode. RPC_TRANSACTION_REJECTED,
-				_ => RPCErrorCode. RPC_TRANSACTION_ERROR
+				"Transaction rejected by AcceptToMemoryPool" => RPCErrorCode.RPC_TRANSACTION_REJECTED,
+				"AcceptToMemoryPool failed" => RPCErrorCode.RPC_TRANSACTION_REJECTED,
+				"insufficient fee" => RPCErrorCode.RPC_TRANSACTION_REJECTED,
+				_ => RPCErrorCode.RPC_TRANSACTION_ERROR
 			};
 		}
 
@@ -1145,10 +1145,23 @@ namespace NBXplorer.Controllers
 
 		private KeyPath GetDerivationKeyPath(ScriptPubKeyType scriptPubKeyType, int accountNumber, NBXplorerNetwork network)
 		{
-			var keyPath = new KeyPath(scriptPubKeyType == ScriptPubKeyType.Legacy ? "44'" :
-				scriptPubKeyType == ScriptPubKeyType.Segwit ? "84'" :
-				scriptPubKeyType == ScriptPubKeyType.SegwitP2SH ? "49'" :
-				throw new NotSupportedException(scriptPubKeyType.ToString())); // Should never happen
+			var path = "";
+			switch (scriptPubKeyType)
+			{
+				case ScriptPubKeyType.Legacy:
+					path = "44'";
+					break;
+				case ScriptPubKeyType.Segwit:
+					path = "84'";
+					break;
+				case ScriptPubKeyType.SegwitP2SH:
+					path = "49'";
+					break;
+				case ScriptPubKeyType.TaprootBIP86:
+					path = "86'";
+					break;
+			}
+			var keyPath = new KeyPath(path); // Should never happen
 			return keyPath.Derive(network.CoinType)
 				   .Derive(accountNumber, true);
 		}
@@ -1184,8 +1197,8 @@ namespace NBXplorer.Controllers
 				}
 			}
 
-			// Step2. However, we need to remove those who are spending a UTXO from a transaction that is not pruned
-			retry:
+		// Step2. However, we need to remove those who are spending a UTXO from a transaction that is not pruned
+		retry:
 			bool removedPrunables = false;
 			if (prunableIds.Count != 0)
 			{
