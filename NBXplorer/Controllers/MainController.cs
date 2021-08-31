@@ -1160,8 +1160,10 @@ namespace NBXplorer.Controllers
 				case ScriptPubKeyType.TaprootBIP86:
 					path = "86'";
 					break;
+				default:
+					throw new NotSupportedException(scriptPubKeyType.ToString()); // Should never happen
 			}
-			var keyPath = new KeyPath(path); // Should never happen
+			var keyPath = new KeyPath(path);
 			return keyPath.Derive(network.CoinType)
 				   .Derive(accountNumber, true);
 		}
