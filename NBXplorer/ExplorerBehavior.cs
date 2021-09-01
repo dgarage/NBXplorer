@@ -142,7 +142,10 @@ namespace NBXplorer
 				if (block == null)
 					break;
 				if (_InFlights.TryAdd(block.Hash, block.Hash))
+				{
+					_LastBlockActivity = DateTimeOffset.UtcNow;
 					invs.Add(new InventoryVector(node.AddSupportedOptions(InventoryType.MSG_BLOCK), block.Hash));
+				}
 				if (invs.Count == maxConcurrentBlocks)
 					break;
 			}
@@ -160,7 +163,7 @@ namespace NBXplorer
 
 		ConcurrentDictionary<uint256, uint256> _InFlights = new ConcurrentDictionary<uint256, uint256>();
 		BlockLocator _HighestInFlight;
-		DateTimeOffset? _LastBlockDownloaded;
+		DateTimeOffset? _LastBlockActivity;
 		readonly static TimeSpan DownloadHangingTimeout = TimeSpan.FromMinutes(1.0);
 		void Tick(object state)
 		{
@@ -192,7 +195,7 @@ namespace NBXplorer
 			DateTimeOffset lastActivity;
 			if (IsDownloading) // If we download
 			{
-				if (_LastBlockDownloaded is DateTimeOffset lastBlockDownloaded)
+				if (_LastBlockActivity is DateTimeOffset lastBlockDownloaded)
 					lastActivity = lastBlockDownloaded;
 				else
 					lastActivity = node.ConnectedAt;
@@ -279,7 +282,7 @@ namespace NBXplorer
 		}
 		private async Task SaveMatches(Block block)
 		{
-			_LastBlockDownloaded = DateTimeOffset.UtcNow;
+			_LastBlockActivity = DateTimeOffset.UtcNow;
 			block.Header.PrecomputeHash(false, false);
 			foreach (var tx in block.Transactions)
 				tx.PrecomputeHash(false, true);
