@@ -1134,9 +1134,13 @@ namespace NBXplorer
 				return;
 			using var tx = await engine.OpenTransaction();
 			var table = GetTransactionsIndex(tx, trackedSource);
+			int deleted = 0;
 			foreach (var tracked in prunable)
 			{
 				await table.RemoveKey(tracked.Key.ToString());
+				deleted++;
+				if (deleted % BatchSize == 0)
+					await tx.Commit();
 			}
 			await tx.Commit();
 		}
