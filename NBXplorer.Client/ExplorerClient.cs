@@ -341,6 +341,16 @@ namespace NBXplorer
 		{
 			return GetStatusAsync(cancellation).GetAwaiter().GetResult();
 		}
+		public void Wipe(DerivationStrategyBase strategy, CancellationToken cancellation = default)
+		{
+			WipeAsync(strategy, cancellation).GetAwaiter().GetResult();
+		}
+		public Task WipeAsync(DerivationStrategyBase strategy, CancellationToken cancellation = default)
+		{
+			if (strategy is null)
+				throw new ArgumentNullException(nameof(strategy));
+			return SendAsync<bool>(HttpMethod.Post, null, "v1/cryptos/{0}/derivations/{1}/utxos/wipe", new[] { CryptoCode, strategy.ToString() }, cancellation);
+		}
 
 		public Task<StatusResult> GetStatusAsync(CancellationToken cancellation = default)
 		{

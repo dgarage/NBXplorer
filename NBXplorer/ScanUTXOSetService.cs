@@ -111,9 +111,7 @@ namespace NBXplorer
 				_Progress.TryRemove(i, out var unused);
 		}
 
-		internal 
-
-		Task _Task;
+		internal Task _Task;
 		CancellationTokenSource _Cts = new CancellationTokenSource();
 		private readonly KeyPathTemplates keyPathTemplates;
 

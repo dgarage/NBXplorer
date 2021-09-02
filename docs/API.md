@@ -26,6 +26,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Rescan a transaction](#rescan)
 * [Get fee rate](#feerate)
 * [Scan UTXO Set](#scanUtxoSet)
+* [Wipe derivation scheme transactions](#wipe)
 * [Query event stream](#eventStream)
 * [Query event stream from most recent](#eventStreamLatest)
 * [Create Partially Signed Bitcoin Transaction](#psbt)
@@ -866,6 +867,13 @@ The state can be:
 Error codes:
 
 * HTTP 404 `scanutxoset-info-not-found` if the scan has been done above the last 24H.
+
+
+## <a name="wipe"></a>Wipe derivation scheme transactions
+
+Wipe all the transactions from a derivation scheme.
+
+HTTP POST cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/wipe
 
 ## <a name="eventStream"></a>Query event stream
 

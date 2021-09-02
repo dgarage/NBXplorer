@@ -3380,6 +3380,12 @@ namespace NBXplorer.Tests
 				Assert.Contains(changeAddress.KeyPath, utxo.GetUnspentUTXOs().Select(u => u.KeyPath));
 				// But we lost the historic of the past transactions
 				Assert.Single(tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions);
+
+				tester.Client.Wipe(pubkey);
+				Assert.Empty(tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions);
+				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
+				info = WaitScanFinish(tester.Client, pubkey);
+				Assert.Single(tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions);
 			}
 		}
 

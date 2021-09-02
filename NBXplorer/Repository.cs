@@ -21,6 +21,7 @@ using Microsoft.JSInterop;
 using System.Buffers;
 using DBTrie;
 using DBTrie.Storage.Cache;
+using System.Diagnostics;
 
 namespace NBXplorer
 {
@@ -1013,7 +1014,13 @@ namespace NBXplorer
 				Cleanup(trackedSource, needRemove, needUpdate);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 			}
-			return transactions.Where(tt => !needRemove.Contains(tt)).Select(c => ToTrackedTransaction(c, trackedSource)).ToArray();
+
+			var tracked = new TrackedTransaction[transactions.Count - needRemove.Count];
+			int i = 0;
+			foreach (var tx in transactions.Where(tt => !needRemove.Contains(tt)))
+				tracked[i++] = ToTrackedTransaction(tx, trackedSource);
+			Debug.Assert(tracked.Length == i);
+			return tracked;
 		}
 
 		private async Task Cleanup(TrackedSource trackedSource, HashSet<ITrackedTransactionSerializable> needRemove, HashSet<ITrackedTransactionSerializable> needUpdate)
@@ -1128,9 +1135,13 @@ namespace NBXplorer
 			await tx.Commit();
 		}
 
-		internal async Task Prune(TrackedSource trackedSource, List<TrackedTransaction> prunable)
+		internal async Task Prune(TrackedSource trackedSource, IEnumerable<TrackedTransaction> prunable)
 		{
-			if (prunable == null || prunable.Count == 0)
+			if (prunable == null)
+				return;
+			if (prunable is IList<TrackedTransaction> pl && pl.Count == 0)
+				return;
+			if (prunable is TrackedTransaction[] pa && pa.Length == 0)
 				return;
 			using var tx = await engine.OpenTransaction();
 			var table = GetTransactionsIndex(tx, trackedSource);

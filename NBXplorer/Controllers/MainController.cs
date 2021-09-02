@@ -801,6 +801,24 @@ namespace NBXplorer.Controllers
 			return result == null ? (IActionResult)NotFound() : Json(result, repo.Serializer.Settings);
 		}
 		Encoding UTF8 = new UTF8Encoding(false);
+
+
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/wipe")]
+		public async Task<IActionResult> Wipe(
+			string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme)
+		{
+			var network = this.GetNetwork(cryptoCode, true);
+			var repo = RepositoryProvider.GetRepository(network);
+			var ts = new DerivationSchemeTrackedSource(derivationScheme);
+			var txs = await repo.GetTransactions(ts);
+			await repo.Prune(ts, txs);
+			return Ok();
+		}
+
+
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan")]
 		public IActionResult ScanUTXOSet(
