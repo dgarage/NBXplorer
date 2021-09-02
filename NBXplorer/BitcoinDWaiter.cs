@@ -182,9 +182,10 @@ namespace NBXplorer
 
 			_Cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 			_Loop = StartLoop(_Cts.Token, _Tick);
-			_Subscription = _EventAggregator.Subscribe<Models.NewBlockEvent>(s =>
+			_Subscription = _EventAggregator.Subscribe<FullySynchedEvent>(s =>
 			{
-				_Tick.Set();
+				if (s.Network == Network)
+					_Tick.Set();
 			});
 			return Task.CompletedTask;
 		}
@@ -526,7 +527,6 @@ namespace NBXplorer
 				node.Behaviors.Add(explorer);
 				node.StateChanged += Node_StateChanged;
 				_Node = node;
-				await explorer.Init();
 			}
 			catch
 			{
