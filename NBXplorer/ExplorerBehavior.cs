@@ -134,7 +134,7 @@ namespace NBXplorer
 				return 0;
 
 
-			int maxConcurrentBlocks = 10;
+			int maxConcurrentBlocks = 1;
 			List<InventoryVector> invs = new List<InventoryVector>();
 			foreach (var i in Enumerable.Range(0, int.MaxValue))
 			{
