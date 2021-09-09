@@ -24,6 +24,8 @@ using System.IO;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Http.Features;
+using NBitcoin.Altcoins;
+using NBitcoin.DataEncoders;
 
 namespace NBXplorer.Tests
 {
@@ -3495,9 +3497,18 @@ namespace NBXplorer.Tests
 					//test: Client should return Elements transaction types when event is published
 					var evtTask = session.NextEventAsync(Timeout);
 					var txid = await cashCow.SendToAddressAsync(address, Money.Coins(0.2m));
-
+					var nodeTx = await cashCow.GetRawTransactionAsync(txid);
 					var evt = Assert.IsType<NewTransactionEvent>(await evtTask);
 
+					//test: Save correct tx hash with tx 
+					Assert.Equal(txid, evt.TransactionData.TransactionHash);
+					Assert.Equal(nodeTx.GetHash(), evt.TransactionData.Transaction.GetHash());
+					var nbxTx = await tester.Client.GetTransactionAsync(txid);
+					
+					Assert.Equal(txid, nbxTx.TransactionHash);
+					Assert.Equal(nodeTx.GetHash(), nbxTx.Transaction.GetHash());
+					
+					
 
 					//test: Elements should have unblinded the outputs
 					var output = Assert.Single(evt.Outputs);
