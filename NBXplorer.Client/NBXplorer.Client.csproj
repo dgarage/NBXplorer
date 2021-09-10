@@ -28,7 +28,7 @@
         </PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="NBitcoin" Version="6.0.8" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.4" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.5" />
 		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.18" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>
