@@ -3507,9 +3507,8 @@ namespace NBXplorer.Tests
 					
 					Assert.Equal(txid, nbxTx.TransactionHash);
 					Assert.Equal(nodeTx.GetHash(), nbxTx.Transaction.GetHash());
-					
-					
 
+					
 					//test: Elements should have unblinded the outputs
 					var output = Assert.Single(evt.Outputs);
 					var assetMoney = Assert.IsType<AssetMoney>(output.Value);

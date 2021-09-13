@@ -98,7 +98,7 @@ namespace NBXplorer
 				if (trackedTransaction == null)
 					throw new ArgumentNullException(nameof(trackedTransaction));
 				Key = trackedTransaction.Key;
-				Transaction = trackedTransaction.Transaction;
+				Transaction = trackedTransaction.Transaction?.Clone();
 				FirstSeenTickCount = trackedTransaction.FirstSeen.Ticks;
 				TickCount = trackedTransaction.Inserted.Ticks;
 				KnownKeyPathMapping = trackedTransaction.KnownKeyPathMapping;
