@@ -3507,7 +3507,16 @@ namespace NBXplorer.Tests
 					
 					Assert.Equal(txid, nbxTx.TransactionHash);
 					Assert.Equal(nodeTx.GetHash(), nbxTx.Transaction.GetHash());
+					nbxTx.Transaction.PrecomputeHash(false, true);
+					Assert.Equal(nodeTx.GetHash(), nbxTx.Transaction.GetHash());
 
+					var fetched = await tester.Client.GetTransactionAsync(txid);
+					
+					Assert.Equal(nodeTx.GetHash(), fetched.Transaction.GetHash());
+					fetched.Transaction.PrecomputeHash(false, true);
+					Assert.Equal(nodeTx.GetHash(), fetched.Transaction.GetHash());
+					Assert.Equal(nodeTx.GetHash(), fetched.TransactionHash);
+					
 					
 					//test: Elements should have unblinded the outputs
 					var output = Assert.Single(evt.Outputs);
