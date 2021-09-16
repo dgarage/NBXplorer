@@ -67,7 +67,7 @@ namespace NBXplorer
 		{
 			get
 			{
-				_Serializer = _Serializer ?? new Serializer(this);
+				_Serializer ??= new Serializer(this);
 				return _Serializer;
 			}
 		}
