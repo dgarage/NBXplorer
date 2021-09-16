@@ -92,7 +92,7 @@ namespace NBXplorer
 		}
 
 		public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; } = new Dictionary<Script, KeyPath>();
-		public HashSet<ICoin> ReceivedCoins { get; } = new HashSet<ICoin>(CoinOutpointEqualityComparer.Instance);
+		public HashSet<ICoin> ReceivedCoins { get; protected set; } = new HashSet<ICoin>(CoinOutpointEqualityComparer.Instance);
 		public HashSet<OutPoint> SpentOutpoints { get; } = new HashSet<OutPoint>();
 
 		public Transaction Transaction

@@ -38,9 +38,10 @@ namespace NBXplorer
 
 			private void ClearCoinValues()
 			{
+				ReceivedCoins = ReceivedCoins.Select(coin => (ICoin) new Coin(coin.Outpoint.Clone(), coin.TxOut.Clone())).ToHashSet();
 				foreach (var coin in ReceivedCoins.OfType<Coin>())
 				{
-					coin.Amount = null;
+					coin.Amount = null;	
 				}
 			}
 
