@@ -788,11 +788,7 @@ namespace NBXplorer
 				foreach (var btx in batch)
 				{
 					var timestamped = new TimeStampedTransaction(btx, date);
-					var ms = new MemoryStream();
-					var bs = new BitcoinStream(ms, true);
-					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-					bs.ReadWrite(timestamped);
-					var value = ms.ToArray();
+					var value = timestamped.ToBytes();
 					var key = GetSavedTransactionKey(btx.GetHash(), blockHash);
 					await GetSavedTransactionTable(tx).Insert(key, value);
 					result.Add(ToSavedTransaction(Network.NBitcoinNetwork, key, value));
