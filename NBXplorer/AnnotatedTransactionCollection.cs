@@ -47,6 +47,7 @@ namespace NBXplorer
 		public AnnotatedTransactionCollection(ICollection<TrackedTransaction> transactions, Models.TrackedSource trackedSource, SlimChain headerChain, Network network) : base(transactions.Count)
 		{
 			_TxById = new Dictionary<uint256, AnnotatedTransaction>(transactions.Count);
+			ConfirmedTransactions = new List<AnnotatedTransaction>(transactions.Count);
 			foreach (var tx in transactions)
 			{
 				foreach (var keyPathInfo in tx.KnownKeyPathMapping)
@@ -184,7 +185,7 @@ namespace NBXplorer
 
 			var sortedTransactions = _TxById.Values.TopologicalSort();
 			ReplacedTransactions = replaced.Values.TopologicalSort().ToList();
-			UTXOState state = new UTXOState();
+			UTXOState state = new UTXOState(sortedTransactions.Count);
 			foreach (var tx in sortedTransactions.Where(s => s.IsMature && s.Height is int))
 			{
 				if (state.Apply(tx.Record) == ApplyTransactionResult.Conflict)
@@ -294,17 +295,17 @@ namespace NBXplorer
 
 		public List<AnnotatedTransaction> ReplacedTransactions
 		{
-			get; set;
+			get;
 		} = new List<AnnotatedTransaction>();
 
 		public List<AnnotatedTransaction> ConfirmedTransactions
 		{
-			get; set;
-		} = new List<AnnotatedTransaction>();
+			get;
+		}
 
 		public List<AnnotatedTransaction> ImmatureTransactions
 		{
-			get; set;
+			get;
 		} = new List<AnnotatedTransaction>();
 
 		public List<AnnotatedTransaction> UnconfirmedTransactions

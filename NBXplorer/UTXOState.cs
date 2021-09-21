@@ -17,16 +17,33 @@ namespace NBXplorer
 
 	public class UTXOState
 	{
-
+		public UTXOState()
+		{
+			this.UTXOByOutpoint = new UTXOByOutpoint();
+			this.SpentUTXOs = new HashSet<OutPoint>();
+			this._KnownInputs = new HashSet<OutPoint>();
+		}
+		public UTXOState(UTXOState other)
+		{
+			UTXOByOutpoint = new UTXOByOutpoint(other.UTXOByOutpoint);
+			SpentUTXOs = new HashSet<OutPoint>(other.SpentUTXOs);
+			_KnownInputs = new HashSet<OutPoint>(other._KnownInputs);
+		}
+		public UTXOState(int txcount)
+		{
+			this.UTXOByOutpoint = new UTXOByOutpoint();
+			this.SpentUTXOs = new HashSet<OutPoint>(txcount * 2);
+			this._KnownInputs = new HashSet<OutPoint>(txcount * 2);
+		}
 		internal UTXOByOutpoint UTXOByOutpoint
 		{
-			get; set;
-		} = new UTXOByOutpoint();
+			get;
+		}
 
 		public HashSet<OutPoint> SpentUTXOs
 		{
-			get; set;
-		} = new HashSet<OutPoint>();
+			get;
+		}
 		public ApplyTransactionResult Apply(TrackedTransaction trackedTransaction)
 		{
 			var result = ApplyTransactionResult.Passed;
@@ -66,16 +83,11 @@ namespace NBXplorer
 			}
 			return result;
 		}
-		HashSet<OutPoint> _KnownInputs = new HashSet<OutPoint>();
+		readonly HashSet<OutPoint> _KnownInputs;
 
 		public UTXOState Snapshot()
 		{
-			return new UTXOState()
-			{
-				UTXOByOutpoint = new UTXOByOutpoint(UTXOByOutpoint),
-				SpentUTXOs = new HashSet<OutPoint>(SpentUTXOs),
-				_KnownInputs = new HashSet<OutPoint>(_KnownInputs),
-			};
+			return new UTXOState(this);
 		}
 
 		public static UTXOState operator-(UTXOState a, UTXOState b)
