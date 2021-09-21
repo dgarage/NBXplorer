@@ -283,10 +283,26 @@ namespace NBXplorer
 				await (table).Insert(key, value);
 			}
 
+			// Old tables had a bug with startWith, which
+			// was without effect if PrimaryKey for all row had same length.
+			// To keep backcompatiblility we need to workdaround that
+			// New tables don't have this bug.
+			public bool OldTable { get; set; } = true;
+
 			public async IAsyncEnumerable<DBTrie.IRow> SelectForwardSkip(int n, string startWith = null, EnumerationOrder order = EnumerationOrder.Ordered)
 			{
-				startWith ??= string.Empty;
-				startWith = $"{PrimaryKey}-{startWith}";
+				if (OldTable)
+				{
+					if (startWith == null)
+						startWith = PrimaryKey;
+					else
+						startWith = $"{PrimaryKey}-{startWith}";
+				}
+				else
+				{
+					startWith ??= string.Empty;
+					startWith = $"{PrimaryKey}-{startWith}";
+				}
 				int skipped = 0;
 				await foreach (var row in table.Enumerate(startWith, order))
 				{
@@ -412,7 +428,7 @@ namespace NBXplorer
 
 		Index GetOutPointsIndex(DBTrie.Transaction tx, OutPoint outPoint)
 		{
-			return new Index(tx, $"{_Suffix}OutPoints", $"{outPoint}");
+			return new Index(tx, $"{_Suffix}OutPoints", $"{outPoint}") { OldTable = false };
 		}
 		Index GetHighestPathIndex(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
 		{
