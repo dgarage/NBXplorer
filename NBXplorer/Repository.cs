@@ -285,10 +285,8 @@ namespace NBXplorer
 
 			public async IAsyncEnumerable<DBTrie.IRow> SelectForwardSkip(int n, string startWith = null, EnumerationOrder order = EnumerationOrder.Ordered)
 			{
-				if (startWith == null)
-					startWith = PrimaryKey;
-				else
-					startWith = $"{PrimaryKey}-{startWith}";
+				startWith ??= string.Empty;
+				startWith = $"{PrimaryKey}-{startWith}";
 				int skipped = 0;
 				await foreach (var row in table.Enumerate(startWith, order))
 				{
