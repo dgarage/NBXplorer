@@ -1478,31 +1478,75 @@ namespace NBXplorer
 			{
 				return false;
 			}
-			int txnCount = 0;
 			File.Create(markerFilePath).Close();
-			await foreach (var row in tx.GetTable($"{_Suffix}Transactions").Enumerate())
+			bool fixOldData = false;
+			retry:
+			try
 			{
-				txnCount++;
-				using (row)
+				int txnCount = 0;
+				await foreach (var row in tx.GetTable($"{_Suffix}Transactions").Enumerate())
 				{
-					cancellationToken.ThrowIfCancellationRequested();
-					var seg = DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
-					MemoryStream ms = new MemoryStream(seg.Array, seg.Offset, seg.Count);
-					BitcoinStream bs = new BitcoinStream(ms, false);
-					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-					var data = CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey.Parse(row.Key.Span));
-					data.ReadWrite(bs);
-					foreach (var coin in data.GetCoins())
+					txnCount++;
+					using (row)
 					{
-						var bytes = coin.TxOut.ToBytes();
-						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
+						cancellationToken.ThrowIfCancellationRequested();
+						var seg = DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
+						MemoryStream ms = new MemoryStream(seg.Array, seg.Offset, seg.Count);
+						BitcoinStream bs = new BitcoinStream(ms, false);
+						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
+						var data = CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey.Parse(row.Key.Span));
+						data.ReadWrite(bs);
+						foreach (var coin in data.GetCoins())
+						{
+							var bytes = coin.TxOut.ToBytes();
+							await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
+						}
+					}
+					if (txnCount % BatchSize == 0)
+						await tx.Commit();
+				}
+				await tx.Commit();
+			}
+			catch (FormatException) when (!fixOldData)
+			{
+				Logs.Explorer.LogWarning("Error while fetching outdated data from Transaction table... fixing the situation");
+				var invalidTxRows = tx.GetTable($"{_Suffix}InvalidTransactionsRows");
+				var transactions = tx.GetTable($"{_Suffix}Transactions");
+				fixOldData = true;
+				int txnCount = 0;
+				await foreach (var row in transactions.Enumerate())
+				{
+					using (row)
+					{
+						try
+						{
+							TrackedTransactionKey.Parse(row.Key.Span);
+							continue;
+						}
+						catch (FormatException)
+						{
+							txnCount++;
+						}
+						cancellationToken.ThrowIfCancellationRequested();
+						await invalidTxRows.Insert(row.Key, await row.ReadValue(), false);
+					}
+					if (txnCount % BatchSize == 0)
+						await tx.Commit();
+				}
+
+				await foreach (var row in invalidTxRows.Enumerate())
+				{
+					using (row)
+					{
+						txnCount++;
+						await transactions.Delete(row.Key);
+						if (txnCount % BatchSize == 0)
+							await tx.Commit();
 					}
 				}
-				if (txnCount % BatchSize == 0)
-					await tx.Commit();
+				await tx.Commit();
+				goto retry;
 			}
-
-			await tx.Commit();
 			File.Delete(markerFilePath);
 			return true;
 		}
