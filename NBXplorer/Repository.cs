@@ -231,6 +231,7 @@ namespace NBXplorer
 				{
 					var reserved = GetReservedKeysIndex(tx, strategy, feature);
 					var available = GetAvailableKeysIndex(tx, strategy, feature);
+					int availableAdded = 0;
 					foreach (var keyPath in group)
 					{
 						var key = (int)keyPath.Indexes.Last();
@@ -239,8 +240,10 @@ namespace NBXplorer
 							continue;
 						await reserved.RemoveKey(data.Key);
 						await available.Insert(data.Key, await data.ReadValue());
+						availableAdded++;
 						needCommit = true;
 					}
+					UpdateAvailableCountCache(strategy, feature, availableAdded);
 				}
 			}
 			if (needCommit)
@@ -523,6 +526,7 @@ namespace NBXplorer
 				if (reserve)
 				{
 					await availableTable.RemoveKey(row.Key);
+					UpdateAvailableCountCache(strategy, derivationFeature, -1);
 					await reservedTable.Insert(row.Key, await row.ReadValue());
 					await tx.Commit();
 				}
@@ -534,10 +538,57 @@ namespace NBXplorer
 			return keyInfo;
 		}
 
+		Dictionary<(DerivationStrategyBase, DerivationFeature), int> _AvailableCache = new Dictionary<(DerivationStrategyBase, DerivationFeature), int>();
+
+		// Count() iterates on all the row, so if the table is big we need to cache this.
+		// However, because this may introduce other bugs, we only do this for big pools.
+		bool NeedCaching(int count) => count - MinPoolSize > 1000;
+		bool TryGetAvailableCountFromCache(DerivationStrategyBase strategyBase, DerivationFeature derivationFeature, out int count)
+		{
+			lock (_AvailableCache)
+			{
+				return _AvailableCache.TryGetValue((strategyBase, derivationFeature), out count);
+			}
+		}
+		void CleanAvailableCountToCache(DerivationStrategyBase derivationStrategy, DerivationFeature key)
+		{
+			lock (_AvailableCache)
+			{
+				_AvailableCache.Remove((derivationStrategy, key));
+			}
+		}
+		void SetAvailableCountToCache(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int count)
+		{
+			if (!NeedCaching(count))
+				return;
+			lock (_AvailableCache)
+			{
+				_AvailableCache.AddOrReplace((strategy, derivationFeature), count);
+			}
+		}
+		void UpdateAvailableCountCache(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int inc)
+		{
+			if (strategy is null)
+				return;
+			lock (_AvailableCache)
+			{
+				if (_AvailableCache.TryGetValue((strategy, derivationFeature), out var v))
+				{
+					v += inc;
+					_AvailableCache[(strategy, derivationFeature)] = v;
+				}
+			}
+		}
 		async Task<int> GetAddressToGenerateCount(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
-			var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
-			var currentlyAvailable = await availableTable.Count();
+			if (!TryGetAvailableCountFromCache(strategy, derivationFeature, out var currentlyAvailable))
+			{
+				var availableTable = GetAvailableKeysIndex(tx, strategy, derivationFeature);
+				// Count() iterates on all the row, so if the table is big we need to cache this.
+				// However, because this may introduce other bugs, we only do this for big pools.
+				currentlyAvailable = await availableTable.Count();
+				SetAvailableCountToCache(strategy, derivationFeature, currentlyAvailable);
+			}
 			if (currentlyAvailable >= MinPoolSize)
 				return 0;
 			return Math.Max(0, MaxPoolSize - currentlyAvailable);
@@ -564,6 +615,7 @@ namespace NBXplorer
 					Network);
 				keyPathInformations[i] = info;
 			});
+			int availableAdded = 0;
 			for (int i = 0; i < toGenerate; i++)
 			{
 				var index = highestGenerated + i + 1;
@@ -571,7 +623,9 @@ namespace NBXplorer
 				var bytes = ToBytes(info);
 				await GetScriptsIndex(tx, info.ScriptPubKey).Insert($"{strategy.GetHash()}-{derivationFeature}", bytes);
 				await availableTable.Insert(index, bytes);
+				availableAdded++;
 			}
+			UpdateAvailableCountCache(strategy, derivationFeature, availableAdded);
 			await highestTable.Insert(0, highestGenerated + toGenerate);
 			await tx.Commit();
 		}
@@ -1123,6 +1177,7 @@ namespace NBXplorer
 							if (bytes != null)
 							{
 								await availableIndex.RemoveKey(bytes.Key);
+								UpdateAvailableCountCache(info.DerivationStrategy, info.Feature, -1);
 							}
 							bytes = await reservedIndex.SelectBytes(index);
 							if (bytes != null)
@@ -1178,6 +1233,7 @@ namespace NBXplorer
 				if (kv.Value == null)
 					continue;
 				var index = GetAvailableKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
+				CleanAvailableCountToCache(trackedSource.DerivationStrategy, kv.Key);
 				bool needRefill = await CleanUsed(kv.Value.Value, index);
 				index = GetReservedKeysIndex(tx, trackedSource.DerivationStrategy, kv.Key);
 				needRefill |= await CleanUsed(kv.Value.Value, index);
