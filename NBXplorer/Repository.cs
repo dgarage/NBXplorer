@@ -542,7 +542,7 @@ namespace NBXplorer
 
 		// Count() iterates on all the row, so if the table is big we need to cache this.
 		// However, because this may introduce other bugs, we only do this for big pools.
-		bool NeedCaching(int count) => count - MinPoolSize > 1000;
+		bool NeedCaching(int count) => count > 1000;
 		bool TryGetAvailableCountFromCache(DerivationStrategyBase strategyBase, DerivationFeature derivationFeature, out int count)
 		{
 			lock (_AvailableCache)
