@@ -10,7 +10,7 @@ RUN cd NBXplorer && \
     dotnet publish --output /app/ --configuration Release
 
 # Force the builder machine to take make an arm runtime image. This is fine as long as the builder does not run any program
-FROM mcr.microsoft.com/dotnet/aspnet:3.1.19-bullseye-arm64v8
+FROM mcr.microsoft.com/dotnet/aspnet:3.1.19-bullseye-slim-arm64v8
 
 WORKDIR /datadir
 WORKDIR /app
