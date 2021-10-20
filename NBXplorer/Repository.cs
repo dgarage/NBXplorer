@@ -1158,48 +1158,63 @@ namespace NBXplorer
 			var groups = transactions.GroupBy(i => i.TrackedSource);
 
 			using var tx = await engine.OpenTransaction();
-			foreach (var group in groups)
-			{
-				var table = GetTransactionsIndex(tx, group.Key);
 
-				foreach (var value in group)
+			retry:
+			bool aggressiveCommit = false;
+			try
+			{
+				foreach (var group in groups)
 				{
-					if (group.Key is DerivationSchemeTrackedSource s)
+					var table = GetTransactionsIndex(tx, group.Key);
+
+					foreach (var value in group)
 					{
-						foreach (var kv in value.KnownKeyPathMapping)
+						if (group.Key is DerivationSchemeTrackedSource s)
 						{
-							var derivation = s.DerivationStrategy.GetDerivation(kv.Value);
-							var info = new KeyPathInformation(derivation, s, keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, _Network);
-							var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
-							var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
-							var index = info.GetIndex();
-							var bytes = await availableIndex.SelectBytes(index);
-							if (bytes != null)
+							foreach (var kv in value.KnownKeyPathMapping)
 							{
-								await availableIndex.RemoveKey(bytes.Key);
-								UpdateAvailableCountCache(info.DerivationStrategy, info.Feature, -1);
-							}
-							bytes = await reservedIndex.SelectBytes(index);
-							if (bytes != null)
-							{
-								bytes.Dispose();
-								await reservedIndex.RemoveKey(bytes.Key);
+								var derivation = s.DerivationStrategy.GetDerivation(kv.Value);
+								var info = new KeyPathInformation(derivation, s, keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, _Network);
+								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
+								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
+								var index = info.GetIndex();
+								var bytes = await availableIndex.SelectBytes(index);
+								if (bytes != null)
+								{
+									await availableIndex.RemoveKey(bytes.Key);
+									UpdateAvailableCountCache(info.DerivationStrategy, info.Feature, -1);
+								}
+								bytes = await reservedIndex.SelectBytes(index);
+								if (bytes != null)
+								{
+									bytes.Dispose();
+									await reservedIndex.RemoveKey(bytes.Key);
+								}
 							}
 						}
+						var ms = new MemoryStream();
+						BitcoinStream bs = new BitcoinStream(ms, true);
+						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
+						var data = value.CreateBitcoinSerializable();
+						bs.ReadWrite(data);
+						await table.Insert(data.Key.ToString(), ms.ToArrayEfficient(), false);
+						foreach (var coin in CreateTrackedTransaction(group.Key, data).ReceivedCoins)
+						{
+							var bytes = coin.TxOut.ToBytes();
+							await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
+						}
 					}
-					var ms = new MemoryStream();
-					BitcoinStream bs = new BitcoinStream(ms, true);
-					bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
-					var data = value.CreateBitcoinSerializable();
-					bs.ReadWrite(data);
-					await table.Insert(data.Key.ToString(), ms.ToArrayEfficient(), false);
-
-					foreach (var coin in CreateTrackedTransaction(group.Key, data).ReceivedCoins)
+					if (aggressiveCommit)
 					{
-						var bytes = coin.TxOut.ToBytes();
-						await GetOutPointsIndex(tx, coin.Outpoint).Insert(0, bytes);
+						await tx.Commit();
 					}
 				}
+			}
+			catch (NoMorePageAvailableException) when (!aggressiveCommit)
+			{
+				aggressiveCommit = true;
+				tx.Rollback();
+				goto retry;
 			}
 			await tx.Commit();
 		}
