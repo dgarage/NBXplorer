@@ -1,5 +1,5 @@
-# This is a manifest image, will pull the image with the same arch as the builder machine
-FROM mcr.microsoft.com/dotnet/sdk:3.1.413-bullseye AS builder
+# Note that we are using buster rather than bulleyes. Somehow, raspberry pi 4 doesn't like bulleyes.
+FROM mcr.microsoft.com/dotnet/sdk:3.1.413-buster AS builder
 WORKDIR /source
 COPY NBXplorer/NBXplorer.csproj NBXplorer/NBXplorer.csproj
 COPY NBXplorer.Client/NBXplorer.Client.csproj NBXplorer.Client/NBXplorer.Client.csproj
@@ -9,8 +9,8 @@ COPY . .
 RUN cd NBXplorer && \
     dotnet publish --output /app/ --configuration Release
 
-# Force the builder machine to take make an arm runtime image. This is fine as long as the builder does not run any program
-FROM mcr.microsoft.com/dotnet/aspnet:3.1.19-bullseye-slim-arm32v7
+# Note that we are using buster rather than bulleyes. Somehow, raspberry pi 4 doesn't like bulleyes.
+FROM mcr.microsoft.com/dotnet/aspnet:3.1.19-buster-slim-arm32v7
 
 WORKDIR /datadir
 WORKDIR /app
