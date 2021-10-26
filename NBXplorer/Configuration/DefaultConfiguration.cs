@@ -37,6 +37,7 @@ namespace NBXplorer.Configuration
 			{
 				var crypto = network.CryptoCode.ToLowerInvariant();
 				app.Option($"--{crypto}rescan", $"Rescan from startheight", CommandOptionType.BoolValue);
+				app.Option($"--{crypto}rescaniftimebefore", $"Only perform rescan if before timestamp (UTC unix timestamp in seconds) (requires --{crypto}rescan)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpcuser", $"RPC authentication method 1: The RPC user (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpcpassword", $"RPC authentication method 1: The RPC password (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpccookiefile", $"RPC authentication method 2: The RPC cookiefile (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
@@ -152,6 +153,9 @@ namespace NBXplorer.Configuration
 				builder.AppendLine($"#{cryptoCode}.startheight=-1");
 				builder.AppendLine("## rescan forces a rescan from startheight");
 				builder.AppendLine($"#{cryptoCode}.rescan=0");
+				builder.AppendLine("## rescaniftimebefore only lets rescan occur if current unix timestamp (seconds) is less than the given value");
+				builder.AppendLine($"## requires {cryptoCode}.rescan to be true");
+				builder.AppendLine($"#{cryptoCode}.rescaniftimebefore=1635210000");
 			}
 			builder.AppendLine("## If more than 0, the size of the cache for the database, in MB. Else, no limit on the size of the cache. (default: 50)");
 			builder.AppendLine("#dbcache=50");

@@ -22,6 +22,11 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public DateTime RescanIfTimeBefore
+		{
+			get;
+			internal set;
+		}
 		public RPCClient RPC
 		{
 			get;
@@ -119,6 +124,11 @@ namespace NBXplorer.Configuration
 					validChains.Add(network.CryptoCode);
 					var chainConfiguration = new ChainConfiguration();
 					chainConfiguration.Rescan = config.GetOrDefault<bool>($"{network.CryptoCode}.rescan", false);
+					var RescanIfTimeBefore = config.GetOrDefault<long>($"{network.CryptoCode}.rescaniftimebefore", 0);
+					if (chainConfiguration.Rescan && RescanIfTimeBefore != 0)
+					{
+						chainConfiguration.RescanIfTimeBefore = DateTimeOffset.FromUnixTimeSeconds(RescanIfTimeBefore).UtcDateTime;
+					}
 					chainConfiguration.CryptoCode = network.CryptoCode;
 
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
