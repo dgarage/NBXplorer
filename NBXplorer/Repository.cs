@@ -99,7 +99,9 @@ namespace NBXplorer
 				}
 				foreach (var repo in _Repositories.Select(kv => kv.Value))
 				{
-					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf && chainConf.Rescan)
+					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf &&
+					chainConf.Rescan &&
+					(chainConf.RescanIfTimeBefore == null || chainConf.RescanIfTimeBefore >= DateTime.Now))
 					{
 						Logs.Configuration.LogInformation($"{repo.Network.CryptoCode}: Rescanning the chain...");
 						await repo.SetIndexProgress(null);
