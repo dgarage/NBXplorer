@@ -101,7 +101,7 @@ namespace NBXplorer
 				{
 					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf &&
 					chainConf.Rescan &&
-					(chainConf.RescanIfTimeBefore == null || chainConf.RescanIfTimeBefore >= DateTime.Now))
+					(chainConf.RescanIfTimeBefore is null || chainConf.RescanIfTimeBefore.Value >= DateTimeOffset.UtcNow))
 					{
 						Logs.Configuration.LogInformation($"{repo.Network.CryptoCode}: Rescanning the chain...");
 						await repo.SetIndexProgress(null);
