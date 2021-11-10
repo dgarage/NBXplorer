@@ -309,7 +309,7 @@ namespace NBXplorer
 					}
 					else
 					{
-						await ConnectToBitcoinD(token);
+						await ConnectToBitcoinD(token, blockchainInfo);
 						State = BitcoinDWaiterState.NBXplorerSynching;
 					}
 					break;
@@ -327,7 +327,7 @@ namespace NBXplorer
 					}
 					if (!IsSynchingCore(blockchainInfo2))
 					{
-						await ConnectToBitcoinD(token);
+						await ConnectToBitcoinD(token, blockchainInfo2);
 						State = BitcoinDWaiterState.NBXplorerSynching;
 					}
 					break;
@@ -416,7 +416,7 @@ namespace NBXplorer
 			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Node banlist loaded");
 		}
 
-		private async Task ConnectToBitcoinD(CancellationToken cancellation)
+		private async Task ConnectToBitcoinD(CancellationToken cancellation, GetBlockchainInfoResponse blockchainInfo)
 		{
 			var node = GetHandshakedNode();
 			if (node != null)
@@ -425,6 +425,7 @@ namespace NBXplorer
 			{
 				EnsureNodeDisposed();
 				_Chain.ResetToGenesis();
+				_Chain.SetCapacity((int)(blockchainInfo.Headers * 1.1));
 				if (_Configuration.CacheChain)
 				{
 					LoadChainFromCache();
