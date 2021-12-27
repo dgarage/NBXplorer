@@ -216,8 +216,7 @@ namespace NBXplorer.Tests
 		{
 			get
 			{
-
-				var address = ((KestrelServer)(Host.Services.GetService(typeof(IServer)))).Features.Get<IServerAddressesFeature>().Addresses.FirstOrDefault();
+				var address = Host.ServerFeatures.Get<IServerAddressesFeature>().Addresses.FirstOrDefault();
 				return new Uri(address);
 			}
 		}
