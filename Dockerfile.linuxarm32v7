@@ -9,7 +9,6 @@ COPY . .
 RUN cd NBXplorer && \
     dotnet publish --output /app/ --configuration Release
 
-# Note that we are using buster rather than bulleyes. Somehow, raspberry pi 4 doesn't like bulleyes.
 FROM mcr.microsoft.com/dotnet/aspnet:6.0.1-bullseye-slim-arm32v7
 
 WORKDIR /datadir
