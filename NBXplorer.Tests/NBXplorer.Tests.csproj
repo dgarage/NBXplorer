@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework Condition="'$(TargetFrameworkOverride)' == ''">netcoreapp3.1</TargetFramework>
+    <TargetFramework Condition="'$(TargetFrameworkOverride)' == ''">net6.0</TargetFramework>
+	<LangVersion>10.0</LangVersion>
     <TargetFramework Condition="'$(TargetFrameworkOverride)' != ''">$(TargetFrameworkOverride)</TargetFramework>
   </PropertyGroup>
   <ItemGroup>

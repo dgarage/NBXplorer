@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.29318.209
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NBXplorer", "NBXplorer\NBXplorer.csproj", "{9C18B7C4-8FA8-4DBC-8E11-2C7C302D4CD9}"
 EndProject
@@ -11,12 +11,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NBXplorer.Client", "NBXplor
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionFiles", "SolutionFiles", "{E5A765B1-3F91-4D13-9501-EED582AD2BDB}"
 	ProjectSection(SolutionItems) = preProject
-		appveyor.yml = appveyor.yml
 		.circleci\config.yml = .circleci\config.yml
+		docker-compose.regtest.yml = docker-compose.regtest.yml
 		Dockerfile.linuxamd64 = Dockerfile.linuxamd64
 		Dockerfile.linuxarm32v7 = Dockerfile.linuxarm32v7
 		Dockerfile.linuxarm64v8 = Dockerfile.linuxarm64v8
-		docker-compose.regtest.yml = docker-compose.regtest.yml
 	EndProjectSection
 EndProject
 Global

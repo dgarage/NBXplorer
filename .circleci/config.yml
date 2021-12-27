@@ -2,14 +2,14 @@ version: 2
 jobs:
   test:
     docker:
-      - image: mcr.microsoft.com/dotnet/core/sdk:3.1.100
+      - image: mcr.microsoft.com/dotnet/sdk:6.0.101-bullseye-slim
     steps:
       - checkout
       - run:
           command: |
             dotnet --info
             dotnet build -c Release
-            dotnet test -c Release --no-build ./NBXplorer.Tests/NBXplorer.Tests.csproj --filter "Azure!=Azure&Broker!=RabbitMq" -v n < /dev/null
+            dotnet test -c Release --no-build ./NBXplorer.Tests/NBXplorer.Tests.csproj --filter "Azure!=Azure&Broker!=RabbitMq" -v n --logger "console;verbosity=normal" < /dev/null
 
   # publish jobs require $DOCKERHUB_REPO, $DOCKERHUB_USER, $DOCKERHUB_PASS defined
   amd64:

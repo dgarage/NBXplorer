@@ -26,10 +26,6 @@ namespace NBXplorer.ModelBinders
 
 			ValueProviderResult val = bindingContext.ValueProvider.GetValue(
 				bindingContext.ModelName);
-			if(val == null)
-			{
-				return Task.CompletedTask;
-			}
 
 			string key = val.FirstValue as string;
 			if(key == null)
