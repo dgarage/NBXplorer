@@ -52,7 +52,7 @@ Read our [API Specification](docs/API.md), or our the [internal design of NBXplo
 
 ## Prerequisite
 
-* Install [.NET Core SDK v3.1.0 or above](https://www.microsoft.com/net/download)
+* Install [.NET Core SDK v6.0 or above](https://www.microsoft.com/net/download)
 * Bitcoin Core instance synched and running (at least 0.16.0).
 
 ## API Specification
