@@ -1,1 +1,1 @@
-dotnet run --no-launch-profile --no-build -c Release -p .\NBXplorer\NBXplorer.csproj -- $args
+dotnet run --no-launch-profile --no-build -c Release --project .\NBXplorer\NBXplorer.csproj -- $args
