@@ -8,7 +8,7 @@ COPY . .
 RUN cd NBXplorer && \
     dotnet publish --output /app/ --configuration Release
 
-FROM mcr.microsoft.com/dotnet/6.0.1-bullseye-slim
+FROM mcr.microsoft.com/dotnet/aspnet:6.0.1-bullseye-slim
 WORKDIR /app
 
 RUN mkdir /datadir
