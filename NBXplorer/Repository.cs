@@ -1492,7 +1492,15 @@ namespace NBXplorer
 				await tx.Commit();
 				eventCount = await idx.table.GetRecordCount() - 1;
 			}
-			await Defragment(tx, idx.table, cancellationToken);
+			try
+			{
+				await Defragment(tx, idx.table, cancellationToken);
+			}
+			catch (IndexOutOfRangeException)
+			{
+				Logs.Explorer.LogWarning($"{Network.CryptoCode}: The event table seems corrupted, deleting it...");
+				await idx.table.Delete();
+			}
 			return deletedEvents;
 		}
 
