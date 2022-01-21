@@ -322,14 +322,14 @@ namespace NBXplorer
 						downloaded++;
 						if (downloaded % 5 == 0)
 						{
-							CurrentLocation = Chain.GetLocator(block.Header.GetHash());
+							CurrentLocation = Chain.GetLocator(block.Header.GetHash()) ?? CurrentLocation;
 							await Repository.SetIndexProgress(CurrentLocation);
 						}
 						lastBlock = block;
 					}
 					if (lastBlock != null)
 					{
-						CurrentLocation = Chain.GetLocator(lastBlock.Header.GetHash());
+						CurrentLocation = Chain.GetLocator(lastBlock.Header.GetHash()) ?? CurrentLocation;
 						await Repository.SetIndexProgress(CurrentLocation);
 					}
 					if (CurrentLocation.Blocks.Count > 0 && CurrentLocation.Blocks[0] == Chain.TipBlock.Hash)
