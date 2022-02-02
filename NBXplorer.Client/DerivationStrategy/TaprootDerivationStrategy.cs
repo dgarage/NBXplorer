@@ -30,7 +30,7 @@ namespace NBXplorer.DerivationStrategy
 			}
 		}
 
-		public TaprootDerivationStrategy(BitcoinExtPubKey root, ReadOnlyDictionary<string, bool> additionalOptions = null) : base(additionalOptions)
+		public TaprootDerivationStrategy(BitcoinExtPubKey root, ReadOnlyDictionary<string, string> additionalOptions = null) : base(additionalOptions)
 		{
 			if (root == null)
 				throw new ArgumentNullException(nameof(root));

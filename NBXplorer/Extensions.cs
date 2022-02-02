@@ -85,7 +85,7 @@ namespace NBXplorer
 				var keys = keyInfos
 					.Select(kv => (KeyPath: kv.KeyPath,
 								   Address: kv.Address as BitcoinBlindedAddress,
-								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.KeyPath)))
+								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.KeyPath, kv.ScriptPubKey, rpc.Network)))
 					.Where(o => o.Address != null)
 					.Select(o => new UnblindTransactionBlindingAddressKey()
 					{

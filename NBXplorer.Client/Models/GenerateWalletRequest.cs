@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Text;
 using NBXplorer.JsonConverters;
 using NBitcoin;
@@ -20,5 +21,6 @@ namespace NBXplorer.Models
 		public string Passphrase { get; set; }
 		public bool ImportKeysToRPC { get; set; }
 		public bool SavePrivateKeys { get; set; }
+		public ReadOnlyDictionary<string, string> AdditionalOptions { get; set; }
 	}
 }

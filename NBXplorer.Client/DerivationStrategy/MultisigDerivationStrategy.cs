@@ -51,7 +51,7 @@ namespace NBXplorer.DerivationStrategy
 		}
 
 		internal MultisigDerivationStrategy(int reqSignature, BitcoinExtPubKey[] keys, bool isLegacy, bool lexicographicOrder,
-			ReadOnlyDictionary<string, bool> additionalOptions) : base(additionalOptions)
+			ReadOnlyDictionary<string, string> additionalOptions) : base(additionalOptions)
 		{
 			Keys = new ReadOnlyCollection<BitcoinExtPubKey>(keys);
 			RequiredSignatures = reqSignature;

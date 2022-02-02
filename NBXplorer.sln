@@ -18,6 +18,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionFiles", "SolutionFi
 		Dockerfile.linuxarm32v7 = Dockerfile.linuxarm32v7
 		Dockerfile.linuxarm64v8 = Dockerfile.linuxarm64v8
 		.circleci\run-tests.sh = .circleci\run-tests.sh
+		docs\API.md = docs\API.md
 	EndProjectSection
 EndProject
 Global

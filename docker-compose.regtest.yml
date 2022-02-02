@@ -63,7 +63,7 @@ services:
   elementsd-liquid:
     restart: always
     container_name: btcpayserver_elementsd_liquid
-    image: btcpayserver/elements:0.18.1.12
+    image: btcpayserver/elements:0.21.0.1
     environment:
       ELEMENTS_CHAIN: liquidv1test
       ELEMENTS_EXTRA_ARGS: |
@@ -80,6 +80,7 @@ services:
         initialfreecoins=210000000000000
         con_dyna_deploy_signal=1
         con_dyna_deploy_start=10
+        rpcallowip=0.0.0.0/0
     expose:
       - "19332"
       - "19444"

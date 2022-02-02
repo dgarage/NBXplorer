@@ -28,7 +28,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "NBXPLORER_NETWORK": "regtest",
-        "NBXPLORER_CHAINS":"btc,lbtc",
+        "NBXPLORER_CHAINS":"lbtc",
         "NBXPLORER_LBTCRPCURL": "http://127.0.0.1:19332/",
         "NBXPLORER_LBTCNODEENDPOINT": "127.0.0.1:19444",
         "NBXPLORER_LBTCRPCUSER": "liquid",

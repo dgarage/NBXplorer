@@ -1166,7 +1166,8 @@ Request:
   "scriptPubKeyType": "SegwitP2SH",
   "passphrase": "hello",
   "importKeysToRPC": true,
-  "savePrivateKeys": true
+  "savePrivateKeys": true,
+  "additionalOptions": { "slip77": "6c2de18eabeff3f7822bc724ad482bef0557f3e1c1e1c75b7a393a5ced4de616"}
 }
 ```
 
@@ -1178,6 +1179,7 @@ Request:
 * `passphrase`: Optional, the [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) passphrase. (Default: empty string)
 * `importKeysToRPC`: Optional, if true, every times a call to [get a new unused address](#unused) is called, the private key will be imported into the underlying node via RPC's `importprivkey`. (Default: `false`)
 * `savePrivateKeys`: If true, private keys will be saved inside the following metadata `Mnemonic`, `MasterHDKey` and `AccountHDKey`.
+* `additionalOptions`: Optional, additional options that a derivation scheme of some networks may support, such as [Liquid](#liquid)
 
 The `importKeysToRPC` is only useful if one need to manage his wallet via the node's cli tooling.
 
@@ -1281,8 +1283,19 @@ The `AssetMoney` JSON format is:
 }
 ```
 
-The blinding key of the confidential address is derived directly from the `derivationScheme`.
-If the `scriptPubKey` `0/2` is generated, the blinding private key used by NBXplorer is the SHA256 of the scriptPubKey at `0/2/0`.
+### Liquid Confidential Addresses
+
+Liquid confidential addresses are supported in two ways:
+
+* By default, the blinding key of the confidential address is derived directly from the `derivationScheme`. If the `scriptPubKey` `0/2` is generated, the blinding private key used by NBXplorer is the SHA256 of the scriptPubKey at `0/2/0`.
+* [SLIP77](https://github.com/satoshilabs/slips/blob/master/slip-0077.md), by suffixing the derivation scheme with either:
+  * the mnemonic seed derivation (usually the same as your wallet's)`-[slip77=all all all all all all all all all all all all]` 
+  * the master blinding key in hex or wif format`-[slip77=6c2de18eabeff3f7822bc724ad482bef0557f3e1c1e1c75b7a393a5ced4de616]`
+You may also choose to not use confidential addresses by applying the suffix `-[unblinded]` to the derivation scheme
+
+### Liquid Transactions support
+
+Due to the changes in the transaction format in Elements networks to support assets, we do not support transaction building features. 
 
 In order to send in and out of liquid, we advise you to rely on the RPC command line interface of the liquid deamon.
 For doing this you need to [Generate a wallet](#wallet) with `importAddressToRPC` and `savePrivateKeys` set to `true`.
