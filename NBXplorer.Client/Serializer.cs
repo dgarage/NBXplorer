@@ -29,6 +29,7 @@ namespace NBXplorer
 			if (_Network != null)
 			{
 				settings.Converters.Insert(0, new JsonConverters.CachedSerializer(_Network));
+				settings.Converters.Add(new JsonConverters.KeyPathTemplateJsonConverter());
 			}
 			ReplaceConverter<NBitcoin.JsonConverters.MoneyJsonConverter>(settings, new NBXplorer.JsonConverters.MoneyJsonConverter());
 		}

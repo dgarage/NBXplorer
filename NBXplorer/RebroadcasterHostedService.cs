@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.RPC;
+using NBXplorer.Backends;
 using NBXplorer.Configuration;
 using NBXplorer.Events;
 using NBXplorer.Logging;
@@ -19,11 +20,13 @@ namespace NBXplorer
 		public List<Transaction> UnknownFailure { get; set; } = new List<Transaction>();
 		public List<Transaction> MissingInputs { get; set; } = new List<Transaction>();
 		public List<Transaction> Rebroadcasted { get; set; } = new List<Transaction>();
+		public List<Transaction> AlreadyInMempool { get; set; } = new List<Transaction>();
 		public List<TrackedTransaction> Cleaned { get; set; } = new List<TrackedTransaction>();
 
 		internal void Add(RebroadcastResult a)
 		{
 			UnknownFailure.AddRange(a.UnknownFailure);
+			AlreadyInMempool.AddRange(a.AlreadyInMempool);
 			Rebroadcasted.AddRange(a.Rebroadcasted);
 			MissingInputs.AddRange(a.MissingInputs);
 			Cleaned.AddRange(a.Cleaned);
@@ -85,16 +88,18 @@ namespace NBXplorer
 			}
 		}
 
-		RepositoryProvider _Repositories;
-		private BitcoinDWaiters _Waiters;
+		IRepositoryProvider _Repositories;
+		private IIndexers _Indexers;
 		Dictionary<NBXplorerNetwork, RebroadcastedTransactions> _BroadcastedTransactionsByCryptoCode;
 		public RebroadcasterHostedService(
 			NBXplorerNetworkProvider networkProvider,
 			ExplorerConfiguration configuration, 
-			RepositoryProvider repositories, BitcoinDWaiters waiters, EventAggregator eventAggregator)
+			Broadcaster broadcaster,
+			IRepositoryProvider repositories, IIndexers indexers, EventAggregator eventAggregator)
 		{
+			Broadcaster = broadcaster;
 			_Repositories = repositories;
-			_Waiters = waiters;
+			_Indexers = indexers;
 			EventAggregator = eventAggregator;
 			_BroadcastedTransactionsByCryptoCode = configuration.ChainConfigurations
 													.Select(r => new RebroadcastedTransactions()
@@ -106,6 +111,7 @@ namespace NBXplorer
 		Task _Loop;
 		CancellationTokenSource _Cts = new CancellationTokenSource();
 
+		public Broadcaster Broadcaster { get; }
 		public EventAggregator EventAggregator { get; }
 
 		public async Task StartAsync(CancellationToken cancellationToken)
@@ -163,12 +169,13 @@ namespace NBXplorer
 			return result;
 		}
 
+		
 		private async Task<RebroadcastResult> Rebroadcast(NBXplorerNetwork network, TrackedSource trackedSource, IEnumerable<TrackedTransactionKey> txIds)
 		{
 			var result = new RebroadcastResult();
 			var repository = _Repositories.GetRepository(network);
-			var waiter = _Waiters.GetWaiter(repository.Network);
-			if (!waiter.RPCAvailable)
+			var rpc = _Indexers.GetIndexer(repository.Network)?.GetConnectedClient();
+			if (rpc is null)
 				return result;
 			List<TrackedTransaction> cleaned = new List<TrackedTransaction>();
 			HashSet<TrackedTransactionKey> processedTrackedTransactionKeys = new HashSet<TrackedTransactionKey>();
@@ -180,18 +187,23 @@ namespace NBXplorer
 				var tx = (await repository.GetSavedTransactions(trackedTxId.TxId))?.Select(t => t.Transaction).FirstOrDefault();
 				if (tx == null)
 					continue;
-				try
+
+				var broadcastResult = await Broadcaster.Broadcast(network, tx, trackedTxId.TxId);
+
+				if (broadcastResult.AlreadyInMempool)
 				{
-					await waiter.RPC.SendRawTransactionAsync(tx);
-					result.Rebroadcasted.Add(tx);
-					Logs.Explorer.LogInformation($"{repository.Network.CryptoCode}: Rebroadcasted {trackedTxId.TxId}");
+					result.AlreadyInMempool.Add(tx);
 				}
-				catch (RPCException ex) when (
-				ex.RPCCode == RPCErrorCode.RPC_TRANSACTION_ALREADY_IN_CHAIN ||
-				ex.Message.EndsWith("Missing inputs", StringComparison.OrdinalIgnoreCase) ||
-				ex.Message.EndsWith("bad-txns-inputs-spent", StringComparison.OrdinalIgnoreCase) ||
-				ex.Message.EndsWith("bad-txns-inputs-missingorspent", StringComparison.OrdinalIgnoreCase) ||
-				ex.Message.EndsWith("txn-mempool-conflict", StringComparison.OrdinalIgnoreCase))
+				if (broadcastResult.Rebroadcasted)
+				{
+					result.Rebroadcasted.Add(tx);
+				}
+				if (broadcastResult.UnknownError)
+				{
+					result.UnknownFailure.Add(tx);
+				}
+
+				if (broadcastResult.MissingInput)
 				{
 					result.MissingInputs.Add(tx);
 					var txs = await repository.GetTransactions(trackedSource, trackedTxId.TxId);
@@ -206,24 +218,14 @@ namespace NBXplorer
 						}
 						else
 						{
-							var resultRPC = await waiter.RPC.SendCommandAsync(new RPCRequest("getblockheader", new[] { savedTx.BlockHash }) { ThrowIfRPCError = false });
-							if (resultRPC.Error?.Code is RPCErrorCode.RPC_INVALID_ADDRESS_OR_KEY)
-							{
-								cleaned.Add(savedTx);
-								result.Cleaned.Add(savedTx);
-							}
-							else if (resultRPC.Result.Value<int>("confirmations") == -1)
+							var header = await rpc.GetBlockHeaderAsyncEx(savedTx.BlockHash);
+							if (header is null)
 							{
 								cleaned.Add(savedTx);
 								result.Cleaned.Add(savedTx);
 							}
 						}
 					}
-				}
-				catch (Exception ex)
-				{
-					result.UnknownFailure.Add(tx);
-					Logs.Explorer.LogInformation($"{repository.Network.CryptoCode}: Unknown exception when broadcasting {tx.GetHash()} ({ex.Message})");
 				}
 			}
 

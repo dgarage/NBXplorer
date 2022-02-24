@@ -15,6 +15,10 @@ namespace NBXplorer
 	}
 	public class EventAggregator : IDisposable
 	{
+		public EventAggregator(ILoggerFactory loggerFactory)
+		{
+			Logger = loggerFactory.CreateLogger("NBXplorer.Events");
+		}
 		class Subscription : IEventAggregatorSubscription
 		{
 			private EventAggregator aggregator;
@@ -96,7 +100,7 @@ namespace NBXplorer
 			}
 
 			if (!internalEvent)
-				Logs.Events.LogInformation(evt.ToString());
+				Logger.LogInformation(evt.ToString());
 			foreach(var sub in actionList)
 			{
 				try
@@ -105,7 +109,7 @@ namespace NBXplorer
 				}
 				catch(Exception ex)
 				{
-					Logs.Events.LogError(ex, $"Error while calling event handler");
+					Logger.LogError(ex, $"Error while calling event handler");
 				}
 			}
 		}
@@ -133,6 +137,8 @@ namespace NBXplorer
 		}
 
 		Dictionary<Type, Dictionary<Subscription, Action<object>>> _Subscriptions = new Dictionary<Type, Dictionary<Subscription, Action<object>>>();
+
+		public ILogger Logger { get; }
 
 		public IEventAggregatorSubscription Subscribe<T, TReturn>(Func<T, TReturn> subscription)
 		{

@@ -14,6 +14,7 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using NBXplorer.Logging;
 using NBitcoin.Scripting;
+using NBXplorer.Backends;
 
 namespace NBXplorer
 {
@@ -62,9 +63,9 @@ namespace NBXplorer
 		}
 
 		public ScanUTXOSetService(ScanUTXOSetServiceAccessor accessor,
-								  RPCClientProvider rpcClients,
+								  IRPCClients rpcClients,
 								  KeyPathTemplates keyPathTemplates,
-								  RepositoryProvider repositories)
+								  IRepositoryProvider repositories)
 		{
 			accessor.Instance = this;
 			RpcClients = rpcClients;
@@ -115,8 +116,8 @@ namespace NBXplorer
 		CancellationTokenSource _Cts = new CancellationTokenSource();
 		private readonly KeyPathTemplates keyPathTemplates;
 
-		public RPCClientProvider RpcClients { get; }
-		public RepositoryProvider Repositories { get; }
+		public IRPCClients RpcClients { get; }
+		public IRepositoryProvider Repositories { get; }
 
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
@@ -136,7 +137,7 @@ namespace NBXplorer
 						continue;
 					}
 					Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning {workItem.DerivationStrategy.ToPrettyString()} from index {workItem.Options.From} with gap limit {workItem.Options.GapLimit}, batch size {workItem.Options.BatchSize}");
-					var rpc = RpcClients.GetRPCClient(workItem.Network);
+					var rpc = RpcClients.Get(workItem.Network);
 					try
 					{
 						var repo = Repositories.GetRepository(workItem.Network);
@@ -238,7 +239,7 @@ namespace NBXplorer
 			}
 		}
 
-		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, Repository repo, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
+		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, IRepository repo, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
 		{
 			var clientBatch = client.PrepareBatch();
 			var blockIdsByHeight = new ConcurrentDictionary<int, uint256>();
@@ -287,6 +288,14 @@ namespace NBXplorer
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
 			await gettingBlockHeaders;
 			DateTimeOffset now = DateTimeOffset.UtcNow;
+
+			var slimBlocks = new List<SlimChainedBlock>(blockIdsByHeight.Count);
+			foreach (var kv in blockIdsByHeight)
+			{
+				if (blockHeadersByBlockId.TryGetValue(kv.Value, out var bh))
+					slimBlocks.Add(new SlimChainedBlock(kv.Value, bh.HashPrevBlock, kv.Key));
+			}
+			await repo.SaveBlocks(slimBlocks);
 			await repo.SaveMatches(data.Select(o =>
 			{
 				var trackedTransaction = repo.CreateTrackedTransaction(trackedSource, new TrackedTransactionKey(o.TxId, o.BlockId, true), o.Coins, ToDictionary(o.KeyPathInformations));

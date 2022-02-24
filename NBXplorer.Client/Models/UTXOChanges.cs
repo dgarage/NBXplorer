@@ -241,16 +241,16 @@ namespace NBXplorer.Models
 		}
 
 
-		uint _Confirmations;
-		public int Confirmations
+		long _Confirmations;
+		public long Confirmations
 		{
 			get
 			{
-				return checked((int)_Confirmations);
+				return checked((long)_Confirmations);
 			}
 			set
 			{
-				_Confirmations = checked((uint)value);
+				_Confirmations = checked((long)value);
 			}
 		}
 	}

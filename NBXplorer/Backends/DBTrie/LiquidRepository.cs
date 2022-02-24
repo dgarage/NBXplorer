@@ -1,3 +1,4 @@
+extern alias DBTrieLib;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,14 +10,14 @@ using NBXplorer.Models;
 using System;
 using NBXplorer.DerivationStrategy;
 
-namespace NBXplorer
+namespace NBXplorer.Backends.DBTrie
 {
 	public class LiquidRepository : Repository
 	{
 		private readonly RPCClient _rpcClient;
 
-		internal LiquidRepository(DBTrie.DBTrieEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates,
-			RPCClient rpcClient) : base(engine, network, keyPathTemplates, rpcClient)
+		internal LiquidRepository(DBTrieLib.DBTrie.DBTrieEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates,
+			RPCClient rpcClient, SlimChain headerChain) : base(engine, network, keyPathTemplates, rpcClient, headerChain)
 		{
 			_rpcClient = rpcClient;
 		}
@@ -185,25 +186,13 @@ namespace NBXplorer
 		protected override async Task AfterMatch(TrackedTransaction tx, IReadOnlyCollection<KeyPathInformation> keyInfos)
 		{
 			await base.AfterMatch(tx, keyInfos);
-			if (tx.TrackedSource is DerivationSchemeTrackedSource ts &&
-			    !ts.DerivationStrategy.Unblinded() && 
-				tx.Transaction is ElementsTransaction elementsTransaction &&
-				tx is ElementsTrackedTransaction elementsTracked)
+
+			if (tx is ElementsTrackedTransaction etx)
 			{
-				var keys = keyInfos
-					.Select(kv => (KeyPath: kv.KeyPath,
-								   Address: kv.Address as BitcoinBlindedAddress,
-								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.KeyPath)))
-					.Where(o => o.Address != null)
-					.Select(o => new UnblindTransactionBlindingAddressKey()
-					{
-						Address = o.Address,
-						BlindingKey = o.BlindingKey
-					}).ToList();
-				if (keys.Count != 0)
+				var unblinded = await _rpcClient.UnblindTransaction(tx, keyInfos);
+				if (unblinded != null)
 				{
-					var unblinded = await _rpcClient.UnblindTransaction(keys, elementsTransaction, Network.NBitcoinNetwork);
-					elementsTracked.Unblind(unblinded, true);
+					etx.Unblind(unblinded, true);
 				}
 			}
 		}
@@ -222,7 +211,7 @@ namespace NBXplorer
 			trackedTransaction.Unblind(((ElementsTransactionMatchData)tx).Unblind);
 			return trackedTransaction;
 		}
-		protected override ITrackedTransactionSerializable CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey trackedTransactionKey)
+		internal override ITrackedTransactionSerializable CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey trackedTransactionKey)
 		{
 			return new ElementsTransactionMatchData(trackedTransactionKey);
 		}

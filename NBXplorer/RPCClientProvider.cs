@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace NBXplorer
 {
-	public class RPCClientProvider
+	public class RPCClientProvider : IRPCClients
 	{
 		Dictionary<string, RPCClient> _ChainConfigurations = new Dictionary<string, RPCClient>();
 		public RPCClientProvider(ExplorerConfiguration configuration, IHttpClientFactory httpClientFactory)
@@ -18,25 +18,16 @@ namespace NBXplorer
 				var rpc = config?.RPC;
 				if (rpc != null)
 				{
-					rpc.HttpClient = httpClientFactory.CreateClient(nameof(RPCClientProvider));
+					rpc.HttpClient = httpClientFactory.CreateClient(nameof(IRPCClients));
 					_ChainConfigurations.Add(config.CryptoCode, rpc);
 				}
 			}
 		}
 
-		public IEnumerable<RPCClient> GetAll()
+		public RPCClient Get(NBXplorerNetwork network)
 		{
-			return _ChainConfigurations.Values;
-		}
-
-		public RPCClient GetRPCClient(string cryptoCode)
-		{
-			_ChainConfigurations.TryGetValue(cryptoCode, out RPCClient rpc);
+			_ChainConfigurations.TryGetValue(network.CryptoCode, out RPCClient rpc);
 			return rpc;
-		}
-		public RPCClient GetRPCClient(NBXplorerNetwork network)
-		{
-			return GetRPCClient(network.CryptoCode);
 		}
 	}
 }

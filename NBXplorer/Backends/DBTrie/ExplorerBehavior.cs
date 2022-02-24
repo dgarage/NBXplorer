@@ -18,7 +18,7 @@ using NBXplorer.Events;
 using NBXplorer.Configuration;
 using Microsoft.AspNetCore.Mvc.Formatters;
 
-namespace NBXplorer
+namespace NBXplorer.Backends.DBTrie
 {
 	public class FullySynchedEvent 
 	{
@@ -179,12 +179,12 @@ namespace NBXplorer
 		retry:
 			try
 			{
+				var slimBlockHeader = Chain.GetBlock(blockHash);
 				DateTimeOffset now = DateTimeOffset.UtcNow;
 				var matches =
-					(await Repository.GetMatches(block.Transactions, blockHash, now, true))
+					(await Repository.GetMatches(block, slimBlockHeader, now, true))
 					.ToArray();
-				await SaveMatches(matches, blockHash, now, true);
-				var slimBlockHeader = Chain.GetBlock(blockHash);
+				await SaveMatches(matches, slimBlockHeader, now, true);
 				if (slimBlockHeader != null)
 				{
 					var blockEvent = new Models.NewBlockEvent()
@@ -214,28 +214,21 @@ namespace NBXplorer
 				goto retry;
 			}
 		}
-
-
 		internal async Task SaveMatches(Transaction transaction, bool fireEvents)
 		{
 			var now = DateTimeOffset.UtcNow;
 			var matches = (await Repository.GetMatches(transaction, null, now, false)).ToArray();
 			await SaveMatches(matches, null, now, fireEvents);
 		}
-
-		private async Task SaveMatches(TrackedTransaction[] matches, uint256 blockHash, DateTimeOffset now, bool fireEvents)
+		private async Task SaveMatches(TrackedTransaction[] matches, SlimChainedBlock slimBlock, DateTimeOffset now, bool fireEvents)
 		{
 			await Repository.SaveMatches(matches);
 			_ = AddressPoolService.GenerateAddresses(Network, matches);
-			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), blockHash);
+			var saved = await Repository.SaveTransactions(now, matches.Select(m => m.Transaction).Distinct().ToArray(), slimBlock);
 			var savedTransactions = saved.ToDictionary(s => s.Transaction.GetHash());
 
 			int? maybeHeight = null;
 			var chainHeight = Chain.Height;
-			if (blockHash != null && Chain.TryGetHeight(blockHash, out int height))
-			{
-				maybeHeight = height;
-			}
 			if (fireEvents)
 			{
 				Task[] saving = new Task[matches.Length];
@@ -246,10 +239,10 @@ namespace NBXplorer
 						TrackedSource = matches[i].TrackedSource,
 						DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
 						CryptoCode = Network.CryptoCode,
-						BlockId = blockHash,
+						BlockId = slimBlock?.Hash,
 						TransactionData = new TransactionResult()
 						{
-							BlockId = blockHash,
+							BlockId = slimBlock?.Hash,
 							Height = maybeHeight,
 							Confirmations = maybeHeight == null ? 0 : chainHeight - maybeHeight.Value + 1,
 							Timestamp = now,
@@ -301,7 +294,11 @@ namespace NBXplorer
 		{
 			try
 			{
-				CurrentLocation = await Repository.GetIndexProgress() ?? GetDefaultCurrentLocation();
+				CurrentLocation = await Repository.GetIndexProgress();
+				if (CurrentLocation is null)
+				{
+					CurrentLocation = GetDefaultCurrentLocation();
+				}
 				var fork = Chain.FindFork(CurrentLocation);
 				if (fork == null)
 				{

@@ -30,11 +30,21 @@ using NBitcoin.DataEncoders;
 using System.Text.RegularExpressions;
 using NBXplorer.MessageBrokers;
 using NBitcoin.Protocol;
+using NBXplorer.HostedServices;
+using NBXplorer.Controllers;
+using NBXplorer.Backends.DBTrie;
+using NBXplorer.Backends.Postgres;
+using NBXplorer.Backends;
+using NBitcoin.Altcoins.Elements;
 
 namespace NBXplorer
 {
 	public static class Extensions
 	{
+		public static bool IsUnknown(this IMoney money)
+		{
+			return money is AssetMoney am && am == NBXplorerNetwork.UnknownAssetMoney;
+		}
 		internal static bool AsBoolean(this string value)
 		{
 			if (value is string str && bool.TryParse(str, out var v))
@@ -64,6 +74,30 @@ namespace NBXplorer
 			if (actionResult is JsonResult jsonResult && jsonResult.Value is T v)
 				return v;
 			return default;
+		}
+
+		public static async Task<ElementsTransaction> UnblindTransaction(this RPCClient rpc, TrackedTransaction tx, IEnumerable<KeyPathInformation> keyInfos)
+		{
+			if (tx.TrackedSource is DerivationSchemeTrackedSource ts &&
+				!ts.DerivationStrategy.Unblinded() &&
+				tx.Transaction is ElementsTransaction elementsTransaction)
+			{
+				var keys = keyInfos
+					.Select(kv => (KeyPath: kv.KeyPath,
+								   Address: kv.Address as BitcoinBlindedAddress,
+								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.KeyPath)))
+					.Where(o => o.Address != null)
+					.Select(o => new UnblindTransactionBlindingAddressKey()
+					{
+						Address = o.Address,
+						BlindingKey = o.BlindingKey
+					}).ToList();
+				if (keys.Count != 0)
+				{
+					return await rpc.UnblindTransaction(keys, elementsTransaction, rpc.Network);
+				}
+			}
+			return null;
 		}
 		public static async Task<DateTimeOffset?> GetBlockTimeAsync(this RPCClient client, uint256 blockId, bool throwIfNotFound = true)
 		{
@@ -133,7 +167,7 @@ namespace NBXplorer
 			});
 		}
 
-		public static IServiceCollection AddNBXplorer(this IServiceCollection services)
+		public static IServiceCollection AddNBXplorer(this IServiceCollection services, IConfiguration configuration)
 		{
 			services.AddSingleton<IObjectModelValidator, NoObjectModelValidator>();
 			services.Configure<MvcOptions>(mvc =>
@@ -147,19 +181,53 @@ namespace NBXplorer
 #else
 			services.AddSingleton<MvcNewtonsoftJsonOptions>(o =>  o.GetRequiredService<IOptions<MvcNewtonsoftJsonOptions>>().Value);
 #endif
-			services.TryAddSingleton<ChainProvider>();
 
 			services.TryAddSingleton<CookieRepository>();
-			services.TryAddSingleton<RepositoryProvider>();
-			services.AddSingleton<IHostedService, RepositoryProvider>(o => o.GetRequiredService<RepositoryProvider>());
+			services.TryAddSingleton<Broadcaster>();
+
+			if (configuration.IsPostgres())
+			{
+				services.AddHostedService<HostedServices.DatabaseSetupHostedService>();
+				services.AddSingleton<IHostedService, IRepositoryProvider>(o => o.GetRequiredService<IRepositoryProvider>());
+				services.TryAddSingleton<IRepositoryProvider, PostgresRepositoryProvider>();
+				services.AddSingleton<DbConnectionFactory>();
+
+				if (configuration.GetOrDefault("AUTOMIGRATE", false))
+				{
+					services.AddHostedService<HostedServices.DBTrieToPostgresMigratorHostedService>();
+					services.TryAddSingleton<ChainProvider>();
+					services.TryAddSingleton<RepositoryProvider>();
+				}
+				services.TryAddTransient<IUTXOService, PostgresMainController>();
+				services.TryAddSingleton<PostgresIndexers>();
+				services.TryAddSingleton<IIndexers>(o => o.GetRequiredService<PostgresIndexers>());
+				services.AddSingleton<IHostedService, PostgresIndexers>(o => o.GetRequiredService<PostgresIndexers>());
+
+				services.AddSingleton<CheckMempoolTransactionsPeriodicTask>();
+				services.AddSingleton<RefreshWalletHistoryPeriodicTask>();
+				services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(RefreshWalletHistoryPeriodicTask), TimeSpan.FromMinutes(30.0)));
+				services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(CheckMempoolTransactionsPeriodicTask), TimeSpan.FromMinutes(5.0)));
+				services.AddHostedService<PeriodicTaskLauncherHostedService>();
+			}
+			else
+			{
+				services.TryAddTransient<IUTXOService, MainController>();
+				services.TryAddSingleton<ChainProvider>();
+				services.AddSingleton<IHostedService, IRepositoryProvider>(o => o.GetRequiredService<IRepositoryProvider>());
+				services.TryAddSingleton<IRepositoryProvider, RepositoryProvider>();
+				services.TryAddSingleton<BitcoinDWaiters>();
+				services.TryAddSingleton<IIndexers>(o => o.GetRequiredService<BitcoinDWaiters>());
+				services.AddSingleton<IHostedService, BitcoinDWaiters>(o => o.GetRequiredService<BitcoinDWaiters>());
+			}
+
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<AddressPoolService>();
 			services.AddSingleton<IHostedService, AddressPoolService>(o => o.GetRequiredService<AddressPoolService>());
-			services.TryAddSingleton<BitcoinDWaiters>();
+			services.TryAddSingleton<IRPCClients, RPCClientProvider>();
+			services.AddHostedService<RPCReadyFileHostedService>();
 			services.TryAddSingleton<RebroadcasterHostedService>();
 			services.AddSingleton<IHostedService, ScanUTXOSetService>();
 			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
-			services.AddSingleton<IHostedService, BitcoinDWaiters>(o => o.GetRequiredService<BitcoinDWaiters>());
 			services.AddSingleton<IHostedService, RebroadcasterHostedService>(o => o.GetRequiredService<RebroadcasterHostedService>());
 			services.AddSingleton<IHostedService, BrokerHostedService>();
 
@@ -179,7 +247,7 @@ namespace NBXplorer
 				var c = o.GetRequiredService<ExplorerConfiguration>();
 				return c.NetworkProvider;
 			});
-			services.TryAddSingleton<RPCClientProvider>();
+			services.TryAddSingleton<IRPCClients>();
 			return services;
 		}
 

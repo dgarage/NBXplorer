@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace NBXplorer
+namespace NBXplorer.Backends.DBTrie
 {
 	public class BlockDownloader : IDisposable
 	{

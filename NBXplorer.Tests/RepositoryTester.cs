@@ -1,4 +1,11 @@
-﻿using NBitcoin;
+﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using NBitcoin;
+using NBXplorer.Backends;
+using NBXplorer.Backends.DBTrie;
+using NBXplorer.Backends.Postgres;
+using NBXplorer.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -8,32 +15,57 @@ namespace NBXplorer.Tests
 {
 	public class RepositoryTester : IDisposable
 	{
-		public static RepositoryTester Create(bool caching, [CallerMemberName]string name = null)
+		public static RepositoryTester Create(Backend backend, bool caching, [CallerMemberName]string name = null)
 		{
-			return new RepositoryTester(name, caching);
+			return new RepositoryTester(backend, name, caching);
 		}
 
 		string _Name;
-		private RepositoryProvider _Provider;
+		private IRepositoryProvider _Provider;
 
-		RepositoryTester(string name, bool caching)
+		RepositoryTester(Backend backend, string name, bool caching)
 		{
 			_Name = name;
-			ServerTester.DeleteFolderRecursive(name);
-			_Provider = new RepositoryProvider(new NBXplorerNetworkProvider(ChainName.Regtest),
-											   KeyPathTemplates.Default,
-											   new Configuration.ExplorerConfiguration()
-											   {
-												   DataDir = name,
-												   ChainConfigurations = new List<Configuration.ChainConfiguration>()
-												   {
-													   new Configuration.ChainConfiguration()
+			var conf = new Configuration.ExplorerConfiguration()
+			{
+				DataDir = name,
+				ChainConfigurations = new List<Configuration.ChainConfiguration>()
 													   {
-														   CryptoCode = "BTC",
-														   Rescan = false
-													   }
-												   }
-											   });
+														   new Configuration.ChainConfiguration()
+														   {
+															   CryptoCode = "BTC",
+															   Rescan = false
+														   }
+													   },
+				NetworkProvider = new NBXplorerNetworkProvider(ChainName.Regtest)
+			};
+			ServiceCollection services = new ServiceCollection();
+			services.AddSingleton(conf);
+			services.AddSingleton(KeyPathTemplates.Default);
+			services.AddSingleton(new NBXplorerNetworkProvider(ChainName.Regtest));
+			if (backend == Backend.DBTrie)
+			{
+				ServerTester.DeleteFolderRecursive(name);
+				services.AddSingleton<IRepositoryProvider, RepositoryProvider>();
+				services.AddSingleton<ChainProvider>();
+			}
+			else
+			{
+				services.AddLogging();
+				services.AddSingleton<DbConnectionFactory>();
+				ConfigurationBuilder builder = new ConfigurationBuilder();
+				builder.AddInMemoryCollection(new[] { new KeyValuePair<string,string>("POSTGRES", ServerTester.GetTestPostgres(null, name)) });
+				services.AddSingleton<IConfiguration>(builder.Build());
+				services.AddSingleton<IRepositoryProvider, PostgresRepositoryProvider>();
+				services.AddSingleton<HostedServices.DatabaseSetupHostedService>();
+				
+			}
+			var provider = services.BuildServiceProvider();
+			_Provider = provider.GetService<IRepositoryProvider>();
+			if (backend == Backend.Postgres)
+			{
+				provider.GetRequiredService<HostedServices.DatabaseSetupHostedService>().StartAsync(default).GetAwaiter().GetResult();
+			}
 			_Provider.StartAsync(default).GetAwaiter().GetResult();
 			_Repository = _Provider.GetRepository(new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode("BTC"));
 		}
@@ -44,8 +76,8 @@ namespace NBXplorer.Tests
 			ServerTester.DeleteFolderRecursive(_Name);
 		}
 
-		private Repository _Repository;
-		public Repository Repository
+		private IRepository _Repository;
+		public IRepository Repository
 		{
 			get
 			{

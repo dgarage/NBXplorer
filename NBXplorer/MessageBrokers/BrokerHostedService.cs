@@ -25,12 +25,10 @@ namespace NBXplorer.MessageBrokers
 		IBrokerClient _senderTransactions = null;
 		ExplorerConfiguration _config;
 
-		public BrokerHostedService(BitcoinDWaiters waiters, ChainProvider chainProvider, EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, NBXplorerNetworkProvider networks)
+		public BrokerHostedService(EventAggregator eventAggregator, IOptions<ExplorerConfiguration> config, NBXplorerNetworkProvider networks)
 		{
 			_EventAggregator = eventAggregator;
 			Networks = networks;
-			ChainProvider = chainProvider;
-			Waiters = waiters;
 			_config = config.Value;
 		}
 
@@ -143,15 +141,6 @@ namespace NBXplorer.MessageBrokers
 			_subscriptions.Dispose();
 			await Task.WhenAll(_senderBlock.Close(), _senderTransactions.Close());
 		}
-
-		public ChainProvider ChainProvider
-		{
-			get; set;
-		}
 		public NBXplorerNetworkProvider Networks { get; }
-		public BitcoinDWaiters Waiters
-		{
-			get; set;
-		}
 	}
 }
