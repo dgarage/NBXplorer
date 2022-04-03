@@ -43,7 +43,7 @@ namespace NBXplorer.Controllers
 				throw new ArgumentNullException(nameof(cryptoCode));
 			cryptoCode = cryptoCode.ToUpperInvariant();
 			var network = NetworkProvider.GetFromCryptoCode(cryptoCode);
-			if (network == null)
+			if (network == null || Indexers.GetIndexer(network) is null)
 				throw new NBXplorerException(new NBXplorerError(404, "cryptoCode-not-supported", $"{cryptoCode} is not supported"));
 
 			if (checkRPC)
