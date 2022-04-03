@@ -146,6 +146,7 @@ namespace NBXplorer.HostedServices
 			LoggerFactory.CreateLogger($"NBXplorer.PostgresMigration").LogInformation($"The migration completed in {(int)w.Elapsed.TotalMinutes} minutes.");
 			File.WriteAllText(LegacyRepositoryProvider.GetMigrationLockPath(), $"Done {migrationId}");
 			DeleteAfterMigrationOrWarning();
+			GC.Collect();
 		}
 
 		private void DeleteAfterMigrationOrWarning()
