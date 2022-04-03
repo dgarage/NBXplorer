@@ -9,7 +9,7 @@ This model is contained in [this SQL script](https://github.com/dgarage/NBXplore
 There are additional comments there about the meaning of columns and views.
 
 Here is a diagram:
-![](/images/nxplorer-schema.png)
+![](images/nxplorer-schema.png)
 
 The SQL Schema of NBXplorer is multi-tenant, multi-asset, multi-chain.
 It is divided in several parts:
