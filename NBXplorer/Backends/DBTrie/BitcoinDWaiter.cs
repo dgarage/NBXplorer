@@ -17,36 +17,32 @@ using NBXplorer.Events;
 using Newtonsoft.Json.Linq;
 using System.Text;
 
-namespace NBXplorer
+namespace NBXplorer.Backends.DBTrie
 {
-	public enum BitcoinDWaiterState
-	{
-		NotStarted,
-		CoreSynching,
-		NBXplorerSynching,
-		Ready
-	}
-
-	public class BitcoinDWaiters : IHostedService
+	public class BitcoinDWaiters : IHostedService, IRPCClients, IIndexers
 	{
 		Dictionary<string, BitcoinDWaiter> _Waiters;
 		private readonly AddressPoolService addressPool;
 		private readonly NBXplorerNetworkProvider networkProvider;
 		private readonly ChainProvider chains;
-		private readonly RepositoryProvider repositoryProvider;
+		private readonly IRepositoryProvider repositoryProvider;
 		private readonly ExplorerConfiguration config;
-		private readonly RPCClientProvider rpcProvider;
+		private readonly IRPCClients rpcProvider;
 		private readonly EventAggregator eventAggregator;
 
+		public ILoggerFactory LoggerFactory { get; }
+
 		public BitcoinDWaiters(
+							ILoggerFactory loggerFactory,
 							AddressPoolService addressPool,
 							  NBXplorerNetworkProvider networkProvider,
 							  ChainProvider chains,
-							  RepositoryProvider repositoryProvider,
+							  IRepositoryProvider repositoryProvider,
 							  ExplorerConfiguration config,
-							  RPCClientProvider rpcProvider,
+							  IRPCClients rpcProvider,
 							  EventAggregator eventAggregator)
 		{
+			LoggerFactory = loggerFactory;
 			this.addressPool = addressPool;
 			this.networkProvider = networkProvider;
 			this.chains = chains;
@@ -60,12 +56,14 @@ namespace NBXplorer
 			await repositoryProvider.StartCompletion;
 			_Waiters = networkProvider
 				.GetAll()
-				.Select(s => (Repository: repositoryProvider.GetRepository(s),
-							  RPCClient: rpcProvider.GetRPCClient(s),
+				.Select(s => (Repository: (Repository)repositoryProvider.GetRepository(s),
+							  RPCClient: rpcProvider.Get(s),
 							  Chain: chains.GetChain(s),
 							  Network: s))
 				.Where(s => s.Repository != null && s.RPCClient != null && s.Chain != null)
-				.Select(s => new BitcoinDWaiter(s.RPCClient,
+				.Select(s => new BitcoinDWaiter(
+												LoggerFactory.CreateLogger($"NBXplorer.BitcoinDWaiters.{s.Network.CryptoCode}"),
+												s.RPCClient,
 												config,
 												networkProvider.GetFromCryptoCode(s.Network.CryptoCode),
 												s.Chain,
@@ -95,9 +93,32 @@ namespace NBXplorer
 		{
 			return _Waiters.Values;
 		}
+
+		public RPCClient Get(NBXplorerNetwork network)
+		{
+			return GetWaiter(network)?.RPC;
+		}
+
+		public RPCClient GetAvailableRPCClient(NBXplorerNetwork network)
+		{
+			var waiter = GetWaiter(network);
+			if (!waiter.RPCAvailable)
+				return null;
+			return waiter.RPC;
+		}
+
+		public IIndexer GetIndexer(NBXplorerNetwork network)
+		{
+			return GetWaiter(network);
+		}
+
+		IEnumerable<IIndexer> IIndexers.All()
+		{
+			return All();
+		}
 	}
 
-	public class BitcoinDWaiter : IHostedService
+	public class BitcoinDWaiter : IHostedService, IIndexer
 	{
 		RPCClient _OriginalRPC;
 		NBXplorerNetwork _Network;
@@ -106,9 +127,9 @@ namespace NBXplorer
 		SlimChain _Chain;
 		EventAggregator _EventAggregator;
 		private readonly ChainConfiguration _ChainConfiguration;
-		readonly string RPCReadyFile;
 
 		public BitcoinDWaiter(
+			ILogger logger,
 			RPCClient rpc,
 			ExplorerConfiguration configuration,
 			NBXplorerNetwork network,
@@ -119,6 +140,7 @@ namespace NBXplorer
 		{
 			if (addressPoolService == null)
 				throw new ArgumentNullException(nameof(addressPoolService));
+			Logger = logger;
 			_OriginalRPC = rpc;
 			_Configuration = configuration;
 			_Network = network;
@@ -127,8 +149,6 @@ namespace NBXplorer
 			_EventAggregator = eventAggregator;
 			_ChainConfiguration = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
 			_ExplorerPrototype = new ExplorerBehavior(repository, chain, addressPoolService, eventAggregator) { StartHeight = _ChainConfiguration.StartHeight };
-			RPCReadyFile = Path.Combine(configuration.SignalFilesDir, $"{network.CryptoCode.ToLowerInvariant()}_fully_synched");
-			HasTxIndex = _ChainConfiguration.HasTxIndex;
 		}
 		public NodeState NodeState
 		{
@@ -261,7 +281,6 @@ namespace NBXplorer
 				await _Loop;
 			}
 			catch { }
-			EnsureRPCReadyFileDeleted();
 		}
 		bool _BanListLoaded;
 		async Task<bool> StepAsync(CancellationToken token)
@@ -270,7 +289,7 @@ namespace NBXplorer
 			switch (State)
 			{
 				case BitcoinDWaiterState.NotStarted:
-					await RPCArgs.TestRPCAsync(_Network, _OriginalRPC, token);
+					await RPCArgs.TestRPCAsync(_Network, _OriginalRPC, token, Logger);
 					_OriginalRPC.Capabilities = _OriginalRPC.Capabilities;
 					GetBlockchainInfoResponse blockchainInfo = null;
 					try
@@ -292,7 +311,7 @@ namespace NBXplorer
 						}
 						if (blockchainInfo != null && _Network.NBitcoinNetwork.ChainName == ChainName.Regtest)
 						{
-							if (await WarmupBlockchain())
+							if (await _OriginalRPC.WarmupBlockchain(Logs.Explorer))
 							{
 								blockchainInfo = await _OriginalRPC.GetBlockchainInfoAsyncEx();
 							}
@@ -303,7 +322,7 @@ namespace NBXplorer
 						Logs.Configuration.LogError(ex, $"{_Network.CryptoCode}: Failed to connect to RPC");
 						break;
 					}
-					if (IsSynchingCore(blockchainInfo))
+					if (blockchainInfo.IsSynching(_Network))
 					{
 						State = BitcoinDWaiterState.CoreSynching;
 					}
@@ -325,7 +344,7 @@ namespace NBXplorer
 						State = BitcoinDWaiterState.NotStarted;
 						break;
 					}
-					if (!IsSynchingCore(blockchainInfo2))
+					if (!blockchainInfo2.IsSynching(_Network))
 					{
 						await ConnectToBitcoinD(token, blockchainInfo2);
 						State = BitcoinDWaiterState.NBXplorerSynching;
@@ -363,14 +382,6 @@ namespace NBXplorer
 				if (oldState == BitcoinDWaiterState.NotStarted)
 					NetworkInfo = await _OriginalRPC.GetNetworkInfoAsync();
 				_EventAggregator.Publish(new BitcoinDStateChangedEvent(_Network, oldState, State));
-				if (State == BitcoinDWaiterState.Ready)
-				{
-					await File.WriteAllTextAsync(RPCReadyFile, NBitcoin.Utils.DateTimeToUnixTime(DateTimeOffset.UtcNow).ToString());
-				}
-			}
-			if (State != BitcoinDWaiterState.Ready)
-			{
-				EnsureRPCReadyFileDeleted();
 			}
 			return changed;
 		}
@@ -385,11 +396,7 @@ namespace NBXplorer
 			return GetHandshakedNode()?.Behaviors?.Find<ExplorerBehavior>();
 		}
 
-		private void EnsureRPCReadyFileDeleted()
-		{
-			if (File.Exists(RPCReadyFile))
-				File.Delete(RPCReadyFile);
-		}
+		
 
 		private async Task LoadBanList()
 		{
@@ -483,7 +490,7 @@ namespace NBXplorer
 							chainLoaded = true;
 							var peer = (await _OriginalRPC.GetPeersInfoAsync())
 										.FirstOrDefault(p => p.SubVersion == userAgent);
-							if (IsWhitelisted(peer))
+							if (peer.IsWhitelisted())
 							{
 								Logs.Explorer.LogInformation($"{Network.CryptoCode}: NBXplorer is correctly whitelisted by the node");
 							}
@@ -534,17 +541,6 @@ namespace NBXplorer
 				EnsureNodeDisposed(node ?? _Node);
 				throw;
 			}
-		}
-
-		private bool IsWhitelisted(PeerInfo peer)
-		{
-			if (peer is null)
-				return false;
-			if (peer.IsWhiteListed)
-				return true;
-			if (peer.Permissions.Contains("noban", StringComparer.OrdinalIgnoreCase))
-				return true;
-			return false;
 		}
 
 		private void Node_StateChanged(Node node, NodeState oldState)
@@ -671,52 +667,19 @@ namespace NBXplorer
 			SaveChainInCache();
 		}
 
-		private async Task<bool> WarmupBlockchain()
+		public async Task SaveMatches(Transaction transaction)
 		{
-			if (await _OriginalRPC.GetBlockCountAsync() < _Network.NBitcoinNetwork.Consensus.CoinbaseMaturity)
-			{
-				Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Less than {_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity} blocks, mining some block for regtest");
-				await _OriginalRPC.EnsureGenerateAsync(_Network.NBitcoinNetwork.Consensus.CoinbaseMaturity + 1);
-				return true;
-			}
-			else
-			{
-				var hash = await _OriginalRPC.GetBestBlockHashAsync();
-
-				BlockHeader header = null;
-				try
-				{
-					header = await _OriginalRPC.GetBlockHeaderAsync(hash);
-				}
-				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
-				{
-					header = (await _OriginalRPC.GetBlockAsync(hash)).Header;
-				}
-				if ((DateTimeOffset.UtcNow - header.BlockTime) > TimeSpan.FromSeconds(24 * 60 * 60))
-				{
-					Logs.Configuration.LogInformation($"{_Network.CryptoCode}: It has been a while nothing got mined on regtest... mining 10 blocks");
-					await _OriginalRPC.GenerateAsync(10);
-					return true;
-				}
-				return false;
-			}
+			var explorerBehavior = GetExplorerBehavior();
+			if (explorerBehavior is null)
+				return;
+			await explorerBehavior.SaveMatches(transaction, false);
 		}
 
-		public bool IsSynchingCore(GetBlockchainInfoResponse blockchainInfo)
+		public RPCClient GetConnectedClient()
 		{
-			if (blockchainInfo.InitialBlockDownload == true)
-				return true;
-			if (blockchainInfo.MedianTime.HasValue && _Network.NBitcoinNetwork.ChainName != ChainName.Regtest)
-			{
-				var time = NBitcoin.Utils.UnixTimeToDateTime(blockchainInfo.MedianTime.Value);
-				// 5 month diff? probably synching...
-				if (DateTimeOffset.UtcNow - time > TimeSpan.FromDays(30 * 5))
-				{
-					return true;
-				}
-			}
-
-			return blockchainInfo.Headers - blockchainInfo.Blocks > 6;
+			if (!RPCAvailable)
+				return null;
+			return RPC;
 		}
 
 		bool _Disposed = false;
@@ -730,6 +693,18 @@ namespace NBXplorer
 		}
 
 		public GetNetworkInfoResponse NetworkInfo { get; internal set; }
-		public bool HasTxIndex { get; set; }
+
+		public long? SyncHeight
+		{
+			get
+			{
+				var loc = GetLocation();
+				if (loc is null)
+					return null;
+				return _Chain.FindFork(loc)?.Height;
+			}
+		}
+
+		public ILogger Logger { get; }
 	}
 }

@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
-using static NBXplorer.Repository;
 
 namespace NBXplorer
 {
@@ -97,10 +96,10 @@ namespace NBXplorer
 
 		public Transaction Transaction
 		{
-			get;
+			get; set;
 		}
 
-		public TrackedTransactionKey Key { get; }
+		public TrackedTransactionKey Key { get; set; }
 		public uint256 BlockHash => Key.BlockHash;
 		public uint256 TransactionHash => Key.TxId;
 
@@ -113,7 +112,24 @@ namespace NBXplorer
 		{
 			get; set;
 		}
-		public bool IsCoinBase => Transaction?.IsCoinBase is true;
+		//public bool IsCoinBase => Transaction?.IsCoinBase is true;
+
+		bool _IsCoinBase;
+		public bool IsCoinBase
+		{
+			get
+			{
+				return Transaction?.IsCoinBase is true || _IsCoinBase;
+			}
+			set
+			{
+				_IsCoinBase = value;
+			}
+		}
+
+		public int? BlockIndex { get; set; }
+		public long? BlockHeight { get; set; }
+		public bool Immature { get; internal set; }
 
 		public IEnumerable<MatchedOutput> GetReceivedOutputs()
 		{
@@ -134,6 +150,24 @@ namespace NBXplorer
 		public virtual ITrackedTransactionSerializable CreateBitcoinSerializable()
 		{
 			return new TransactionMatchData(this);
+		}
+
+		Dictionary<OutPoint, int> inputsIndexes;
+		public int IndexOfInput(OutPoint spent)
+		{
+			if (Transaction is null)
+				throw new InvalidOperationException("IndexOfInput need access to the underlying transaction");
+			if (inputsIndexes is null)
+			{
+				inputsIndexes = new Dictionary<OutPoint, int>(Transaction.Inputs.Count);
+				int i = 0;
+				foreach (var outpoint in Transaction.Inputs.Select(i => i.PrevOut))
+				{
+					inputsIndexes.Add(outpoint, i);
+					i++;
+				}
+			}
+			return inputsIndexes[spent];
 		}
 	}
 

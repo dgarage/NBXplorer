@@ -26,6 +26,10 @@ using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Http.Features;
 using NBitcoin.Altcoins;
 using NBitcoin.DataEncoders;
+using Dapper;
+using NBXplorer.Configuration;
+using NBXplorer.Backends;
+using NBXplorer.Backends.Postgres;
 
 namespace NBXplorer.Tests
 {
@@ -34,7 +38,7 @@ namespace NBXplorer.Tests
 		public UnitTest1(ITestOutputHelper helper)
 		{
 			Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
-			Logs.LogProvider = new XUnitLogProvider(helper);
+			Logs.LogProvider = new XUnitLoggerProvider(helper);
 		}
 		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(ChainName.Regtest);
 		private NBXplorerNetwork GetNetwork(INetworkSet network)
@@ -76,20 +80,24 @@ namespace NBXplorer.Tests
 			Assert.True(evicted < 6000);
 		}
 
-		[Fact]
-		public void RepositoryCanTrackAddresses()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void RepositoryCanTrackAddresses(Backend backend)
 		{
-			using (var tester = RepositoryTester.Create(true))
+			using (var tester = RepositoryTester.Create(backend, true))
 			{
 				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 				RepositoryCanTrackAddressesCore(tester, dummy);
 			}
 		}
 
-		[Fact]
-		public async Task CanGetEvents()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public async Task CanGetEvents(Backend backend)
 		{
-			using (var tester = RepositoryTester.Create(false))
+			using (var tester = RepositoryTester.Create(backend, false))
 			{
 				var evt1 = new NewBlockEvent() { Height = 1 };
 				var evt2 = new NewBlockEvent() { Height = 2 };
@@ -168,10 +176,12 @@ namespace NBXplorer.Tests
 		}
 
 
-		[Fact]
-		public void CanSerializeKeyPathFast()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanSerializeKeyPathFast(Backend backend)
 		{
-			using (var tester = RepositoryTester.Create(true))
+			using (var tester = RepositoryTester.Create(backend, true))
 			{
 				var dummy = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 				var seria = new Serializer(tester.Repository.Network);
@@ -266,10 +276,18 @@ namespace NBXplorer.Tests
 			Assert.Null(keyInfo);
 		}
 
-		private static void MarkAsUsed(Repository repository, DerivationStrategyBase strat, KeyPath keyPath)
+		private static void MarkAsUsed(IRepository repository, DerivationStrategyBase strat, KeyPath keyPath)
 		{
-			var tx = repository.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
-			repository.SaveMatches(new[] {
+			if (repository is PostgresRepository l)
+			{
+				var script = strat.GetDerivation(keyPath).ScriptPubKey.ToHex();
+				using var conn = l.ConnectionFactory.CreateConnection().GetAwaiter().GetResult();
+				conn.Execute("UPDATE descriptors_scripts SET used='t' WHERE code=@code AND script=@script", new { code = repository.Network.CryptoCode, script });
+			}
+			else
+			{
+				var tx = repository.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
+				repository.SaveMatches(new[] {
 				new TrackedTransaction(
 					new TrackedTransactionKey(tx.GetHash(), null, false),
 					new DerivationSchemeTrackedSource(strat),
@@ -278,12 +296,15 @@ namespace NBXplorer.Tests
 					{
 						{ strat.GetDerivation(keyPath).ScriptPubKey, keyPath }
 					})}).GetAwaiter().GetResult();
+			}
 		}
 
-		[Fact]
-		public void CanEasilySpendUTXOs()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanEasilySpendUTXOs(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var userExtKey = new ExtKey();
 				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
@@ -343,10 +364,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanCreatePSBT()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanCreatePSBT(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				// We need to check if we can get utxo information of segwit utxos
 				var segwit = tester.RPC.GetNewAddress(new GetNewAddressRequest()
@@ -440,7 +463,6 @@ namespace NBXplorer.Tests
 				Assert.True(tester.Client.Broadcast(tx).Success);
 				tester.Notifications.WaitForTransaction(userDerivationScheme, tx.GetHash());
 				utxos = tester.Client.GetUTXOs(userDerivationScheme);
-
 				if (i == 0)
 					Assert.Equal(2, utxos.GetUnspentCoins().Length);
 				Assert.Contains(utxos.GetUnspentCoins(), u => u.ScriptPubKey == psbt.ChangeAddress.ScriptPubKey);
@@ -624,6 +646,7 @@ namespace NBXplorer.Tests
 				MinConfirmations = 1
 			}));
 			Assert.Equal("not-enough-funds", ex.Error.Code);
+
 			Logs.Tester.LogInformation("But if we mine, this should become ok");
 			tester.Explorer.Generate(1);
 			tester.WaitSynchronized();
@@ -646,6 +669,7 @@ namespace NBXplorer.Tests
 			});
 			// We always signed with lowR so this should be always true
 			Assert.True(psbt2.Suggestions.ShouldEnforceLowR);
+
 			Logs.Tester.LogInformation("Let's check includeOutpoint and excludeOutpoints");
 			txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
 			tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
@@ -900,10 +924,12 @@ namespace NBXplorer.Tests
 
 		}
 
-		[Fact]
-		public async Task ShowRBFedTransaction()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public async Task ShowRBFedTransaction(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var bob = tester.CreateDerivationStrategy();
 				var bobSource = new DerivationSchemeTrackedSource(bob);
@@ -985,7 +1011,7 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation("Rebroadcasting the replacement should succeed");
 				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
 				rebroadcast = await rebroadcaster.RebroadcastAll();
-				Assert.Single(rebroadcast.Rebroadcasted); // Success
+				Assert.Single(rebroadcast.AlreadyInMempool); // Success
 
 				Logs.Tester.LogInformation("Now tx4 is spending the tx3");
 				var tx4psbt = (await tester.Client.CreatePSBTAsync(bob, new CreatePSBTRequest()
@@ -1022,16 +1048,18 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should clean two tx record (tx3 and tx4) from the list");
 				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
 				rebroadcast = await rebroadcaster.RebroadcastAll();
-				Assert.Equal(2, rebroadcast.Cleaned.Count);
-				foreach (var cleaned in rebroadcast.Cleaned)
+				if (backend == Backend.DBTrie)
 				{
-					Assert.Null(cleaned.BlockHash);
+					Assert.Equal(2, rebroadcast.Cleaned.Count);
+					foreach (var cleaned in rebroadcast.Cleaned)
+					{
+						Assert.Null(cleaned.BlockHash);
+					}
+					Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == tx4.GetHash() && o.BlockHash is null);
+					Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == replacement.GetHash());
+					// Only one missing input, as there is only one txid
+					Assert.Equal(2, rebroadcast.MissingInputs.Count);
 				}
-				Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == tx4.GetHash() && o.BlockHash is null);
-				Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == replacement.GetHash());
-				// Only one missing input, as there is only one txid
-				Assert.Equal(2, rebroadcast.MissingInputs.Count);
-
 				// Nothing should be cleaned now
 				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
 				rebroadcast = await rebroadcaster.RebroadcastAll();
@@ -1046,16 +1074,21 @@ namespace NBXplorer.Tests
 				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
 				rebroadcast = await rebroadcaster.RebroadcastAll();
 				{
-					var cleaned = Assert.Single(rebroadcast.Cleaned);
-					Assert.Equal(orphanedBlock, cleaned.BlockHash);
+					if (backend == Backend.DBTrie)
+					{
+						var cleaned = Assert.Single(rebroadcast.Cleaned);
+						Assert.Equal(orphanedBlock, cleaned.BlockHash);
+					}
 				}
 			}
 		}
 
-		[Fact]
-		public void CanGetUnusedAddresses()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanGetUnusedAddresses(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var bob = tester.CreateDerivationStrategy();
 				var utxo = tester.Client.GetUTXOs(bob); //Track things do not wait
@@ -1085,14 +1118,15 @@ namespace NBXplorer.Tests
 
 #pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				//   0/0 and 0/2 used
-				tester.SendToAddressAsync(a1.ScriptPubKey, Money.Coins(1.0m));
-				tester.SendToAddressAsync(a3.ScriptPubKey, Money.Coins(1.0m));
-				var txId = tester.SendToAddressAsync(a4.ScriptPubKey, Money.Coins(1.0m)).GetAwaiter().GetResult();
+				tester.SendToAddress(a1.ScriptPubKey, Money.Coins(1.0m));
+				tester.SendToAddress(a3.ScriptPubKey, Money.Coins(1.0m));
+				var txId = tester.SendToAddress(a4.ScriptPubKey, Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(bob, txId);
 #pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
 				a1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 				Assert.Equal(a1.ScriptPubKey, bob.GetDerivation(new KeyPath("0/1")).ScriptPubKey);
 				a2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, skip: 1);
+				Assert.Equal(new KeyPath("0/3"), a2.KeyPath);
 				Assert.Equal(a2.ScriptPubKey, bob.GetDerivation(new KeyPath("0/3")).ScriptPubKey);
 
 				a4 = tester.Client.GetUnused(bob, DerivationFeature.Direct, skip: 1);
@@ -1465,10 +1499,12 @@ namespace NBXplorer.Tests
 		{
 			public string Message { get; set; }
 		}
-		[Fact]
-		public void CanTrimEvents()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanTrimEvents(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
 				var ids = tester.Explorer.Generate(100);
@@ -1490,10 +1526,12 @@ namespace NBXplorer.Tests
 				Assert.Equal(ids[0], Assert.IsType<NewBlockEvent>(allEvents.Last()).Hash);
 			}
 		}
-		[Fact]
-		public void CanGetAndSetMetadata()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanGetAndSetMetadata(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1512,17 +1550,22 @@ namespace NBXplorer.Tests
 
 				tester.Client.SetMetadata<TestMetadata>(pubkey, "test", null);
 				Assert.Null(tester.Client.GetMetadata<TestMetadata>(pubkey, "test"));
+
+				tester.Client.SetMetadata(pubkey, "test3", true);
+				Assert.True(tester.Client.GetMetadata<bool>(pubkey, "test3"));
 			}
 		}
 
 		PruneRequest PruneTheMost = new PruneRequest() { DaysToKeep = 0.0 };
-		[Fact]
-		public void CanPrune()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanPrune(Backend backend)
 		{
 			// In this test we have fundingTxId with 2 output and spending1
 			// We make sure that only once the 2 outputs of fundingTxId have been consumed
 			// fundingTxId get pruned
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1624,13 +1667,15 @@ namespace NBXplorer.Tests
 			return tx;
 		}
 
-		[Fact]
-		public void CanPrune2()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanPrune2(Backend backend)
 		{
 			// In this test we have fundingTxId with 2 output and spending1
 			// We make sure that if only 1 outputs of fundingTxId have been consumed
 			// spending1 does not get pruned, even if its output got consumed
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1694,10 +1739,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanUseWebSockets()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanUseWebSockets(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1738,10 +1785,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanUseLongPollingNotifications()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanUseLongPollingNotifications(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1751,6 +1800,11 @@ namespace NBXplorer.Tests
 				{
 					var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
 					var blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
+					// With the postgres backend, when the indexer starts first time, it asks
+					// for the blocks previous to the highest block. So we get one more event.
+					// This is harmless.
+					if (backend == Backend.Postgres)
+						blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
 					Assert.Equal(expectedBlockId, blockEvent.Hash);
 					Assert.NotEqual(0, blockEvent.Height);
 					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
@@ -1777,10 +1831,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanUseWebSockets2()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanUseWebSockets2(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1830,7 +1886,7 @@ namespace NBXplorer.Tests
 			{
 				await tester.Load("CanMigrateSavedTransactions");
 				tester.Start();
-				var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+				var repo = tester.GetService<IRepositoryProvider>().GetRepository("BTC");
 				var txs = await repo.GetSavedTransactions(new uint256("2c374fa299503ea4740a4a60451bb57cdb73ee5cf216978e3ce5366891f98287"));
 				Assert.Equal(2, txs.Length);
 				Assert.Null(txs[0].BlockHash);
@@ -1854,7 +1910,7 @@ namespace NBXplorer.Tests
 
 				async Task AssertMigration()
 				{
-					var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+					var repo = tester.GetService<IRepositoryProvider>().GetRepository("BTC");
 					var actual = await repo.GetOutPointToTxOut(new List<OutPoint>(expected.Keys));
 					Assert.Equal(expected, actual.ToDictionary(a => a.Key, a => a.Value.ScriptPubKey));
 				}
@@ -1866,7 +1922,7 @@ namespace NBXplorer.Tests
 
 				// GetMatches can be called with tx1 and tx2, where tx2 spends tx1. And tx1 never indexed before.
 				// This test make sure that we are properly matching tx2.
-				var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+				var repo = tester.GetService<IRepositoryProvider>().GetRepository("BTC");
 				var tx1 = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
 				tx1.Inputs.Add(new OutPoint(new uint256("47b4ecec674cc5d677964617eeffb79c9a91a960b2f3c13d52f51ae5f9dec6d7"), 1));
 				tx1.Outputs.Add(Money.Coins(1.0m), trackedScriptPubKey);
@@ -1892,7 +1948,7 @@ namespace NBXplorer.Tests
 				expected[new OutPoint(new uint256("5a4205fad0d1bf4de0554574396ac30c27ae2bd442e7f2f5f185527988a7fdc2"), 1)] = new Script("0 2ed257e4e992041a5659a1d91a50398cabb9c61a");
 				async Task AssertMigration()
 				{
-					var repo = tester.GetService<RepositoryProvider>().GetRepository("BTC");
+					var repo = tester.GetService<IRepositoryProvider>().GetRepository("BTC");
 					var actual = await repo.GetOutPointToTxOut(new List<OutPoint>(expected.Keys));
 					Assert.Equal(expected, actual.ToDictionary(a => a.Key, a => a.Value.ScriptPubKey));
 				}
@@ -1902,17 +1958,19 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public async Task DoNotLoseTimestampForLongConfirmations()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public async Task DoNotLoseTimestampForLongConfirmations(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var bob = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var bobPubKey = tester.CreateDerivationStrategy(bob.Neuter());
 				tester.Client.Track(bobPubKey);
 				var id = tester.SendToAddress(tester.AddressOf(bob, "0/1"), Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(bobPubKey, id);
-				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Network.NetworkSet.CryptoCode);
+				var repo = tester.GetService<IRepositoryProvider>().GetRepository(tester.Network.NetworkSet.CryptoCode);
 				var transactions = await repo.GetTransactions(new DerivationSchemeTrackedSource(bobPubKey), id);
 				var tx = Assert.Single(transactions);
 				var timestamp = tx.FirstSeen;
@@ -1925,9 +1983,74 @@ namespace NBXplorer.Tests
 		}
 
 		[Fact]
-		public void CanTrack4()
+		public async Task CanMigrateToPostgres()
 		{
-			using (var tester = ServerTester.Create())
+			BitcoinExtKey alice;
+			DerivationStrategyBase alicePubKey;
+			uint256 b1;
+			uint256 b2;
+			using (var tester = ServerTester.Create(Backend.DBTrie))
+			{
+				// Alice get 3 utxos: one confirmed in b1, one confirmed in b2, and an unconfirmed
+				alice = new BitcoinExtKey(new ExtKey(), tester.Network);
+				alicePubKey = tester.CreateDerivationStrategy(alice.Neuter());
+				tester.Client.Track(alicePubKey);
+				var id = tester.SendToAddress(tester.AddressOf(alice, "0/1"), Money.Coins(1.0m));
+				tester.Notifications.WaitForTransaction(alicePubKey, id);
+				b1 = tester.RPC.EnsureGenerate(1)[0];
+				tester.Notifications.WaitForTransaction(alicePubKey, id);
+				id = tester.SendToAddress(tester.AddressOf(alice, "0/2"), Money.Coins(0.1m));
+				tester.Notifications.WaitForTransaction(alicePubKey, id);
+				b2 = tester.RPC.EnsureGenerate(1)[0];
+				id = tester.SendToAddress(tester.AddressOf(alice, "0/3"), Money.Coins(0.2m));
+				tester.Notifications.WaitForTransaction(alicePubKey, id);
+
+				var reserved = tester.Client.GetUnused(alicePubKey, DerivationFeature.Deposit, reserve: true);
+				Assert.Equal("0/0", reserved.KeyPath.ToString());
+
+				var unused = tester.Client.GetUnused(alicePubKey, DerivationFeature.Deposit);
+				Assert.Equal("0/4", unused.KeyPath.ToString());
+
+				tester.Client.SetMetadata<bool>(alicePubKey, "test", true);
+				tester.Client.SetMetadata(alicePubKey, "test2", "True");
+				Assert.True(tester.Client.GetMetadata<bool>(alicePubKey, "test"));
+				Assert.True(tester.Client.GetMetadata<bool>(alicePubKey, "test2"));
+
+				tester.KeepPreviousData = true;
+				tester.AdditionalFlags.Add("--automigrate");
+				tester.Backend = Backend.Postgres;
+				// Now imagine b2 is invalid
+				tester.RPC.InvalidateBlock(b2);
+				tester.ResetExplorer(false);
+
+				var txs = await tester.Client.GetTransactionsAsync(alicePubKey);
+				var conf = Assert.Single(txs.ConfirmedTransactions.Transactions);
+				Assert.Equal(b1, conf.BlockHash);
+				var utxos = await tester.Client.GetUTXOsAsync(alicePubKey);
+				Assert.Single(utxos.Confirmed.UTXOs);
+
+				unused = tester.Client.GetUnused(alicePubKey, DerivationFeature.Deposit);
+				Assert.Equal("0/4", unused.KeyPath.ToString());
+
+				Assert.True(tester.Client.GetMetadata<bool>(alicePubKey, "test"));
+				Assert.True(tester.Client.GetMetadata<bool>(alicePubKey, "test2"));
+
+				var explorerConf = tester.GetService<ExplorerConfiguration>();
+				Assert.StartsWith("Done", File.ReadAllText(Path.Combine(explorerConf.DataDir, "db", "migration_lock")));
+
+				tester.AdditionalFlags.Add("--deleteaftermigration");
+
+				tester.ResetExplorer(false);
+				Assert.False(Directory.Exists(Path.Combine(explorerConf.DataDir, "db")));
+			}
+		}
+
+		[TheoryWithTimeout]
+		[InlineData(Backend.DBTrie)]
+		[InlineData(Backend.Postgres)]
+		public void CanTrack4(Backend backend)
+		{
+			using (var tester = ServerTester.Create(backend))
 			{
 				var bob = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var alice = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1985,10 +2108,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanTrack3()
+		[TheoryWithTimeout]
+		[InlineData(Backend.DBTrie)]
+		[InlineData(Backend.Postgres)]
+		public void CanTrack3(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2023,10 +2148,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanTrackSeveralTransactions()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanTrackSeveralTransactions(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2074,12 +2201,15 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanUseWebSocketsOnAddress()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public async void CanUseWebSocketsOnAddress(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
+				await Task.Delay(500);
 				var key = new Key();
 				var pubkey = TrackedSource.Create(key.PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network));
 				tester.Client.Track(pubkey);
@@ -2132,10 +2262,12 @@ namespace NBXplorer.Tests
 			Assert.True(outputs[2].SequenceEqual(Enumerable.Range(60, 30)));
 		}
 
-		[Fact]
-		public void CanUseWebSocketsOnAddress2()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanUseWebSocketsOnAddress2(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
 				var key = new Key();
@@ -2167,10 +2299,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanTrackAddress()
+		[TheoryWithTimeout]
+		[InlineData(Backend.DBTrie)]
+		[InlineData(Backend.Postgres)]
+		public void CanTrackAddress(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var extkey = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.NBXplorerNetwork.DerivationStrategyFactory.Parse($"{extkey.Neuter()}-[legacy]");
@@ -2187,13 +2321,26 @@ namespace NBXplorer.Tests
 				Assert.Single(utxo.Unconfirmed.UTXOs);
 				Assert.Equal(tx1, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 
-				Logs.Tester.LogInformation("Let's make sure hd pubkey 0/0 is not tracked because we were not traking it when we broadcasted");
-				tester.Client.Track(pubkey);
-				var unused = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
-				Assert.Equal(new KeyPath("0/0"), unused.KeyPath);
-				Assert.Equal(address.ScriptPubKey, unused.ScriptPubKey);
-				utxo = tester.Client.GetUTXOs(pubkey);
-				Assert.Empty(utxo.Unconfirmed.UTXOs);
+				if (backend == Backend.DBTrie)
+				{
+					Logs.Tester.LogInformation("Let's make sure hd pubkey 0/0 is not tracked because we were not traking it when we broadcasted");
+					tester.Client.Track(pubkey);
+					var unused = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
+					Assert.Equal(new KeyPath("0/0"), unused.KeyPath);
+					Assert.Equal(address.ScriptPubKey, unused.ScriptPubKey);
+					utxo = tester.Client.GetUTXOs(pubkey);
+					Assert.Empty(utxo.Unconfirmed.UTXOs);
+				}
+				// The postgres implementation is smarter. It detect the unconfirmed and the fact that the first address is used.
+				if (backend == Backend.Postgres)
+				{
+					Logs.Tester.LogInformation("Let's make sure hd pubkey 0/0 is also tracked, even if we tracked it later");
+					tester.Client.Track(pubkey);
+					var unused = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
+					Assert.Equal(new KeyPath("0/1"), unused.KeyPath);
+					utxo = tester.Client.GetUTXOs(pubkey);
+					Assert.Single(utxo.Unconfirmed.UTXOs);
+				}
 
 				Logs.Tester.LogInformation("But this end up tracked once the block is mined");
 				tester.RPC.Generate(1);
@@ -2249,10 +2396,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanTrack2()
+		[TheoryWithTimeout]
+		[InlineData(Backend.DBTrie)]
+		[InlineData(Backend.Postgres)]
+		public void CanTrack2(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2291,10 +2440,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanReserveAddress()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanReserveAddress(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				//WaitServerStarted not needed, just a sanity check
 				var bob = tester.CreateDerivationStrategy();
@@ -2391,10 +2542,12 @@ namespace NBXplorer.Tests
 			return derivation;
 		}
 
-		[Fact]
-		public async Task CanGetStatus()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public async Task CanGetStatus(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted(Timeout);
 				var status = await tester.Client.GetStatusAsync();
@@ -2418,10 +2571,12 @@ namespace NBXplorer.Tests
 		public CancellationToken Timeout => new CancellationTokenSource(10000).Token;
 
 
-		[Fact]
-		public void CanGetTransactionsOfDerivation()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanGetTransactionsOfDerivation(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2479,10 +2634,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanTrack5()
+		[TheoryWithTimeout]
+		[InlineData(Backend.DBTrie)]
+		[InlineData(Backend.Postgres)]
+		public void CanTrack5(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2516,13 +2673,32 @@ namespace NBXplorer.Tests
 				Assert.Equal(address.ScriptPubKey, utxo.Unconfirmed.UTXOs[0].ScriptPubKey);
 				var address2 = tester.Client.GetUnused(pubkey, DerivationFeature.Direct);
 				Assert.Equal(new KeyPath(1), address2.KeyPath);
+
+				Logs.Tester.LogInformation("Let's check see if an unconf tx can be conf then unconf again");
+				tester.RPC.Generate(1);
+				tester.Notifications.WaitForTransaction(pubkey, fundingTx);
+				var expectedUTXO = utxo.Unconfirmed.UTXOs[0].Outpoint;
+				utxo = tester.Client.GetUTXOs(pubkey);
+				Assert.Contains(expectedUTXO, utxo.Confirmed.UTXOs.Select(o => o.Outpoint));
+				Assert.DoesNotContain(expectedUTXO, utxo.Unconfirmed.UTXOs.Select(o => o.Outpoint));
+				tester.RPC.InvalidateBlock(tester.RPC.GetBestBlockHash());
+				tester.RPC.SendCommand("generateblock", new object[] {
+					new Key().GetAddress(ScriptPubKeyType.Legacy, tester.Network).ToString(),
+					new JArray()
+				});
+				tester.Notifications.WaitForBlocks(tester.RPC.GetBestBlockHash());
+				utxo = tester.Client.GetUTXOs(pubkey);
+				Assert.DoesNotContain(expectedUTXO, utxo.Confirmed.UTXOs.Select(o => o.Outpoint));
+				Assert.Contains(expectedUTXO, utxo.Unconfirmed.UTXOs.Select(o => o.Outpoint));
 			}
 		}
 
-		[Fact]
-		public void CanRescan()
+		[TheoryWithTimeout]
+		[InlineData(Backend.DBTrie)]
+		[InlineData(Backend.Postgres)]
+		public void CanRescan(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted(Timeout);
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -2575,10 +2751,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanTrackManyAddressesAtOnce()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanTrackManyAddressesAtOnce(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2603,10 +2781,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanTrack()
+		[TheoryWithTimeout]
+		[InlineData(Backend.DBTrie)]
+		[InlineData(Backend.Postgres)]
+		public void CanTrack(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2776,10 +2956,12 @@ namespace NBXplorer.Tests
 				Assert.Contains(transactions.ConfirmedTransactions.Transactions, u => u.TransactionId == minedTxId);
 			}
 		}
-		[Fact]
-		public void CanCacheTransactions()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanCacheTransactions(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2796,10 +2978,12 @@ namespace NBXplorer.Tests
 				Assert.Empty(utxo.Unconfirmed.UTXOs);
 			}
 		}
-		[Fact(Timeout = 60 * 1000)]
-		public void CanUseLongPollingOnEvents()
+		[Theory(Timeout = 60 * 1000)]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanUseLongPollingOnEvents(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				//WaitServerStarted not needed, just a sanity check
 				tester.Client.WaitServerStarted(Timeout);
@@ -2851,6 +3035,11 @@ namespace NBXplorer.Tests
 				Assert.True(DateTimeOffset.UtcNow - now < TimeSpan.FromSeconds(5.0));
 				Logs.Tester.LogInformation("Event returned");
 				evts = session.GetEvents();
+				// With the postgres backend, when the indexer starts first time, it asks
+				// for the blocks previous to the highest block. So we get one more event.
+				// This is harmless.
+				if (backend == Backend.Postgres)
+					evts = evts.Skip(1).ToArray();
 				Assert.Equal(2, evts.Length);
 				Assert.IsType<Models.NewBlockEvent>(evts[0]);
 				Assert.IsType<Models.NewTransactionEvent>(evts[1]);
@@ -2916,7 +3105,7 @@ namespace NBXplorer.Tests
 				txs.Add(CreateRandomAnnotatedTransaction(trackedSource, r.Next(0, 5000)));
 			}
 			var sorted = txs.TopologicalSort();
-			var highest = 0;
+			var highest = 0L;
 			foreach (var tx in sorted)
 			{
 				if (tx.Height.Value < highest)
@@ -3044,6 +3233,7 @@ namespace NBXplorer.Tests
 				   .Timestamp(0);
 
 			var trackedTransactions = builder.Build();
+			AddBlockHeight(chain, trackedTransactions);
 
 			bool IsEqual(AnnotatedTransaction tx, TrackedTransactionBuilder.TransactionContext ctx)
 			{
@@ -3053,7 +3243,7 @@ namespace NBXplorer.Tests
 			for (int iii = 0; iii < 100; iii++)
 			{
 				NBitcoin.Utils.Shuffle(trackedTransactions);
-				var collection = new AnnotatedTransactionCollection(trackedTransactions, builder._TrackedSource, chain, Network.RegTest);
+				var collection = new AnnotatedTransactionCollection(trackedTransactions, builder._TrackedSource, Network.RegTest);
 				Assert.Equal(7, collection.Count);
 
 				Assert.Single(collection.ReplacedTransactions);
@@ -3102,10 +3292,11 @@ namespace NBXplorer.Tests
 			ab3922.MinedBy(lastBlock);
 			_2bdac2.MinedBy(lastBlock);
 			trackedTransactions = builder.Build();
+			AddBlockHeight(chain, trackedTransactions);
 			for (int iii = 0; iii < 100; iii++)
 			{
 				NBitcoin.Utils.Shuffle(trackedTransactions);
-				var collection = new AnnotatedTransactionCollection(trackedTransactions, builder._TrackedSource, chain, Network.RegTest);
+				var collection = new AnnotatedTransactionCollection(trackedTransactions, builder._TrackedSource, Network.RegTest);
 				Assert.Empty(collection.ReplacedTransactions);
 				Assert.Empty(collection.UnconfirmedTransactions);
 				Assert.Equal(3, collection.CleanupTransactions.Count);
@@ -3116,10 +3307,23 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanBroadcast()
+		private static void AddBlockHeight(SlimChain chain, TrackedTransaction[] trackedTransactions)
 		{
-			using (var tester = ServerTester.Create())
+			foreach (var trackedTx in trackedTransactions)
+			{
+				if (trackedTx.BlockHash != null && chain.TryGetHeight(trackedTx.BlockHash, out var height))
+				{
+					trackedTx.BlockHeight = height;
+				}
+			}
+		}
+
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanBroadcast(Backend backend)
+		{
+			using (var tester = ServerTester.Create(backend))
 			{
 				tester.Client.WaitServerStarted();
 				var tx = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
@@ -3136,10 +3340,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanGetKeyInformations()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanGetKeyInformations(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -3168,6 +3374,12 @@ namespace NBXplorer.Tests
 				key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				Assert.Null(tester.Client.GetKeyInformation(pubkey, pubkey.GetDerivation(new KeyPath("0/0")).ScriptPubKey));
+
+				var pubkey2 = tester.NBXplorerNetwork.DerivationStrategyFactory.Parse("tpubD6NzVbkrYhZ4WxGZajmwTaAcWgUMTx8Syf2JwakRtGLjxTa8L8aZpYq4zas8yhr6XRCoSaQKjdmjMe8x8FuBFLe4HnEs3NSQWXAh7Pjnvoa-[p2sh]");
+				tester.Client.Track(pubkey2);
+				var ki = tester.Client.GetUnused(pubkey2, DerivationFeature.Deposit);
+				Assert.Equal("00149ef4739460cd69a19598a651a42ca91a9865b74f", ki.Redeem.ToHex());
+				Assert.Equal("2MuawW29mtrQzJSVyHkaaoS1RjBE2oLYFjD", ki.Address.ToString());
 			}
 		}
 
@@ -3234,10 +3446,12 @@ namespace NBXplorer.Tests
 			Assert.Equal(10 - 7 + 1, progress.RemainingBatches);
 		}
 
-		[Fact]
-		public void CanRescanFullyIndexedTransaction()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanRescanFullyIndexedTransaction(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -3256,6 +3470,7 @@ namespace NBXplorer.Tests
 				var info = WaitScanFinish(tester.Client, pubkey);
 				Assert.Equal(2, info.Progress.Found);
 
+				var aaa = tester.Client.GetBalance(pubkey);
 				// Rescanning should find 0/50
 				transaction = tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions.Single();
 				Assert.Equal(2, transaction.Outputs.Count());
@@ -3269,10 +3484,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Fact]
-		public void CanScanUTXOSet()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public void CanScanUTXOSet(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -3410,7 +3627,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[Theory]
+		[TheoryWithTimeout]
 		[InlineData("*", "0", "1")]
 		[InlineData("*/", "0", "1")]
 		[InlineData("/*", "0", "1")]
@@ -3464,10 +3681,12 @@ namespace NBXplorer.Tests
 			Assert.True(xpub.AdditionalOptions.ContainsKey("test2"));
 		}
 
-		[Fact]
-		public async Task ElementsTests()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public async Task ElementsTests(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				if (tester.Network.NetworkSet != NBitcoin.Altcoins.Liquid.Instance)
 				{
@@ -3483,13 +3702,13 @@ namespace NBXplorer.Tests
 					SavePrivateKeys = true,
 					ImportKeysToRPC = true
 				}).DerivationScheme;
-
+				var blindedDerivationScheme = userDerivationScheme;
 				//test: Elements shouldgenerate blinded addresses by default
 				var address =
 					Assert.IsType<BitcoinBlindedAddress>(tester.Client.GetUnused(userDerivationScheme,
 						DerivationFeature.Deposit).Address);
 
-
+				Assert.IsType<BitcoinBlindedAddress>(tester.Client.GetKeyInformation(userDerivationScheme, address.ScriptPubKey).Address);
 				using (var session = await tester.Client.CreateWebsocketNotificationSessionAsync(Timeout))
 				{
 					await session.ListenAllTrackedSourceAsync(cancellation: Timeout);
@@ -3543,12 +3762,21 @@ namespace NBXplorer.Tests
 					Assert.Contains(unblindabletx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value == null);
 
 					//test: The ouptut of the event should have null value
-					output = Assert.Single(evt.Outputs);
-					Assert.Null(output.Value);
+					if (backend == Backend.DBTrie)
+					{
+						output = Assert.Single(evt.Outputs);
+						Assert.Null(output.Value);
+					}
+					else
+					{
+						output = Assert.Single(evt.Outputs);
+						Assert.Equal(NBXplorerNetwork.UnknownAssetMoney, output.Value);
+					}
 
 					var txInfos = tester.Client.GetTransactions(userDerivationScheme).UnconfirmedTransactions.Transactions;
 					var assetMoney2 = Assert.IsType<AssetMoney>(Assert.Single(Assert.IsType<MoneyBag>(txInfos[1].BalanceChange)));
-					Assert.Empty(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange));
+					Assert.Empty(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange).Where(m => !m.IsUnknown()));
+
 					Assert.Equal(assetMoney, assetMoney2);
 
 					Thread.Sleep(1000);
@@ -3556,9 +3784,6 @@ namespace NBXplorer.Tests
 					var receivedMoney = received.Result["bitcoin"].Value<decimal>();
 
 					Assert.Equal(0.2m, receivedMoney);
-
-					var balance = tester.Client.GetBalance(userDerivationScheme);
-					Assert.Equal(assetMoney, ((MoneyBag)balance.Total).Single());
 
 					Assert.DoesNotContain("-[unblinded]", userDerivationScheme.ToString());
 					//test: setting up unblinded tracking
@@ -3571,6 +3796,7 @@ namespace NBXplorer.Tests
 					await tester.Client.TrackAsync(userDerivationScheme, Timeout);
 					var unusedUnblinded = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Deposit);
 					Assert.IsNotType<BitcoinBlindedAddress>(unusedUnblinded.Address);
+					Assert.IsNotType<BitcoinBlindedAddress>(tester.Client.GetKeyInformation(userDerivationScheme, address.ScriptPubKey).Address);
 
 					evtTask = session.NextEventAsync(Timeout);
 					txid = await cashCow.SendToAddressAsync(unusedUnblinded.Address, Money.Coins(0.1m));
@@ -3579,14 +3805,42 @@ namespace NBXplorer.Tests
 						.TransactionData.Transaction));
 					Assert.Equal(txid, tx.GetHash());
 					Assert.Contains(tx.Outputs, txout => Assert.IsAssignableFrom<ElementsTxOut>(txout).Value?.ToDecimal(MoneyUnit.BTC) == 0.1m);
+
+					if (backend == Backend.DBTrie)
+					{
+						var balanceBefore = await tester.Client.GetBalanceAsync(blindedDerivationScheme);
+						tester.KeepPreviousData = true;
+						tester.AdditionalFlags.Add("--automigrate");
+						tester.Backend = Backend.Postgres;
+						tester.ResetExplorer(false);
+
+						var balanceAfter = await tester.Client.GetBalanceAsync(blindedDerivationScheme);
+						RemoveUnknown(balanceAfter);
+						RemoveUnknown(balanceBefore);
+						Assert.Equal(balanceBefore.Unconfirmed, balanceAfter.Unconfirmed);
+
+						Assert.IsType<BitcoinBlindedAddress>(tester.Client.GetKeyInformation(blindedDerivationScheme, address.ScriptPubKey).Address);
+						Assert.IsNotType<BitcoinBlindedAddress>(tester.Client.GetKeyInformation(userDerivationScheme, address.ScriptPubKey).Address);
+					}
 				}
 			}
 		}
 
-		[Fact]
-		public async Task CanGenerateWallet()
+		private void RemoveUnknown(GetBalanceResponse b)
 		{
-			using (var tester = ServerTester.Create())
+			b.Available = new MoneyBag(((MoneyBag)b.Available).Where(i => !i.IsUnknown()).ToArray());
+			b.Confirmed = new MoneyBag(((MoneyBag)b.Confirmed).Where(i => !i.IsUnknown()).ToArray());
+			b.Immature = new MoneyBag(((MoneyBag)b.Immature).Where(i => !i.IsUnknown()).ToArray());
+			b.Total = new MoneyBag(((MoneyBag)b.Total).Where(i => !i.IsUnknown()).ToArray());
+			b.Unconfirmed = new MoneyBag(((MoneyBag)b.Unconfirmed).Where(i => !i.IsUnknown()).ToArray());
+		}
+
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public async Task CanGenerateWallet(Backend backend)
+		{
+			using (var tester = ServerTester.Create(backend))
 			{
 				var cashNode = tester.NodeBuilder.CreateNode(true);
 				cashNode.Sync(tester.Explorer, true);
@@ -3657,7 +3911,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(masterKey.GetWif(tester.Network), wallet.MasterHDKey);
 				Assert.Equal(masterKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString() + "-[p2sh]",
 					wallet.DerivationScheme.ToString());
-				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Client.Network);
+				var repo = tester.GetService<IRepositoryProvider>().GetRepository(tester.Client.Network);
 				Assert.Equal(wallet.DerivationScheme.GetExtPubKeys().Single().PubKey, wallet.AccountHDKey.GetPublicKey());
 				Logs.Tester.LogInformation("Let's assert it is tracked");
 				var firstKeyInfo = repo.GetKeyInformation(wallet.DerivationScheme.GetChild(new KeyPath("0/0")).GetDerivation().ScriptPubKey);
@@ -3667,14 +3921,14 @@ namespace NBXplorer.Tests
 				await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
 
 				Logs.Tester.LogInformation($"Let's assert it is tracked by RPC {firstKeyInfo.Address}");
-				var waiter = tester.GetService<BitcoinDWaiters>().GetWaiter(tester.Client.Network);
+				var rpc = tester.GetService<IRPCClients>().Get(tester.Client.Network);
 
 				var txid = await cashCow.SendToAddressAsync(firstKeyInfo.Address, Money.Coins(1.01m));
 				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);
 
-				var money = await waiter.RPC.GetReceivedByAddressAsync(firstKeyInfo.Address, 0);
+				var money = await rpc.GetReceivedByAddressAsync(firstKeyInfo.Address, 0);
 				Assert.Equal(Money.Coins(1.01m), money);
-				var addressInfo = await waiter.RPC.GetAddressInfoAsync(firstKeyInfo.Address);
+				var addressInfo = await rpc.GetAddressInfoAsync(firstKeyInfo.Address);
 				Assert.True(addressInfo.IsMine);
 				Assert.False(addressInfo.IsWatchOnly);
 
@@ -3726,10 +3980,12 @@ namespace NBXplorer.Tests
 				Assert.Equal(generatedWallet.MasterHDKey, importedWallet.MasterHDKey);
 			}
 		}
-		[Fact]
-		public async Task CanUseRPCProxy()
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public async Task CanUseRPCProxy(Backend backend)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = ServerTester.Create(backend))
 			{
 				Assert.NotNull(await tester.Client.RPCClient.GetBlockchainInfoAsync());
 

@@ -31,7 +31,7 @@ namespace NBXplorer
 			try
 			{
 				var conf = new DefaultConfiguration() { Logger = Logs.Configuration }.CreateConfiguration(args);
-				if(conf == null)
+				if (conf == null)
 					return;
 
 				// Sanity check of the config, this is not strictly needed as it would happen down the line when the host is built
@@ -49,7 +49,7 @@ namespace NBXplorer
 						l.AddFilter("Microsoft", LogLevel.Error);
 						l.AddFilter("System.Net.Http.HttpClient", LogLevel.Critical);
 						l.AddFilter("NBXplorer.Authentication.BasicAuthenticationHandler", LogLevel.Critical);
-						if(conf.GetOrDefault<bool>("verbose", false))
+						if (conf.GetOrDefault<bool>("verbose", false))
 						{
 							l.SetMinimumLevel(LogLevel.Debug);
 						}
@@ -59,19 +59,22 @@ namespace NBXplorer
 					.Build();
 				host.Run();
 			}
-			catch(ConfigException ex)
+			catch (ConfigException ex)
 			{
-				if(!string.IsNullOrEmpty(ex.Message))
+				if (!string.IsNullOrEmpty(ex.Message))
 					Logs.Configuration.LogError(ex.Message);
 			}
-			catch(CommandParsingException parsing)
+			catch (CommandParsingException parsing)
 			{
 				Logs.Explorer.LogError(parsing.HelpText + "\r\n" + parsing.Message);
+			}
+			catch (TaskCanceledException)
+			{
 			}
 			finally
 			{
 				processor.Dispose();
-				if(host != null)
+				if (host != null)
 					host.Dispose();
 			}
 		}

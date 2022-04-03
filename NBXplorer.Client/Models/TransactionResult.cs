@@ -7,8 +7,8 @@ namespace NBXplorer.Models
 {
 	public class TransactionResult
 	{
-		int _Confirmations;
-		public int Confirmations
+		long _Confirmations;
+		public long Confirmations
 		{
 			get
 			{
@@ -46,7 +46,7 @@ namespace NBXplorer.Models
 			}
 		}
 
-		public int? Height
+		public long? Height
 		{
 			get;
 			set;

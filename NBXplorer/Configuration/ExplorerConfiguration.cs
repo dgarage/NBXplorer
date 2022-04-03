@@ -86,7 +86,10 @@ namespace NBXplorer.Configuration
 		{
 			get; set;
 		} = 20;
-
+		public bool IsPostgres { get; set; }
+		public bool IsDbTrie { get; set; }
+		public bool NoMigrateEvents { get; private set; }
+		public bool NoMigrateRawTxs { get; private set; }
 		public int MaxGapSize
 		{
 			get; set;
@@ -110,7 +113,6 @@ namespace NBXplorer.Configuration
 				if(!Directory.Exists(defaultSettings.DefaultDataDirectory))
 					Directory.CreateDirectory(defaultSettings.DefaultDataDirectory);
 			}
-
 			Logs.Configuration.LogInformation("Network: " + NetworkProvider.NetworkType.ToString());
 			var supportedChains = config.GetOrDefault<string>("chains", "btc")
 									  .Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -214,7 +216,20 @@ namespace NBXplorer.Configuration
 			RabbitMqPassword = config.GetOrDefault<string>("rmqpass", "");
 			RabbitMqTransactionExchange = config.GetOrDefault<string>("rmqtranex", "");
 			RabbitMqBlockExchange = config.GetOrDefault<string>("rmqblockex", "");
-
+			IsPostgres = config.IsPostgres();
+			IsDbTrie = config.GetOrDefault<bool>("dbtrie", false); ;
+			NoMigrateEvents = config.GetOrDefault<bool>("nomigrateevts", false);
+			NoMigrateRawTxs = config.GetOrDefault<bool>("nomigraterawtxs", false);
+			if (!IsPostgres && !IsDbTrie)
+			{
+				throw new ConfigException("You need to select your backend implementation. There is two choices, PostgresSQL and DBTrie." + Environment.NewLine +
+					"  * To use postgres, please use --postgres \"...\" (or NBXPLORER_POSTGRES=\"...\") with a postgres connection string (see https://www.connectionstrings.com/postgresql/)" + Environment.NewLine +
+					"  * To use DBTrie, use --dbtrie (or NBXPLORER_DBTRIE=1). This backend is deprecated, only use if you haven't yet migrated. For more information about how to migrate, see https://github.com/dgarage/NBXplorer/tree/master/docs/Postgres-Migration.md");
+			}
+			if (IsDbTrie)
+			{
+				Logs.Configuration.LogWarning("Warning: A DBTrie backend has been selected, but this backend is deprecated, only use if you haven't yet migrated to postgres. For more information about how to migrate, see https://github.com/dgarage/NBXplorer/tree/master/docs/Postgres-Migration.md");
+			}
 			return this;
 		}
 
@@ -285,5 +300,6 @@ namespace NBXplorer.Configuration
         public string RabbitMqBlockExchange { get; set; }
 
 		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
-    }
+		public bool MigrateToPostgres { get; set; }
+	}
 }

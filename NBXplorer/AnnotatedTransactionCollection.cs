@@ -17,13 +17,13 @@ namespace NBXplorer
 	}
 	public class AnnotatedTransaction
 	{
-		public AnnotatedTransaction(int? height, TrackedTransaction record, bool isMature)
+		public AnnotatedTransaction(long? height, TrackedTransaction record, bool isMature)
 		{
 			this.Record = record;
 			this.Height = height;
 			this.IsMature = isMature;
 		}
-		public int? Height
+		public long? Height
 		{
 			get;
 		}
@@ -44,7 +44,7 @@ namespace NBXplorer
 
 	public class AnnotatedTransactionCollection : List<AnnotatedTransaction>
 	{
-		public AnnotatedTransactionCollection(ICollection<TrackedTransaction> transactions, Models.TrackedSource trackedSource, SlimChain headerChain, Network network) : base(transactions.Count)
+		public AnnotatedTransactionCollection(ICollection<TrackedTransaction> transactions, Models.TrackedSource trackedSource, Network network) : base(transactions.Count)
 		{
 			_TxById = new Dictionary<uint256, AnnotatedTransaction>(transactions.Count);
 			ConfirmedTransactions = new List<AnnotatedTransaction>(transactions.Count);
@@ -59,14 +59,8 @@ namespace NBXplorer
 			// Let's remove the dups and let's get the current height of the transactions
 			foreach (var trackedTx in transactions)
 			{
-				int? txHeight = null;
-				bool isMature = true;
-
-				if (trackedTx.BlockHash != null && headerChain.TryGetHeight(trackedTx.BlockHash, out var height))
-				{
-					txHeight = height;
-					isMature = trackedTx.IsCoinBase ? headerChain.Height - height >= network.Consensus.CoinbaseMaturity : true;
-				}
+				long? txHeight = trackedTx.BlockHeight;
+				bool isMature = !trackedTx.Immature;
 
 				AnnotatedTransaction annotatedTransaction = new AnnotatedTransaction(txHeight, trackedTx, isMature);
 				if (_TxById.TryGetValue(trackedTx.TransactionHash, out var conflicted))
@@ -90,12 +84,19 @@ namespace NBXplorer
 
 			// Let's resolve the double spents
 			Dictionary<OutPoint, uint256> spentBy = new Dictionary<OutPoint, uint256>(transactions.SelectMany(t => t.SpentOutpoints).Count());
-			foreach (var annotatedTransaction in _TxById.Values.Where(r => r.Height is int))
+			foreach (var annotatedTransaction in _TxById.Values.Where(r => r.Height is long))
 			{
 				foreach (var spent in annotatedTransaction.Record.SpentOutpoints)
 				{
 					// No way to have double spent in confirmed transactions
-					spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
+					try
+					{
+						spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
+					}
+					catch
+					{
+						throw;
+					}
 				}
 			}
 
@@ -186,7 +187,7 @@ namespace NBXplorer
 			var sortedTransactions = _TxById.Values.TopologicalSort();
 			ReplacedTransactions = replaced.Values.TopologicalSort().ToList();
 			UTXOState state = new UTXOState(sortedTransactions.Count);
-			foreach (var tx in sortedTransactions.Where(s => s.IsMature && s.Height is int))
+			foreach (var tx in sortedTransactions.Where(s => s.IsMature && s.Height is long))
 			{
 				if (state.Apply(tx.Record) == ApplyTransactionResult.Conflict)
 				{
@@ -203,7 +204,7 @@ namespace NBXplorer
 			}
 			foreach (var tx in sortedTransactions)
 			{
-				if (tx.Height is int)
+				if (tx.Height is long)
 				{
 					ConfirmedTransactions.Add(tx);
 					if (!tx.IsMature)

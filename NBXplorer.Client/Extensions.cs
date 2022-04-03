@@ -19,6 +19,11 @@ namespace NBXplorer
 				throw new ArgumentOutOfRangeException(nameof(size));
 			if (values == null)
 				throw new ArgumentNullException(nameof(values));
+			if (values is IList<T> l && l.Count <= size)
+			{
+				yield return l;
+				yield break;
+			}
 			var batch = new List<T>();
 			foreach(var v in values)
 			{

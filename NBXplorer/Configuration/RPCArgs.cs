@@ -88,10 +88,10 @@ namespace NBXplorer.Configuration
 			return rpcClient;
 		}
 
-		public static async Task<RPCCapabilities> TestRPCAsync(NBXplorerNetwork networkInfo, RPCClient rpcClient, CancellationToken cancellation)
+		public static async Task<RPCCapabilities> TestRPCAsync(NBXplorerNetwork networkInfo, RPCClient rpcClient, CancellationToken cancellation, ILogger logger)
 		{
 			var network = networkInfo.NBitcoinNetwork;
-			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
+			logger.LogInformation($"Testing RPC connection to " + rpcClient.Address.AbsoluteUri);
 
 			RPCResponse blockchainInfo = null;
 			try
@@ -103,38 +103,46 @@ namespace NBXplorer.Configuration
 					blockchainInfo = await rpcClient.SendCommandAsync("getblockchaininfo", cancellation);
 					blockchainInfo.ThrowIfError();
 				}
+				catch when (cancellation.IsCancellationRequested)
+				{
+					throw;
+				}
 				catch (RPCException ex) when (IsTransient(ex))
 				{
-					Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Transient error '{ex.Message}', retrying soon...");
+					logger.LogInformation($"Transient error '{ex.Message}', retrying soon...");
 					time++;
 					await Task.Delay(Math.Min(1000 * time, 10000), cancellation);
 					goto retry;
 				}
 			}
-			catch(ConfigException)
+			catch when (cancellation.IsCancellationRequested)
+			{
+				throw;
+			}
+			catch (ConfigException)
 			{
 				throw;
 			}
 			catch(RPCException ex)
 			{
-				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: Invalid response from RPC server " + ex.Message);
+				logger.LogError($"Invalid response from RPC server " + ex.Message);
 				throw new ConfigException();
 			}
 			catch(Exception ex)
 			{
-				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: Error connecting to RPC server " + ex.Message);
+				logger.LogError($"Error connecting to RPC server " + ex.Message);
 				throw new ConfigException();
 			}
 
-			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: RPC connection successful");
+			logger.LogInformation($"RPC connection successful");
 
 			var capabilities = await rpcClient.ScanRPCCapabilitiesAsync(cancellation);
 			if (capabilities.Version < networkInfo.MinRPCVersion)
 			{
-				Logs.Configuration.LogError($"{networkInfo.CryptoCode}: The minimum node version required is {networkInfo.MinRPCVersion} (detected: {capabilities.Version})");
+				logger.LogError($"The minimum node version required is {networkInfo.MinRPCVersion} (detected: {capabilities.Version})");
 				throw new ConfigException();
 			}
-			Logs.Configuration.LogInformation($"{networkInfo.CryptoCode}: Full node version detected: {capabilities.Version}");
+			logger.LogInformation($"Full node version detected: {capabilities.Version}");
 			return capabilities;
 		}
 

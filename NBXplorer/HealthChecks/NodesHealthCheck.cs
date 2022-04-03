@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
+using NBXplorer.Backends;
+using NBXplorer.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,21 +11,25 @@ namespace NBXplorer.HealthChecks
 {
 	public class NodesHealthCheck : IHealthCheck
 	{
-		public NodesHealthCheck(BitcoinDWaiters waiters)
+		public NodesHealthCheck(
+			NBXplorerNetworkProvider networkProvider,
+			IIndexers indexers)
 		{
-			Waiters = waiters;
+			NetworkProvider = networkProvider;
+			Indexers = indexers;
 		}
 
-		public BitcoinDWaiters Waiters { get; }
+		public NBXplorerNetworkProvider NetworkProvider { get; }
+		public IIndexers Indexers { get; }
 
 		public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
 		{
 			bool ok = true;
 			var data = new Dictionary<string, object>();
-			foreach (var waiter in Waiters.All())
+			foreach (var indexer in Indexers.All())
 			{
-				ok &= waiter.RPCAvailable;
-				data.Add(waiter.Network.CryptoCode, waiter.State.ToString());
+				ok &= indexer.GetConnectedClient() is not null;
+				data.Add(indexer.Network.CryptoCode, indexer.State.ToString());
 			}
 			return Task.FromResult(ok ? HealthCheckResult.Healthy(data: data) : HealthCheckResult.Degraded("Some nodes are not running", data: data));
 		}

@@ -42,11 +42,11 @@ namespace NBXplorer
 		public void ConfigureServices(IServiceCollection services)
 		{
 			services.AddHttpClient();
-			services.AddHttpClient(nameof(RPCClientProvider), httpClient =>
+			services.AddHttpClient(nameof(IRPCClients), httpClient =>
 			{
 				httpClient.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
 			});
-			services.AddNBXplorer();
+			services.AddNBXplorer(Configuration);
 			services.ConfigureNBxplorer(Configuration);
 			var builder = services.AddMvcCore();
 #if NETCOREAPP21

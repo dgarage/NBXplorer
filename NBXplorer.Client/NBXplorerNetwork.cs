@@ -17,6 +17,10 @@ namespace NBXplorer
 			CryptoCode = networkSet.CryptoCode;
 			DefaultSettings = NBXplorerDefaultSettings.GetDefaultSettings(networkType);
 		}
+		public static uint256 UnknownTxId = uint256.Parse("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+		public static string UnknownAssetId = uint256.Parse("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").ToString();
+		public static AssetMoney UnknownAssetMoney = new AssetMoney(uint256.Parse("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"), 1);
+		public bool IsElement => NBitcoinNetwork.NetworkSet == NBitcoin.Altcoins.Liquid.Instance;
 		public Network NBitcoinNetwork
 		{
 			get;

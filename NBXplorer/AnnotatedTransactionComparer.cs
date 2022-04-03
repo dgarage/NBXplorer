@@ -45,10 +45,10 @@ namespace NBXplorer
 							  a.Record.TransactionHash > b.Record.TransactionHash ? 1 : 0;
 			var seenCompare = (a.Record.FirstSeen < b.Record.FirstSeen ? 1 :
 							a.Record.FirstSeen > b.Record.FirstSeen ? -1 : txIdCompare);
-			if (a.Height is int ah)
+			if (a.Height is long ah)
 			{
 				// Both confirmed, tie on height then firstSeen
-				if (b.Height is int bh)
+				if (b.Height is long bh)
 				{
 					var heightCompare = (ah < bh ? 1 :
 						   ah > bh ? -1 : txIdCompare);
@@ -63,7 +63,7 @@ namespace NBXplorer
 					return 1;
 				}
 			}
-			else if (b.Height is int bh)
+			else if (b.Height is long bh)
 			{
 				return -1;
 			}

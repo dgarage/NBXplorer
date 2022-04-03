@@ -37,7 +37,6 @@ namespace NBXplorer.Models
 			return true;
 		}
 
-
 		public override bool Equals(object obj)
 		{
 			TrackedSource item = obj as TrackedSource;
@@ -92,6 +91,13 @@ namespace NBXplorer.Models
 		public virtual string ToPrettyString()
 		{
 			return ToString();
+		}
+
+		public static TrackedSource Parse(string str, NBXplorerNetwork network)
+		{
+			if (!TryParse(str, out var trackedSource, network))
+				throw new FormatException("Invalid TrackedSource");
+			return trackedSource;
 		}
 	}
 

@@ -30,13 +30,22 @@ namespace NBXplorer.Tests
 	{
 		private readonly string _Directory;
 
+		public static ServerTester Create(Backend backend, [CallerMemberNameAttribute] string caller = null)
+		{
+			return new ServerTester(backend, caller);
+		}
+
 		public static ServerTester Create([CallerMemberNameAttribute]string caller = null)
 		{
-			return new ServerTester(caller);
+			return Create(Backend.DBTrie, caller);
 		}
 		public static ServerTester CreateNoAutoStart([CallerMemberNameAttribute]string caller = null)
 		{
-			return new ServerTester(caller, false);
+			return new ServerTester(Backend.DBTrie, caller, false);
+		}
+		public static ServerTester CreateNoAutoStart(Backend backend, [CallerMemberNameAttribute] string caller = null)
+		{
+			return new ServerTester(backend, caller, false);
 		}
 
 		public void Dispose()
@@ -61,8 +70,10 @@ namespace NBXplorer.Tests
 		}
 
 		public string Caller { get; }
-		public ServerTester(string directory, bool autoStart = true)
+		public ServerTester(Backend backend, string directory, bool autoStart = true)
 		{
+			_Name = directory;
+			Backend = backend;
 			SetEnvironment();
 			Caller = directory;
 			var rootTestData = "TestData";
@@ -116,7 +127,8 @@ namespace NBXplorer.Tests
 				if (!KeepPreviousData && !LoadedData)
 					DeleteFolderRecursive(datadir);
 				StartNBXplorer();
-				this.Client.WaitServerStarted();
+				using var cts = new CancellationTokenSource(20_000);
+				this.Client.WaitServerStarted(cts.Token);
 			}
 			catch
 			{
@@ -127,11 +139,24 @@ namespace NBXplorer.Tests
 
 		public int TrimEvents { get; set; } = -1;
 		public bool UseRabbitMQ { get; set; } = false;
+		public List<(string key, string value)> AdditionalConfiguration { get; set; } = new List<(string key, string value)>();
+		public List<string> AdditionalFlags = new List<string>();
+		string PostgresConnectionString;
 		private void StartNBXplorer()
 		{
 			var port = CustomServer.FreeTcpPort();
 			List<(string key, string value)> keyValues = new List<(string key, string value)>();
 			keyValues.Add(("conf", Path.Combine(datadir, "settings.config")));
+			if (Backend == Backend.Postgres)
+			{
+				PostgresConnectionString ??= GetTestPostgres(null, _Name);
+				keyValues.Add(("postgres", PostgresConnectionString));
+			}
+			else
+			{
+				AdditionalFlags.Add("--dbtrie");
+			}
+			keyValues.AddRange(AdditionalConfiguration);
 			keyValues.Add(("datadir", datadir));
 			keyValues.Add(("port", port.ToString()));
 			keyValues.Add(("network", "regtest"));
@@ -163,7 +188,8 @@ namespace NBXplorer.Tests
 				keyValues.Add(("rmqblockex", RabbitMqTestConfig.RabbitMqBlockExchange));
 			}
 			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }
-			.Concat(new[] { $"--{CryptoCode.ToLowerInvariant()}hastxindex" })).ToArray();
+			.Concat(new[] { $"--{CryptoCode.ToLowerInvariant()}hastxindex" }))
+			.Concat(AdditionalFlags).ToArray();
 			Host = new WebHostBuilder()
 				.UseConfiguration(new DefaultConfiguration().CreateConfiguration(args))
 				.UseKestrel()
@@ -179,8 +205,8 @@ namespace NBXplorer.Tests
 				.UseStartup<Startup>()
 				.Build();
 
-			RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).GetRPCClient(CryptoCode);
 			NBXplorerNetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
+			RPC = ((IRPCClients)Host.Services.GetService(typeof(IRPCClients))).Get(NBXplorerNetwork);
 			var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 			Host.Start();
 			Configuration = conf;
@@ -191,6 +217,27 @@ namespace NBXplorer.Tests
 			Notifications = _Client.CreateLongPollingNotificationSession();
 		}
 
+		public static string GetTestPostgres(string dbName, string applicationName)
+		{
+			if (dbName is null)
+				dbName = applicationName + "_" + RandomUtils.GetUInt32();
+			var connectionString = Environment.GetEnvironmentVariable("TESTS_POSTGRES");
+			dbName = dbName.ToLowerInvariant();
+			if (string.IsNullOrEmpty(connectionString))
+			{
+				connectionString = $"User ID=postgres;Host=localhost;CommandTimeout=120;Include Error Detail=true;Application Name={applicationName};Port=39383;Database={dbName}";
+			}
+			else
+			{
+				Npgsql.NpgsqlConnectionStringBuilder builder = new Npgsql.NpgsqlConnectionStringBuilder(connectionString);
+				builder.Database = dbName;
+				builder.CommandTimeout = 120;
+				builder.ApplicationName = applicationName;
+				connectionString = builder.ToString();
+			}
+			return connectionString;
+		}
+
 		public HttpClient HttpClient { get; internal set; }
 
 		string datadir;
@@ -199,9 +246,13 @@ namespace NBXplorer.Tests
 		{
 			Host.Dispose();
 			if (deleteAll)
+			{
+				PostgresConnectionString = null;
 				DeleteFolderRecursive(datadir);
+			}
 			StartNBXplorer();
-			this.Client.WaitServerStarted();
+			using var cts = new CancellationTokenSource(20_000);
+			this.Client.WaitServerStarted(cts.Token);
 		}
 
 		public LongPollingNotificationSession Notifications { get; set; }
@@ -396,6 +447,10 @@ namespace NBXplorer.Tests
 		} = true;
 		public bool KeepPreviousData { get; set; }
 		public bool LoadedData { get; private set; }
+
+		private readonly string _Name;
+
+		public Backend Backend { get; set; }
 
 		public uint256 SendToAddress(BitcoinAddress address, Money amount)
 		{

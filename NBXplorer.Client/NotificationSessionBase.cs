@@ -16,3 +16,4 @@ namespace NBXplorer
 		public abstract Task<NewEventBase> NextEventAsync(CancellationToken cancellation = default);
 	}
 }
+	

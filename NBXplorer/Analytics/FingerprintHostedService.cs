@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Hosting;
 using NBitcoin;
+using NBXplorer.Backends;
 using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
@@ -17,29 +18,29 @@ namespace NBXplorer.Analytics
 		const int BlockWindow = 5;
 		class NetworkFingerprintData
 		{
-			internal BitcoinDWaiter waiter;
+			internal IIndexer indexer;
 			internal FingerprintDistribution Distribution;
 			internal FingerprintDistribution DefaultDistribution;
 			internal Queue<FingerprintDistribution> BlockDistributions = new Queue<FingerprintDistribution>();
 		}
 
 		private readonly EventAggregator eventAggregator;
-		private readonly BitcoinDWaiters waiters;
+		private readonly IIndexers indexers;
 		private readonly Dictionary<NBXplorerNetwork, NetworkFingerprintData> data = new Dictionary<NBXplorerNetwork, NetworkFingerprintData>();
 		IDisposable subscription;
 		public FingerprintHostedService(EventAggregator eventAggregator,
-										BitcoinDWaiters waiters)
+										IIndexers indexers)
 		{
 			this.eventAggregator = eventAggregator;
-			this.waiters = waiters;
+			this.indexers = indexers;
 		}
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
-			foreach (var network in waiters.All().Select(w => w.Network))
+			foreach (var network in indexers.All().Select(w => w.Network))
 			{
 				data.Add(network, new NetworkFingerprintData()
 				{
-					waiter = waiters.GetWaiter(network),
+					indexer = indexers.GetIndexer(network),
 					DefaultDistribution = network.CryptoCode == "BTC" ? _DefaultBTC : null
 				});
 			}
@@ -48,7 +49,7 @@ namespace NBXplorer.Analytics
 				var d = data[evt.Network];
 				// If we catchup lot's of old block we do not care about their
 				// distribution.
-				if (d.waiter.State != BitcoinDWaiterState.Ready)
+				if (d.indexer.State != BitcoinDWaiterState.Ready)
 					return;
 				var blockDistribution = FingerprintDistribution.Calculate(evt.Block);
 				lock (d)

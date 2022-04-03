@@ -11,10 +11,10 @@ namespace NBXplorer.Tests
 		void LogInformation(string msg);
 	}
 
-	public class XUnitLogProvider : ILoggerProvider
+	public class XUnitLoggerProvider : ILoggerProvider
 	{
 		ITestOutputHelper _Helper;
-		public XUnitLogProvider(ITestOutputHelper helper)
+		public XUnitLoggerProvider(ITestOutputHelper helper)
 		{
 			_Helper = helper;
 		}
@@ -80,7 +80,7 @@ namespace NBXplorer.Tests
 		{
 			get; set;
 		}
-		public static XUnitLogProvider LogProvider
+		public static XUnitLoggerProvider LogProvider
 		{
 			get;
 			set;

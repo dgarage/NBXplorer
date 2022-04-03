@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace NBXplorer
+namespace NBXplorer.Backends.DBTrie
 {
 	public class ChainProvider
 	{

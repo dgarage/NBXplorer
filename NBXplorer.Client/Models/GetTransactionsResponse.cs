@@ -64,11 +64,11 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
-		public int Confirmations
+		public long Confirmations
 		{
 			get; set;
 		}
-		public int? Height
+		public long? Height
 		{
 			get; set;
 		}

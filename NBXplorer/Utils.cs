@@ -1,4 +1,5 @@
 ﻿using NBitcoin;
+using NBXplorer.Backends;
 using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
@@ -11,12 +12,12 @@ namespace NBXplorer
 	{
 		public static ICollection<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
 		{
-			var confirmed = new MultiValueDictionary<int, AnnotatedTransaction>();
+			var confirmed = new MultiValueDictionary<long, AnnotatedTransaction>();
 			var unconfirmed = new List<AnnotatedTransaction>();
 			var result = new List<AnnotatedTransaction>(transactions.Count);
 			foreach (var tx in transactions)
 			{
-				if (tx.Height is int h)
+				if (tx.Height is long h)
 					confirmed.Add(h, tx);
 				else
 					unconfirmed.Add(tx);
@@ -109,7 +110,7 @@ namespace NBXplorer
 			return result;
 		}
 
-		public static TransactionResult ToTransactionResult(SlimChain chain, Repository.SavedTransaction[] result)
+		public static TransactionResult ToTransactionResult(long height, SavedTransaction[] result)
 		{
 			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
 			var oldest = result
@@ -117,14 +118,12 @@ namespace NBXplorer
 						.OrderBy(o => o.Timestamp).FirstOrDefault() ?? result.First();
 
 			var confBlock = result
-					 .Where(r => r.BlockHash != null)
-					 .Select(r => chain.GetBlock(r.BlockHash))
-					 .Where(r => r != null)
-					 .FirstOrDefault();
+					 .Select(r => (r.BlockHash, r.BlockHeight))
+					 .FirstOrDefault(r => r.BlockHeight.HasValue);
 
-			var conf = confBlock == null ? 0 : chain.Height - confBlock.Height + 1;
+			var conf = confBlock.BlockHash is null ? 0 : height - confBlock.BlockHeight.Value + 1;
 
-			return new TransactionResult() { Confirmations = conf, BlockId = confBlock?.Hash, Transaction = oldest.Transaction, TransactionHash = oldest.Transaction.GetHash(), Height = confBlock?.Height, Timestamp = oldest.Timestamp };
+			return new TransactionResult() { Confirmations = conf, BlockId = confBlock.BlockHash, Transaction = oldest.Transaction, TransactionHash = oldest.Transaction.GetHash(), Height = confBlock.BlockHeight, Timestamp = oldest.Timestamp };
 		}
 	}
 }

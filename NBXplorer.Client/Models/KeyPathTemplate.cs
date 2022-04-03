@@ -148,5 +148,12 @@ namespace NBXplorer
 				builder.Append($"/{PostIndexes}");
 			return builder.ToString();
 		}
+
+		public uint GetIndex(KeyPath keypath)
+		{
+			if (TryMatchTemplate(keypath, out var index))
+				return index;
+			throw new ArgumentException("Impossible to get the index of this keypath", nameof(keypath));
+		}
 	}
 }

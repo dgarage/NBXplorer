@@ -1,3 +1,4 @@
+extern alias DBTrieLib;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using NBitcoin;
@@ -15,42 +16,27 @@ using NBitcoin.RPC;
 using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using Newtonsoft.Json.Linq;
-using static NBXplorer.TrackedTransaction;
 using Microsoft.Extensions.Hosting;
-using Microsoft.JSInterop;
 using System.Buffers;
-using DBTrie;
-using DBTrie.Storage.Cache;
 using System.Diagnostics;
 
-namespace NBXplorer
+namespace NBXplorer.Backends.DBTrie
 {
-	public class GenerateAddressQuery
-	{
-		public GenerateAddressQuery()
-		{
+	using DBTrieLib::DBTrie;
 
-		}
-		public GenerateAddressQuery(int? minAddresses, int? maxAddresses)
-		{
-			MinAddresses = minAddresses;
-			MaxAddresses = maxAddresses;
-		}
-		public int? MinAddresses { get; set; }
-		public int? MaxAddresses { get; set; }
-	}
-	public class RepositoryProvider : IHostedService
+	public class RepositoryProvider : IHostedService, IRepositoryProvider
 	{
-		DBTrie.DBTrieEngine _Engine;
+		DBTrieLib.DBTrie.DBTrieEngine _Engine;
 		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
 		private readonly KeyPathTemplates keyPathTemplates;
 		ExplorerConfiguration _Configuration;
 		private readonly NBXplorerNetworkProvider networks;
 
-		public RepositoryProvider(NBXplorerNetworkProvider networks, KeyPathTemplates keyPathTemplates, ExplorerConfiguration configuration)
+		public RepositoryProvider(NBXplorerNetworkProvider networks, KeyPathTemplates keyPathTemplates, ExplorerConfiguration configuration, ChainProvider chainProvider)
 		{
 			this.keyPathTemplates = keyPathTemplates;
 			_Configuration = configuration;
+			ChainProvider = chainProvider;
 			this.networks = networks;
 		}
 
@@ -58,19 +44,59 @@ namespace NBXplorer
 		{
 			return _Configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
 		}
+		public IEnumerable<Repository> GetRepositories()
+		{
+			return _Repositories.Values;
+		}
 
-		public Repository GetRepository(string cryptoCode)
+		public IRepository GetRepository(string cryptoCode)
 		{
 			_Repositories.TryGetValue(cryptoCode, out Repository repository);
 			return repository;
 		}
-		public Repository GetRepository(NBXplorerNetwork network)
+		public IRepository GetRepository(NBXplorerNetwork network)
 		{
 			return GetRepository(network.CryptoCode);
 		}
 
 		TaskCompletionSource<bool> _StartCompletion = new TaskCompletionSource<bool>();
+
+		public bool Exists()
+		{
+			return Directory.Exists(GetDatabasePath());
+		}
+
+		public string GetDatabasePath()
+		{
+			return Path.Combine(_Configuration.DataDir, "db");
+		}
+
 		public Task StartCompletion => _StartCompletion.Task;
+
+		public bool MigrationMode { get; set; }
+		public ChainProvider ChainProvider { get; }
+
+		public enum MigrationState
+		{
+			NotStarted,
+			InProgress,
+			Done
+		}
+		public (MigrationState State, string MigrationId) GetMigrationState()
+		{
+			string file = GetMigrationLockPath();
+			if (!File.Exists(file))
+				return (MigrationState.NotStarted, null);
+			var v = File.ReadAllText(file);
+			var splitted = v.Split(' ');
+			return (Enum.Parse<MigrationState>(splitted[0]), splitted.Length == 1 ? null : splitted[1]);
+		}
+
+		public string GetMigrationLockPath()
+		{
+			return Path.Combine(_Configuration.DataDir, "db", "migration_lock");
+		}
+
 		public async Task StartAsync(CancellationToken cancellationToken)
 		{
 			try
@@ -79,18 +105,31 @@ namespace NBXplorer
 				if (!Directory.Exists(directory))
 					Directory.CreateDirectory(directory);
 
+				if (!MigrationMode)
+				{
+					var migrationState = GetMigrationState();
+					if (migrationState.State == MigrationState.InProgress)
+						throw new ConfigException(
+							"A migration is in progress. " +
+							$"A migration started with --automigrate and --postgres and is still pending. If you want to use the legacy database, to prevent corruptions, please delete the previous half-migrated postgres database, then delete the file '{GetMigrationLockPath()}'.");
+					if (migrationState.State == MigrationState.Done)
+						throw new ConfigException(
+							"The database has been migrated to postgres. " +
+							$"A migration started with --automigrate and --postgres and has completed. If you want to use the legacy database, to prevent corruptions, please delete the migrated postgres database, then delete the file '{GetMigrationLockPath()}'.");
+				}
+
 				_Engine = await OpenEngine(directory, cancellationToken);
 				if (_Configuration.DBCache > 0)
 				{
 					int pageSize = 8192;
-					_Engine.ConfigurePagePool(new PagePool(pageSize, (_Configuration.DBCache * 1000 * 1000) / pageSize));
+					_Engine.ConfigurePagePool(new DBTrieLib.DBTrie.Storage.Cache.PagePool(pageSize, (_Configuration.DBCache * 1000 * 1000) / pageSize));
 				}
 				foreach (var net in networks.GetAll())
 				{
 					var settings = GetChainSetting(net);
 					if (settings != null)
 					{
-						var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC) : new Repository(_Engine, net, keyPathTemplates, settings.RPC);
+						var repo = net.NBitcoinNetwork.NetworkSet == Liquid.Instance ? new LiquidRepository(_Engine, net, keyPathTemplates, settings.RPC, ChainProvider.GetChain(net)) : new Repository(_Engine, net, keyPathTemplates, settings.RPC, ChainProvider.GetChain(net));
 						repo.MaxPoolSize = _Configuration.MaxGapSize;
 						repo.MinPoolSize = _Configuration.MinGapSize;
 						repo.MinUtxoValue = settings.MinUtxoValue;
@@ -108,27 +147,30 @@ namespace NBXplorer
 					}
 				}
 
-				Logs.Explorer.LogInformation("Defragmenting transaction tables...");
-				int saved = 0;
-				var defragFile = Path.Combine(Path.Combine(_Configuration.DataDir), "defrag-lock");
-				if (!File.Exists(defragFile))
+				if (!MigrationMode)
 				{
-					File.Create(defragFile).Close();
-					foreach (var repo in _Repositories.Select(kv => kv.Value))
+					Logs.Explorer.LogInformation("Defragmenting transaction tables...");
+					int saved = 0;
+					var defragFile = Path.Combine(Path.Combine(_Configuration.DataDir), "defrag-lock");
+					if (!File.Exists(defragFile))
 					{
-
-						if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
+						File.Create(defragFile).Close();
+						foreach (var repo in _Repositories.Select(kv => kv.Value))
 						{
-							saved += await repo.DefragmentTables(cancellationToken);
+
+							if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
+							{
+								saved += await repo.DefragmentTables(cancellationToken);
+							}
+							if (File.Exists(defragFile))
+								File.Delete(defragFile);
 						}
-						if (File.Exists(defragFile))
-							File.Delete(defragFile);
+						Logs.Explorer.LogInformation($"Defragmentation succeed, {PrettyKB(saved)} saved");
 					}
-					Logs.Explorer.LogInformation($"Defragmentation succeed, {PrettyKB(saved)} saved");
-				}
-				else
-				{
-					Logs.Explorer.LogWarning($"Defragmentation skipped, it seems to have crashed your NBXplorer before. (file {defragFile} already exists)");
+					else
+					{
+						Logs.Explorer.LogWarning($"Defragmentation skipped, it seems to have crashed your NBXplorer before. (file {defragFile} already exists)");
+					}
 				}
 
 				Logs.Explorer.LogInformation("Applying migration if needed, do not close NBXplorer...");
@@ -147,19 +189,22 @@ namespace NBXplorer
 				if (migrated != 0)
 					Logs.Explorer.LogInformation($"Migrated {migrated} tables...");
 
-				if (_Configuration.TrimEvents > 0)
+				if (!MigrationMode || !_Configuration.NoMigrateEvents)
 				{
-					Logs.Explorer.LogInformation("Trimming the event table if needed...");
-					int trimmed = 0;
-					foreach (var repo in _Repositories.Select(kv => kv.Value))
+					if (_Configuration.TrimEvents > 0)
 					{
-						if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
+						Logs.Explorer.LogInformation("Trimming the event table if needed...");
+						int trimmed = 0;
+						foreach (var repo in _Repositories.Select(kv => kv.Value))
 						{
-							trimmed += await repo.TrimmingEvents(_Configuration.TrimEvents, cancellationToken);
+							if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
+							{
+								trimmed += await repo.TrimmingEvents(_Configuration.TrimEvents, cancellationToken);
+							}
 						}
+						if (trimmed != 0)
+							Logs.Explorer.LogInformation($"Trimmed {trimmed} events in total...");
 					}
-					if (trimmed != 0)
-						Logs.Explorer.LogInformation($"Trimmed {trimmed} events in total...");
 				}
 				_StartCompletion.TrySetResult(true);
 			}
@@ -179,13 +224,13 @@ namespace NBXplorer
 			return $"{Math.Round((double)bytes / 1024.0 / 1024.0, 2):0.00} MB";
 		}
 
-		private async ValueTask<DBTrieEngine> OpenEngine(string directory, CancellationToken cancellationToken)
+		private async ValueTask<DBTrieLib.DBTrie.DBTrieEngine> OpenEngine(string directory, CancellationToken cancellationToken)
 		{
 			int tried = 0;
-		retry:
+			retry:
 			try
 			{
-				return await DBTrie.DBTrieEngine.OpenFromFolder(directory);
+				return await DBTrieLib.DBTrie.DBTrieEngine.OpenFromFolder(directory);
 			}
 			catch when (tried < 10)
 			{
@@ -207,10 +252,8 @@ namespace NBXplorer
 		}
 	}
 
-	public class Repository
+	public class Repository : IRepository
 	{
-
-
 		public async Task Ping()
 		{
 			using var tx = await engine.OpenTransaction();
@@ -254,8 +297,8 @@ namespace NBXplorer
 
 		class Index
 		{
-			public DBTrie.Table table;
-			public Index(DBTrie.Transaction tx, string tableName, string primaryKey)
+			public DBTrieLib.DBTrie.Table table;
+			public Index(DBTrieLib.DBTrie.Transaction tx, string tableName, string primaryKey)
 			{
 				PrimaryKey = primaryKey;
 				this.table = tx.GetTable(tableName);
@@ -266,7 +309,7 @@ namespace NBXplorer
 				get; set;
 			}
 
-			public ValueTask<DBTrie.IRow> SelectBytes(int index)
+			public ValueTask<DBTrieLib.DBTrie.IRow> SelectBytes(int index)
 			{
 				return table.Get($"{PrimaryKey}-{index:D10}");
 			}
@@ -294,7 +337,7 @@ namespace NBXplorer
 			// New tables don't have this bug.
 			public bool OldTable { get; set; } = true;
 
-			public async IAsyncEnumerable<DBTrie.IRow> SelectForwardSkip(int n, string startWith = null, EnumerationOrder order = EnumerationOrder.Ordered)
+			public async IAsyncEnumerable<DBTrieLib.DBTrie.IRow> SelectForwardSkip(int n, string startWith = null, DBTrieLib.DBTrie.EnumerationOrder order = DBTrieLib.DBTrie.EnumerationOrder.Ordered)
 			{
 				if (OldTable)
 				{
@@ -321,7 +364,7 @@ namespace NBXplorer
 				}
 			}
 
-			public async IAsyncEnumerable<DBTrie.IRow> SelectFrom(long key, int? limit)
+			public async IAsyncEnumerable<DBTrieLib.DBTrie.IRow> SelectFrom(long key, int? limit)
 			{
 				var remaining = limit is int l ? l : int.MaxValue;
 				if (remaining is 0)
@@ -335,7 +378,7 @@ namespace NBXplorer
 				}
 			}
 
-			private async IAsyncEnumerable<IRow> EnumerateFromKey(Table table, string key)
+			private async IAsyncEnumerable<DBTrieLib.DBTrie.IRow> EnumerateFromKey(Table table, string key)
 			{
 				var thisKey = Encoding.UTF8.GetBytes(key).AsMemory();
 				bool returns = false;
@@ -421,41 +464,41 @@ namespace NBXplorer
 			}
 		}
 
-		Index GetAvailableKeysIndex(DBTrie.Transaction tx, DerivationStrategyBase trackedSource, DerivationFeature feature)
+		Index GetAvailableKeysIndex(DBTrieLib.DBTrie.Transaction tx, DerivationStrategyBase trackedSource, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}AvailableKeys", $"{trackedSource.GetHash()}-{feature}");
 		}
 
-		Index GetScriptsIndex(DBTrie.Transaction tx, Script scriptPubKey)
+		Index GetScriptsIndex(DBTrieLib.DBTrie.Transaction tx, Script scriptPubKey)
 		{
 			return new Index(tx, $"{_Suffix}Scripts", $"{scriptPubKey.Hash}");
 		}
 
-		Index GetOutPointsIndex(DBTrie.Transaction tx, OutPoint outPoint)
+		Index GetOutPointsIndex(DBTrieLib.DBTrie.Transaction tx, OutPoint outPoint)
 		{
 			return new Index(tx, $"{_Suffix}OutPoints", $"{outPoint}") { OldTable = false };
 		}
-		Index GetHighestPathIndex(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
+		Index GetHighestPathIndex(DBTrieLib.DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}HighestPath", $"{strategy.GetHash()}-{feature}");
 		}
 
-		Index GetReservedKeysIndex(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
+		Index GetReservedKeysIndex(DBTrieLib.DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature feature)
 		{
 			return new Index(tx, $"{_Suffix}ReservedKeys", $"{strategy.GetHash()}-{feature}");
 		}
 
-		Index GetTransactionsIndex(DBTrie.Transaction tx, TrackedSource trackedSource)
+		Index GetTransactionsIndex(DBTrieLib.DBTrie.Transaction tx, TrackedSource trackedSource)
 		{
 			return new Index(tx, $"{_Suffix}Transactions", $"{trackedSource.GetHash()}");
 		}
 
-		Index GetMetadataIndex(DBTrie.Transaction tx, TrackedSource trackedSource)
+		Index GetMetadataIndex(DBTrieLib.DBTrie.Transaction tx, TrackedSource trackedSource)
 		{
 			return new Index(tx, $"{_Suffix}Metadata", $"{trackedSource.GetHash()}");
 		}
 
-		Index GetEventsIndex(DBTrie.Transaction tx)
+		Index GetEventsIndex(DBTrieLib.DBTrie.Transaction tx)
 		{
 			return new Index(tx, $"{_Suffix}Events", string.Empty);
 		}
@@ -463,6 +506,7 @@ namespace NBXplorer
 		protected NBXplorerNetwork _Network;
 		private readonly KeyPathTemplates keyPathTemplates;
 		private readonly RPCClient rpc;
+		private readonly SlimChain headerChain;
 
 		public NBXplorerNetwork Network
 		{
@@ -472,11 +516,12 @@ namespace NBXplorer
 			}
 		}
 
-		DBTrie.DBTrieEngine engine;
-		internal Repository(DBTrie.DBTrieEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc)
+		internal DBTrieLib.DBTrie.DBTrieEngine engine;
+		internal Repository(DBTrieLib.DBTrie.DBTrieEngine engine, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc, SlimChain headerChain)
 		{
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
+			this.headerChain = headerChain;
 			_Network = network;
 			this.keyPathTemplates = keyPathTemplates;
 			this.rpc = rpc;
@@ -490,11 +535,15 @@ namespace NBXplorer
 		public async Task<BlockLocator> GetIndexProgress()
 		{
 			using var tx = await engine.OpenTransaction();
+			return await GetIndexProgress(tx);
+		}
+		internal async Task<BlockLocator> GetIndexProgress(DBTrieLib.DBTrie.Transaction tx)
+		{
 			using var existingRow = await tx.GetTable($"{_Suffix}IndexProgress").Get("");
 			if (existingRow == null)
 				return null;
 			BlockLocator locator = new BlockLocator();
-			locator.FromBytes(DBTrie.PublicExtensions.GetUnderlyingArraySegment(await existingRow.ReadValue()).Array);
+			locator.FromBytes(PublicExtensions.GetUnderlyingArraySegment(await existingRow.ReadValue()).Array);
 			return locator;
 		}
 
@@ -581,7 +630,7 @@ namespace NBXplorer
 				}
 			}
 		}
-		async Task<int> GetAddressToGenerateCount(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
+		async Task<int> GetAddressToGenerateCount(DBTrieLib.DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
 			if (!TryGetAvailableCountFromCache(strategy, derivationFeature, out var currentlyAvailable))
 			{
@@ -596,7 +645,7 @@ namespace NBXplorer
 			return Math.Max(0, MaxPoolSize - currentlyAvailable);
 		}
 
-		private async ValueTask RefillAvailable(DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature, int toGenerate)
+		private async ValueTask RefillAvailable(DBTrieLib.DBTrie.Transaction tx, DerivationStrategyBase strategy, DerivationFeature derivationFeature, int toGenerate)
 		{
 			if (toGenerate <= 0)
 				return;
@@ -793,7 +842,7 @@ namespace NBXplorer
 			}
 			public TimeStampedTransaction(Network network, ReadOnlyMemory<byte> hex)
 			{
-				var segment = DBTrie.PublicExtensions.GetUnderlyingArraySegment(hex);
+				var segment = DBTrieLib.DBTrie.PublicExtensions.GetUnderlyingArraySegment(hex);
 				var stream = new BitcoinStream(segment.Array, segment.Offset, segment.Count);
 				stream.ConsensusFactory = network.Consensus.ConsensusFactory;
 				this.ReadWrite(stream);
@@ -845,7 +894,7 @@ namespace NBXplorer
 		{
 			get; set;
 		} = 100;
-		public async Task<List<SavedTransaction>> SaveTransactions(DateTimeOffset now, NBitcoin.Transaction[] transactions, uint256 blockHash)
+		public async Task<List<SavedTransaction>> SaveTransactions(DateTimeOffset now, NBitcoin.Transaction[] transactions, SlimChainedBlock slimBlock)
 		{
 			var result = new List<SavedTransaction>();
 			transactions = transactions.Distinct().ToArray();
@@ -859,30 +908,13 @@ namespace NBXplorer
 				{
 					var timestamped = new TimeStampedTransaction(btx, date);
 					var value = timestamped.ToBytes();
-					var key = GetSavedTransactionKey(btx.GetHash(), blockHash);
+					var key = GetSavedTransactionKey(btx.GetHash(), slimBlock?.Hash);
 					await GetSavedTransactionTable(tx).Insert(key, value);
 					result.Add(ToSavedTransaction(Network.NBitcoinNetwork, key, value));
 				}
 				await tx.Commit();
 			}
 			return result;
-		}
-
-		public class SavedTransaction
-		{
-			public NBitcoin.Transaction Transaction
-			{
-				get; set;
-			}
-			public uint256 BlockHash
-			{
-				get; set;
-			}
-			public DateTimeOffset Timestamp
-			{
-				get;
-				set;
-			}
 		}
 
 		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
@@ -898,10 +930,17 @@ namespace NBXplorer
 					saved.Add(t);
 				}
 			}
+			foreach (var s in saved)
+			{
+				if (s.BlockHash != null)
+				{
+					s.BlockHeight = headerChain.GetBlock(s.BlockHash)?.Height;
+				}
+			}
 			return saved.ToArray();
 		}
 
-		private static SavedTransaction ToSavedTransaction(Network network, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value)
+		internal static SavedTransaction ToSavedTransaction(Network network, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value)
 		{
 			SavedTransaction t = new SavedTransaction();
 			if (key.Length > 32)
@@ -952,7 +991,7 @@ namespace NBXplorer
 			get; private set;
 		}
 
-		private T ToObject<T>(ReadOnlyMemory<byte> value)
+		internal T ToObject<T>(ReadOnlyMemory<byte> value)
 		{
 			var result = Serializer.ToObject<T>(Unzip(value));
 
@@ -982,9 +1021,9 @@ namespace NBXplorer
 			}
 			return ms.ToArray();
 		}
-		private string Unzip(ReadOnlyMemory<byte> bytes)
+		internal string Unzip(ReadOnlyMemory<byte> bytes)
 		{
-			var segment = DBTrie.PublicExtensions.GetUnderlyingArraySegment(bytes);
+			var segment = DBTrieLib.DBTrie.PublicExtensions.GetUnderlyingArraySegment(bytes);
 			MemoryStream ms = new MemoryStream(segment.Array, segment.Offset, segment.Count);
 			using (GZipStream gzip = new GZipStream(ms, CompressionMode.Decompress))
 			{
@@ -1007,7 +1046,7 @@ namespace NBXplorer
 			get; set;
 		} = Money.Satoshis(1);
 
-		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, CancellationToken cancellation = default)
+		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, bool needTx = true, CancellationToken cancellation = default)
 		{
 			Dictionary<uint256, long> firstSeenList = new Dictionary<uint256, long>();
 			HashSet<ITrackedTransactionSerializable> needRemove = new HashSet<ITrackedTransactionSerializable>();
@@ -1018,12 +1057,12 @@ namespace NBXplorer
 			{
 				var table = GetTransactionsIndex(tx, trackedSource);
 
-				await foreach (var row in table.SelectForwardSkip(0, txId?.ToString(), EnumerationOrder.Unordered))
+				await foreach (var row in table.SelectForwardSkip(0, txId?.ToString(), DBTrieLib.DBTrie.EnumerationOrder.Unordered))
 				{
 					using (row)
 					{
 						cancellation.ThrowIfCancellationRequested();
-						var seg = DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
+						var seg = DBTrieLib.DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
 						MemoryStream ms = new MemoryStream(seg.Array, seg.Offset, seg.Count);
 						BitcoinStream bs = new BitcoinStream(ms, false);
 						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
@@ -1090,6 +1129,17 @@ namespace NBXplorer
 			foreach (var tx in transactions.Where(tt => !needRemove.Contains(tt)))
 				tracked[i++] = ToTrackedTransaction(tx, trackedSource);
 			Debug.Assert(tracked.Length == i);
+
+
+			foreach (var trackedTx in tracked)
+			{
+				if (trackedTx.BlockHash != null && headerChain.TryGetHeight(trackedTx.BlockHash, out var height))
+				{
+					trackedTx.BlockHeight = height;
+					trackedTx.Immature = trackedTx.IsCoinBase ? headerChain.Height - height < Network.NBitcoinNetwork.Consensus.CoinbaseMaturity : false;
+				}
+			}
+
 			return tracked;
 		}
 
@@ -1110,7 +1160,7 @@ namespace NBXplorer
 			}
 		}
 
-		TrackedTransaction ToTrackedTransaction(ITrackedTransactionSerializable tx, TrackedSource trackedSource)
+		internal TrackedTransaction ToTrackedTransaction(ITrackedTransactionSerializable tx, TrackedSource trackedSource)
 		{
 			var trackedTransaction = CreateTrackedTransaction(trackedSource, tx);
 			trackedTransaction.Inserted = tx.TickCount == 0 ? NBitcoin.Utils.UnixTimeToDateTime(0) : new DateTimeOffset((long)tx.TickCount, TimeSpan.Zero);
@@ -1212,7 +1262,7 @@ namespace NBXplorer
 					}
 				}
 			}
-			catch (NoMorePageAvailableException) when (!aggressiveCommit)
+			catch (DBTrieLib.DBTrie.Storage.Cache.NoMorePageAvailableException) when (!aggressiveCommit)
 			{
 				aggressiveCommit = true;
 				tx.Rollback();
@@ -1221,7 +1271,7 @@ namespace NBXplorer
 			await tx.Commit();
 		}
 
-		internal async Task Prune(TrackedSource trackedSource, IEnumerable<TrackedTransaction> prunable)
+		public async Task Prune(TrackedSource trackedSource, IEnumerable<TrackedTransaction> prunable)
 		{
 			if (prunable == null)
 				return;
@@ -1242,7 +1292,7 @@ namespace NBXplorer
 			await tx.Commit();
 		}
 
-		internal async Task UpdateAddressPool(DerivationSchemeTrackedSource trackedSource, Dictionary<DerivationFeature, int?> highestKeyIndexFound)
+		public async Task UpdateAddressPool(DerivationSchemeTrackedSource trackedSource, Dictionary<DerivationFeature, int?> highestKeyIndexFound)
 		{
 			using var tx = await engine.OpenTransaction();
 			foreach (var kv in highestKeyIndexFound)
@@ -1287,12 +1337,16 @@ namespace NBXplorer
 		}
 
 		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
-		public Task<TrackedTransaction[]> GetMatches(NBitcoin.Transaction tx, uint256 blockId, DateTimeOffset now, bool useCache)
+		public Task<TrackedTransaction[]> GetMatches(NBitcoin.Transaction tx, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
 		{
-			return GetMatches(new[] { tx }, blockId, now, useCache);
+			return GetMatches(new[] { tx }, slimBlock, now, useCache);
+		}
+		public async Task<TrackedTransaction[]> GetMatches(Block block, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
+		{
+			return await GetMatches(block.Transactions, slimBlock, now, useCache);
 		}
 
-		public async Task<TrackedTransaction[]> GetMatches(IList<NBitcoin.Transaction> txs, uint256 blockId, DateTimeOffset now, bool useCache)
+		public async Task<TrackedTransaction[]> GetMatches(IList<NBitcoin.Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
 		{
 			foreach (var tx in txs)
 				tx.PrecomputeHash(false, true);
@@ -1313,7 +1367,7 @@ namespace NBXplorer
 			{
 				if (!transactions.TryAdd(tx.GetHash(), tx))
 					continue;
-				if (blockId != null && useCache && noMatchCache.Contains(tx.GetHash()))
+				if (slimBlock?.Hash != null && useCache && noMatchCache.Contains(tx.GetHash()))
 				{
 					continue;
 				}
@@ -1372,7 +1426,7 @@ namespace NBXplorer
 						if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 						{
 							match = CreateTrackedTransaction(keyInfo.TrackedSource,
-								new TrackedTransactionKey(tx.GetHash(), blockId, false),
+								new TrackedTransactionKey(tx.GetHash(), slimBlock?.Hash, false),
 								tx,
 								new Dictionary<Script, KeyPath>());
 							match.FirstSeen = now;
@@ -1393,7 +1447,7 @@ namespace NBXplorer
 
 			foreach (var tx in txs)
 			{
-				if (blockId == null &&
+				if (slimBlock?.Hash == null &&
 					noMatchTransactions.Contains(tx.GetHash()))
 				{
 					noMatchCache.Add(tx.GetHash());
@@ -1415,7 +1469,7 @@ namespace NBXplorer
 						? CreateTrackedTransaction(trackedSource, tx.Key, tx.GetCoins(), tx.KnownKeyPathMapping)
 						: CreateTrackedTransaction(trackedSource, tx.Key, tx.Transaction, tx.KnownKeyPathMapping);
 		}
-		protected virtual ITrackedTransactionSerializable CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey trackedTransactionKey)
+		internal virtual ITrackedTransactionSerializable CreateBitcoinSerializableTrackedTransaction(TrackedTransactionKey trackedTransactionKey)
 		{
 			return new TrackedTransaction.TransactionMatchData(trackedTransactionKey);
 		}
@@ -1504,7 +1558,7 @@ namespace NBXplorer
 			return deletedEvents;
 		}
 
-		private async ValueTask<int> Defragment(DBTrie.Transaction tx, Table table, CancellationToken cancellationToken)
+		private async ValueTask<int> Defragment(DBTrieLib.DBTrie.Transaction tx, DBTrieLib.DBTrie.Table table, CancellationToken cancellationToken)
 		{
 			int saved = 0;
 			try
@@ -1587,7 +1641,7 @@ namespace NBXplorer
 					using (row)
 					{
 						cancellationToken.ThrowIfCancellationRequested();
-						var seg = DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
+						var seg = DBTrieLib.DBTrie.PublicExtensions.GetUnderlyingArraySegment(await row.ReadValue());
 						MemoryStream ms = new MemoryStream(seg.Array, seg.Offset, seg.Count);
 						BitcoinStream bs = new BitcoinStream(ms, false);
 						bs.ConsensusFactory = Network.NBitcoinNetwork.Consensus.ConsensusFactory;
@@ -1659,9 +1713,19 @@ namespace NBXplorer
 			return key.AsMemory();
 		}
 
-		private Table GetSavedTransactionTable(DBTrie.Transaction tx)
+		private DBTrieLib.DBTrie.Table GetSavedTransactionTable(DBTrieLib.DBTrie.Transaction tx)
 		{
 			return tx.GetTable($"{_Suffix}Txs");
+		}
+
+		public Task<SlimChainedBlock> GetTip()
+		{
+			return Task.FromResult(headerChain.TipBlock);
+		}
+
+		public Task SaveBlocks(IList<SlimChainedBlock> slimBlocks)
+		{
+			return Task.CompletedTask;
 		}
 	}
 }
