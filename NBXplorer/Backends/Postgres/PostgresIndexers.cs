@@ -227,6 +227,12 @@ namespace NBXplorer.Backends.Postgres
 					}
 
 					int waitTime = 10;
+
+					if (Network.NBitcoinNetwork.ChainName == ChainName.Regtest)
+					{
+						await RPCClient.WarmupBlockchain(Logger);
+					}
+
 					retry:
 					BlockchainInfo = await RPCClient.GetBlockchainInfoAsyncEx();
 					if (BlockchainInfo.IsSynching(Network))
@@ -237,13 +243,6 @@ namespace NBXplorer.Backends.Postgres
 						goto retry;
 					}
 					State = BitcoinDWaiterState.NBXplorerSynching;
-					if (Network.NBitcoinNetwork.ChainName == ChainName.Regtest)
-					{
-						if (await RPCClient.WarmupBlockchain(Logger))
-						{
-							BlockchainInfo = await RPCClient.GetBlockchainInfoAsyncEx();
-						}
-					}
 					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
 					_Node = node;
 					node.MessageReceived += Node_MessageReceived;
