@@ -295,7 +295,11 @@ namespace NBXplorer.Backends.Postgres
 				}
 				else if (lastIndexedBlock != null)
 				{
-					State = blockchainInfo.Headers - lastIndexedBlock.Height < 6 ? BitcoinDWaiterState.Ready : BitcoinDWaiterState.NBXplorerSynching;
+					int minBlock = 6;
+					// Prevent some corner cases in tests
+					if (Network.NBitcoinNetwork.ChainName == ChainName.Regtest)
+						minBlock = 1;
+					State = blockchainInfo.Headers - lastIndexedBlock.Height < minBlock ? BitcoinDWaiterState.Ready : BitcoinDWaiterState.NBXplorerSynching;
 				}
 			}
 
