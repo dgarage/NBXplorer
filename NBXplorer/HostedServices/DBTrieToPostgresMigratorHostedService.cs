@@ -734,11 +734,13 @@ namespace NBXplorer.HostedServices
 				await InsertInsMatches(conn, network, filteredBatch);
 				await conn.ExecuteAsync("DROP TABLE tmp_mapping_tracked_sources;");
 				await UnregisterTypes(conn);
-				await conn.ExecuteAsync("ANALYZE;");
 				progress.TrackedTransactionsInputsMigrated = true;
 				await SaveProgress(network, conn, progress);
 				await tx.CommitAsync();
 				logger.LogInformation($"Tracked transactions inputs migrated.");
+				logger.LogInformation($"Running ANALYZE and VACUUM FULL...");
+				await conn.ExecuteAsync("ANALYZE;");
+				await conn.ExecuteAsync("VACUUM FULL;");
 			}
 
 			// Remove transactions which doesn't have any input or outputs

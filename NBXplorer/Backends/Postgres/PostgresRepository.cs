@@ -702,7 +702,7 @@ namespace NBXplorer.Backends.Postgres
 					tracked.IsCoinBase = utxo.immature;
 					tracked.Immature = utxo.immature;
 					if (utxo.keypath is string)
-						tracked.KnownKeyPathMapping.Add(txout.ScriptPubKey, KeyPath.Parse(utxo.keypath));
+						tracked.KnownKeyPathMapping.TryAdd(txout.ScriptPubKey, KeyPath.Parse(utxo.keypath));
 				}
 				else
 				{
