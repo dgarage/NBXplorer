@@ -1755,6 +1755,10 @@ namespace NBXplorer.Tests
 					connected.ListenNewBlock();
 					var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
 					var blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
+					// Sometimes Postgres backend emit one more block during warmup. That's not a bug,
+					// but make test flaky.
+					if (backend == Backend.Postgres && blockEvent.Hash != blockEvent.Hash)
+						blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
 					Assert.Equal(expectedBlockId, blockEvent.Hash);
 					Assert.NotEqual(0, blockEvent.Height);
 
