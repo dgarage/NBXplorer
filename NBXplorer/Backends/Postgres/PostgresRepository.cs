@@ -748,7 +748,14 @@ namespace NBXplorer.Backends.Postgres
 				"ORDER BY ds.idx " +
 				"LIMIT 1 OFFSET @skip", new { key.code, key.descriptor, skip = n });
 			if (unused is null)
+			{
+				if (await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM descriptors WHERE code=@code AND descriptor=@descriptor", new { key.code, key.descriptor }) == 1)
+				{
+					if (await GenerateAddressesCore(connection, strategy, derivationFeature, null) != 0)
+						goto retry;
+				}
 				return null;
+			}
 			if (reserve)
 			{
 				var updated = await connection.ExecuteAsync("UPDATE descriptors_scripts SET used='t' WHERE code=@code AND script=@script AND descriptor=@descriptor AND used='f'", new { key.code, unused.script, key.descriptor });
