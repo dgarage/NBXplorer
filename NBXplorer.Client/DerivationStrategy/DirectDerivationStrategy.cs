@@ -38,7 +38,7 @@ namespace NBXplorer.DerivationStrategy
 			}
 		}
 
-		public DirectDerivationStrategy(BitcoinExtPubKey root, bool segwit, ReadOnlyDictionary<string, bool> additionalOptions = null) : base(additionalOptions)
+		public DirectDerivationStrategy(BitcoinExtPubKey root, bool segwit, ReadOnlyDictionary<string, string> additionalOptions = null) : base(additionalOptions)
 		{
 			if(root == null)
 				throw new ArgumentNullException(nameof(root));

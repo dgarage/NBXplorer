@@ -1083,7 +1083,8 @@ namespace NBXplorer.Controllers
 			var accountKey = masterKey.Derive(keyPath);
 			DerivationStrategyBase derivation = network.DerivationStrategyFactory.CreateDirectDerivationStrategy(accountKey.Neuter(), new DerivationStrategyOptions()
 			{
-				ScriptPubKeyType = request.ScriptPubKeyType.Value
+				ScriptPubKeyType = request.ScriptPubKeyType.Value,
+				AdditionalOptions = request.AdditionalOptions
 			});
 
 			var derivationTrackedSource = new DerivationSchemeTrackedSource(derivation);

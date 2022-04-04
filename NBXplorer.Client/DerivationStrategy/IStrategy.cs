@@ -17,10 +17,10 @@ namespace NBXplorer.DerivationStrategy
 	}
 	public abstract class DerivationStrategyBase : IHDScriptPubKey
 	{
-		ReadOnlyDictionary<string, bool> Empty = new ReadOnlyDictionary<string, bool>(new Dictionary<string, bool>(0));
-		public ReadOnlyDictionary<string, bool> AdditionalOptions { get; }
+		ReadOnlyDictionary<string, string> Empty = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(0));
+		public ReadOnlyDictionary<string, string> AdditionalOptions { get; }
 
-		internal DerivationStrategyBase(ReadOnlyDictionary<string,bool> additionalOptions)
+		internal DerivationStrategyBase(ReadOnlyDictionary<string,string> additionalOptions)
 		{
 			AdditionalOptions = additionalOptions ?? Empty;
 		}
@@ -66,7 +66,7 @@ namespace NBXplorer.DerivationStrategy
 
 		private string GetSuffixOptionsString()
 		{
-			return string.Join("", new SortedDictionary<string, bool>(AdditionalOptions).Where(pair => pair.Value).Select(pair => $"-[{pair.Key}]"));
+			return string.Join("", new SortedDictionary<string, string>(AdditionalOptions).Select(pair => $"-[{pair.Key}{(string.IsNullOrEmpty(pair.Value)?string.Empty: $"={pair.Value}")}]"));
 		}
 		
 		public override bool Equals(object obj)

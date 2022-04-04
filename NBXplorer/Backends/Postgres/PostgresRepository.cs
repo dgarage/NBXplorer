@@ -324,7 +324,7 @@ namespace NBXplorer.Backends.Postgres
 			{
 				if (!strategy.Unblinded())
 				{
-					var blindingKey = NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategy, keyPath);
+					var blindingKey = NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(strategy, keyPath, addr.ScriptPubKey, Network.NBitcoinNetwork);
 					var blindedAddress = new BitcoinBlindedAddress(blindingKey.PubKey, addr);
 					metadata ??= new JObject();
 					metadata.Add(new JProperty("blindedAddress", blindedAddress.ToString()));

@@ -22,7 +22,7 @@ namespace NBXplorer.DerivationStrategy
 			get; set;
 		}
 
-		public ReadOnlyDictionary<string, bool> AdditionalOptions { get; set; }
+		public ReadOnlyDictionary<string, string> AdditionalOptions { get; set; }
 	}
 	public class DerivationStrategyFactory
 	{
@@ -70,13 +70,16 @@ namespace NBXplorer.DerivationStrategy
 			bool taproot = false;
 			ScriptPubKeyType type = ScriptPubKeyType.Segwit;
 
-			Dictionary<string, bool> optionsDictionary = new Dictionary<string, bool>(5);
+			IDictionary<string, string> optionsDictionary = new Dictionary<string, string>(5);
 			foreach (Match optionMatch in _OptionRegex.Matches(str))
 			{
-				var key = optionMatch.Groups[1].Value.ToLowerInvariant();
+				var rawKey = optionMatch.Groups[1].Value.ToLowerInvariant();
+				var splitKey = rawKey.Split(new[]{'='}, StringSplitOptions.RemoveEmptyEntries);
+				var key = splitKey[0];
+				var value = splitKey.Length > 1 ? splitKey[1]: null;
 				if (!AuthorizedOptions.Contains(key))
 					throw new FormatException($"The option '{key}' is not supported by this network");
-				if (!optionsDictionary.TryAdd(key, true))
+				if (!Extensions.TryAdd(optionsDictionary, key, value))
 					throw new FormatException($"The option '{key}' is duplicated");
 			}
 			str = _OptionRegex.Replace(str, string.Empty);
@@ -128,7 +131,7 @@ namespace NBXplorer.DerivationStrategy
 			{
 				KeepOrder = keepOrder,
 				ScriptPubKeyType = type,
-				AdditionalOptions = new ReadOnlyDictionary<string, bool>(optionsDictionary)
+				AdditionalOptions = new ReadOnlyDictionary<string, string>(optionsDictionary)
 			};
 			var match = MultiSigRegex.Match(str);
 			if (match.Success)
@@ -197,7 +200,7 @@ namespace NBXplorer.DerivationStrategy
 		/// <param name="publicKey">The public key of the wallet</param>
 		/// <param name="options">Derivation options</param>
 		/// <returns></returns>
-		public TaprootDerivationStrategy CreateTaprootDerivationStrategy(BitcoinExtPubKey publicKey, ReadOnlyDictionary<string, bool> options = null)
+		public TaprootDerivationStrategy CreateTaprootDerivationStrategy(BitcoinExtPubKey publicKey, ReadOnlyDictionary<string, string> options = null)
 		{
 			return new TaprootDerivationStrategy(publicKey, options);
 		}
