@@ -383,26 +383,15 @@ namespace NBXplorer.Backends.Postgres
 			foreach (var s in scripts)
 				result.AddRange(s, Array.Empty<KeyPathInformation>());
 			var command = connection.CreateCommand();
-			string additionalColumn = Network.IsElement ? ", ts.blinded_addr" : "";
-			StringBuilder builder = new StringBuilder();
-			builder.Append($"SELECT ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem {additionalColumn} FROM ( VALUES ");
-			int idx = 0;
-			foreach (var s in scripts)
-			{
-				if (idx != 0)
-					builder.Append(',');
-				builder.Append($"('{Network.CryptoCode}', '{s.ToHex()}')");
-				idx++;
-			}
-			if (idx == 0)
+			if (scripts.Count == 0)
 				return result;
-			builder.Append(") r (code, script)," +
+			string additionalColumn = Network.IsElement ? ", ts.blinded_addr" : "";
+			var rows = await connection.QueryAsync($"SELECT ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem {additionalColumn} FROM " +
+				"unnest(@records) AS r (script)," +
 				" LATERAL (" +
 				"	SELECT script, addr, descriptor_metadata->>'derivation' derivation, keypath, descriptors_scripts_metadata->>'redeem' redeem, descriptor_metadata->>'blindedAddress' blinded_addr " +
 				"	FROM nbxv1_keypath_info ki " +
-				"   WHERE ki.code=r.code AND ki.script=r.script) ts;");
-
-			var rows = await connection.QueryAsync(builder.ToString());
+				"   WHERE ki.code=@code AND ki.script=r.script) ts;", new { code = Network.CryptoCode, records = scripts.Select(s => s.ToHex()).ToArray() });
 			foreach (var r in rows)
 			{
 				// This might be the case for a derivation added by a different indexer

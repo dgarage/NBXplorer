@@ -50,6 +50,7 @@ namespace NBXplorer.HostedServices
 			IConfiguration configuration,
 			KeyPathTemplates keyPathTemplates,
 			IRPCClients rpcClients,
+			DbConnectionFactory connectionFactory,
 			ExplorerConfiguration explorerConfiguration)
 		{
 			LegacyRepositoryProvider = repositoryProvider;
@@ -57,6 +58,7 @@ namespace NBXplorer.HostedServices
 			Configuration = configuration;
 			KeyPathTemplates = keyPathTemplates;
 			RpcClients = rpcClients;
+			ConnectionFactory = connectionFactory;
 			ExplorerConfiguration = explorerConfiguration;
 			PostgresRepositoryProvider = (PostgresRepositoryProvider)postgresRepositoryProvider;
 		}
@@ -67,6 +69,7 @@ namespace NBXplorer.HostedServices
 		public IConfiguration Configuration { get; }
 		public KeyPathTemplates KeyPathTemplates { get; }
 		public IRPCClients RpcClients { get; }
+		public DbConnectionFactory ConnectionFactory { get; }
 		public ExplorerConfiguration ExplorerConfiguration { get; }
 		public PostgresRepositoryProvider PostgresRepositoryProvider { get; }
 
@@ -142,8 +145,15 @@ namespace NBXplorer.HostedServices
 			{
 				return;
 			}
+			var logger = LoggerFactory.CreateLogger($"NBXplorer.PostgresMigration");
+			await using (var conn = await ConnectionFactory.CreateConnection())
+			{
+				logger.LogInformation($"Running ANALYZE and VACUUM FULL...");
+				await conn.ExecuteAsync("VACUUM FULL;");
+				await conn.ExecuteAsync("ANALYZE;");
+			}
 			w.Stop();
-			LoggerFactory.CreateLogger($"NBXplorer.PostgresMigration").LogInformation($"The migration completed in {(int)w.Elapsed.TotalMinutes} minutes.");
+			logger.LogInformation($"The migration completed in {(int)w.Elapsed.TotalMinutes} minutes.");
 			File.WriteAllText(LegacyRepositoryProvider.GetMigrationLockPath(), $"Done {migrationId}");
 			DeleteAfterMigrationOrWarning();
 			GC.Collect();
@@ -738,9 +748,6 @@ namespace NBXplorer.HostedServices
 				await SaveProgress(network, conn, progress);
 				await tx.CommitAsync();
 				logger.LogInformation($"Tracked transactions inputs migrated.");
-				logger.LogInformation($"Running ANALYZE and VACUUM FULL...");
-				await conn.ExecuteAsync("ANALYZE;");
-				await conn.ExecuteAsync("VACUUM FULL;");
 			}
 
 			// Remove transactions which doesn't have any input or outputs
