@@ -878,7 +878,7 @@ CREATE INDEX wallets_history_by_seen_at ON wallets_history (seen_at);
 -- is unable to correctly estimate the numbers of row in generate_series
 -- which cause JIT compilation, slowing down the query considerably
 -- See https://dba.stackexchange.com/questions/310235/why-is-my-nested-loop-taking-so-much-time/310242#310242
-CREATE OR REPLACE FUNCTION generate_series_fixed(in_from TIMESTAMPTZ, in_to TIMESTAMPTZ, in_interval INTERVAL) RETURNS TIMESTAMPTZ AS $$
+CREATE OR REPLACE FUNCTION generate_series_fixed(in_from TIMESTAMPTZ, in_to TIMESTAMPTZ, in_interval INTERVAL) RETURNS TABLE(s TIMESTAMPTZ) AS $$
   SELECT generate_series(in_from, in_to, in_interval)
   LIMIT  (EXTRACT(EPOCH FROM (in_to - in_from))/EXTRACT(EPOCH FROM in_interval)) + 1; -- I am unsure about the exact formula, but over estimating 1 row is fine...
 $$ LANGUAGE SQL STABLE;
