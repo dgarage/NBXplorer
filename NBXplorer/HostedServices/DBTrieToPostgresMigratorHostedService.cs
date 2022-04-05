@@ -174,10 +174,15 @@ namespace NBXplorer.HostedServices
 		private async Task RegisterTypes(System.Data.Common.DbConnection conn)
 		{
 			var pconn = (Npgsql.NpgsqlConnection)conn;
-			await pconn.ExecuteAsync(
-				"CREATE TYPE m_txs AS (tx_id TEXT, raw BYTEA, seen_at TIMESTAMPTZ);" +
-				"CREATE TYPE m_blks_txs AS (tx_id TEXT, blk_id TEXT);" +
-				"CREATE TYPE m_evt AS (id BIGINT, type TEXT, data JSONB);");
+			try
+			{
+				await pconn.ExecuteAsync(
+					"CREATE TYPE m_txs AS (tx_id TEXT, raw BYTEA, seen_at TIMESTAMPTZ);" +
+					"CREATE TYPE m_blks_txs AS (tx_id TEXT, blk_id TEXT);" +
+					"CREATE TYPE m_evt AS (id BIGINT, type TEXT, data JSONB);");
+			}
+			// They may already exists
+			catch { }
 			pconn.ReloadTypes();
 			pconn.TypeMapper.MapComposite<UpdateTransaction>("m_txs");
 			pconn.TypeMapper.MapComposite<UpdateBlockTransaction>("m_blks_txs");

@@ -230,27 +230,19 @@ namespace NBXplorer.Backends.Postgres
 			return await GenerateAddressesCore(connection, strategy, derivationFeature, query);
 		}
 
+		record GapNextIndex(long gap, long next_idx);
 		internal async Task<int> GenerateAddressesCore(DbConnection connection, DerivationStrategyBase strategy, DerivationFeature derivationFeature, GenerateAddressQuery query)
 		{
-			query = query ?? new GenerateAddressQuery();
-
 			var descriptorKey = GetDescriptorKey(strategy, derivationFeature);
 			var walletKey = GetWalletKey(strategy);
-			var gap = await connection.ExecuteScalarAsync<int>(
-				"SELECT gap FROM descriptors " +
-				"WHERE code=@code AND descriptor=@descriptor", descriptorKey);
-			var toGenerate = gap >= MinPoolSize ? 0 : Math.Max(0, MaxPoolSize - gap);
-			if (query.MaxAddresses is int max)
-				toGenerate = Math.Min(max, toGenerate);
-			if (query.MinAddresses is int min)
-				toGenerate = Math.Max(min, toGenerate);
-			if (toGenerate == 0)
+			var gapNextIndex = await GetGapAndNextIdx(connection, descriptorKey);
+			long toGenerate = ToGenerateCount(query, gapNextIndex?.gap);
+			if (gapNextIndex is not null && toGenerate == 0)
 				return 0;
 			var keyTemplate = KeyPathTemplates.GetKeyPathTemplate(derivationFeature);
-			retry:
-			var row = await connection.ExecuteScalarAsync<int?>("SELECT next_idx FROM descriptors WHERE code=@code AND descriptor=@descriptor", descriptorKey);
-			if (row is null)
+			if (gapNextIndex is null)
 			{
+				// Let's generate the wallet
 				await connection.ExecuteAsync("INSERT INTO wallets VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING", walletKey);
 				await connection.ExecuteAsync(
 					"INSERT INTO descriptors VALUES (@code, @descriptor, @metadata::JSONB) ON CONFLICT DO NOTHING;" +
@@ -267,36 +259,66 @@ namespace NBXplorer.Backends.Postgres
 						}),
 						wallet_id = walletKey.wid
 					});
-				goto retry;
+				gapNextIndex = await GetGapAndNextIdx(connection, descriptorKey);
+				toGenerate = ToGenerateCount(query, gapNextIndex?.gap);
 			}
-			if (row is null)
+			if (gapNextIndex is null)
 				return 0;
-			var nextIndex = row.Value;
-			var line = strategy.GetLineFor(keyTemplate);
-			var scriptpubkeys = new Script[toGenerate];
-			var linesScriptpubkeys = new DescriptorScriptInsert[toGenerate];
+			long totalGenerated = 0;
 
-			Parallel.For(nextIndex, nextIndex + toGenerate, i =>
+			do
 			{
-				var derivation = line.Derive((uint)i);
-				scriptpubkeys[i - nextIndex] = derivation.ScriptPubKey;
+				var nextIndex = gapNextIndex.next_idx;
+				var line = strategy.GetLineFor(keyTemplate);
+				var scriptpubkeys = new Script[toGenerate];
+				var linesScriptpubkeys = new DescriptorScriptInsert[toGenerate];
+				Parallel.For(nextIndex, nextIndex + toGenerate, i =>
+				{
+					var derivation = line.Derive((uint)i);
+					scriptpubkeys[i - nextIndex] = derivation.ScriptPubKey;
 
-				var addr = derivation.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork);
-				JObject metadata = GetDescriptorScriptMetadata(strategy, line.KeyPathTemplate.GetKeyPath((int)i, false), derivation, addr);
-				linesScriptpubkeys[i - nextIndex] = new DescriptorScriptInsert(
-					descriptorKey.descriptor,
-					i,
-					derivation.ScriptPubKey.ToHex(),
-					metadata?.ToString(Formatting.None),
-					addr.ToString(),
-					false);
-			});
+					var addr = derivation.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork);
+					JObject metadata = GetDescriptorScriptMetadata(strategy, line.KeyPathTemplate.GetKeyPath((int)i, false), derivation, addr);
+					linesScriptpubkeys[i - nextIndex] = new DescriptorScriptInsert(
+						descriptorKey.descriptor,
+						(int)i,
+						derivation.ScriptPubKey.ToHex(),
+						metadata?.ToString(Formatting.None),
+						addr.ToString(),
+						false);
+				});
+				foreach (var batch in linesScriptpubkeys.Batch(10_000))
+				{
+					await InsertDescriptorsScripts(connection, batch);
+				}
+				totalGenerated += toGenerate;
 
-			foreach (var batch in linesScriptpubkeys.Batch(10_000))
-			{
-				await InsertDescriptorsScripts(connection, batch);
-			}
+				// More than one loop should never happen, but it may happen if after generating the addresses, the new gap may
+				// still be not enough, because the scripts we generated may have been tracked before
+				// and may have received UTXOs
+				gapNextIndex = await GetGapAndNextIdx(connection, descriptorKey);
+				toGenerate = ToGenerateCount(null, gapNextIndex?.gap);
+				if (query?.MaxAddresses is int m && totalGenerated >= m)
+					toGenerate = 0;
+			} while (toGenerate != 0);
+			return (int)totalGenerated;
+		}
+
+		private long ToGenerateCount(GenerateAddressQuery query, long? gap)
+		{
+			var toGenerate = (gap is null || gap >= MinPoolSize) ? 0 : Math.Max(0, MaxPoolSize - gap.Value);
+			if (query?.MaxAddresses is int max)
+				toGenerate = Math.Min(max, toGenerate);
+			if (query?.MinAddresses is int min)
+				toGenerate = Math.Max(min, toGenerate);
 			return toGenerate;
+		}
+
+		private static async Task<GapNextIndex> GetGapAndNextIdx(DbConnection connection, DescriptorKey descriptorKey)
+		{
+			return await connection.QueryFirstOrDefaultAsync<GapNextIndex>(
+							"SELECT gap, next_idx FROM descriptors " +
+							"WHERE code=@code AND descriptor=@descriptor", descriptorKey);
 		}
 
 		private async Task InsertDescriptorsScripts(DbConnection connection, IList<DescriptorScriptInsert> batch)
@@ -749,11 +771,18 @@ namespace NBXplorer.Backends.Postgres
 				"LIMIT 1 OFFSET @skip", new { key.code, key.descriptor, skip = n });
 			if (unused is null)
 			{
-				if (await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM descriptors WHERE code=@code AND descriptor=@descriptor", new { key.code, key.descriptor }) == 1)
+				// If we don't find unused address, then either:
+				// * We never tracked the wallet
+				// * We tracked it, but due to a bug from DBTrie implementation, the change descriptor wasn't track.
+				var walletId = DBUtils.nbxv1_get_wallet_id(Network.CryptoCode, strategy.ToString());
+				if (await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM wallets WHERE wallet_id=@walletId", new { walletId }) == 0)
 				{
-					if (await GenerateAddressesCore(connection, strategy, derivationFeature, null) != 0)
-						goto retry;
+					// We never tracked it, returns null
+					return null;
 				}
+				// We tracked it, but encountered the bug from DBTrie. We need to generate the descriptor.
+				if (await GenerateAddressesCore(connection, strategy, derivationFeature, null) != 0)
+					goto retry;
 				return null;
 			}
 			if (reserve)
