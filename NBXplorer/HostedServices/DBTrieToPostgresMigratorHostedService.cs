@@ -42,6 +42,7 @@ namespace NBXplorer.HostedServices
 			public bool TrackedTransactionsMigrated { get; set; }
 			public bool TrackedTransactionsInputsMigrated { get; set; }
 			public bool BlocksMigrated { get; set; }
+			public bool FullyUpdated => TrackedTransactionsInputsMigrated;
 		}
 		public DBTrieToPostgresMigratorHostedService(
 			RepositoryProvider repositoryProvider,
@@ -146,11 +147,19 @@ namespace NBXplorer.HostedServices
 				return;
 			}
 			var logger = LoggerFactory.CreateLogger($"NBXplorer.PostgresMigration");
-			await using (var conn = await ConnectionFactory.CreateConnection())
+			await using (var conn = await ConnectionFactory.CreateConnection(builder =>
+			{
+				builder.CommandTimeout = 180;
+			}))
 			{
 				logger.LogInformation($"Running ANALYZE and VACUUM FULL...");
-				await conn.ExecuteAsync("VACUUM FULL;");
-				await conn.ExecuteAsync("ANALYZE;");
+				try
+				{
+					await conn.ExecuteAsync("VACUUM FULL;");
+					await conn.ExecuteAsync("ANALYZE;");
+				}
+				// Don't care if it fails
+				catch { }
 			}
 			w.Stop();
 			logger.LogInformation($"The migration completed in {(int)w.Elapsed.TotalMinutes} minutes.");
@@ -216,9 +225,11 @@ namespace NBXplorer.HostedServices
 			{
 				builder.CommandTimeout = 120;
 			});
-			await RegisterTypes(conn);
 			var data = await conn.QueryFirstOrDefaultAsync<string>("SELECT data_json FROM nbxv1_settings WHERE code=@code AND key='MigrationProgress'", new { code = network.CryptoCode });
 			var progress = data is null ? new MigrationProgress() : JsonConvert.DeserializeObject<MigrationProgress>(data);
+			if (progress.FullyUpdated)
+				return;
+			await RegisterTypes(conn);
 			if (!progress.EventsMigrated)
 			{
 				if (!ExplorerConfiguration.NoMigrateEvents)
