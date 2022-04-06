@@ -74,7 +74,7 @@ namespace NBXplorer.Backends.Postgres
 			private async Task IndexerLoopCore(CancellationToken token)
 			{
 				await using var conn = await ConnectionFactory.CreateConnectionHelper(Network);
-				await ConnectNode(token);
+				await ConnectNode(token, true);
 				await foreach (var item in _Channel.Reader.ReadAllAsync(token))
 				{
 					if (item is PullBlocks pb)
@@ -147,7 +147,7 @@ namespace NBXplorer.Backends.Postgres
 					}
 					if (item is NodeDisconnected)
 					{
-						await ConnectNode(token);
+						await ConnectNode(token, false);
 					}
 					if (item is NewTransaction nt)
 					{
@@ -183,11 +183,11 @@ namespace NBXplorer.Backends.Postgres
 
 			private static TimeSpan PullBlockTimeout = TimeSpan.FromMinutes(1.0);
 
-			private async Task ConnectNode(CancellationToken token)
+			private async Task ConnectNode(CancellationToken token, bool forceRestart)
 			{
 				if (_Node is not null)
 				{
-					if (_Node.State == NodeState.HandShaked)
+					if (!forceRestart && _Node.State == NodeState.HandShaked)
 						return;
 					_Node.DisconnectAsync("Restarting");
 					_Node = null;
@@ -245,6 +245,8 @@ namespace NBXplorer.Backends.Postgres
 					State = BitcoinDWaiterState.NBXplorerSynching;
 					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
 					_Node = node;
+					EmptyChannel(_Channel);
+					EmptyChannel(_DownloadedBlocks);
 					node.MessageReceived += Node_MessageReceived;
 					node.Disconnected += Node_Disconnected;
 
@@ -258,6 +260,12 @@ namespace NBXplorer.Backends.Postgres
 					await UpdateState();
 				}
 			}
+
+			private void EmptyChannel<T>(Channel<T> channel)
+			{
+				while (channel.Reader.TryRead(out _)) { }
+			}
+
 			bool firstConnect = true;
 			bool askMempoolOnReady = false;
 			private async Task<BlockLocator> AskNextHeaders()
@@ -334,14 +342,15 @@ namespace NBXplorer.Backends.Postgres
 				EventAggregator.Publish(new RawBlockEvent(block, this.Network), true);
 				lastIndexedBlock = slimChainedBlock;
 			}
-
 			private async Task SaveMatches(DbConnectionHelper conn, List<Transaction> transactions, SlimChainedBlock slimChainedBlock, bool fireEvents)
 			{
 				foreach (var tx in transactions)
 					tx.PrecomputeHash(false, true);
 				var now = DateTimeOffset.UtcNow;
 				if (slimChainedBlock != null)
+				{
 					await conn.NewBlock(slimChainedBlock);
+				}
 				var matches = await Repository.GetMatchesAndSave(conn, transactions, slimChainedBlock, now, true);
 				_ = AddressPoolService.GenerateAddresses(Network, matches);
 				if (slimChainedBlock != null)
