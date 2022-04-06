@@ -526,7 +526,7 @@ namespace NBXplorer.Backends.Postgres
 
 			public RPCClient GetConnectedClient()
 			{
-				if (State == BitcoinDWaiterState.NBXplorerSynching || State == BitcoinDWaiterState.Ready)
+				if (State == BitcoinDWaiterState.CoreSynching || State == BitcoinDWaiterState.NBXplorerSynching || State == BitcoinDWaiterState.Ready)
 					return RPCClient;
 				return null;
 			}
