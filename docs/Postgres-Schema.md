@@ -67,6 +67,8 @@ Output:
 
 `get_wallets_recent(in_wallet_id TEXT, in_interval INTERVAL, in_limit INT, in_offset INT)`
 
+`get_wallets_recent(in_wallet_id TEXT, in_code TEXT, in_interval INTERVAL, in_limit INT, in_offset INT)`
+
 See what has going on recently in a wallet.
 
 Better to use on Postgres 13+, as it greatly benefits from incremental sort.
