@@ -232,7 +232,8 @@ namespace NBXplorer.Backends.Postgres
 					{
 						await RPCClient.WarmupBlockchain(Logger);
 					}
-
+					// Need NetworkInfo for the get status
+					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
 					retry:
 					BlockchainInfo = await RPCClient.GetBlockchainInfoAsyncEx();
 					if (BlockchainInfo.IsSynching(Network))
@@ -243,6 +244,7 @@ namespace NBXplorer.Backends.Postgres
 						goto retry;
 					}
 					State = BitcoinDWaiterState.NBXplorerSynching;
+					// Refresh the NetworkInfo that may have become different while it was synching.
 					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
 					_Node = node;
 					EmptyChannel(_Channel);
