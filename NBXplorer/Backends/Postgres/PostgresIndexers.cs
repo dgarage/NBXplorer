@@ -306,9 +306,9 @@ namespace NBXplorer.Backends.Postgres
 				else if (lastIndexedBlock != null)
 				{
 					int minBlock = 6;
-					// Prevent some corner cases in tests
+					// Prevent some corner cases in tests, if we suddenly mine 200 blocks, we should still be synched on regtest
 					if (Network.NBitcoinNetwork.ChainName == ChainName.Regtest)
-						minBlock = 1;
+						minBlock = 200;
 					State = blockchainInfo.Headers - lastIndexedBlock.Height < minBlock ? BitcoinDWaiterState.Ready : BitcoinDWaiterState.NBXplorerSynching;
 				}
 			}
