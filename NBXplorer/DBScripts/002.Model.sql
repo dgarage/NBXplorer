@@ -977,19 +977,27 @@ CREATE OR REPLACE PROCEDURE save_matches(in_code TEXT, in_seen_at TIMESTAMPTZ) L
 DECLARE
   r RECORD;
 BEGIN
-  FOR r IN
-	SELECT * FROM matched_outs
-  LOOP
-	INSERT INTO txs (code, tx_id) VALUES (in_code, r.tx_id) ON CONFLICT (code, tx_id) DO UPDATE SET seen_at=LEAST(in_seen_at, txs.seen_at);
-	INSERT INTO outs (code, tx_id, idx, script, value, asset_id) VALUES (in_code, r.tx_id, r.idx, r.script, r.value, r.asset_id) ON CONFLICT DO NOTHING;
-  END LOOP;
+  
+  INSERT INTO txs (code, tx_id, seen_at)
+  SELECT in_code, q.tx_id, in_seen_at FROM
+  (
+	SELECT tx_id FROM matched_outs
+	UNION
+	SELECT tx_id FROM matched_ins
+  ) q
+  ON CONFLICT (code, tx_id)
+  DO UPDATE SET seen_at=in_seen_at
+  WHERE in_seen_at < txs.seen_at;
 
-  FOR r IN
-	SELECT * FROM matched_ins
-  LOOP
-	INSERT INTO txs (code, tx_id) VALUES (in_code, r.tx_id) ON CONFLICT (code, tx_id) DO UPDATE SET seen_at=LEAST(in_seen_at, txs.seen_at);
-	INSERT INTO ins (code, tx_id, idx, spent_tx_id, spent_idx) VALUES (in_code, r.tx_id, r.idx, r.spent_tx_id, r.spent_idx) ON CONFLICT DO NOTHING;
-  END LOOP;
+  INSERT INTO outs (code, tx_id, idx, script, value, asset_id)
+  SELECT in_code, tx_id, idx, script, value, asset_id
+  FROM matched_outs
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO ins (code, tx_id, idx, spent_tx_id, spent_idx)
+  SELECT in_code, tx_id, idx, spent_tx_id, spent_idx
+  FROM matched_ins
+  ON CONFLICT DO NOTHING;
 
   INSERT INTO spent_outs
   SELECT in_code, spent_tx_id, spent_idx, tx_id FROM new_ins
