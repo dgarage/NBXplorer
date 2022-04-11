@@ -149,7 +149,7 @@ namespace NBXplorer.HostedServices
 			var logger = LoggerFactory.CreateLogger($"NBXplorer.PostgresMigration");
 			await using (var conn = await ConnectionFactory.CreateConnection(builder =>
 			{
-				builder.CommandTimeout = 180;
+				builder.CommandTimeout = 60 * 15;
 			}))
 			{
 				logger.LogInformation($"Running ANALYZE and VACUUM FULL...");
