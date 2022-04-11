@@ -49,7 +49,7 @@ namespace NBXplorer.Backends.Postgres
 		}
 		public IRepository GetRepository(string cryptoCode)
 		{
-			_Repositories.TryGetValue(cryptoCode, out PostgresRepository repository);
+			_Repositories.TryGetValue(cryptoCode.ToUpperInvariant(), out PostgresRepository repository);
 			return repository;
 		}
 		public IRepository GetRepository(NBXplorerNetwork network)

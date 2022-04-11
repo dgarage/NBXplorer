@@ -51,7 +51,7 @@ namespace NBXplorer.Backends.DBTrie
 
 		public IRepository GetRepository(string cryptoCode)
 		{
-			_Repositories.TryGetValue(cryptoCode, out Repository repository);
+			_Repositories.TryGetValue(cryptoCode.ToUpperInvariant(), out Repository repository);
 			return repository;
 		}
 		public IRepository GetRepository(NBXplorerNetwork network)
