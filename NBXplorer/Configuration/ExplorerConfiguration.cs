@@ -300,6 +300,5 @@ namespace NBXplorer.Configuration
         public string RabbitMqBlockExchange { get; set; }
 
 		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
-		public bool MigrateToPostgres { get; set; }
 	}
 }

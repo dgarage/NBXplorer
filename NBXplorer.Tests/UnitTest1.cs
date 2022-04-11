@@ -1757,7 +1757,7 @@ namespace NBXplorer.Tests
 					var blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
 					// Sometimes Postgres backend emit one more block during warmup. That's not a bug,
 					// but make test flaky.
-					if (backend == Backend.Postgres && blockEvent.Hash != blockEvent.Hash)
+					if (backend == Backend.Postgres && blockEvent.Hash != expectedBlockId)
 						blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
 					Assert.Equal(expectedBlockId, blockEvent.Hash);
 					Assert.NotEqual(0, blockEvent.Height);
@@ -3006,6 +3006,8 @@ namespace NBXplorer.Tests
 				{
 					try
 					{
+						evts = session.GetEvents(lastId, longPolling: true, cancellation: cts.Token);
+						lastId = evts.Last().EventId;
 						evts = session.GetEvents(lastId, longPolling: true, cancellation: cts.Token);
 						Assert.False(true, "Should throws");
 					}
