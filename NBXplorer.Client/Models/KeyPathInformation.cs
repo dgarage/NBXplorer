@@ -51,9 +51,9 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
-		public int GetIndex()
+		public int GetIndex(KeyPathTemplates keyPathTemplates)
 		{
-			return (int)KeyPath.Indexes[KeyPath.Indexes.Length - 1];
+			return (int)keyPathTemplates.GetKeyPathTemplate(Feature).GetIndex(KeyPath);
 		}
 	}
 }

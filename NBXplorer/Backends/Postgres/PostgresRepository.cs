@@ -841,7 +841,7 @@ namespace NBXplorer.Backends.Postgres
 				{
 					descriptorInsert.Add(new DescriptorScriptInsert(
 						descriptorKey.descriptor,
-						ki.GetIndex(),
+						ki.GetIndex(KeyPathTemplates),
 						ki.ScriptPubKey.ToHex(),
 						metadata?.ToString(Formatting.None),
 						addr.ToString(),

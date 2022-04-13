@@ -1229,7 +1229,7 @@ namespace NBXplorer.Backends.DBTrie
 								var info = new KeyPathInformation(derivation, s, keyPathTemplates.GetDerivationFeature(kv.Value), kv.Value, _Network);
 								var availableIndex = GetAvailableKeysIndex(tx, s.DerivationStrategy, info.Feature);
 								var reservedIndex = GetReservedKeysIndex(tx, s.DerivationStrategy, info.Feature);
-								var index = info.GetIndex();
+								var index = info.GetIndex(keyPathTemplates);
 								var bytes = await availableIndex.SelectBytes(index);
 								if (bytes != null)
 								{
@@ -1326,7 +1326,7 @@ namespace NBXplorer.Backends.DBTrie
 				using (row)
 				{
 					var keyInfo = ToObject<KeyPathInformation>(await row.ReadValue());
-					if (keyInfo.GetIndex() <= highestIndex)
+					if (keyInfo.GetIndex(keyPathTemplates) <= highestIndex)
 					{
 						await index.RemoveKey(row.Key);
 						needRefill = true;
