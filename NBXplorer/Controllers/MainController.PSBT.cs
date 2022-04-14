@@ -181,7 +181,9 @@ namespace NBXplorer.Controllers
 				// Can be very intense CPU wise
 				Parallel.For(0, coins.Length, i =>
 				{
-					coins[i] = ((Coin)arr[i].AsCoin()).ToScriptCoin(hdKeys.Derive(arr[i].KeyPath).ScriptPubKey);
+					coins[i] = arr[i].AsCoin();
+					if (coins[i] is not ScriptCoin)
+						coins[i] = ((Coin)coins[i]).ToScriptCoin(hdKeys.Derive(arr[i].KeyPath).ScriptPubKey);
 				});
 			}
 			else

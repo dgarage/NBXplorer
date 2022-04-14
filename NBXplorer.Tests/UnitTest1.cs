@@ -392,6 +392,7 @@ namespace NBXplorer.Tests
 				Assert.NotNull(spendingPSBT.Inputs[0].WitnessUtxo);
 				///////////////////////////
 
+				CanCreatePSBTCore(tester, ScriptPubKeyType.SegwitP2SH);
 				CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
 				CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
 				CanCreatePSBTCore(tester, ScriptPubKeyType.TaprootBIP86);
@@ -545,6 +546,7 @@ namespace NBXplorer.Tests
 			var dest = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network);
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				RBF = false,
 				Seed = 0,
 				Destinations =
 						{
@@ -566,6 +568,7 @@ namespace NBXplorer.Tests
 			Logs.Tester.LogInformation("Let's check that we can use the reserved change as explicit change and end up with the same psbt");
 			var psbt3 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				RBF = false,
 				Seed = 0,
 				Destinations =
 						{

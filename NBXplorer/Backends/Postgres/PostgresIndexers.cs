@@ -73,10 +73,10 @@ namespace NBXplorer.Backends.Postgres
 
 			private async Task IndexerLoopCore(CancellationToken token)
 			{
-				await using var conn = await ConnectionFactory.CreateConnectionHelper(Network);
 				await ConnectNode(token, true);
 				await foreach (var item in _Channel.Reader.ReadAllAsync(token))
 				{
+					await using var conn = await ConnectionFactory.CreateConnectionHelper(Network, b => b.NoResetOnClose = true);
 					if (item is PullBlocks pb)
 					{
 						var headers = ConsolidatePullBlocks(_Channel.Reader, pb);

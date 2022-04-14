@@ -27,9 +27,13 @@ namespace NBXplorer.Backends.Postgres
 		public ExplorerConfiguration ExplorerConfiguration { get; }
 		public KeyPathTemplates KeyPathTemplates { get; }
 
-		public async Task<DbConnectionHelper> CreateConnectionHelper(NBXplorerNetwork network)
+		public Task<DbConnectionHelper> CreateConnectionHelper(NBXplorerNetwork network)
 		{
-			return new DbConnectionHelper(network, await CreateConnection(), KeyPathTemplates)
+			return CreateConnectionHelper(network, null);
+		}
+		public async Task<DbConnectionHelper> CreateConnectionHelper(NBXplorerNetwork network, Action<Npgsql.NpgsqlConnectionStringBuilder> action)
+		{
+			return new DbConnectionHelper(network, await CreateConnection(action), KeyPathTemplates)
 			{
 				MinPoolSize = ExplorerConfiguration.MinGapSize,
 				MaxPoolSize = ExplorerConfiguration.MaxGapSize

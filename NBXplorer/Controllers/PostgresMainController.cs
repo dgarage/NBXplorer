@@ -126,13 +126,14 @@ namespace NBXplorer.Controllers
 			await using var conn = await ConnectionFactory.CreateConnection();
 			var height = await conn.ExecuteScalarAsync<long>("SELECT height FROM get_tip(@code)", new { code = network.CryptoCode });
 			string join = derivationScheme is null ? string.Empty : " JOIN descriptors_scripts ds USING (code, script) JOIN descriptors d USING (code, descriptor)";
-			string column = derivationScheme is null ? "NULL as keypath, NULL as feature" : "nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, d.metadata->>'feature' feature";
+			string column = derivationScheme is null ? "NULL as redeem, NULL as keypath, NULL as feature" : "ds.metadata->>'redeem' redeem, nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, d.metadata->>'feature' feature";
 			var utxos = (await conn.QueryAsync<(
 				long? blk_height,
 				string tx_id,
 				int idx,
 				long value,
 				string script,
+				string redeem,
 				string keypath,
 				string feature,
 				bool mempool,
@@ -154,6 +155,7 @@ namespace NBXplorer.Controllers
 					Timestamp = new DateTimeOffset(utxo.tx_seen_at),
 					Value = Money.Satoshis(utxo.value),
 					ScriptPubKey = Script.FromHex(utxo.script),
+					Redeem = utxo.redeem is null ? null : Script.FromHex(utxo.redeem),
 					TransactionHash = uint256.Parse(utxo.tx_id)
 				};
 				u.Outpoint = new OutPoint(u.TransactionHash, u.Index);

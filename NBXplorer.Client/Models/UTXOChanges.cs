@@ -163,6 +163,8 @@ namespace NBXplorer.Models
 					if (derivation.Redeem != null)
 						coin = coin.ToScriptCoin(derivation.Redeem);
 				}
+				else if (Redeem is not null)
+					coin = coin.ToScriptCoin(Redeem);
 				return coin;
 			}
 			return null;
@@ -196,8 +198,8 @@ namespace NBXplorer.Models
 				_ScriptPubKey = value;
 			}
 		}
-
-
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+		public Script Redeem { get; set; }
 		IMoney _Value;
 		public IMoney Value
 		{
