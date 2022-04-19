@@ -110,6 +110,22 @@ Output:
 | "BTC"  | "75b7ba9a0718a95234e0b72edd2c721f3066be96eb8076f5b8f3f7160498d07f" | 1     | "0014ca76914ddc4fca3c37768e599302765ae633b62c" | 119727  | ""         | NULL          | NULL        | False           | False      | "0000009d64990b4a2b4bff9511d5c9713124905a0932026db5737a3ad44f0138" | NULL      | 60492        | False     | NULL          | "2021-10-19 10:08:54.301111+00" |
 | "BTC"  | "9fc4bc1b9dc2d60202fe4e483b54afb5da7efbbfe6966e5e51f4dc6dbc2363b5" | 0     | "0014ad054e107c046e69b5ab5abc1e44d25ac9378ff6" | 9900    | ""         | NULL          | NULL        | False           | False      | "0000010003e91e0f56787b9e02b5ae424bb681f09f2ec82f8e23b19a7a93b6e6" | NULL      | 53506        | False     | NULL          | "2021-09-01 02:13:21.469658+00" |
 
+
+### View: descriptors_scripts_unused
+
+List all the unused scripts from descriptors.
+
+Example: Get the next unused address:
+```SQL
+SELECT * FROM descriptors_scripts_unused
+WHERE code='BTC' AND descriptor='7obopunl9/6GVYkej++YMw6DHWXk'
+ORDER BY idx LIMIT 1 OFFSET 0;
+```
+Output:
+|code                                                                           |descriptor                  |script                                      |idx |addr                                      |d_metadata                 |ds_metadata|
+|-------------------------------------------------------------------------------|----------------------------|--------------------------------------------|----|------------------------------------------|---------------------------|-----------|
+|BTC                                                                            |7obopunl9/6GVYkej++YMw6DHWXk|001482137a4bbc144f8eb5a02fd2acda36c999a96242|3261|tb1qsgfh5jauz38caddq9lf2ek3kexv6jcjzxu9sfw|{"type": "NBXv1-Derivation", "feature": "Deposit", "derivation": "tpubDCtUtuEgpKLQJMu5uUUuDQub7D4CHjCJsfGhwrA3HV6X6CuV7Zj6RizRFwLPNKqkLrd8TM1Xt3QmwumqRRZAUTrVAA9T8uhyMfodChhFykD", "keyPathTemplate": "0/*"}|           |
+
 ### View: wallets_utxos
 
 List all the wallets UTXOs available:

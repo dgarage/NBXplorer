@@ -133,6 +133,10 @@ INSERT INTO wallets_scripts
 SELECT 'BTC', encode(sha256(('s-' || s)::bytea), 'hex') script, 'WHALE'
 FROM generate_series(0, 223000) s;
 
+UPDATE descriptors_scripts
+SET used='t'
+WHERE idx < 223000 - 30;
+
 ANALYZE;
 SELECT wallets_history_refresh();
 ANALYZE;

@@ -760,14 +760,12 @@ namespace NBXplorer.Backends.Postgres
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
 			var connection = helper.Connection;
 			var key = GetDescriptorKey(strategy, derivationFeature);
-			string additionalColumn = Network.IsElement ? ", ds.metadata->>'blindedAddress' blinded_addr" : string.Empty;
+			string additionalColumn = Network.IsElement ? ", ds_metadata->>'blindedAddress' blinded_addr" : string.Empty;
 			retry:
 			var unused = await connection.QueryFirstOrDefaultAsync(
-				$"SELECT s.script, s.addr, nbxv1_get_keypath(d.metadata , ds.idx) keypath, ds.metadata->>'redeem' redeem {additionalColumn} FROM descriptors_scripts ds " +
-				"JOIN scripts s USING (code, script) " +
-				"JOIN descriptors d USING (code, descriptor) " +
-				"WHERE ds.code=@code AND ds.descriptor=@descriptor AND ds.used='f' " +
-				"ORDER BY ds.idx " +
+				$"SELECT script, addr, nbxv1_get_keypath(d_metadata, idx) keypath, ds_metadata->>'redeem' redeem {additionalColumn} FROM descriptors_scripts_unused " +
+				"WHERE code=@code AND descriptor=@descriptor " +
+				"ORDER BY idx " +
 				"LIMIT 1 OFFSET @skip", new { key.code, key.descriptor, skip = n });
 			if (unused is null)
 			{

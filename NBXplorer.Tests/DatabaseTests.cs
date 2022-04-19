@@ -54,6 +54,7 @@ namespace NBXplorer.Tests
 			await Benchmark(conn, "SELECT blk_height, tx_id, wu.idx, value, script, nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, d.metadata->>'feature' feature, mempool, input_mempool, seen_at FROM wallets_utxos wu JOIN descriptors_scripts ds USING (code, script) JOIN descriptors d USING (code, descriptor) WHERE code='BTC' AND wallet_id='WHALE' AND immature IS FALSE ", 50);
 			await Benchmark(conn, "SELECT * FROM get_wallets_histogram('WHALE', 'BTC', '', '2022-01-01'::timestamptz, '2022-02-01'::timestamptz, interval '1 day');", 50);
 			await Benchmark(conn, "SELECT * FROM get_wallets_recent('WHALE', interval '1 week', 100, 0);", 50);
+			await Benchmark(conn, "SELECT * FROM descriptors_scripts_unused WHERE code='BTC' AND descriptor='WHALEDESC' ORDER BY idx LIMIT 1 OFFSET 0;", 50);
 		}
 
 		private static string GetScript(string script)
@@ -69,6 +70,8 @@ namespace NBXplorer.Tests
 
 		private async Task Benchmark(DbConnection connection, string script, int target)
 		{
+			bool analyzed = false;
+			retry:
 			// Warmup
 			await connection.ExecuteAsync(script);
 			Stopwatch stopwatch = new Stopwatch();
@@ -78,7 +81,15 @@ namespace NBXplorer.Tests
 			stopwatch.Stop();
 			var ms = ((int)TimeSpan.FromTicks(stopwatch.ElapsedTicks / iterations).TotalMilliseconds);
 			Logs.WriteLine(script + " : " + ms + " ms");
-			Assert.True(ms < target, "Unacceptable response time for " + script);
+			if (ms >= target)
+			{
+				if (!analyzed)
+				{
+					await connection.ExecuteAsync("ANALYZE;");
+					goto retry;
+				}
+				Assert.False(true, "Unacceptable response time for " + script);
+			}
 		}
 
 
