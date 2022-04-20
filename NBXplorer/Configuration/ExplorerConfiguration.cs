@@ -230,6 +230,10 @@ namespace NBXplorer.Configuration
 			{
 				Logs.Configuration.LogWarning("Warning: A DBTrie backend has been selected, but this backend is deprecated, only use if you haven't yet migrated to postgres. For more information about how to migrate, see https://github.com/dgarage/NBXplorer/tree/master/docs/Postgres-Migration.md");
 			}
+			if (IsDbTrie && IsPostgres)
+			{
+				throw new ConfigException("You need to select your backend implementation. But --dbtrie and --postgres are both specified.");
+			}
 			return this;
 		}
 

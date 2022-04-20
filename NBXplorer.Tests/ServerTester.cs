@@ -144,6 +144,7 @@ namespace NBXplorer.Tests
 		string PostgresConnectionString;
 		private void StartNBXplorer()
 		{
+			var additionalFlags = new List<string>();
 			var port = CustomServer.FreeTcpPort();
 			List<(string key, string value)> keyValues = new List<(string key, string value)>();
 			keyValues.Add(("conf", Path.Combine(datadir, "settings.config")));
@@ -154,7 +155,7 @@ namespace NBXplorer.Tests
 			}
 			else
 			{
-				AdditionalFlags.Add("--dbtrie");
+				additionalFlags.Add("--dbtrie");
 			}
 			keyValues.AddRange(AdditionalConfiguration);
 			keyValues.Add(("datadir", datadir));
@@ -189,7 +190,8 @@ namespace NBXplorer.Tests
 			}
 			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }
 			.Concat(new[] { $"--{CryptoCode.ToLowerInvariant()}hastxindex" }))
-			.Concat(AdditionalFlags).ToArray();
+			.Concat(AdditionalFlags)
+			.Concat(additionalFlags).ToArray();
 			Host = new WebHostBuilder()
 				.UseConfiguration(new DefaultConfiguration().CreateConfiguration(args))
 				.UseKestrel()
