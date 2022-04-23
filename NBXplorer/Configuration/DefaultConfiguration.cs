@@ -73,7 +73,7 @@ namespace NBXplorer.Configuration
 			app.Option("--cachechain", $"Whether the chain of header is locally cached for faster startup (default: true)", CommandOptionType.SingleValue);
 			app.Option("--rpcnotest", $"Faster start because RPC connection testing skipped (default: false)", CommandOptionType.SingleValue);
 			app.Option("--exposerpc", $"Expose the node RPC through the REST API (default: false)", CommandOptionType.SingleValue);
-			app.Option("--postgres", $"Use PostgresSQL backend. Set the connection string of the postgres backend (see https://www.connectionstrings.com/postgresql/)", CommandOptionType.SingleValue);
+			app.Option("--postgres", $"Use PostgresSQL backend. Set the connection string of the postgres backend (For example: \"User ID=postgres;Host=postgres;Port=5432;Application Name=nbxplorer;Database=nbxplorer\", more options on https://www.npgsql.org/doc/connection-string-parameters.html)", CommandOptionType.SingleValue);
 			app.Option("--dbtrie", $"Use DBTrie backend. This backend is deprecated, only use if you haven't yet migrated. For more information about how to migrate, see https://github.com/dgarage/NBXplorer/tree/master/docs/Postgres-Migration.md", CommandOptionType.BoolValue);
 			app.Option("--automigrate", $"If legacy installation detected, migrate it to postgres (default: false)", CommandOptionType.BoolValue);
 			app.Option("--deleteaftermigration", $"If automigrate is used, and this flag is true, the old DBTrie database will be automatically deleted after migration (default: false)", CommandOptionType.BoolValue);
