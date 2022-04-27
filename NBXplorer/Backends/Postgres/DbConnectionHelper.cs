@@ -227,7 +227,7 @@ namespace NBXplorer.Backends.Postgres
 
 		public async Task NewBlockCommit(uint256 blockHash)
 		{
-			await Connection.ExecuteAsync("UPDATE blks SET confirmed='t' WHERE blk_id=@blk_id AND confirmed IS FALSE;",
+			await Connection.ExecuteAsync("UPDATE blks SET confirmed='t' WHERE code=@code AND blk_id=@blk_id AND confirmed IS FALSE;",
 				new
 				{
 					code = Network.CryptoCode,
