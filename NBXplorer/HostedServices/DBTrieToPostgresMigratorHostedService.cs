@@ -457,7 +457,8 @@ namespace NBXplorer.HostedServices
 					using (row)
 					{
 						var s = Encoding.UTF8.GetString(row.Key.Span).Split('-');
-						var feature = Enum.Parse<DerivationFeature>(s[1]);
+						if (!Enum.TryParse<DerivationFeature>(s[1], out var feature))
+							continue; // This should never happen, but one user got a corruption on DBTrie before and this happen...
 						var scheme = ((DerivationSchemeTrackedSource)hashToTrackedSource[s[0]]).DerivationStrategy;
 						var key = postgresRepo.GetDescriptorKey(scheme, feature);
 						var idx = int.Parse(s[^1]);
