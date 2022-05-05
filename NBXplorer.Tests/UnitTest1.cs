@@ -396,6 +396,48 @@ namespace NBXplorer.Tests
 				CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
 				CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
 				CanCreatePSBTCore(tester, ScriptPubKeyType.TaprootBIP86);
+
+				// If we build a list of unconf transaction which is too long, the CreatePSBT should
+				// fail rather than create a transaction that can't be broadcasted.
+				var userExtKey = new ExtKey();
+				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
+				{
+					ScriptPubKeyType = ScriptPubKeyType.Segwit
+				});
+				tester.Client.Track(userDerivationScheme);
+				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
+				txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
+				tester.RPC.Generate(1);
+				tester.RPC.Generate(1);
+				for (int i = 0; i < 26; i++)
+				{
+					try
+					{
+						var psbt = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+						{
+							Destinations = {
+							new CreatePSBTDestination()
+							{
+								Destination = newAddress.Address,
+								SweepAll = true
+							}
+						},
+							FeePreference = new FeePreference() { ExplicitFeeRate = new FeeRate(2.0m) }
+						});
+						if (i == 25)
+							Assert.False(true, "CreatePSBT shouldn't have created a PSBT with a UTXO having too many ancestors");
+						psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
+						psbt.PSBT.Finalize();
+						Assert.True(tester.Client.Broadcast(psbt.PSBT.ExtractTransaction()).Success);
+					}
+					catch (NBXplorerException ex)
+					{
+						if (i == 25)
+							Assert.Equal("not-enough-funds", ex.Error.Code);
+						else
+							throw;
+					}
+				}
 			}
 		}
 

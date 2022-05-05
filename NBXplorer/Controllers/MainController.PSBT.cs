@@ -171,6 +171,40 @@ namespace NBXplorer.Controllers
 				availableCoinsByOutpoint = availableCoinsByOutpoint.Where(c => request.MinValue >= (Money)c.Value.Value).ToDictionary(o => o.Key, o => o.Value);
 			}
 
+			var unconfUtxos = utxos.Where(u => u.Confirmations is 0).ToList();
+
+
+			// We remove unconf utxos with too many ancestors, as it will result in a transaction
+			// that can't be broadcasted.
+			// We do only for BTC, as this isn't a shitcoin issue.
+			if (network.CryptoCode == "BTC" && unconfUtxos.Count > 0 && request.MinConfirmations == 0)
+			{
+				HashSet<uint256> requestedTxs = new HashSet<uint256>();
+				var rpc = RPCClients.Get(network);
+				rpc = rpc.PrepareBatch();
+				var mempoolEntries = 
+					unconfUtxos
+					.Where(u => requestedTxs.Add(u.Outpoint.Hash))
+					.Select(u => (u.Outpoint.Hash, rpc.SendCommandAsync(new RPCRequest("getmempoolentry", new[] { u.Outpoint.Hash.ToString() }) { ThrowIfRPCError = false }))).ToList();
+				await rpc.SendBatchAsync();
+				foreach (var result in mempoolEntries)
+				{
+					var mempoolEntryResponse = await result.Item2;
+					if (mempoolEntryResponse.Error is not null)
+						continue;
+					var ancestorCount = mempoolEntryResponse.Result["ancestorcount"].Value<int>();
+					// We hardcode the default -limitancestorcount to 25 here since we can't query it via RPC
+					if (ancestorCount >= 25)
+					{
+						var hash = result.Item1;
+						foreach (var u in unconfUtxos.Where(u => u.Outpoint.Hash == hash))
+						{
+							availableCoinsByOutpoint.Remove(u.Outpoint);
+						}
+					}
+				}
+			}
+
 			ICoin[] coins = null;
 			if (strategy.GetDerivation().Redeem != null)
 			{
