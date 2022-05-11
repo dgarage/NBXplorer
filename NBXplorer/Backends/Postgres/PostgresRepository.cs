@@ -1196,7 +1196,7 @@ namespace NBXplorer.Backends.Postgres
 					prev_id = s.Previous.ToString(),
 					height = s.Height
 				}).ToList();
-			await conn.Connection.ExecuteAsync("INSERT INTO blks (code, blk_id, prev_id, height) VALUES (@code, @blk_id, @prev_id, @height) ON CONFLICT DO NOTHING", parameters);
+			await conn.Connection.ExecuteAsync("INSERT INTO blks (code, blk_id, prev_id, height, confirmed) VALUES (@code, @blk_id, @prev_id, @height, 't') ON CONFLICT DO NOTHING", parameters);
 		}
 	}
 
