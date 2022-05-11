@@ -408,6 +408,8 @@ namespace NBXplorer.Tests
 				var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
 				txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
 				tester.RPC.Generate(1);
+				Thread.Sleep(500);
+				tester.RPC.Generate(1);
 				tester.RPC.Generate(1);
 				for (int i = 0; i < 26; i++)
 				{
@@ -3538,7 +3540,7 @@ namespace NBXplorer.Tests
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
 		[InlineData(Backend.DBTrie)]
-		public void CanScanUTXOSet(Backend backend)
+		public async Task CanScanUTXOSet(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
 			{
@@ -3656,6 +3658,20 @@ namespace NBXplorer.Tests
 				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
 				info = WaitScanFinish(tester.Client, pubkey);
 				Assert.Single(tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions);
+
+				if (backend == Backend.Postgres)
+				{
+					// Let's try to invalidate the blocks we indexed
+					tester.Client.Wipe(pubkey);
+					using var conn = await tester.GetService<Backends.Postgres.DbConnectionFactory>().CreateConnection();
+					await conn.ExecuteAsync("UPDATE blks SET confirmed='f';DELETE FROM blks;DELETE FROM txs;");
+
+					// We should find the tx again
+					Assert.Empty(tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions);
+					tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
+					info = WaitScanFinish(tester.Client, pubkey);
+					Assert.Single(tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions);
+				}
 			}
 		}
 
