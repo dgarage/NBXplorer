@@ -130,7 +130,7 @@ namespace NBXplorer.Backends.Postgres
 			}
 			return await Connection.ExecuteScalarAsync<bool>("CALL fetch_matches(@code, @outs, @ins, 'f');", new { code = Network.CryptoCode, outs = outs, ins = ins });
 		}
-		public async Task SaveTransactions(IEnumerable<(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool immature)> transactions, DateTimeOffset? now)
+		public async Task SaveTransactions(IEnumerable<(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool immature, DateTimeOffset? SeenAt)> transactions)
 		{
 			var parameters = transactions.Select(tx =>
 			new
@@ -140,17 +140,16 @@ namespace NBXplorer.Backends.Postgres
 				id = tx.Id?.ToString() ?? tx.Transaction?.GetHash()?.ToString(),
 				raw = tx.Transaction?.ToBytes(),
 				mempool = tx.BlockId is null,
-				seen_at = now is null ? default : now.Value,
+				seen_at = tx.SeenAt,
 				blk_idx = tx.BlockIndex is int i ? i : 0,
 				blk_height = tx.BlockHeight,
 				immature = tx.immature
 			})
 			.Where(o => o.id is not null)
 			.ToArray();
-			if (now is null)
-				await Connection.ExecuteAsync("INSERT INTO txs(code, tx_id, raw, immature) VALUES (@code, @id, @raw, @immature) ON CONFLICT (code, tx_id) DO UPDATE SET raw = COALESCE(@raw, txs.raw), immature=EXCLUDED.immature", parameters);
-			else
-				await Connection.ExecuteAsync("INSERT INTO txs(code, tx_id, raw, immature, seen_at) VALUES (@code, @id, @raw, @immature, @seen_at) ON CONFLICT (code, tx_id) DO UPDATE SET seen_at=LEAST(@seen_at, txs.seen_at), raw = COALESCE(@raw, txs.raw), immature=EXCLUDED.immature", parameters);
+			await Connection.ExecuteAsync("INSERT INTO txs(code, tx_id, raw, immature, seen_at) VALUES (@code, @id, @raw, @immature, COALESCE(@seen_at, CURRENT_TIMESTAMP)) " +
+										  " ON CONFLICT (code, tx_id) " +
+										  " DO UPDATE SET seen_at=LEAST(COALESCE(@seen_at, CURRENT_TIMESTAMP), txs.seen_at), raw = COALESCE(@raw, txs.raw), immature=EXCLUDED.immature", parameters);
 			await Connection.ExecuteAsync("INSERT INTO blks_txs VALUES (@code, @blk_id, @id, @blk_idx) ON CONFLICT DO NOTHING", parameters.Where(p => p.blk_id is not null).AsList());
 		}
 
