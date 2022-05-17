@@ -54,6 +54,13 @@ Read our [API Specification](docs/API.md), or our the [internal design of NBXplo
 
 * Install [.NET Core SDK v6.0 or above](https://www.microsoft.com/net/download)
 * Bitcoin Core instance synched and running (at least 0.16.0).
+* PostgresSQL v13+ (Technically 11+ works, but you may have performance issues at higher scale)
+
+There are two backend available:
+* DBTrie (with the `--dbtrie` flag)
+* [Postgres](docs/Postgres-Schema.md) (with the `--postgres` flags)
+
+However, `DBTrie` is now deprecated. We will continue to support it to give more time for our users [to migrate](docs/Postgres-Migration.md).
 
 ## API Specification
 
@@ -86,10 +93,10 @@ On Linux:
 ./run.sh --help
 ```
 
-Example, if you have ltc node and btc node on regtest (default configuration), and want to connect to them:
+Example, if you have ltc node and btc node on regtest (default configuration), and want to connect to them: (see documentation for other options in the [postgres connection string](https://www.npgsql.org/doc/connection-string-parameters.html))
 
 ```
-./run.sh --chains=btc,ltc --network=regtest
+./run.sh --chains=btc,ltc --network=regtest --postgres "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer"
 ```
 
 ## How to use the API?
