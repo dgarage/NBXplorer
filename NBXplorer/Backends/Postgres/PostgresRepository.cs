@@ -724,8 +724,12 @@ namespace NBXplorer.Backends.Postgres
 			var txsToFetch = includeTransactions ? trackedById.Keys.AsList() :
 												  // For double spend detection, we need the full transactions from unconfs
 												  trackedById.Where(t => t.Value.BlockHash is null).Select(t => t.Key).AsList();
-			var txRaws = await connection.Connection.QueryAsync<(string tx_id, byte[] raw)>(
-				"SELECT	tx_id, raw FROM txs WHERE code=@code AND tx_id=ANY(@txId) AND raw IS NOT NULL;", new { code = Network.CryptoCode, txId = txsToFetch });
+			var txRaws = txsToFetch.Count > 0
+				? await connection.Connection.QueryAsync<(string tx_id, byte[] raw)>(
+					"SELECT	t.tx_id, t.raw FROM unnest(@txId) i" +
+					"JOIN txs t ON t.code=@code AND t.tx_id=i " +
+					"WHERE t.raw IS NOT NULL;", new { code = Network.CryptoCode, txId = txsToFetch })
+				: Array.Empty<(string tx_id, byte[] raw)>();
 			foreach (var row in txRaws)
 			{
 				var tracked = trackedById[row.tx_id];
