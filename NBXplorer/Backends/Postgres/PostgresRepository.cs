@@ -726,7 +726,7 @@ namespace NBXplorer.Backends.Postgres
 												  trackedById.Where(t => t.Value.BlockHash is null).Select(t => t.Key).AsList();
 			var txRaws = txsToFetch.Count > 0
 				? await connection.Connection.QueryAsync<(string tx_id, byte[] raw)>(
-					"SELECT	t.tx_id, t.raw FROM unnest(@txId) i" +
+					"SELECT	t.tx_id, t.raw FROM unnest(@txId) i " +
 					"JOIN txs t ON t.code=@code AND t.tx_id=i " +
 					"WHERE t.raw IS NOT NULL;", new { code = Network.CryptoCode, txId = txsToFetch })
 				: Array.Empty<(string tx_id, byte[] raw)>();
