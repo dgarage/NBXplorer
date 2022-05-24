@@ -14,7 +14,7 @@ It has a bunch of features:
 * Can pass arguments via environment variable, command line or configuration file
 * Automatically reconnect to your node if the connection goes temporarily down
 * An easy to use REST API
-* Persistence (via in-file no-SQL datbase called DBreeze)
+* Persistence (via in-file no-SQL datbase called DBreeze or Postgres)
 * Connect via RPC to broadcast transaction instead of using the P2P protocol like this example
 * Connect via RPC to your trusted node to get the proper fee rate.
 * Altcoin support
