@@ -23,6 +23,7 @@ using Microsoft.Extensions.Configuration;
 using NBXplorer.Logging;
 using NBXplorer.DerivationStrategy;
 using System.Net.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace NBXplorer.Tests
 {
@@ -206,7 +207,7 @@ namespace NBXplorer.Tests
 				})
 				.UseStartup<Startup>()
 				.Build();
-
+			NBXplorer.Logging.Logs.Configure(Host.Services.GetRequiredService<ILoggerFactory>());
 			NBXplorerNetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
 			RPC = ((IRPCClients)Host.Services.GetService(typeof(IRPCClients))).Get(NBXplorerNetwork);
 			var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));

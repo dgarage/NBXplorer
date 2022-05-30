@@ -963,6 +963,7 @@ namespace NBXplorer.Tests
 				builder.AddFilter("System.Net.Http.HttpClient", LogLevel.Error);
 				builder.AddProvider(new XUnitLoggerProvider(Logs));
 			});
+			NBXplorer.Logging.Logs.Configure(container.BuildServiceProvider().GetRequiredService<ILoggerFactory>());
 			new Startup(conf).ConfigureServices(container);
 			var provider = container.BuildServiceProvider();
 			foreach (var service in provider.GetServices<IHostedService>())
