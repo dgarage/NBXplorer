@@ -142,7 +142,7 @@ namespace NBXplorer.Tests
 		public bool UseRabbitMQ { get; set; } = false;
 		public List<(string key, string value)> AdditionalConfiguration { get; set; } = new List<(string key, string value)>();
 		public List<string> AdditionalFlags = new List<string>();
-		string PostgresConnectionString;
+		internal string PostgresConnectionString;
 		private void StartNBXplorer()
 		{
 			var additionalFlags = new List<string>();

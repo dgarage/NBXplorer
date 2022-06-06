@@ -5,7 +5,7 @@ Knowing the SQL schema is useful in three situations:
 2. You want to do your own indexer on top of it (in a different language or for a crypto we don't support)
 3. You want to create your own API on top of it for features not exposed by NBXplorer's API.
 
-This model is contained in [this SQL script](https://github.com/dgarage/NBXplorer/blob/master/NBXplorer/DBScripts/002.Model.sql).
+This model is contained in [this SQL script](https://github.com/dgarage/NBXplorer/blob/master/NBXplorer/DBScripts/FullSchema.sql).
 There are additional comments there about the meaning of columns and views.
 
 Here is a diagram:

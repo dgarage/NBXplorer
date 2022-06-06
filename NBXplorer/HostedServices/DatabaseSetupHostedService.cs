@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NBXplorer.Backends.Postgres;
 using Npgsql;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -65,6 +66,8 @@ namespace NBXplorer.HostedServices
 																 .OrderBy(n => n))
 				{
 					var parts = resource.Split('.');
+					if (!int.TryParse(parts[^3], NumberStyles.Any, CultureInfo.InvariantCulture, out _))
+						continue;
 					var scriptName = $"{parts[^3]}.{parts[^2]}";
 					if (executed.Contains(scriptName))
 						continue;
