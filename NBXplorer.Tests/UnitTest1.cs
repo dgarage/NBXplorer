@@ -3677,6 +3677,7 @@ namespace NBXplorer.Tests
 
 		private ScanUTXOInformation WaitScanFinish(ExplorerClient client, DirectDerivationStrategy pubkey)
 		{
+			using var cts = new CancellationTokenSource(30_000);
 			while (true)
 			{
 				var info = client.GetScanUTXOSetInformation(pubkey);
@@ -3689,6 +3690,8 @@ namespace NBXplorer.Tests
 				}
 				if (info.Status == ScanUTXOStatus.Error)
 					Assert.False(true, $"Scanning should not have failed {info.Error}");
+				if (cts.IsCancellationRequested)
+					Assert.False(true, $"Scanning seems to be stuck (State: {info.Status})");
 				Assert.Null(info.Progress.CompletedAt);
 				Thread.Sleep(100);
 			}
