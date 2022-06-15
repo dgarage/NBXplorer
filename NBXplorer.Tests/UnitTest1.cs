@@ -3562,7 +3562,7 @@ namespace NBXplorer.Tests
 				var transactions = tester.Client.GetTransactions(pubkey);
 				Assert.Empty(transactions.ConfirmedTransactions.Transactions);
 				Assert.Equal(0, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex(KeyPathTemplates.Default));
-
+				 
 				// W00t! let's scan and see if it now appear in the UTXO
 				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
 				var info = WaitScanFinish(tester.Client, pubkey);
