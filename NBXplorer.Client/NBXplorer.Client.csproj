@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>netstandard2.1;netstandard2.0</TargetFrameworks>
+		<TargetFrameworks>netstandard2.1</TargetFrameworks>
 		<Company>Digital Garage</Company>
 		<Version>4.2.0</Version>
 		<Copyright>Copyright © Digital Garage 2017</Copyright>
@@ -29,7 +29,6 @@
 	<ItemGroup>
 		<PackageReference Include="NBitcoin" Version="7.0.8" />
 		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.8" />
-		<PackageReference Include="NicolasDorier.StandardConfiguration" Version="1.0.0.18" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>
 </Project>

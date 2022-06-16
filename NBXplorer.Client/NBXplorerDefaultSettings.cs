@@ -59,7 +59,7 @@ namespace NBXplorer
 				if (_Settings.TryGetValue(networkType, out v))
 					return v;
 				var settings = new NBXplorerDefaultSettings();
-				settings.DefaultDataDirectory = StandardConfiguration.DefaultDataDirectory.GetDirectory("NBXplorer", GetFolderName(networkType), false);
+				settings.DefaultDataDirectory = GetDirectory("NBXplorer", GetFolderName(networkType), false);
 				settings.DefaultConfigurationFile = Path.Combine(settings.DefaultDataDirectory, "settings.config");
 				settings.DefaultCookieFile = Path.Combine(settings.DefaultDataDirectory, ".cookie");
 				settings.DefaultPort = (networkType == ChainName.Mainnet ? 24444 :
@@ -69,6 +69,49 @@ namespace NBXplorer
 				_Settings.Add(networkType, settings);
 				return settings;
 			}
+		}
+		static string GetDirectory(string appDirectory, string subDirectory, bool createIfNotExists = true)
+		{
+			string directory = null;
+			var home = Environment.GetEnvironmentVariable("HOME");
+			var localAppData = Environment.GetEnvironmentVariable("APPDATA");
+			if (!string.IsNullOrEmpty(home) && string.IsNullOrEmpty(localAppData))
+			{
+				directory = home;
+				directory = Path.Combine(directory, "." + appDirectory.ToLowerInvariant());
+			}
+			else
+			{
+				if (!string.IsNullOrEmpty(localAppData))
+				{
+					directory = localAppData;
+					directory = Path.Combine(directory, appDirectory);
+				}
+				else if (createIfNotExists)
+				{
+					throw new DirectoryNotFoundException("Could not find suitable datadir environment variables HOME or APPDATA are not set");
+				}
+				else
+					return string.Empty;
+			}
+
+			if (createIfNotExists)
+			{
+				if (!Directory.Exists(directory))
+				{
+					Directory.CreateDirectory(directory);
+				}
+				directory = Path.Combine(directory, subDirectory);
+				if (!Directory.Exists(directory))
+				{
+					Directory.CreateDirectory(directory);
+				}
+			}
+			else
+			{
+				directory = Path.Combine(directory, subDirectory);
+			}
+			return directory;
 		}
 	}
 }
