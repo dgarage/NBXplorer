@@ -22,3 +22,5 @@ While we still support DBTrie, it is deprecated. We provide a migration path for
 The migration will take less than 5 minutes for the majority of small instance.
 
 On bigger instance, our testing on the mainnet demo server of BTCPay Server with 800 000 addresses and 44 000 transactions (around the DBTrie database being around 5GB) took around 40 minutes.
+
+Afterwards you need to set `BTCPAY_EXPLORERPOSTGRES` to the same connection string as NBXplorer.
