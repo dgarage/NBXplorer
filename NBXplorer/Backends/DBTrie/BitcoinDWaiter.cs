@@ -282,7 +282,6 @@ namespace NBXplorer.Backends.DBTrie
 			}
 			catch { }
 		}
-		bool _BanListLoaded;
 		async Task<bool> StepAsync(CancellationToken token)
 		{
 			var oldState = State;
@@ -295,20 +294,6 @@ namespace NBXplorer.Backends.DBTrie
 					try
 					{
 						blockchainInfo = await _OriginalRPC.GetBlockchainInfoAsyncEx();
-						if (_Network.CryptoCode == "BTC" &&
-							_Network.NBitcoinNetwork.ChainName == ChainName.Mainnet &&
-							!_BanListLoaded)
-						{
-							try
-							{
-								await LoadBanList();
-								_BanListLoaded = true;
-							}
-							catch (Exception ex)
-							{
-								Logs.Explorer.LogWarning($"{Network.CryptoCode}: Error while trying to load the ban list, skipping... ({ex.Message})");
-							}
-						}
 						if (blockchainInfo != null && _Network.NBitcoinNetwork.ChainName == ChainName.Regtest)
 						{
 							if (await _OriginalRPC.WarmupBlockchain(Logs.Explorer))
@@ -394,33 +379,6 @@ namespace NBXplorer.Backends.DBTrie
 		internal ExplorerBehavior GetExplorerBehavior()
 		{
 			return GetHandshakedNode()?.Behaviors?.Find<ExplorerBehavior>();
-		}
-
-		
-
-		private async Task LoadBanList()
-		{
-			var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("NBXplorer.banlist.cli.txt");
-			string content = null;
-			using (var reader = new StreamReader(stream, Encoding.UTF8))
-			{
-				content = reader.ReadToEnd();
-			}
-			var bannedLines = content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-			var batch = _OriginalRPC.PrepareBatch();
-			var commands = bannedLines
-						.Where(o => o.Length > 0 && o[0] != '#')
-						.Select(b => b.Split(' ')[2])
-						.Select(ip => batch.SendCommandAsync(new RPCRequest("setban", new object[] { ip, "add", 31557600 }) { ThrowIfRPCError = false }))
-						.ToArray();
-			await batch.SendBatchAsync();
-			foreach (var command in commands)
-			{
-				var result = await command;
-				if (result.Error != null && result.Error.Code != RPCErrorCode.RPC_CLIENT_NODE_ALREADY_ADDED)
-					result.ThrowIfError();
-			}
-			Logs.Configuration.LogInformation($"{_Network.CryptoCode}: Node banlist loaded");
 		}
 
 		private async Task ConnectToBitcoinD(CancellationToken cancellation, GetBlockchainInfoResponse blockchainInfo)

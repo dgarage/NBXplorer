@@ -9,7 +9,6 @@
 	  <LangVersion>10.0</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="banlist.cli.txt" />
     <None Remove="DBScripts\003.Legacy.sql" />
     <None Remove="DBScripts\004.Fixup.sql" />
     <None Remove="DBScripts\005.ToBTCFix.sql" />
@@ -21,7 +20,6 @@
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />
-    <EmbeddedResource Include="banlist.cli.txt" />
   </ItemGroup>
 
   <ItemGroup>
