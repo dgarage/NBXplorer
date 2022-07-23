@@ -28,12 +28,12 @@
 	  <Aliases>DBTrieLib</Aliases>
 	</PackageReference>
     <PackageReference Include="Microsoft.Azure.ServiceBus" Version="4.2.1" />
-    <PackageReference Include="Npgsql" Version="6.0.3" />
+    <PackageReference Include="Npgsql" Version="6.0.5" />
     <PackageReference Include="RabbitMQ.Client" Version="5.1.2" />
 	  <PackageReference Include="NicolasDorier.CommandLine" Version="2.0.0" />
 	  <PackageReference Include="NicolasDorier.CommandLine.Configuration" Version="2.0.0" />
 	<PackageReference Include="NicolasDorier.StandardConfiguration" Version="2.0.0" />
-	<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="6.0.1"></PackageReference>
+	<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="6.0.7"></PackageReference>
     <ProjectReference Include="..\NBXplorer.Client\NBXplorer.Client.csproj" />
   </ItemGroup>
 
