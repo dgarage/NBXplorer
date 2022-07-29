@@ -213,7 +213,7 @@ namespace NBXplorer.Controllers
 				try
 				{
 					var rpc2 = rpc.Clone();
-					using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1.0));
+					using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10.0));
 					blockchainInfo = await rpc2.GetBlockchainInfoAsyncEx(cts.Token);
 				}
 				catch (HttpRequestException ex) when (ex.InnerException is IOException) { } // Sometimes "The response ended prematurely."
