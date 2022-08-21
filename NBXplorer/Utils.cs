@@ -42,7 +42,7 @@ namespace NBXplorer
 		static ICollection<AnnotatedTransaction> TopologicalSortCore(this IReadOnlyCollection<AnnotatedTransaction> transactions)
 		{
 			return transactions.TopologicalSort(
-			   dependsOn: t => t.Record.SpentOutpoints.Select(o => o.Hash),
+			   dependsOn: t => t.Record.SpentOutpoints.Select(o => o.Outpoint.Hash),
 			   getKey: t => t.Record.TransactionHash,
 			   getValue: t => t,
 			   solveTies: AnnotatedTransactionComparer.OldToYoung);

@@ -785,7 +785,7 @@ namespace NBXplorer.Backends.Postgres
 				}
 				else
 				{
-					tracked.SpentOutpoints.Add(new OutPoint(uint256.Parse(utxo.spent_tx_id), (uint)utxo.spent_idx));
+					tracked.SpentOutpoints.Add(new OutPoint(uint256.Parse(utxo.spent_tx_id), (uint)utxo.spent_idx), (int) utxo.idx);
 				}
 			}
 
@@ -804,7 +804,7 @@ namespace NBXplorer.Backends.Postgres
 				tracked.Transaction = Transaction.Load(row.raw, Network.NBitcoinNetwork);
 				tracked.Key = new TrackedTransactionKey(tracked.Key.TxId, tracked.Key.BlockHash, false);
 				if (tracked.BlockHash is null) // Only need the spend outpoint for double spend detection on unconf txs
-					tracked.SpentOutpoints.AddRange(tracked.Transaction.Inputs.Select(o => o.PrevOut));
+					tracked.SpentOutpoints.AddInputs(tracked.Transaction);
 			}
 
 			return trackedById.Values.Select(c =>
@@ -997,7 +997,7 @@ namespace NBXplorer.Backends.Postgres
 			var spentCoins =
 				prunable
 				.Where(p => p.BlockHash is not null)
-				.SelectMany(c => c.SpentOutpoints)
+				.SelectMany(c => c.SpentOutpoints.Select(c => c.Outpoint))
 				.Select(c => new
 				{
 					code = Network.CryptoCode,
@@ -1069,9 +1069,9 @@ namespace NBXplorer.Backends.Postgres
 					{
 						ins.Add(new DbConnectionHelper.NewIn(
 							tx.TransactionHash,
-							tx.IndexOfInput(input),
-							input.Hash,
-							(int)input.N
+							input.InputIndex,
+							input.Outpoint.Hash,
+							(int)input.Outpoint.N
 							));
 					}
 				}

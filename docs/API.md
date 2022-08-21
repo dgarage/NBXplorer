@@ -252,6 +252,8 @@ Returns:
 }
 ```
 
+* `inputs`: The spent outputs of this transaction.
+* `inputs.inputIndex`: The index of the input in this transaction.
 * `replaceable`: `true` if the transaction can be replaced (the transaction has RBF activated, is in the unconfirmed list and is not an intermediate transaction in a chain of unconfirmed transaction)
 * `replacing`: Only set in the unconfirmed list, and is pointing to a transaction id in the replaced list.
 * `replacedBy`: Only set in the replaced list, and is pointing to a transaction id in the unconfirmed list.

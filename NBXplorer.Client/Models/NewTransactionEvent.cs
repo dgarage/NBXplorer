@@ -65,4 +65,9 @@ namespace NBXplorer.Models
 		public IMoney Value { get; set; }
 		public BitcoinAddress Address { get; set; }
 	}
+
+	public class MatchedInput : MatchedOutput
+	{
+		public int InputIndex { get; set; }
+	}
 }

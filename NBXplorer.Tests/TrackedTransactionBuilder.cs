@@ -28,7 +28,7 @@ namespace NBXplorer.Tests
 				};
 				foreach (var input in _Inputs)
 				{
-					tx.SpentOutpoints.Add(input.Coin.Outpoint);
+					tx.SpentOutpoints.Add(input.Coin.Outpoint, 0);
 				}
 				foreach (var output in _Outputs)
 				{
