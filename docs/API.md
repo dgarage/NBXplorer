@@ -1,4 +1,4 @@
-﻿# API Specification
+# API Specification
 
 NBXplorer is a multi crypto currency lightweight block explorer.
 
@@ -7,7 +7,7 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 ## Table of content
 
 * [Configuration](#configuration)
-* [Authentication](#auth)
+* [Authentication](#authentication)
 * [Derivation Scheme Format](#derivationScheme)
 * [Tracking a Derivation Scheme](#track)
 * [Track a specific address](#address)
@@ -40,41 +40,47 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Health check](#health)
 * [Liquid integration](#liquid)
 
-## <a name="configuration"></a>Configuration
+## Configuration
 
 You can check the available settings with `--help`.
 
 NBXplorer can be configured in three way:
+
 * Through command line arguments (eg. `--chains btc`)
 * Through environment variables (eg. `NBXPLORER_CHAINS=btc`)
 * Through configuration file (eg. `chains=btc`)
 
 If you use configuration file, you can find it on windows in:
-```
+
+```pwsh
 C:\Users\<user>\AppData\Roaming\NBXplorer\<network>\settings.config
 ```
 
 On linux or mac:
-```
+
+```bash
 ~/.nbxplorer/<network>/settings.config
 ```
 
 Be careful, if you run NBXplorer with `dotnet run`, you should do it this way, with settings after the `--`:
+
 ```bash
 dotnet run --no-launch-profile --no-build -c Release -p .\NBXplorer\NBXplorer.csproj -- --chains btc
 ```
 
 Else, launch profiles, which are settings meant to be used only for debugging time, might be taken into account.
 
-## <a name="auth"></a>Authentication
+## Authentication
 
 By default a cookie file is generated when NBXplorer is starting, for windows in:
-```
+
+```pwsh
 C:\Users\<user>\AppData\Roaming\NBXplorer\<network>\.cookie
 ```
 
 On linux or mac:
-```
+
+```bash
 ~/.nbxplorer/<network>/.cookie
 ```
 
@@ -113,11 +119,12 @@ Note: Taproot is incompatible with all other options.
 
 After this call, the specified `derivation scheme` will be tracked by NBXplorer
 
-HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}
+`HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}`
 
 Returns nothing.
 
 Optionally, you can attach a json body:
+
 ```json
  {
   "derivationOptions": [
@@ -130,6 +137,7 @@ Optionally, you can attach a json body:
   "wait": true
 }
 ```
+
 * `wait`: Optional. If `true` the call will return when all addresses has been generated, addresses will be generated in the background (default: `false`)
 * `derivationOptions`: Optional. Options to manually start the address generation process. (default: empty)
 * `derivationOptions.feature`: Optional. Define to which feature this option should be used. (defaut: null, which match all feature)
@@ -140,7 +148,7 @@ Optionally, you can attach a json body:
 
 After this call, the specified address will be tracked by NBXplorer
 
-HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}
+`HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}`
 
 Returns nothing.
 
@@ -148,11 +156,11 @@ Returns nothing.
 
 To query all transactions of a `derivation scheme`:
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions
+`HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions`
 
 To query a specific transaction:
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}
+`HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}`
 
 Optional Parameters:
 
@@ -160,7 +168,7 @@ Optional Parameters:
 
 Returns:
 
-```
+```json
 {
   "height": 104,
   "confirmedTransactions": {
@@ -246,7 +254,7 @@ Returns:
 
 * `replaceable`: `true` if the transaction can be replaced (the transaction has RBF activated, is in the unconfirmed list and is not an intermediate transaction in a chain of unconfirmed transaction)
 * `replacing`: Only set in the unconfirmed list, and is pointing to a transaction id in the replaced list.
-* `replacedBy`: Only set in the replaced list, and is pointing to a transaction id in the unconfirmed list. 
+* `replacedBy`: Only set in the replaced list, and is pointing to a transaction id in the unconfirmed list.
 * `immatureTransactions`: Coinbase transactions with less than 100 confirmations.
 
 Note for liquid, `balanceChange` is an array of [AssetMoney](#liquid).
@@ -256,7 +264,7 @@ Note that the list of confirmed transaction also include immature transactions.
 
 Query all transactions of a tracked address. (Only work if you called the Track operation on this specific address)
 
-HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions
+`HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions`
 
 Optional Parameters:
 
@@ -317,8 +325,8 @@ Returns:
 
 ## <a name="singletransaction"></a>Query a single transaction associated to a address or derivation scheme
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}
-HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions/{txId}
+`HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}`
+`HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions/{txId}`
 
 Error codes:
 
@@ -332,27 +340,27 @@ Returns:
 
 ```json
 {
-    "blockHash": null,
-    "confirmations": 0,
-    "height": null,
-    "transactionId": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1",
-    "transaction": null,
-    "outputs": [
-        {
-        "scriptPubKey": "0014b39fc4eb5c6dd238d39449b70a2e30d575426d99",
-        "index": 1,
-        "value": 100000000
-        }
-    ],
-    "inputs": [],
-    "timestamp": 1540381889,
-    "balanceChange": 100000000
+  "blockHash": null,
+  "confirmations": 0,
+  "height": null,
+  "transactionId": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1",
+  "transaction": null,
+  "outputs": [
+    {
+      "scriptPubKey": "0014b39fc4eb5c6dd238d39449b70a2e30d575426d99",
+      "index": 1,
+      "value": 100000000
+    }
+  ],
+  "inputs": [],
+  "timestamp": 1540381889,
+  "balanceChange": 100000000
 }
 ```
 
 ## <a name="balance"></a>Get current balance
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balance
+`HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balance`
 
 Returns:
 
@@ -365,6 +373,7 @@ Returns:
   "total": 210000000
 }
 ```
+
 Note for liquid, the values are array of [AssetMoney](#liquid).
 
 * `unconfirmed`: How the confirmed balance would be updated once all the unconfirmed transactions were confirmed.
@@ -377,7 +386,7 @@ Immature funds is the sum of UTXO's belonging to a coinbase transaction with les
 
 ## <a name="gettransaction"></a>Get a transaction
 
-HTTP GET v1/cryptos/{cryptoCode}/transactions/{txId}
+`HTTP GET v1/cryptos/{cryptoCode}/transactions/{txId}`
 
 Optional Parameters:
 
@@ -404,9 +413,10 @@ Returns:
 
 ## <a name="status"></a>Get connection status to the chain
 
-HTTP GET v1/cryptos/{cryptoCode}/status
+`HTTP GET v1/cryptos/{cryptoCode}/status`
 
 Returns:
+
 ```json
 {
   "bitcoinStatus": {
@@ -441,7 +451,7 @@ Returns:
 
 ## <a name="unused"></a>Get a new unused address
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses/unused
+`HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses/unused`
 
 Error codes:
 
@@ -472,13 +482,14 @@ Note: `redeem` is returning the segwit redeem if the derivation scheme is a P2SH
 
 ## <a name="scriptPubKey"></a>Get scriptPubKey information of a Derivation Scheme
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/scripts/{script}
+`HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/scripts/{script}`
 
 Error codes:
 
 * HTTP 404: `cryptoCode-not-supported`
 
 Returns:
+
 ```json
 {
   "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
@@ -492,7 +503,7 @@ Returns:
 
 ## <a name="utxos"></a>Get available Unspent Transaction Outputs (UTXOs)
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos
+`HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos`
 
 Error:
 
@@ -552,7 +563,7 @@ Note that confirmed utxo, do not include immature UTXOs. (ie. UTXOs belonging to
 
 Assuming you use Track on this specific address:
 
-HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/utxos
+`HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/utxos`
 
 Error:
 
@@ -612,11 +623,11 @@ This call does not returns conflicted unconfirmed UTXOs.
 
 NBXplorer implements real-time notification via websocket supports for new block or transaction.
 
-HTTP GET v1/cryptos/{cryptoCode}/connect
+`HTTP GET v1/cryptos/{cryptoCode}/connect`
 
 Once you are connected to the websocket, you can subscribe to block notifications by sending the following JSON to it.
 
-```
+```json
 {
   "type": "subscribeblock",
   "data": {
@@ -627,7 +638,7 @@ Once you are connected to the websocket, you can subscribe to block notification
 
 Then a notification will be delivered through the websocket when a new block is mined:
 
-```
+```json
 {
   "type": "newblock",
   "data": {
@@ -641,7 +652,7 @@ Then a notification will be delivered through the websocket when a new block is 
 
 For notification concerning `Derivation Scheme` transactions, you can subscribe by sending through the websocket:
 
-```
+```json
 {
   "type": "subscribetransaction",
   "data": {
@@ -655,7 +666,7 @@ For notification concerning `Derivation Scheme` transactions, you can subscribe 
 
 Then you will receive such notifications when a transaction is impacting the `derivation scheme`:
 
-```
+```json
 {
   "type": "newtransaction",
   "data": {
@@ -686,7 +697,7 @@ Then you will receive such notifications when a transaction is impacting the `de
 
 If you want all transactions of all derivation schemes of BTC, send this to the WebSocket:
 
-```
+```json
 {
   "type": "subscribetransaction",
   "data": {
@@ -697,7 +708,7 @@ If you want all transactions of all derivation schemes of BTC, send this to the 
 
 If you want all transactions of all derivation schemes of all crypto currencies, send this to the WebSocket:
 
-```
+```json
 {
   "type": "subscribetransaction",
   "data": {
@@ -710,13 +721,14 @@ As an alternative to get notification, you can also use long polling with the [e
 
 ## <a name="broadcast"></a>Broadcast a transaction
 
-HTTP POST v1/cryptos/{cryptoCode}/transactions
+`HTTP POST v1/cryptos/{cryptoCode}/transactions`
 
 Body:
 
 Raw bytes of the transaction.
 
 Parameter:
+
 * `testMempoolAccept`: If `true`, will not attempt to broadcast the transaction but just test its acceptance in the mempool. (default: `false`)
 
 Error codes:
@@ -727,8 +739,8 @@ Error codes:
 
 Returns:
 
-```
-{  
+```json
+{
    "success":false,
    "rpcCode":-25,
    "rpcCodeMessage":"General error during transaction submission",
@@ -744,24 +756,24 @@ This means that if the derivation scheme already received UTXOs in the past, NBX
 By using this route, you can ask NBXplorer to rescan specific transactions found in the blockchain.
 This way, the transactions and the UTXOs present before tracking the derivation scheme will appear correctly.
 
-HTTP POST v1/cryptos/{cryptoCode}/rescan
+`HTTP POST v1/cryptos/{cryptoCode}/rescan`
 
 Body:
 
-```
-{  
-   "transactions":[  
-      # Specify the blockId and transactionId to scan. Your node must not be pruned for this to work.
-      {  
+```json
+{
+   "transactions":[
+      // Specify the blockId and transactionId to scan. Your node must not be pruned for this to work.
+      {
          "blockId":"19b44484c79c40d4e74da406e25390348b86a252c1ab784cfd7198c724a0169f",
          "transactionId":"f83c7f31e2c39202bbbca619ab354ca8841721cf3440a253e056a7bea43e9745",
       },
-      # Only the transactionId is specified. Your node must run --txindex=1 for this to work
-      {  
+      // Only the transactionId is specified. Your node must run --txindex=1 for this to work
+      {
          "transactionId":"754c14060b958de0ff4e77e2ccdca617964c939d40ec9a01ef21fca2aad78d00",
       },
-      # This will index the transaction without using RPC. Careful: A wrong blockId will corrupt the database.
-      {  
+      // This will index the transaction without using RPC. Careful: A wrong blockId will corrupt the database.
+      {
          "blockId":"19b44484c79c40d4e74da406e25390348b86a252c1ab784cfd7198c724a0169f",
          "transaction":"02000000000101008dd7aaa2fc21ef019aec409d934c9617a6dccce2774effe08d950b06144c750000000000feffffff026c3e2e12010000001600143072110b34b66acd9469b2882d6d57a8ae27183900e1f505000000001600140429b3eebb7d55c50ca36ace12ae874ff2fd16af0247304402202e32739cc6e42877699d4159159941f3cc39027c7626f9962cca9a865816d43502205389e9d6c1a4cab41f2c504413cf0f46a5c1f8814f368e03c9bf1f8017c6787e012103b8858085f2a0c9c906fb793bedb2c115c340de1f7b279d6099f675ddf3eec0bf67000000"
       }
@@ -791,7 +803,7 @@ Error codes:
 
 Returns:
 
-```
+```json
 {
     "feeRate": 5,
     "blockCount": 1
@@ -804,7 +816,7 @@ The fee rate is in satoshi/byte.
 
 NBXplorer can scan the UTXO Set for output belonging to your derivationScheme.
 
-HTTP POST v1/cryptos/BTC/derivations/{derivationScheme}/utxos/scan
+`HTTP POST v1/cryptos/BTC/derivations/{derivationScheme}/utxos/scan`
 
 In order to not consume too much RAM, NBXplorer splits the addresses to scan in several `batch` and scan the whole UTXO set sequentially.
 Three branches are scanned: 0/x, 1/x and x.
@@ -868,18 +880,17 @@ Error codes:
 
 * HTTP 404 `scanutxoset-info-not-found` if the scan has been done above the last 24H.
 
-
 ## <a name="wipe"></a>Wipe derivation scheme transactions
 
 Wipe all the transactions from a derivation scheme.
 
-HTTP POST cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/wipe
+`HTTP POST cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/wipe`
 
 ## <a name="eventStream"></a>Query event stream
 
 All notifications sent through websocket are also saved in a crypto specifc event stream.
 
-HTTP GET v1/cryptos/{cryptoCode}/events
+`HTTP GET v1/cryptos/{cryptoCode}/events`
 
 Query parameters:
 
@@ -935,7 +946,7 @@ The smallest `eventId` is 1.
 
 Exact same as [event stream](#eventStream) but it returns a maximum number `#limit` of the most recent events.
 
-HTTP GET v1/cryptos/{cryptoCode}/events/latest
+`HTTP GET v1/cryptos/{cryptoCode}/events/latest`
 
 Query parameters:
 
@@ -948,7 +959,7 @@ Create a [Partially Signed Bitcoin Transaction](https://github.com/bitcoin/bips/
 A PSBT is a standard format to represent a transaction with pending signatures associated to it.
 A PSBT can be signed independently by many signers, and combined together before broadcast.
 
-HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/psbt/create
+`HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/psbt/create`
 
 Error codes:
 
@@ -983,15 +994,17 @@ Fields:
   "discourageFeeSniping": true,
   "reserveChangeAddress": false,
   "minConfirmations": 0,
-  "excludeOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1", 
-						"7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-2"],
+  "excludeOutpoints": [
+    "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1",
+    "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-2"
+  ],
   "includeOnlyOutpoints": [ "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1" ],
   "minValue": 1000,
   "rebaseKeyPaths": [
-  	  {
-		"accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
-		"accountKeyPath": "ab5ed9ab/49'/0'/0'"
-	  }
+    {
+      "accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
+      "accountKeyPath": "ab5ed9ab/49'/0'/0'"
+    }
   ],
   "disableFingerprintRandomization": false,
   "alwaysIncludeNonWitnessUTXO": false
@@ -1032,7 +1045,7 @@ Response:
 {
   "psbt": "cHNidP8BAHcBAAAAASjvZHM29AbxO4IGGHbk3IE82yciSQFr2Ihge7P9P1HeAQAAAAD/////AmzQMAEAAAAAGXapFG1/TpHnIajdweam5Z3V9s6oGWBRiKyAw8kBAAAAABl2qRSVNmCfrnVeIwVkuTrCR6EvRFCP7IisAAAAAAABAP10AQEAAAACe9C2c9VL+gfYpic4c+Wk/Nn7bvhewA82owtcUDo/tPoAAAAAakcwRAIgUlLS0SDj7IXeY44x21eUg16Vh4qbJe+NDQ/ywUrB84kCIGLU5Vec2bjL1DZhUmDueLrf0uh/PycOK7FWg/Ptvwi0ASED7OpQGf+HzIRwWKZ1Hmd8h6vxkFOt5RlJ3u/flzNTesv/////818+qp4hLnw9DWOD+a601fLjFciZ/4iCNT1M9g+kMvkAAAAAakcwRAIgfk+bUUYfRs6AU1mt5unV4fZxCit34g8pE5fsawUM7H0CIBGpSil8+JCHdAHxKU2I7CvEBzAyz3ggd9RlH+QQSnlkASEC/wwlQ07b3xdSQaEf+wRJEnzEJT2GPNTY4Wb3Gg1hxFz/////AoDw+gIAAAAAGXapFHoZHSjaWNcmJk7sSHvRG29RaqIiiKxQlPoCAAAAABl2qRTSKm2x4ITWeuYLwCv3PUDtt+CL+YisAAAAACIGA1KRWHyJqdpbUzuezCSzj4+bj1+gNWGEibLG0BMj9/RmDDAn+hsBAAAAAgAAAAAiAgIuwas0MohgjmGIXoOgS95USEDawK//ZqrVEi5UIfP/FAwwJ/obAQAAAAMAAAAAAA==",
   "changeAddress": "mqVvTQKsdJ36Z8m5uFWQSA5nhrJ5NHQ2Hs",
-  "suggestions": 
+  "suggestions":
   {
       "shouldEnforceLowR": true
   }
@@ -1048,7 +1061,7 @@ Note, in the example above, if the [metadata](#metadata) `AccountKeyPath` is set
 
 ## <a name="updatepsbt"></a>Update Partially Signed Bitcoin Transaction
 
-HTTP POST v1/cryptos/{cryptoCode}/psbt/update
+`HTTP POST v1/cryptos/{cryptoCode}/psbt/update`
 
 NBXplorer will take to complete as much information as it can about this PSBT.
 
@@ -1058,13 +1071,14 @@ NBXplorer will take to complete as much information as it can about this PSBT.
   "derivationScheme": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
   "includeGlobalXPub": false,
   "rebaseKeyPaths": [
-  {
-    "accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
-    "accountKeyPath": "ab5ed9ab/49'/0'/0'"
-  }
+    {
+      "accountKey": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5HpvnHywa3eZYhxZBriRTsfe8ZKFSDMcEMBqGrAighxxmq5VUqoRvo7DnNMS5VbJjRHwqDfCAMXLwAL5j",
+      "accountKeyPath": "ab5ed9ab/49'/0'/0'"
+    }
   ]
 }
 ```
+
 * `psbt`: Required. A potentially incomplete PSBT that you want to update (Input WitnessUTXO, NonWitnessUTXO)
 * `derivationScheme`: Optional. If specified, will complete HDKeyPaths, witness script and redeem script information in the PSBT belonging to this derivationScheme.
 * `includeGlobalXPub`: Optional. Whether or not to include the global xpubs of the derivation scheme in the PSBT. (default: false)
@@ -1074,6 +1088,7 @@ NBXplorer will take to complete as much information as it can about this PSBT.
 * `alwaysIncludeNonWitnessUTXO`: Try to set the full transaction in `non_witness_utxo`, even for segwit inputs (default to `false`)
 
 Response:
+
 ```json
 {
   "psbt": "cHNidP8BAHcBAAAAASjvZHM29AbxO4IGGHbk3IE82yciSQFr2Ihge7P9P1HeAQAAAAD/////AmzQMAEAAAAAGXapFG1/TpHnIajdweam5Z3V9s6oGWBRiKyAw8kBAAAAABl2qRSVNmCfrnVeIwVkuTrCR6EvRFCP7IisAAAAAAABAP10AQEAAAACe9C2c9VL+gfYpic4c+Wk/Nn7bvhewA82owtcUDo/tPoAAAAAakcwRAIgUlLS0SDj7IXeY44x21eUg16Vh4qbJe+NDQ/ywUrB84kCIGLU5Vec2bjL1DZhUmDueLrf0uh/PycOK7FWg/Ptvwi0ASED7OpQGf+HzIRwWKZ1Hmd8h6vxkFOt5RlJ3u/flzNTesv/////818+qp4hLnw9DWOD+a601fLjFciZ/4iCNT1M9g+kMvkAAAAAakcwRAIgfk+bUUYfRs6AU1mt5unV4fZxCit34g8pE5fsawUM7H0CIBGpSil8+JCHdAHxKU2I7CvEBzAyz3ggd9RlH+QQSnlkASEC/wwlQ07b3xdSQaEf+wRJEnzEJT2GPNTY4Wb3Gg1hxFz/////AoDw+gIAAAAAGXapFHoZHSjaWNcmJk7sSHvRG29RaqIiiKxQlPoCAAAAABl2qRTSKm2x4ITWeuYLwCv3PUDtt+CL+YisAAAAACIGA1KRWHyJqdpbUzuezCSzj4+bj1+gNWGEibLG0BMj9/RmDDAn+hsBAAAAAgAAAAAiAgIuwas0MohgjmGIXoOgS95USEDawK//ZqrVEi5UIfP/FAwwJ/obAQAAAAMAAAAAAA=="
@@ -1086,7 +1101,7 @@ Note, in the example above, if the [metadata](#metadata) `AccountKeyPath` is set
 
 You can attach JSON metadata to a derivation scheme:
 
-HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}
+`HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}`
 
 The body can be any JSON token.
 
@@ -1094,12 +1109,13 @@ Body:
 
 ```json
 {
-	"example": "value"
+  "example": "value"
 }
 ```
+
 ## <a name="detachmetadata"></a>Detach metadata from a derivation scheme
 
-HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}
+`HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}`
 
 Call without body and without content type.
 
@@ -1107,7 +1123,7 @@ Call without body and without content type.
 
 You retrieve the JSON metadata of a derivation scheme:
 
-HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}
+`HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}`
 
 Error codes:
 
@@ -1119,7 +1135,7 @@ Body:
 
 ```json
 {
-	"example": "value"
+  "example": "value"
 }
 ```
 
@@ -1129,21 +1145,23 @@ NBXplorer has an auto pruning feature configurable with `--autopruning x` where 
 
 You can however force pruning by calling:
 
-HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/prune
+`HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/prune`
 
 Request:
+
 ```json
 {
-	"daysToKeep": 1.0
+  "daysToKeep": 1.0
 }
 ```
 
 * `daysToKeep`: Optional. The number of days of history to keep. (Default: 1.0)
 
 Response:
+
 ```json
 {
-	"totalPruned": 10
+  "totalPruned": 10
 }
 ```
 
@@ -1153,14 +1171,14 @@ Response:
 
 NBXplorer will generate and save a mnemonic and create a derivationScheme.
 
-HTTP POST v1/cryptos/{cryptoCode}/derivations
+`HTTP POST v1/cryptos/{cryptoCode}/derivations`
 
 Request:
 
 ```json
 {
   "accountNumber": 2,
-  "wordList": "French",  
+  "wordList": "French",
   "existingMnemonic": "musicien sinistre divertir réussir louve alliage péplum innocent filmer stipuler chignon utopie effusion heureux légal",
   "wordCount": 15,
   "scriptPubKeyType": "SegwitP2SH",
@@ -1208,6 +1226,7 @@ Response:
 * `derivationScheme`: The [derivation scheme](#derivationScheme) that is being tracked by NBXplorer.
 
 [Metadata](#metadata) for this derivation scheme after this call:
+
 * `Mnemonic`: The mnemonic generated. (if `savePrivateKeys` is `true`)
 * `MasterHDKey`: The [xpriv](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) master key generated by the mnemonic and passphrase. (if `savePrivateKeys` is `true`)
 * `AccountHDKey`: The derived [xpriv](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) account key from the `MasterHDKey` and `AccountKeyPath`. (if `savePrivateKeys` is `true`)
@@ -1220,7 +1239,7 @@ Note that the metadata `AccountKeyPath` is leveraged by [Create a PSBT](#psbt) a
 
 NBXplorer allows you to query the node's JSON-RPC through it when `exposerpc` option is enabled
 
-HTTP POST v1/cryptos/{cryptoCode}/rpc
+`HTTP POST v1/cryptos/{cryptoCode}/rpc`
 with Header `Content-Type` set to value `application/json` or `application/json-rpc`
 
 Error codes:
@@ -1241,22 +1260,22 @@ Response:
 
 ```json
 {
-    "error": null,
-    "result": {
-        "chain": "regtest",
-        ...
-    },
-    "resultString": "..."
+  "error": null,
+  "result": {
+    "chain": "regtest",
+    ...
+  },
+  "resultString": "..."
 }
 ```
 
-NOTE: Batch commands are also supported by sending the JSON-RPC requests in an array. The result is also returned in an array. 
+NOTE: Batch commands are also supported by sending the JSON-RPC requests in an array. The result is also returned in an array.
 
 ## <a name="health"></a>Health check
 
 A endpoint that can be used without the need for [authentication](#auth) which will returns HTTP 200 only if all nodes connected to NBXplorer are ready.
 
-HTTP GET /health
+`HTTP GET /health`
 
 It will output the state for each nodes in JSON, whose format might change in the future.
 
@@ -1278,8 +1297,8 @@ The `AssetMoney` JSON format is:
 
 ```json
 {
-	"assetId": "abc",
-	"value": 123
+  "assetId": "abc",
+  "value": 123
 }
 ```
 
@@ -1289,13 +1308,13 @@ Liquid confidential addresses are supported in two ways:
 
 * By default, the blinding key of the confidential address is derived directly from the `derivationScheme`. If the `scriptPubKey` `0/2` is generated, the blinding private key used by NBXplorer is the SHA256 of the scriptPubKey at `0/2/0`.
 * [SLIP77](https://github.com/satoshilabs/slips/blob/master/slip-0077.md), by suffixing the derivation scheme with either:
-  * the mnemonic seed derivation (usually the same as your wallet's)`-[slip77=all all all all all all all all all all all all]` 
+  * the mnemonic seed derivation (usually the same as your wallet's)`-[slip77=all all all all all all all all all all all all]`
   * the master blinding key in hex or wif format`-[slip77=6c2de18eabeff3f7822bc724ad482bef0557f3e1c1e1c75b7a393a5ced4de616]`
 You may also choose to not use confidential addresses by applying the suffix `-[unblinded]` to the derivation scheme
 
 ### Liquid Transactions support
 
-Due to the changes in the transaction format in Elements networks to support assets, we do not support transaction building features. 
+Due to the changes in the transaction format in Elements networks to support assets, we do not support transaction building features.
 
 In order to send in and out of liquid, we advise you to rely on the RPC command line interface of the liquid deamon.
 For doing this you need to [Generate a wallet](#wallet) with `importAddressToRPC` and `savePrivateKeys` set to `true`.
