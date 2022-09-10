@@ -548,6 +548,12 @@ namespace NBXplorer.Tests
 			AssertHistory(expectedHistory, rows);
 			rows = await conn.QueryAsync("SELECT * FROM get_wallets_recent('Alice', interval '1 week', 100, 0) WHERE code='LTC' AND asset_id='ASS';");
 			AssertHistory(expectedHistory, rows);
+			expectedHistory = new[]
+			{
+				("lt2", -9, 0)
+			};
+			rows = await conn.QueryAsync("SELECT * FROM get_wallets_recent('Alice', 'LTC', 'ASS', interval '1 week', 1, 1);");
+			AssertHistory(expectedHistory, rows);
 
 			expectedHistory = new[]
 			{
@@ -562,6 +568,10 @@ namespace NBXplorer.Tests
 
 		private static void AssertHistory((string, int, int)[] expectedHistory, IEnumerable<dynamic> rows)
 		{
+			int expectedRows = expectedHistory.Length;
+			int actualRows;
+			if (rows.TryGetNonEnumeratedCount(out actualRows))
+				Assert.Equal(expectedRows, actualRows);
 			foreach (var t in rows.Zip(expectedHistory, (r, h) =>
 						(
 						expectedTxId: h.Item1,

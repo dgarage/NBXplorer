@@ -17,6 +17,7 @@
     <None Remove="DBScripts\008.FasterGetUnused.sql" />
     <None Remove="DBScripts\009.FasterGetUnused2.sql" />
     <None Remove="DBScripts\010.ChangeEventsIdType.sql" />
+    <None Remove="DBScripts\011.FixGetWalletsRecent.sql" />
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />
