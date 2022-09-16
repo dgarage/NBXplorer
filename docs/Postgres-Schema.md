@@ -1,6 +1,7 @@
 # Documentation of SQL Schema
 
 Knowing the SQL schema is useful in three situations:
+
 1. You want to query the schema directly as NBXplorer's API doesn't provide an API endpoint for your needs
 2. You want to do your own indexer on top of it (in a different language or for a crypto we don't support)
 3. You want to create your own API on top of it for features not exposed by NBXplorer's API.
@@ -9,11 +10,12 @@ This model is contained in [this SQL script](https://github.com/dgarage/NBXplore
 There are additional comments there about the meaning of columns and views.
 
 Here is a diagram:
-![](images/nxplorer-schema.png)
+![NBXplorer Database Schema](./images/nxplorer-schema.png)
 
 The SQL Schema of NBXplorer is multi-tenant, multi-asset, multi-chain.
 It is divided in several parts:
-* Blocks and transactions: `blks`, `blks_txs` and `txs` 
+
+* Blocks and transactions: `blks`, `blks_txs` and `txs`
 * Outputs, Inputs and Scripts: `ins`, `outs`, `ins_outs`, `scripts`
 * Descriptors: `descriptors`, `descriptors_scripts`
 * Wallets: `wallets`, `wallets_wallets`, `wallets_descriptors`, `wallets_scripts`
@@ -36,7 +38,9 @@ Any script from a child wallet will be added to the scripts of the parent wallet
 This allow you to define a hierarchy of wallet.
 
 ## Making your own indexer
+
 An indexer typical flow is the following:
+
 1. Insert block in blks with `confirmed='f'`
 2. Call `fetch_matches` with all the ins and outs of a block
 3. This will create temporary tables `matched_outs`, `matched_ins` and `matched_conflicts` the indexer can use to inspect what has been matched
@@ -53,12 +57,14 @@ This allow indexer to define their own descriptors.
 
 `to_btc(v NUMERIC)`
 
-
 Helper function format a satoshi based value into numeric bitcoin.
+
 ```SQL
 SELECT to_btc(150000000);
 ```
+
 Output:
+
 ```
 1.50000000
 ```
@@ -74,9 +80,11 @@ See what has going on recently in a wallet.
 Better to use on Postgres 13+, as it greatly benefits from incremental sort.
 
 For example, this returns the `5` most recent `KPrAFh3ZOIS5umpbwuYkU0sF8JW+` that happened for one year.
+
 ```SQL
 SELECT * FROM get_wallets_recent('KPrAFh3ZOIS5umpbwuYkU0sF8JW+', interval '1 year', 5, 0);
 ```
+
 Output:
 | "code" | "asset_id" | "tx_id"                                                            | "seen_at"                       | "balance_change" | "balance_total" |
 |--------|------------|--------------------------------------------------------------------|---------------------------------|------------------|-----------------|
@@ -85,7 +93,6 @@ Output:
 | "BTC"  | ""         | "e9ce704adc9c64e099c2513169d6856bbf2fcdb2de92b465d4d63b67961b2bd2" | "2022-03-04 15:07:08.923081+00" | 200000           | 485011          |
 | "BTC"  | ""         | "0581c1545ce58ecf93d70e97321fa27c7d409bb0666a124470491403cb0d91f4" | "2022-03-03 10:59:44.259948+00" | 230000           | 285011          |
 | "BTC"  | ""         | "c12d1339295d6a69af8dc0fb411b67d5571d31265b385586341a4126bcda76da" | "2022-02-22 17:00:02.697965+00" | -519989.0        | 55011           |
-
 
 ### View: utxos
 
@@ -100,6 +107,7 @@ SELECT * FROM utxos
 WHERE input_mempool IS FALSE AND
       immature IS FALSE;
 ```
+
 Output:
 
 | "code" | "tx_id"                                                            | "idx" | "script"                                       | "value" | "asset_id" | "input_tx_id" | "input_idx" | "input_mempool" | "immature" | "blk_id"                                                           | "blk_idx" | "blk_height" | "mempool" | "replaced_by" | "seen_at"                       |
@@ -110,18 +118,20 @@ Output:
 | "BTC"  | "75b7ba9a0718a95234e0b72edd2c721f3066be96eb8076f5b8f3f7160498d07f" | 1     | "0014ca76914ddc4fca3c37768e599302765ae633b62c" | 119727  | ""         | NULL          | NULL        | False           | False      | "0000009d64990b4a2b4bff9511d5c9713124905a0932026db5737a3ad44f0138" | NULL      | 60492        | False     | NULL          | "2021-10-19 10:08:54.301111+00" |
 | "BTC"  | "9fc4bc1b9dc2d60202fe4e483b54afb5da7efbbfe6966e5e51f4dc6dbc2363b5" | 0     | "0014ad054e107c046e69b5ab5abc1e44d25ac9378ff6" | 9900    | ""         | NULL          | NULL        | False           | False      | "0000010003e91e0f56787b9e02b5ae424bb681f09f2ec82f8e23b19a7a93b6e6" | NULL      | 53506        | False     | NULL          | "2021-09-01 02:13:21.469658+00" |
 
-
 ### View: descriptors_scripts_unused
 
 List all the unused scripts from descriptors.
 
 Example: Get the next unused address:
+
 ```SQL
 SELECT * FROM descriptors_scripts_unused
 WHERE code='BTC' AND descriptor='7obopunl9/6GVYkej++YMw6DHWXk'
 ORDER BY idx LIMIT 1 OFFSET 0;
 ```
+
 Output:
+
 |code                                                                           |descriptor                  |script                                      |idx |addr                                      |d_metadata                 |ds_metadata|
 |-------------------------------------------------------------------------------|----------------------------|--------------------------------------------|----|------------------------------------------|---------------------------|-----------|
 |BTC                                                                            |7obopunl9/6GVYkej++YMw6DHWXk|001482137a4bbc144f8eb5a02fd2acda36c999a96242|3261|tb1qsgfh5jauz38caddq9lf2ek3kexv6jcjzxu9sfw|{"type": "NBXv1-Derivation", "feature": "Deposit", "derivation": "tpubDCtUtuEgpKLQJMu5uUUuDQub7D4CHjCJsfGhwrA3HV6X6CuV7Zj6RizRFwLPNKqkLrd8TM1Xt3QmwumqRRZAUTrVAA9T8uhyMfodChhFykD", "keyPathTemplate": "0/*"}|           |
@@ -141,7 +151,9 @@ SELECT * FROM wallets_utxos
 WHERE input_mempool IS FALSE AND
       immature IS FALSE;
 ```
+
 Output:
+
 | "wallet_id"                    | "code" | "tx_id"                                                            | "idx" | "script"                                       | "value" | "asset_id" | "input_tx_id" | "input_idx" | "input_mempool" | "immature" | "blk_id"                                                           | "blk_idx" | "blk_height" | "mempool" | "replaced_by" | "seen_at"                       |
 |--------------------------------|--------|--------------------------------------------------------------------|-------|------------------------------------------------|---------|------------|---------------|-------------|-----------------|------------|--------------------------------------------------------------------|-----------|--------------|-----------|---------------|---------------------------------|
 | "XObUaAdU2HBJk4XHGhIRya3ZObB3" | "BTC"  | "6bf5a95c11c819ff22da3933bef2931977b4906c5820bb48ab5336a77502e4a6" | 0     | "00144d60ec59ed28267bf897543a659662cddabd384b" | 19490   | ""         | NULL          | NULL        | False           | False      | "0000010e1bc83fa20421880db7424740392a459c6ac699cefe7eac5004247e46" | NULL      | 58943        | False     | NULL          | "2021-10-08 14:25:17.96779+00"  |
@@ -154,6 +166,7 @@ Output:
 ### View: wallets_balances
 
 See the current balance of wallets.
+
 * `confirmed_balance` only include the sum of value of all currently confirmed UTXOs.
 * `unconfirmed_balance` will become the next `confirmed_balance` of the wallet if all non-double spent transactions get confirmed.
 * `immature_balance` the sum of utxos that can't be spent before they are immature (ie, the UTXO comes from a coinbase that is less than 100 blocks old)
@@ -162,7 +175,9 @@ See the current balance of wallets.
 ```SQL
 SELECT * FROM wallets_balances
 ```
+
 Output:
+
 | "wallet_id"                    | "code" | "asset_id" | "unconfirmed_balance" | "confirmed_balance" | "available_balance" | "immature_balance" |
 |--------------------------------|--------|------------|-----------------------|---------------------|---------------------|--------------------|
 | "4Tdfhh5kK8TFKcDVvsp6xdKOFdmA" | "BTC"  | ""         | 389520                | 389520              | 389520              | 0                  |
@@ -187,7 +202,9 @@ To refresh the materialized view, use `SELECT wallets_history_refresh();`. This 
 ```SQL
 SELECT * FROM wallets_history WHERE wallet_id='KPrAFh3ZOIS5umpbwuYkU0sF8JW+';
 ```
-Output
+
+Output:
+
 | "wallet_id"                    | "code" | "asset_id" | "tx_id"                                                            | "seen_at"                       | "balance_change" | "balance_total" | "nth" |
 |--------------------------------|--------|------------|--------------------------------------------------------------------|---------------------------------|------------------|-----------------|-------|
 | "KPrAFh3ZOIS5umpbwuYkU0sF8JW+" | "BTC"  | ""         | "0e42124df086ef05b0d8cb3a5b2028828b3af27b31d7c5045803cc8541410a9f" | "2022-03-07 17:14:27.269382+00" | -199996          | 55020           | 10    |
@@ -209,10 +226,13 @@ Output
 This function depends on `wallets_history`, as such, you should make sure the materialized view is refreshed time for up-to-date histogram.
 
 For example, this will show how the balance of `KPrAFh3ZOIS5umpbwuYkU0sF8JW+` changed every week from `2022-01-23` to now.
+
 ```SQL
 SELECT * FROM get_wallets_histogram('KPrAFh3ZOIS5umpbwuYkU0sF8JW+', 'BTC', '', '2022-01-23', CURRENT_TIMESTAMP, interval '1 week');
 ```
+
 Output:
+
 | "date"                   | "balance_change" | "balance" |
 |--------------------------|------------------|-----------|
 | "2022-01-23 00:00:00+00" | 0                | 0         |
@@ -224,7 +244,6 @@ Output:
 | "2022-03-06 00:00:00+00" | -429991          | 55020     |
 | "2022-03-13 00:00:00+00" | 0                | 55020     |
 | "2022-03-20 00:00:00+00" | 0                | 55020     |
-
 
 ### Function: nbxv1_get_wallet_id
 

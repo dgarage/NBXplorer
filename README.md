@@ -1,7 +1,8 @@
-[![NuGet](https://img.shields.io/nuget/v/NBxplorer.Client.svg)](https://www.nuget.org/packages/NBxplorer.Client) [![Docker Automated buil](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/nicolasdorier/nbxplorer/)
-[![CircleCI](https://circleci.com/gh/dgarage/NBXplorer.svg?style=svg)](https://circleci.com/gh/dgarage/NBXplorer)
-
 # NBXplorer
+
+[![NuGet](https://img.shields.io/nuget/v/NBxplorer.Client.svg)](https://www.nuget.org/packages/NBxplorer.Client)
+[![Docker Automated buil](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/nicolasdorier/nbxplorer/)
+[![CircleCI](https://circleci.com/gh/dgarage/NBXplorer.svg?style=svg)](https://circleci.com/gh/dgarage/NBXplorer)
 
 A minimalist UTXO tracker for HD Wallets.
 The goal is to have a flexible, .NET based UTXO tracker for HD wallets.
@@ -31,7 +32,7 @@ It currently supports the following altcoins:
 * BCash (also known as Bitcoin Cash)
 * BGold (also known as Bitcoin Gold)
 * BitCore
-* Chaincoin 
+* Chaincoin
 * ColossusXT
 * Dash
 * Dogecoin
@@ -48,7 +49,7 @@ It currently supports the following altcoins:
 * Ufo
 * Viacoin
 
-Read our [API Specification](docs/API.md), or our the [internal design of NBXplorer](docs/Design.md).
+Read our [API Specification](./docs/API.md), or our the [internal design of NBXplorer](./docs/Design.md).
 
 ## Prerequisite
 
@@ -57,51 +58,56 @@ Read our [API Specification](docs/API.md), or our the [internal design of NBXplo
 * PostgresSQL v13+ (Technically 11+ works, but you may have performance issues at higher scale)
 
 There are two backend available:
-* DBTrie (with the `--dbtrie` flag)
-* [Postgres](docs/Postgres-Schema.md) (with the `--postgres` flags)
 
-However, `DBTrie` is now deprecated. We will continue to support it to give more time for our users [to migrate](docs/Postgres-Migration.md).
+* DBTrie (with the `--dbtrie` flag)
+* [Postgres](./docs/Postgres-Schema.md) (with the `--postgres` flags)
+
+However, `DBTrie` is now deprecated. We will continue to support it to give more time for our users [to migrate](./docs/Postgres-Migration.md).
 
 ## API Specification
 
-Read our [API Specification](docs/API.md).
+Read our [API Specification](./docs/API.md).
 
 ## How to build and run?
 
 If you are using Bitcoin core default settings:
 
 On Powershell:
-```
+
+```pwsh
 .\build.ps1
 ```
 
 On Linux:
-```
+
+```bash
 ./build.sh
 ```
 
 Then to run:
 
 On Powershell:
-```
+
+```pwsh
 .\run.ps1 --help
 ```
 
 On Linux:
 
-```
+```bash
 ./run.sh --help
 ```
 
 Example, if you have ltc node and btc node on regtest (default configuration), and want to connect to them: (see documentation for other options in the [postgres connection string](https://www.npgsql.org/doc/connection-string-parameters.html))
 
-```
+```bash
 ./run.sh --chains=btc,ltc --network=regtest --postgres "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer"
 ```
 
 ## How to use the API?
 
-Check [the API documentation](docs/API.md), you can then use any client library:
+Check [the API documentation](./docs/API.md), you can then use any client library:
+
 * [NBXplorer.NodeJS](https://github.com/junderw/NBXplorer.NodeJS) for NodeJS clients.
 * [NBXplorer.Client](https://www.nuget.org/packages/NBxplorer.Client) for .NET clients.
 
@@ -129,12 +135,13 @@ NBXplorer supports configuration through command line arguments, configuration f
 If you are not using standard install for bitcoind, you will have to change the configuration file:
 In Windows it is located in
 
-```
+```pwsh
 C:\Users\<user>\AppData\Roaming\NBXplorer\<network>\settings.config
 ```
 
 On linux or mac:
-```
+
+```bash
 ~/.nbxplorer/<network>/settings.config
 ```
 
@@ -143,61 +150,64 @@ The default configuration assumes `mainnet` with only `btc` chain supported, and
 You can change the location of the configuration file with the `--conf=pathToConf` command line argument.
 
 ### Command line parameters
-Please note that NBXplorer uses cookie authentication by default. If you run your Bitcoin/Litecoin/Dash nodes using their daemon (like `bitcoind`, `litecoind` or `dashd`), they generate a new cookie every time you start them, and that should work without any extra configuration. 
-If you run the node(s) using the GUI versions, like Bitcoin\Litecoin\Dash Core Qt with the `-server` parameter while you set the rpcusername and rpcpassword in their `.conf` files, you must set those values for every crypto you are planning to support. 
+
+Please note that NBXplorer uses cookie authentication by default. If you run your Bitcoin/Litecoin/Dash nodes using their daemon (like `bitcoind`, `litecoind` or `dashd`), they generate a new cookie every time you start them, and that should work without any extra configuration.
+If you run the node(s) using the GUI versions, like Bitcoin\Litecoin\Dash Core Qt with the `-server` parameter while you set the rpcusername and rpcpassword in their `.conf` files, you must set those values for every crypto you are planning to support.
 See samples below.
 
 #### Run from source (requires .NET Core SDK)
+
 You should use `run.ps1` (Windows) or `run.sh` (Linux) to execute NBXplorer, but you can also execute it manually with the following command:
 ```dotnet run --no-launch-profile -p .\NBXplorer\NBXplorer.csproj -- <parameters>```
 
 #### Run using built DLL (requires .NET Core Runtime only)
+
 If you already have a compiled DLL, you can run the executable with the following command:
 ```dotnet NBXplorer.dll <parameters>```
 
 #### Sample parameters
+
 Running NBXplorer HTTP server on port 20300, connecting to the BTC mainnet node locally.
 ```--port=20300 --network=mainnet --btcnodeendpoint=127.0.0.1:32939```
 
-Running NBXplorer on testnet, supporting Bitcoin, Litecoin and Dash, using cookie authentication for BTC and LTC, and RPC username and password for Dash, connecting to all of them locally. 
+Running NBXplorer on testnet, supporting Bitcoin, Litecoin and Dash, using cookie authentication for BTC and LTC, and RPC username and password for Dash, connecting to all of them locally.
 ```--chains=btc,ltc,dash --network=testnet --dashrpcuser=myuser --dashrpcpassword=mypassword```
-
 
 ### Environment variables
 
 The same settings as above, for example `export NBXPLORER_PORT=20300`. This is usefull for configuring docker.
 
-## How to Run 
+## How to Run
 
 ### Command Line
 
-You can use the [dotnet](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet) command which is part of .NET Core to run NBXplorer. To run from source you must have the .NET Core SDK installed e.g. 
+You can use the [dotnet](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet) command which is part of .NET Core to run NBXplorer. To run from source you must have the .NET Core SDK installed e.g.
 ```dotnet run NBXplorer.dll```
 As described above you may add configuration parameters if desired.
 
 If you have a compiled version of NBXplorer you should have a file in your build folder named NBXplorer.dll. This cannot itself be directly executed on the command line as it is not an executable file. Instead we can use the `dotnet` runtime to execute the dll file.
 
-e.g.
-```dotnet NBXplorer.dll ```
-
+e.g. `dotnet NBXplorer.dll`
 
 ## Important Note
 
 This tool will only start scanning from the configured `startheight`. (By default, the height of the blockchain during your first run)
 This means that you might not see old payments from your HD key.
 
-If you need to see old payments, you need to configure `--[crypto]startheight` to a specific height of your choice, then run it again with `--[crypto]rescan`, e.g.    
+If you need to see old payments, you need to configure `--[crypto]startheight` to a specific height of your choice, then run it again with `--[crypto]rescan`, e.g.
 `./run.sh --chains=ltc --ltcrescan --ltcstartheight=101`
 
 ## How to query?
 
 ### Using Postman
-[Postman](https://www.getpostman.com) is a useful tool for testing and experimenting with REST API's. 
 
-You can test the [NBXplorer API](docs/API.md) quickly and easily using Postman.
+[Postman](https://www.getpostman.com) is a useful tool for testing and experimenting with REST API's.
+
+You can test the [NBXplorer API](./docs/API.md) quickly and easily using Postman.
 
 If you use cookie authentication (enabled by default) in your locally run NBXplorer, you need to set that up in Postman:
-* Run NBXplorer and locate you cookie file (NBXplorer will generate a new Cookie file each time it runs in [its default data folder](docs/API.md#authentication))
+
+* Run NBXplorer and locate you cookie file (NBXplorer will generate a new Cookie file each time it runs in [its default data folder](./docs/API.md#authentication))
 * In Postman create a new GET API test
 * In Authorization select *Basic Auth*, you should see 2 input boxes for username and password
 * Open your cookie file with a text editor e.g. Notepad on windows . You should see a cookie string e.g. `__cookie__:0ff9cd83a5ac7c19a6b56a3d1e7a5c96e113d42dba7720a1f72a3a5e8c4b6c66`
@@ -208,6 +218,7 @@ If you use cookie authentication (enabled by default) in your locally run NBXplo
 * Enter the API URL you are going to test
 
 You can also disable authentication in NBXplorer for testing with the `--noauth` parameter. This makes testing quicker:
+
 * Run NBXplorer with the `--noauth` parameter
 * In Postman create a new GET API test
 * In Authorization select *No Auth*
@@ -225,19 +236,23 @@ this should return a JSON payload e.g.
 }
 
 ## Message Brokers
+
 ### Azure Service Bus
+
 Support has been added for Azure Service Bus as a message broker. Currently 2 Queues and 2 Topics are supported
 
 ### Queues
+
 * New Block
 * New Transaction
 
 ### Topics
+
 * New Block
 * New Transaction
 
 
-Filters should be applied on the client, if required. 
+Filters should be applied on the client, if required.
 
 To activate Azure Service Bus Mesages you should add an Azure Service Bus Connection string to your config file or on the command line.
 
@@ -259,14 +274,16 @@ asbtrant=Name of queue to send New Transaction message to
 ```
 
 ### RabbitMq
+
 Support has been added for RabbitMq as a message broker. Currently 2 exchanges supported;
 
 * New Block
 * New Transaction
 
-Filters can be applied on the client by defining routing keys;  
+Filters can be applied on the client by defining routing keys;
 
-For transactions;  
+For transactions;
+
 * `transactions.#` to get all transactions.
 * `transactions.[BTC].#` to get all [Bitcoin] transactions.
 * `transactions.[BTC].confirmed` to get only confirmed [Bitcoin] transactions.
@@ -274,7 +291,8 @@ For transactions;
 * `transactions.*.confirmed` to get all confirmed transactions.
 * `transactions.*.unconfirmed` to get all unconfirmed transactions.
 
-For blocks;    
+For blocks;
+
 * `blocks.#` to get all blocks.
 * `blocks.[BTC]` to get all [Bitcoin] blocks.
 
@@ -295,19 +313,22 @@ rmqtranex= Name of exchange to send transaction messages
 rmqblockex= Name of exchange to send block messages
 ```
 
-Payloads are JSON and map to `NewBlockEvent`, `NewTransactionEvent` in the `NBXplorer.Models` namespace. There is no support in NBXplorer client for message borkers at the current time. You will need to use the `Serializer` in `NBXplorer.Client` to de-serialize the objects or then implement your own JSON de-serializers for the custom types used in the payload.  
+Payloads are JSON and map to `NewBlockEvent`, `NewTransactionEvent` in the `NBXplorer.Models` namespace. There is no support in NBXplorer client for message borkers at the current time. You will need to use the `Serializer` in `NBXplorer.Client` to de-serialize the objects or then implement your own JSON de-serializers for the custom types used in the payload.
 
-For configuring serializers you can get crypto code info from `BasicProperties.Headers[CryptoCode]` of RabbitMq messages or `UserProperties[CryptoCode]` of Azure Service Bus messages.  
+For configuring serializers you can get crypto code info from `BasicProperties.Headers[CryptoCode]` of RabbitMq messages or `UserProperties[CryptoCode]` of Azure Service Bus messages.
 Examples can be found in unit tests.
 
 #### Troubleshooting
+
 If you receive a 401 Unauthorized then your cookie data is not working. Check you are using the current cookie by opening the cookie file again - also check the date/time of the cookie file to ensure it is the latest cookie (generated when you launched NBXplorer).
 
 If you receive a 404 or timeout then Postman cannot see the endpoint
-* are you using the correct Port ? 
+
+* are you using the correct Port ?
 * are you running postman on localhost ?
 
 ## Client API
+
 A better documentation is on the way, for now the only documentation is the client API in C# on [nuget](https://www.nuget.org/packages/NBxplorer.Client).
 The `ExplorerClient` classes allows you to query unused addresses, and the UTXO of an HD PubKey.
 You can take a look at [the tests](https://github.com/dgarage/NBXplorer/blob/master/NBXplorer.Tests/UnitTest1.cs) to see how it works.
@@ -317,10 +338,12 @@ There is a simple use case documented on [Blockchain Programming in C#](https://
 ## How to run the tests?
 
 This is easy, from repo directory:
-```
+
+```bash
 cd NBXplorer.Tests
 dotnet test
 ```
+
 The tests can take long the first time, as it download Bitcoin Core binaries. (Between 5 and 10 minutes)
 
 ## How to add support to my altcoin
