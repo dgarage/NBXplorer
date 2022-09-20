@@ -229,6 +229,10 @@ namespace NBXplorer.Backends.Postgres
 						}
 						Logger.LogInformation($"NBXplorer is correctly whitelisted by the node");
 					}
+					else if (peer is null)
+					{
+						Logger.LogWarning($"{Network.CryptoCode}: The RPC server you are connecting to, doesn't seem to be the same server as the one providing the P2P connection. This is an untested setup and may have non-obvious side effects.");
+					}
 					else
 					{
 						var addressStr = peer.Address is IPEndPoint end ? end.Address.ToString() : peer.Address?.ToString();
