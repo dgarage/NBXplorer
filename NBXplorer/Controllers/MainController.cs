@@ -770,7 +770,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme, string key)
 		{
-			var network = this.GetNetwork(cryptoCode, true);
+			var network = this.GetNetwork(cryptoCode, false);
 			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
 			var repo = this.RepositoryProvider.GetRepository(network);
 			var result = await repo.GetMetadata<JToken>(trackedSource, key);
