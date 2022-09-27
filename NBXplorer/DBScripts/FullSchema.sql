@@ -289,13 +289,13 @@ $$;
 CREATE FUNCTION get_wallets_recent(in_wallet_id text, in_interval interval, in_limit integer, in_offset integer) RETURNS TABLE(code text, asset_id text, tx_id text, seen_at timestamp with time zone, balance_change bigint, balance_total bigint)
     LANGUAGE sql STABLE
     AS $$
-  SELECT get_wallets_recent(in_wallet_id, NULL, NULL, in_interval, in_limit, in_offset)
+  SELECT * FROM get_wallets_recent(in_wallet_id, NULL, NULL, in_interval, in_limit, in_offset)
 $$;
 
 CREATE FUNCTION get_wallets_recent(in_wallet_id text, in_code text, in_interval interval, in_limit integer, in_offset integer) RETURNS TABLE(code text, asset_id text, tx_id text, seen_at timestamp with time zone, balance_change bigint, balance_total bigint)
     LANGUAGE sql STABLE
     AS $$
-  SELECT get_wallets_recent(in_wallet_id, in_code, NULL, in_interval, in_limit, in_offset)
+  SELECT * FROM get_wallets_recent(in_wallet_id, in_code, NULL, in_interval, in_limit, in_offset)
 $$;
 
 CREATE FUNCTION get_wallets_recent(in_wallet_id text, in_code text, in_asset_id text, in_interval interval, in_limit integer, in_offset integer) RETURNS TABLE(code text, asset_id text, tx_id text, seen_at timestamp with time zone, balance_change bigint, balance_total bigint)
@@ -1324,6 +1324,7 @@ INSERT INTO nbxv1_migrations VALUES ('008.FasterGetUnused');
 INSERT INTO nbxv1_migrations VALUES ('009.FasterGetUnused2');
 INSERT INTO nbxv1_migrations VALUES ('010.ChangeEventsIdType');
 INSERT INTO nbxv1_migrations VALUES ('011.FixGetWalletsRecent');
+INSERT INTO nbxv1_migrations VALUES ('012.PerfFixGetWalletsRecent');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);
