@@ -411,7 +411,7 @@ namespace NBXplorer.Backends.Postgres
 			var rows = await connection.QueryAsync($"SELECT ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem {additionalColumn} FROM " +
 				"unnest(@records) AS r (script)," +
 				" LATERAL (" +
-				"	SELECT script, addr, descriptor_metadata->>'derivation' derivation, keypath, descriptors_scripts_metadata->>'redeem' redeem, descriptor_metadata->>'blindedAddress' blinded_addr " +
+				"	SELECT script, addr, descriptor_metadata->>'derivation' derivation, keypath, descriptors_scripts_metadata->>'redeem' redeem, descriptors_scripts_metadata->>'blindedAddress' blinded_addr " +
 				"	FROM nbxv1_keypath_info ki " +
 				"   WHERE ki.code=@code AND ki.script=r.script) ts;", new { code = Network.CryptoCode, records = scripts.Select(s => s.ToHex()).ToArray() });
 			foreach (var r in rows)
