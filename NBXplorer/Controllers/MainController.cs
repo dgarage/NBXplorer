@@ -23,6 +23,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using NBXplorer.Analytics;
 using NBXplorer.Backends;
+using NBitcoin.Scripting;
 
 namespace NBXplorer.Controllers
 {
@@ -1098,9 +1099,8 @@ namespace NBXplorer.Controllers
 				AdditionalOptions = request.AdditionalOptions
 			});
 
+			await RepositoryProvider.GetRepository(network).EnsureWalletCreated(derivation);
 			var derivationTrackedSource = new DerivationSchemeTrackedSource(derivation);
-
-			await TrackWallet(cryptoCode, derivation, null);
 			List<Task> saveMetadata = new List<Task>();
 			if (request.SavePrivateKeys)
 			{
@@ -1113,20 +1113,69 @@ namespace NBXplorer.Controllers
 			}
 			var accountKeyPath = new RootedKeyPath(masterKey.GetPublicKey().GetHDFingerPrint(), keyPath);
 			saveMetadata.Add(repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountKeyPath, accountKeyPath));
-			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, request.ImportKeysToRPC.ToString()));
+
+			var importAddressToRPC = await GetImportAddressToRPC(request, network);
+			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, importAddressToRPC.ToString()));
+			var descriptor = GetDescriptor(accountKeyPath, accountKey.Neuter(), request.ScriptPubKeyType.Value);
+			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.AccountDescriptor, descriptor));
 			await Task.WhenAll(saveMetadata.ToArray());
 
+			await TrackWallet(cryptoCode, derivation, null);
 			return Json(new GenerateWalletResponse()
 			{
 				MasterHDKey = masterKey,
 				AccountHDKey = accountKey,
 				AccountKeyPath = accountKeyPath,
+				AccountDescriptor = descriptor,
 				DerivationScheme = derivation,
 				Mnemonic = mnemonic.ToString(),
 				Passphrase = request.Passphrase ?? string.Empty,
 				WordCount = request.WordCount.Value,
 				WordList = request.WordList
 			}, network.Serializer.Settings);
+		}
+
+		private async Task<ImportRPCMode> GetImportAddressToRPC(GenerateWalletRequest request, NBXplorerNetwork network)
+		{
+			var importAddressToRPC = ImportRPCMode.Legacy;
+			if (request.ImportKeysToRPC is true)
+			{
+				var rpc = this.GetAvailableRPC(network);
+				try
+				{
+					var walletInfo = await rpc.SendCommandAsync("getwalletinfo");
+					if (walletInfo.Result["descriptors"]?.Value<bool>() is true)
+					{
+						var readOnly = walletInfo.Result["private_keys_enabled"]?.Value<bool>() is false;
+						importAddressToRPC = readOnly ? ImportRPCMode.DescriptorsReadOnly : ImportRPCMode.Descriptors;
+						if (!readOnly && request.SavePrivateKeys is false)
+							throw new NBXplorerError(400, "wallet-unavailable", $"Your RPC wallet must include private keys, but savePrivateKeys is false").AsException();
+					}
+				}
+				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
+				{
+				}
+				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_NOT_FOUND)
+				{
+					throw new NBXplorerError(400, "wallet-unavailable", $"No wallet is loaded. Load a wallet using loadwallet or create a new one with createwallet. (Note: A default wallet is no longer automatically created)").AsException();
+				}
+			}
+
+			return importAddressToRPC;
+		}
+
+		private string GetDescriptor(RootedKeyPath accountKeyPath, BitcoinExtPubKey accountKey, ScriptPubKeyType scriptPubKeyType)
+		{
+			var imported = $"[{accountKeyPath}]{accountKey}";
+			var descriptor = scriptPubKeyType switch
+			{
+				ScriptPubKeyType.Legacy => $"pkh({imported})",
+				ScriptPubKeyType.Segwit => $"wpkh({imported})",
+				ScriptPubKeyType.SegwitP2SH => $"sh(wpkh({imported}))",
+				ScriptPubKeyType.TaprootBIP86 => $"tr({imported})",
+				_ => throw new NotSupportedException($"Bug of NBXplorer (ERR 3082), please notify the developers ({scriptPubKeyType})")
+			};
+			return OutputDescriptor.AddChecksum(descriptor);
 		}
 
 		private KeyPath GetDerivationKeyPath(ScriptPubKeyType scriptPubKeyType, int accountNumber, NBXplorerNetwork network)

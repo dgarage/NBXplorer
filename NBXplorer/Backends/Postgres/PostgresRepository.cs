@@ -23,6 +23,8 @@ using NBitcoin.Crypto;
 using NBitcoin.Altcoins.Elements;
 using NBXplorer.Altcoins.Liquid;
 using NBXplorer.Client;
+using NBitcoin.Scripting;
+using System.Text.RegularExpressions;
 
 namespace NBXplorer.Backends.Postgres
 {
@@ -47,6 +49,7 @@ namespace NBXplorer.Backends.Postgres
 			ConnectionFactory = connectionFactory;
 			KeyPathTemplates = keyPathTemplates;
 		}
+
 		public IRepository GetRepository(string cryptoCode)
 		{
 			_Repositories.TryGetValue(cryptoCode.ToUpperInvariant(), out PostgresRepository repository);
@@ -287,12 +290,14 @@ namespace NBXplorer.Backends.Postgres
 						addr.ToString(),
 						false);
 				});
+
+				// We do not dispose on purpose.
+				await ImportDescriptorToRPCIfNeeded(connection, walletKey, nextIndex, toGenerate, keyTemplate);
 				foreach (var batch in linesScriptpubkeys.Batch(10_000))
 				{
 					await InsertDescriptorsScripts(connection, batch);
 				}
 				totalGenerated += toGenerate;
-
 				// More than one loop should never happen, but it may happen if after generating the addresses, the new gap may
 				// still be not enough, because the scripts we generated may have been tracked before
 				// and may have received UTXOs
@@ -302,6 +307,39 @@ namespace NBXplorer.Backends.Postgres
 					toGenerate = 0;
 			} while (toGenerate != 0);
 			return (int)totalGenerated;
+		}
+
+		private async Task ImportDescriptorToRPCIfNeeded(DbConnection connection, WalletKey walletKey, long fromIndex, long toGenerate, KeyPathTemplate keyTemplate)
+		{
+			var helper = new DbConnectionHelper(Network, connection, KeyPathTemplates);
+			var importAddressToRPC = ImportRPCMode.Parse(await helper.GetMetadata<string>(walletKey.wid, WellknownMetadataKeys.ImportAddressToRPC));
+			if (importAddressToRPC == ImportRPCMode.Descriptors || importAddressToRPC == ImportRPCMode.DescriptorsReadOnly)
+			{
+				var descriptor = await helper.GetMetadata<string>(walletKey.wid, WellknownMetadataKeys.AccountDescriptor);
+				// descriptor: tr([abcdefaa/49'/0'/0']xpub)#checksum
+				if (descriptor != null)
+				{
+					descriptor = descriptor.Substring(0, descriptor.LastIndexOf('#'));
+					// descriptor: tr([abcdefaa/49'/0'/0']xpub)
+					if (importAddressToRPC == ImportRPCMode.Descriptors)
+					{
+						var accountHDKey = await helper.GetMetadata<string>(walletKey.wid, WellknownMetadataKeys.AccountHDKey);
+						if (accountHDKey != null)
+						{
+							descriptor = ReplaceBase58(descriptor, accountHDKey);
+							// descriptor: tr([abcdefaa/49'/0'/0']xpriv)
+						}
+					}
+					descriptor = ReplaceBase58(descriptor, $"$0/{keyTemplate}");
+					// descriptor: tr([abcdefaa/49'/0'/0']xpriv/0/*)
+					await rpc.ImportDescriptors(OutputDescriptor.AddChecksum(descriptor), fromIndex, fromIndex + toGenerate - 1);
+				}
+			}
+		}
+
+		private static string ReplaceBase58(string descriptor, string newBase58)
+		{
+			return Regex.Replace(descriptor, "[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{30,}", newBase58);
 		}
 
 		private long ToGenerateCount(GenerateAddressQuery query, long? gap)
@@ -873,8 +911,8 @@ namespace NBXplorer.Backends.Postgres
 		private async Task ImportAddressToRPC(DbConnectionHelper connection, TrackedSource trackedSource, BitcoinAddress address, KeyPath keyPath)
 		{
 			var k = GetWalletKey(trackedSource);
-			var shouldImportRPC = (await connection.GetMetadata<string>(k.wid, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
-			if (!shouldImportRPC)
+			var shouldImportRPC = ImportRPCMode.Parse((await connection.GetMetadata<string>(k.wid, WellknownMetadataKeys.ImportAddressToRPC)));
+			if (shouldImportRPC != ImportRPCMode.Legacy)
 				return;
 			var accountKey = await connection.GetMetadata<BitcoinExtKey>(k.wid, WellknownMetadataKeys.AccountHDKey);
 			await ImportAddressToRPC(accountKey, address, keyPath);
@@ -893,7 +931,6 @@ namespace NBXplorer.Backends.Postgres
 				}
 				catch (RPCException) // Probably the private key has already been imported
 				{
-
 				}
 			}
 		}
@@ -1201,6 +1238,12 @@ namespace NBXplorer.Backends.Postgres
 					height = s.Height
 				}).ToList();
 			await conn.Connection.ExecuteAsync("INSERT INTO blks (code, blk_id, prev_id, height, confirmed) VALUES (@code, @blk_id, @prev_id, @height, 't') ON CONFLICT DO NOTHING", parameters);
+		}
+
+		public async Task EnsureWalletCreated(DerivationStrategyBase strategy)
+		{
+			using var connection = await ConnectionFactory.CreateConnection();
+			await connection.ExecuteAsync("INSERT INTO wallets VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING", GetWalletKey(strategy));
 		}
 	}
 

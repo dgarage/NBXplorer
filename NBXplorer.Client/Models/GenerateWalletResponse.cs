@@ -20,6 +20,7 @@ namespace NBXplorer.Models
 		public BitcoinExtKey AccountHDKey { get; set; }
 		[JsonConverter(typeof(NBitcoin.JsonConverters.KeyPathJsonConverter))]
 		public NBitcoin.RootedKeyPath AccountKeyPath { get; set; }
+		public string AccountDescriptor { get; set; }
 		public DerivationStrategyBase DerivationScheme { get; set; }
 
 		public Mnemonic GetMnemonic()

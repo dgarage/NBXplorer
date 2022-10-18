@@ -10,6 +10,7 @@ namespace NBXplorer
 		public const string Mnemonic = nameof(Mnemonic);
 		public const string MasterHDKey = nameof(MasterHDKey);
 		public const string AccountHDKey = nameof(AccountHDKey);
+		public const string AccountDescriptor = nameof(AccountDescriptor);
 		public const string AccountKeyPath = nameof(AccountKeyPath);
 	}
 }

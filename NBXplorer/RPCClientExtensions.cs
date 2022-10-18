@@ -209,5 +209,20 @@ namespace NBXplorer
 			}
 			return null;
 		}
+
+		public async static Task ImportDescriptors(this RPCClient rpc, string descriptor, long from, long to)
+		{
+			var result = await rpc.SendCommandAsync("importdescriptors", new JArray(
+								new JObject()
+								{
+									["desc"] = descriptor,
+									["timestamp"] = "now",
+									["range"] = new JArray(from, to)
+								}));
+			if (result.Result[0]["success"]?.Value<bool>() is true)
+				return;
+			new RPCResponse((JObject)result.Result[0]).ThrowIfError();
+			throw new NotSupportedException($"Bug of NBXplorer (ERR 3083), please notify the developers");
+		}
 	}
 }

@@ -45,12 +45,6 @@ namespace NBXplorer
 		{
 			return money is AssetMoney am && am == NBXplorerNetwork.UnknownAssetMoney;
 		}
-		internal static bool AsBoolean(this string value)
-		{
-			if (value is string str && bool.TryParse(str, out var v))
-				return v;
-			return false;
-		}
 		internal static void AddRange<T>(this HashSet<T> hashset, IEnumerable<T> elements)
 		{
 			foreach (var el in elements)

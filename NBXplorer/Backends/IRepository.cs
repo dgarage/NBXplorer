@@ -50,5 +50,6 @@ namespace NBXplorer.Backends
 		ValueTask<int> TrimmingEvents(int maxEvents, CancellationToken cancellationToken = default);
 		Task<SlimChainedBlock> GetTip();
 		Task SaveBlocks(IList<SlimChainedBlock> slimBlocks);
+		Task EnsureWalletCreated(DerivationStrategyBase derivation);
 	}
 }

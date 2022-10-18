@@ -30,6 +30,7 @@ using Dapper;
 using NBXplorer.Configuration;
 using NBXplorer.Backends;
 using NBXplorer.Backends.Postgres;
+using NBitcoin.Tests;
 
 namespace NBXplorer.Tests
 {
@@ -3902,13 +3903,54 @@ namespace NBXplorer.Tests
 			b.Unconfirmed = new MoneyBag(((MoneyBag)b.Unconfirmed).Where(i => !i.IsUnknown()).ToArray());
 		}
 
-		[TheoryWithTimeout]
-		[InlineData(Backend.Postgres)]
-		[InlineData(Backend.DBTrie)]
-		public async Task CanGenerateWallet(Backend backend)
+
+		[Fact]
+		public async Task CanGenerateWithRPCTracking()
 		{
-			using (var tester = ServerTester.Create(backend))
+			using (var tester = ServerTester.CreateNoAutoStart(Backend.Postgres))
 			{
+				tester.RPCWalletType = RPCWalletType.Descriptors;
+				tester.Start();
+
+				foreach (var scriptPubKeyType in new[]
+				{
+					ScriptPubKeyType.TaprootBIP86,
+					ScriptPubKeyType.Legacy,
+					ScriptPubKeyType.Segwit,
+					ScriptPubKeyType.SegwitP2SH
+				})
+				{
+					var derivation = (await tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
+					{
+						SavePrivateKeys = true,
+						ImportKeysToRPC = true,
+						ScriptPubKeyType = scriptPubKeyType
+					})).DerivationScheme;
+					var addr1 = await tester.Client.GetUnusedAsync(derivation, DerivationFeature.Deposit);
+					var mine = tester.RPC.SendCommand("getaddressinfo", addr1.Address.ToString())
+						.Result["ismine"]
+						.Value<bool>();
+					Assert.True(mine);
+				}
+				await Assert.ThrowsAsync<NBXplorerException>(() => tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
+				{
+					SavePrivateKeys = false,
+					ImportKeysToRPC = true,
+					ScriptPubKeyType = ScriptPubKeyType.TaprootBIP86
+				}));
+			}
+		}
+
+		[TheoryWithTimeout]
+		[InlineData(Backend.Postgres, RPCWalletType.Descriptors)]
+		[InlineData(Backend.Postgres, RPCWalletType.Legacy)]
+		[InlineData(Backend.DBTrie, RPCWalletType.Legacy)]
+		public async Task CanGenerateWallet(Backend backend, RPCWalletType walletType)
+		{
+			using (var tester = ServerTester.CreateNoAutoStart(backend))
+			{
+				tester.RPCWalletType = walletType;
+				tester.Start();
 				var cashNode = tester.NodeBuilder.CreateNode(true);
 				cashNode.Sync(tester.Explorer, true);
 				var cashCow = cashNode.CreateRPCClient();
@@ -3938,6 +3980,7 @@ namespace NBXplorer.Tests
 				foreach (var metadata in new[]
 				{
 					WellknownMetadataKeys.AccountKeyPath,
+					WellknownMetadataKeys.AccountDescriptor,
 					WellknownMetadataKeys.ImportAddressToRPC
 				})
 				{
@@ -3955,7 +3998,7 @@ namespace NBXplorer.Tests
 					AccountNumber = 2,
 					SavePrivateKeys = true
 				});
-
+				Assert.StartsWith("sh(wpkh", wallet.AccountDescriptor);
 				foreach (var metadata in new[]
 				{
 					WellknownMetadataKeys.AccountHDKey,
@@ -4004,7 +4047,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(wallet.AccountKeyPath, await tester.Client.GetMetadataAsync<RootedKeyPath>(wallet.DerivationScheme, WellknownMetadataKeys.AccountKeyPath));
 				Assert.Equal(wallet.AccountHDKey, await tester.Client.GetMetadataAsync<BitcoinExtKey>(wallet.DerivationScheme, WellknownMetadataKeys.AccountHDKey));
 				Assert.Equal(wallet.Mnemonic.ToString(), await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.Mnemonic));
-				Assert.Equal("True", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
+				Assert.Equal(walletType == RPCWalletType.Descriptors ? "Descriptors" : "Legacy", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
 
 				Logs.Tester.LogInformation("Let's check if psbt are properly rooted automatically");
 				txid = await tester.SendToAddressAsync(firstGenerated.Address, Money.Coins(1.0m));

@@ -1475,8 +1475,8 @@ namespace NBXplorer.Backends.DBTrie
 		}
 		protected virtual async Task AfterMatch(TrackedTransaction tx, IReadOnlyCollection<KeyPathInformation> keyInfos)
 		{
-			var shouldImportRPC = (await GetMetadata<string>(tx.TrackedSource, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
-			if (!shouldImportRPC)
+			var shouldImportRPC = ImportRPCMode.Parse((await GetMetadata<string>(tx.TrackedSource, WellknownMetadataKeys.ImportAddressToRPC)));
+			if (shouldImportRPC !=ImportRPCMode.Legacy)
 				return;
 			var accountKey = await GetMetadata<BitcoinExtKey>(tx.TrackedSource, WellknownMetadataKeys.AccountHDKey);
 			foreach (var keyInfo in keyInfos)
@@ -1489,8 +1489,8 @@ namespace NBXplorer.Backends.DBTrie
 
 		private async Task ImportAddressToRPC(TrackedSource trackedSource, BitcoinAddress address, KeyPath keyPath)
 		{
-			var shouldImportRPC = (await GetMetadata<string>(trackedSource, WellknownMetadataKeys.ImportAddressToRPC)).AsBoolean();
-			if (!shouldImportRPC)
+			var shouldImportRPC = ImportRPCMode.Parse(await GetMetadata<string>(trackedSource, WellknownMetadataKeys.ImportAddressToRPC));
+			if (shouldImportRPC != ImportRPCMode.Legacy)
 				return;
 			var accountKey = await GetMetadata<BitcoinExtKey>(trackedSource, WellknownMetadataKeys.AccountHDKey);
 			await ImportAddressToRPC(accountKey, address, keyPath);
@@ -1724,6 +1724,11 @@ namespace NBXplorer.Backends.DBTrie
 		}
 
 		public Task SaveBlocks(IList<SlimChainedBlock> slimBlocks)
+		{
+			return Task.CompletedTask;
+		}
+
+		public Task EnsureWalletCreated(DerivationStrategyBase derivation)
 		{
 			return Task.CompletedTask;
 		}
