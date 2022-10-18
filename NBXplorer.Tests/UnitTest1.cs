@@ -1649,6 +1649,7 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation("Let's spend the other coin");
 				LockTestCoins(tester.RPC);
 				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				var unspentt = tester.RPC.ListUnspent();
 				var spending2 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
 				tester.Notifications.WaitForTransaction(pubkey, spending2);
 				Logs.Tester.LogInformation($"Spent on {spending2}");
@@ -3103,7 +3104,7 @@ namespace NBXplorer.Tests
 		{
 			if (keepAddresses == null)
 			{
-				var outpoints = rpc.ListUnspent().Where(l => l.Address == null).Select(o => o.OutPoint).ToArray();
+				var outpoints = rpc.ListUnspent().Select(o => o.OutPoint).ToArray();
 				rpc.LockUnspent(outpoints);
 			}
 			else
