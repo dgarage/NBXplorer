@@ -105,12 +105,19 @@ namespace NBXplorer.Tests
 			await tx.GetTable("IndexProgress").Delete();
 		}
 
+		public RPCWalletType? RPCWalletType
+		{
+			get;
+			set;
+		} = NBitcoin.Tests.RPCWalletType.Legacy;
+
 		public void Start()
 		{
 			try
 			{
 				var cryptoSettings = new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode(CryptoCode);
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, _Directory);
+				NodeBuilder.RPCWalletType = RPCWalletType;
 				if (KeepPreviousData)
 					NodeBuilder.CleanBeforeStartingNode = false;
 				Explorer = NodeBuilder.CreateNode();
@@ -295,7 +302,6 @@ namespace NBXplorer.Tests
 		{
 			get; set;
 		}
-
 		public NodeBuilder NodeBuilder
 		{
 			get; set;

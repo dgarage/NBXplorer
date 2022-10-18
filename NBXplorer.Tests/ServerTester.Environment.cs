@@ -9,6 +9,7 @@ namespace NBXplorer.Tests
     public partial class ServerTester
     {
 		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(ChainName.Regtest);
+
 		private void SetEnvironment()
 		{
 			//CryptoCode = "AGM";
@@ -97,7 +98,7 @@ namespace NBXplorer.Tests
 			//NBXplorerNetwork = _Provider.GetLBTC();
 			//
 			CryptoCode = "BTC";
-			nodeDownloadData = NodeDownloadData.Bitcoin.v22_0;
+			nodeDownloadData = NodeDownloadData.Bitcoin.v23_0;
 			NBXplorerNetwork = _Provider.GetBTC();
 		}
 	}
