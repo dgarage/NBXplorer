@@ -969,9 +969,9 @@ namespace NBXplorer.Backends.Postgres
 		private static string InsertEventQuery()
 		{
 			return "WITH cte AS (" +
-							"INSERT INTO nbxv1_evts_ids AS ei VALUES (@code, 1) ON CONFLICT (code) DO UPDATE SET curr_id=ei.curr_id+1" +
+							"INSERT INTO nbxv1_evts_ids AS ei VALUES (@code, 1) ON CONFLICT (code) DO UPDATE SET curr_id=ei.curr_id+1 " +
 							"RETURNING curr_id" +
-							")" +
+							") " +
 							"INSERT INTO nbxv1_evts (code, id, type, data) VALUES (@code, (SELECT * FROM cte), @type, @data::json) RETURNING id";
 		}
 
