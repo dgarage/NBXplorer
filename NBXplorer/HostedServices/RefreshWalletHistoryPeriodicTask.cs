@@ -16,7 +16,10 @@ namespace NBXplorer.HostedServices
 
 		public async Task Do(CancellationToken cancellationToken)
 		{
-			await using var conn = await ConnectionFactory.CreateConnection();
+			await using var conn = await ConnectionFactory.CreateConnection(b =>
+			{
+				b.CommandTimeout = 60 * 15;
+			});
 			await conn.ExecuteAsync("SELECT wallets_history_refresh();");
 		}
 	}
