@@ -3932,6 +3932,20 @@ namespace NBXplorer.Tests
 						.Result["ismine"]
 						.Value<bool>();
 					Assert.True(mine);
+
+					if (scriptPubKeyType == ScriptPubKeyType.TaprootBIP86)
+					{
+						// Try to generate more than one gap limit
+						for (int i = 0; i < 10; i++)
+						{
+							await tester.Client.GetUnusedAsync(derivation, DerivationFeature.Deposit, reserve: true);
+						}
+						addr1 = await tester.Client.GetUnusedAsync(derivation, DerivationFeature.Deposit, reserve: true);
+						mine = tester.RPC.SendCommand("getaddressinfo", addr1.Address.ToString())
+						.Result["ismine"]
+						.Value<bool>();
+						Assert.True(mine);
+					}
 				}
 				await Assert.ThrowsAsync<NBXplorerException>(() => tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
 				{

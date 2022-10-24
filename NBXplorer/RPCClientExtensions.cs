@@ -11,6 +11,7 @@ using NBitcoin.DataEncoders;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 using NBXplorer.Backends;
+using System.Text.RegularExpressions;
 
 namespace NBXplorer
 {
@@ -209,9 +210,10 @@ namespace NBXplorer
 			}
 			return null;
 		}
-
+		static Regex RangeRegex = new Regex("\\[\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]", RegexOptions.ECMAScript);
 		public async static Task ImportDescriptors(this RPCClient rpc, string descriptor, long from, long to)
 		{
+			retry:
 			var result = await rpc.SendCommandAsync("importdescriptors", new JArray(
 								new JObject()
 								{
@@ -221,7 +223,24 @@ namespace NBXplorer
 								}));
 			if (result.Result[0]["success"]?.Value<bool>() is true)
 				return;
-			new RPCResponse((JObject)result.Result[0]).ThrowIfError();
+
+			try
+			{
+				new RPCResponse((JObject)result.Result[0]).ThrowIfError();
+			}
+			// Somehow, we can't import a disjoint range in the descriptor wallet
+			// new range must include current range = [0, 999]
+			catch (RPCException rpcEx) when (RangeRegex.IsMatch(rpcEx.Message))
+			{
+				var m = RangeRegex.Match(rpcEx.Message);
+				var currentFrom = int.Parse(m.Groups[1].Value);
+				var currentTo = int.Parse(m.Groups[2].Value);
+				from = Math.Min(from, currentFrom);
+				to = Math.Max(to, currentTo);
+				if (from == currentFrom && to == currentTo)
+					return;
+				goto retry;
+			}
 			throw new NotSupportedException($"Bug of NBXplorer (ERR 3083), please notify the developers");
 		}
 	}
