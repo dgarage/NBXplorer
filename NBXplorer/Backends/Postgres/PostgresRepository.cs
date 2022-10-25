@@ -332,7 +332,7 @@ namespace NBXplorer.Backends.Postgres
 					}
 					descriptor = ReplaceBase58(descriptor, $"$0/{keyTemplate}");
 					// descriptor: tr([abcdefaa/49'/0'/0']xpriv/0/*)
-					await rpc.ImportDescriptors(OutputDescriptor.AddChecksum(descriptor), fromIndex, fromIndex + toGenerate - 1);
+					await rpc.ImportDescriptors(OutputDescriptor.AddChecksum(descriptor), fromIndex, fromIndex + toGenerate - 1, default);
 				}
 			}
 		}

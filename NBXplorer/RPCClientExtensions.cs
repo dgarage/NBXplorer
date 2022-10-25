@@ -211,21 +211,31 @@ namespace NBXplorer
 			return null;
 		}
 		static Regex RangeRegex = new Regex("\\[\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]", RegexOptions.ECMAScript);
-		public async static Task ImportDescriptors(this RPCClient rpc, string descriptor, long from, long to)
+		public async static Task ImportDescriptors(this RPCClient rpc, string descriptor, long from, long to, CancellationToken cancellationToken)
 		{
 			retry:
-			var result = await rpc.SendCommandAsync("importdescriptors", new JArray(
-								new JObject()
-								{
-									["desc"] = descriptor,
-									["timestamp"] = "now",
-									["range"] = new JArray(from, to)
-								}));
-			if (result.Result[0]["success"]?.Value<bool>() is true)
-				return;
-
 			try
 			{
+				// This way of handling error is strange, but this is because
+				// for odd reasons, importdescriptors does not always return a RPC error in case
+				// of error.
+				var result = await rpc.SendCommandAsync(new RPCRequest()
+				{
+					Method = "importdescriptors",
+					ThrowIfRPCError = true,
+					Params = new[]
+				{
+					new JArray(
+					new JObject()
+					{
+						["desc"] = descriptor,
+						["timestamp"] = "now",
+						["range"] = new JArray(from, to)
+					})
+				}
+				}, cancellationToken);
+				if (result.Result[0]["success"]?.Value<bool>() is true)
+					return;
 				new RPCResponse((JObject)result.Result[0]).ThrowIfError();
 			}
 			// Somehow, we can't import a disjoint range in the descriptor wallet
@@ -239,6 +249,12 @@ namespace NBXplorer
 				to = Math.Max(to, currentTo);
 				if (from == currentFrom && to == currentTo)
 					return;
+				goto retry;
+			}
+			catch (RPCException rpcEx) when (rpcEx.RPCCode == RPCErrorCode.RPC_WALLET_ERROR &&
+											 rpcEx.Message.Contains("Wallet is currently rescanning", StringComparison.OrdinalIgnoreCase))
+			{
+				await Task.Delay(1000, cancellationToken);
 				goto retry;
 			}
 			throw new NotSupportedException($"Bug of NBXplorer (ERR 3083), please notify the developers");
