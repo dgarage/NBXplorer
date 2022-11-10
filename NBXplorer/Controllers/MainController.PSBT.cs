@@ -244,14 +244,7 @@ namespace NBXplorer.Controllers
 					txBuilder.Send(dest.Destination, dest.Amount);
 					if (dest.SubstractFees)
 					{
-						try
-						{
-							txBuilder.SubtractFees();
-						}
-						catch
-						{
-							throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "You can't substract fee on this destination, because not enough money was sent to it"));
-						}
+						txBuilder.SubtractFees();
 					}
 				}
 			}
@@ -311,6 +304,10 @@ namespace NBXplorer.Controllers
 				}
 				psbt = txBuilder.BuildPSBT(false);
 				hasChange = psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
+			}
+			catch (OutputTooSmallException)
+			{
+				throw new NBXplorerException(new NBXplorerError(400, "output-too-small", "You can't substract fee on this destination, because not enough money was sent to it"));
 			}
 			catch (NotEnoughFundsException)
 			{

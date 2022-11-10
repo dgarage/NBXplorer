@@ -941,6 +941,27 @@ namespace NBXplorer.Tests
 			Assert.True(psbt2.PSBT.TryGetEstimatedFeeRate(out var feeRate));
 			Assert.Equal(new FeeRate(1.0m), feeRate);
 
+			Logs.Tester.LogInformation("Let's check what happen when SubstractFees=true, but paying output doesn't have enough money");
+			ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+			{
+				Destinations =
+			{
+			  new CreatePSBTDestination()
+			  {
+				Destination = newAddress.Address,
+				Amount = Money.Satoshis(1000),
+				SubstractFees = true
+			  }
+			},
+				ExplicitChangeAddress = newAddress.Address,
+				FeePreference = new FeePreference()
+				{
+					ExplicitFee = Money.Satoshis(1001)
+				},
+				ReserveChangeAddress = true
+			}));
+			Assert.Equal("output-too-small", ex.Error.Code);
+
 			if (type == ScriptPubKeyType.Segwit || type == ScriptPubKeyType.TaprootBIP86)
 			{
 				// some PSBT signers are incompliant with spec and require the non_witness_utxo even for segwit inputs
