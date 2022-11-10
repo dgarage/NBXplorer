@@ -964,6 +964,7 @@ A PSBT can be signed independently by many signers, and combined together before
 Error codes:
 
 * HTTP 400: `not-enough-funds`
+* HTTP 400: `output-too-small` (if the output on which the `substractFee=true` is too small to cover the fees)
 * HTTP 400: `fee-estimation-unavailable`
 * HTTP 404: `cryptoCode-not-supported`
 
