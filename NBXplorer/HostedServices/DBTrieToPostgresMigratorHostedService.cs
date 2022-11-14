@@ -260,7 +260,7 @@ namespace NBXplorer.HostedServices
 							lastEventId = parameters.Select(p => p.id).Max();
 							goto nextbatch;
 						}
-						await conn.ExecuteAsync("INSERT INTO nbxv1_evts_ids AS ei VALUES (@code, @curr_id) ON CONFLICT (code) DO UPDATE SET curr_id=@curr_id", new { code = network.CryptoCode, curr_id = lastEventId });
+						await conn.ExecuteAsync("INSERT INTO nbxv1_evts_ids AS ei VALUES (@code, @curr_id) ON CONFLICT (code) DO UPDATE SET curr_id=@curr_id WHERE ei.curr_id < @curr_id", new { code = network.CryptoCode, curr_id = lastEventId });
 						progress.EventsMigrated = true;
 						await SaveProgress(network, conn, progress);
 						await tx.CommitAsync();
