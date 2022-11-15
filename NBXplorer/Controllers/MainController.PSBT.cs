@@ -248,9 +248,9 @@ namespace NBXplorer.Controllers
 						{
 							txBuilder.SubtractFees();
 						}
-						catch (OutputTooSmallException)
+						catch (InvalidOperationException)
 						{
-							throw new NBXplorerException(new NBXplorerError(400, "output-too-small", "You can't substract fee on this destination, because not enough money was sent to it"));
+							throw new NBXplorerException(new NBXplorerError(400, "output-too-small", "You can't substract fee on this destination, because not enough money was sent to it."));
 						}
 					}
 				}
