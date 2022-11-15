@@ -244,7 +244,14 @@ namespace NBXplorer.Controllers
 					txBuilder.Send(dest.Destination, dest.Amount);
 					if (dest.SubstractFees)
 					{
-						txBuilder.SubtractFees();
+						try
+						{
+							txBuilder.SubtractFees();
+						}
+						catch (OutputTooSmallException)
+						{
+							throw new NBXplorerException(new NBXplorerError(400, "output-too-small", "You can't substract fee on this destination, because not enough money was sent to it"));
+						}
 					}
 				}
 			}
