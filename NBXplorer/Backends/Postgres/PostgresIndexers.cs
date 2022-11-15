@@ -225,7 +225,6 @@ namespace NBXplorer.Backends.Postgres
 						if (firstConnect)
 						{
 							firstConnect = false;
-							askMempoolOnReady = true;
 						}
 						Logger.LogInformation($"NBXplorer is correctly whitelisted by the node");
 					}
@@ -283,7 +282,6 @@ namespace NBXplorer.Backends.Postgres
 			}
 
 			bool firstConnect = true;
-			bool askMempoolOnReady = false;
 			private async Task<BlockLocator> AskNextHeaders()
 			{
 				var indexProgress = await Repository.GetIndexProgress();
@@ -504,12 +502,6 @@ namespace NBXplorer.Backends.Postgres
 					{
 						var old = _State;
 						_State = value;
-						if (value == BitcoinDWaiterState.Ready && askMempoolOnReady)
-						{
-							// The first time the indexer reach ready state, let's sync with the mempool
-							askMempoolOnReady = false;
-							_ = _Node.SendMessageAsync(new MempoolPayload());
-						}
 						EventAggregator.Publish(new BitcoinDStateChangedEvent(Network, old, value));
 					}
 				}
