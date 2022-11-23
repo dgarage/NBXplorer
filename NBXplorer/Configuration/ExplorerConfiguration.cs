@@ -52,6 +52,7 @@ namespace NBXplorer.Configuration
 			get;
 			set;
 		}
+		public bool NoWarmup { get; set; }
 		public bool HasTxIndex { get; set; }
 		public bool ExposeRPC { get; set; }
 	}
@@ -165,6 +166,7 @@ namespace NBXplorer.Configuration
 					
 					chainConfiguration.HasTxIndex = config.GetOrDefault<bool>($"{network.CryptoCode}.hastxindex", false);
 					chainConfiguration.ExposeRPC = config.GetOrDefault<bool>($"{network.CryptoCode}.exposerpc", exposeRPCGlobal);
+					chainConfiguration.NoWarmup = config.GetOrDefault<bool>($"nowarmup", false);
 					ChainConfigurations.Add(chainConfiguration);
 				}
 			}

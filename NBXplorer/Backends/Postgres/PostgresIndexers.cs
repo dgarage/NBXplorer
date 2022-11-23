@@ -241,7 +241,7 @@ namespace NBXplorer.Backends.Postgres
 
 					int waitTime = 10;
 
-					if (Network.NBitcoinNetwork.ChainName == ChainName.Regtest)
+					if (Network.NBitcoinNetwork.ChainName == ChainName.Regtest && !ChainConfiguration.NoWarmup)
 					{
 						await RPCClient.WarmupBlockchain(Logger);
 					}

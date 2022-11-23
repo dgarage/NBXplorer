@@ -294,7 +294,7 @@ namespace NBXplorer.Backends.DBTrie
 					try
 					{
 						blockchainInfo = await _OriginalRPC.GetBlockchainInfoAsyncEx();
-						if (blockchainInfo != null && _Network.NBitcoinNetwork.ChainName == ChainName.Regtest)
+						if (blockchainInfo != null && _Network.NBitcoinNetwork.ChainName == ChainName.Regtest && !_ChainConfiguration.NoWarmup)
 						{
 							if (await _OriginalRPC.WarmupBlockchain(Logs.Explorer))
 							{
