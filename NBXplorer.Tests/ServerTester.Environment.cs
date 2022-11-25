@@ -98,7 +98,7 @@ namespace NBXplorer.Tests
 			//NBXplorerNetwork = _Provider.GetLBTC();
 			//
 			CryptoCode = "BTC";
-			nodeDownloadData = NodeDownloadData.Bitcoin.v23_0;
+			nodeDownloadData = NodeDownloadData.Bitcoin.v24_0;
 			NBXplorerNetwork = _Provider.GetBTC();
 		}
 	}
