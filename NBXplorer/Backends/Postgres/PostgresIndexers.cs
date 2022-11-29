@@ -100,7 +100,7 @@ namespace NBXplorer.Backends.Postgres
 									).ToArray()));
 							var remaining = batch.Select(b => b.GetHash()).ToHashSet();
 							List<Block> unorderedBlocks = new List<Block>();
-							await foreach (var block in _DownloadedBlocks.Reader.ReadAllAsync(token))
+							await foreach (var block in _DownloadedBlocks.Reader.ReadAllAsync(pullBlockTimeout.Token))
 							{
 								pullBlockTimeout.CancelAfter(PullBlockTimeout);
 								if (!remaining.Remove(block.Header.GetHash()))
