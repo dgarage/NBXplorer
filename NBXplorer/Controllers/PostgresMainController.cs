@@ -133,14 +133,15 @@ namespace NBXplorer.Controllers
 				int idx,
 				long value,
 				string script,
+				string address,
 				string redeem,
 				string keypath,
 				string feature,
 				bool mempool,
 				bool input_mempool,
 				DateTime tx_seen_at)>(
-				$"SELECT blk_height, tx_id, wu.idx, value, script, {column}, mempool, input_mempool, seen_at " +
-				$"FROM wallets_utxos wu {join} WHERE code=@code AND wallet_id=@walletId AND immature IS FALSE", new { code = network.CryptoCode, walletId = repo.GetWalletKey(trackedSource).wid }));
+				$"SELECT blk_height, tx_id, wu.idx, value, script, s.addr, {column}, mempool, input_mempool, seen_at " +
+				$"FROM wallets_utxos wu {join} JOIN scripts s USING (code, script) WHERE code=@code AND wallet_id=@walletId AND immature IS FALSE", new { code = network.CryptoCode, walletId = repo.GetWalletKey(trackedSource).wid }));
 			UTXOChanges changes = new UTXOChanges()
 			{
 				CurrentHeight = (int)height,
@@ -169,6 +170,8 @@ namespace NBXplorer.Controllers
 					u.KeyPath = KeyPath.Parse(utxo.keypath);
 					u.Feature = Enum.Parse<DerivationFeature>(utxo.feature);
 				}
+				if (utxo.address != null)
+					u.Address = BitcoinAddress.Create(utxo.address, network.NBitcoinNetwork);
 				if (!utxo.mempool)
 					changes.Confirmed.UTXOs.Add(u);
 				else if (!utxo.input_mempool)

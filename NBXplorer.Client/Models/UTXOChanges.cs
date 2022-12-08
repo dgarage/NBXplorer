@@ -198,6 +198,9 @@ namespace NBXplorer.Models
 				_ScriptPubKey = value;
 			}
 		}
+
+		public BitcoinAddress Address { get; set; }
+
 		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public Script Redeem { get; set; }
 		IMoney _Value;
