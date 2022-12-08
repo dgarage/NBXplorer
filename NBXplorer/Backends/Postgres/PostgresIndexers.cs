@@ -256,6 +256,7 @@ namespace NBXplorer.Backends.Postgres
 						waitTime = Math.Min(5_000, waitTime * 2);
 						goto retry;
 					}
+					_NodeTip = await RPCClient.GetBlockHeaderAsyncEx(BlockchainInfo.BestBlockHash);
 					State = BitcoinDWaiterState.NBXplorerSynching;
 					// Refresh the NetworkInfo that may have become different while it was synching.
 					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
@@ -356,6 +357,9 @@ namespace NBXplorer.Backends.Postgres
 				EventAggregator.Publish(new RawBlockEvent(block, this.Network), true);
 				lastIndexedBlock = slimChainedBlock;
 			}
+
+			SlimChainedBlock _NodeTip;
+
 			private async Task SaveMatches(DbConnectionHelper conn, List<Transaction> transactions, SlimChainedBlock slimChainedBlock, bool fireEvents)
 			{
 				foreach (var tx in transactions)
@@ -369,6 +373,8 @@ namespace NBXplorer.Backends.Postgres
 				_ = AddressPoolService.GenerateAddresses(Network, matches);
 				if (slimChainedBlock != null)
 				{
+					if (slimChainedBlock.Height >= _NodeTip.Height)
+						_NodeTip = slimChainedBlock;
 					await conn.NewBlockCommit(slimChainedBlock.Hash);
 					var blockEvent = new Models.NewBlockEvent()
 					{
@@ -395,7 +401,7 @@ namespace NBXplorer.Backends.Postgres
 							{
 								BlockId = slimChainedBlock?.Hash,
 								Height = slimChainedBlock?.Height,
-								Confirmations = slimChainedBlock?.Height == null ? 0 : BlockchainInfo.Headers - slimChainedBlock.Height + 1,
+								Confirmations = slimChainedBlock?.Height == null ? 0 : _NodeTip.Height - slimChainedBlock.Height + 1,
 								Timestamp = now,
 								Transaction = matches[i].Transaction,
 								TransactionHash = matches[i].TransactionHash

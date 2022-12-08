@@ -44,6 +44,9 @@ namespace NBXplorer
 		{
 			get; set;
 		}
+		[JsonProperty("bestblockhash")]
+		[JsonConverter(typeof(NBitcoin.JsonConverters.UInt256JsonConverter))]
+		public uint256 BestBlockHash { get; set; }
 	}
 
 	public class GetNetworkInfoResponse
