@@ -1433,8 +1433,7 @@ namespace NBXplorer.Backends.DBTrie
 							match.Inserted = now;
 							matches.Add(matchesGroupingKey, match);
 						}
-						if (keyInfo.KeyPath != null)
-							match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
+						match.AddKnownKeyPathInformation(keyInfo);
 						keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
 					}
 				}

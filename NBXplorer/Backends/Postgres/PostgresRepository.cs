@@ -658,8 +658,7 @@ namespace NBXplorer.Backends.Postgres
 									match.Immature = tx.IsCoinBase;
 									matches.Add(matchesGroupingKey, match);
 								}
-								if (keyInfo.KeyPath != null)
-									match.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
+								match.AddKnownKeyPathInformation(keyInfo);
 								elementContext?.TrackedTransaction(match, keyInfo);
 							}
 						}

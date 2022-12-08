@@ -2307,6 +2307,7 @@ namespace NBXplorer.Tests
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.NotEmpty(txEvent.Outputs);
 					Assert.Equal(pubkey.Address.ScriptPubKey, txEvent.Outputs[0].ScriptPubKey);
+					Assert.Equal(pubkey.Address, txEvent.Outputs[0].Address);
 					Assert.Equal(txEvent.TrackedSource, pubkey);
 				}
 

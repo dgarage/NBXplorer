@@ -686,6 +686,7 @@ Then you will receive such notifications when a transaction is impacting the `de
       {
         "keyPath": "0/1",
         "scriptPubKey": "a91476de0c5d07fd202880672bc702162b7f18e13aca87",
+        "address": "2N45jj76a7YjGLDoKs2mnQ4tt5N7t6R9xoM",
         "redeem": "00147d31e1c7959cd047bb7b9b35e4c877a28efe2f0b",
         "index": 0,
         "value": 100000000
@@ -934,6 +935,7 @@ The smallest `eventId` is 1.
         {
           "keyPath": "0/0",
           "scriptPubKey": "0014c5e0b07f40b8dbe69b22864d84d83d5b41208353",
+          "address": "bcrt1qchstql6qhrd7dxezsexcfkpatdqjpq6nntvtrd",
           "index": 1,
           "value": 100000000
         }

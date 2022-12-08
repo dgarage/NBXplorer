@@ -62,5 +62,6 @@ namespace NBXplorer.Models
 		public Script ScriptPubKey { get; set; }
 		public int Index { get; set; }
 		public IMoney Value { get; set; }
+		public BitcoinAddress Address { get; set; }
 	}
 }

@@ -91,6 +91,7 @@ namespace NBXplorer
 		}
 
 		public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; } = new Dictionary<Script, KeyPath>();
+		public Dictionary<Script, KeyPathInformation> KnownKeyPathInformation { get; } = new Dictionary<Script, KeyPathInformation>();
 		public HashSet<ICoin> ReceivedCoins { get; protected set; } = new HashSet<ICoin>(CoinOutpointEqualityComparer.Instance);
 		public HashSet<OutPoint> SpentOutpoints { get; } = new HashSet<OutPoint>();
 
@@ -136,14 +137,16 @@ namespace NBXplorer
 			return this.ReceivedCoins
 							.Select(o => (Index: (int)o.Outpoint.N,
 												   Output: o,
-												   KeyPath: KnownKeyPathMapping.TryGet(o.TxOut.ScriptPubKey)))
+												   KeyPath: KnownKeyPathMapping.TryGet(o.TxOut.ScriptPubKey),
+												   Address: KnownKeyPathInformation.TryGet(o.TxOut.ScriptPubKey)?.Address))
 							.Where(o => o.KeyPath != null || o.Output.TxOut.ScriptPubKey == (TrackedSource as IDestination)?.ScriptPubKey)
 							.Select(o => new MatchedOutput()
 							{
 								Index = o.Index,
 								Value = o.Output.Amount,
 								KeyPath = o.KeyPath,
-								ScriptPubKey = o.Output.TxOut.ScriptPubKey
+								ScriptPubKey = o.Output.TxOut.ScriptPubKey,
+								Address = o.Address
 							});
 		}
 
@@ -168,6 +171,13 @@ namespace NBXplorer
 				}
 			}
 			return inputsIndexes[spent];
+		}
+
+		internal void AddKnownKeyPathInformation(KeyPathInformation keyInfo)
+		{
+			if (keyInfo.KeyPath != null)
+				this.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
+			this.KnownKeyPathInformation.TryAdd(keyInfo.ScriptPubKey, keyInfo);
 		}
 	}
 
