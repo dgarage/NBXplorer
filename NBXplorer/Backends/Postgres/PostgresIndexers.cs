@@ -371,17 +371,21 @@ namespace NBXplorer.Backends.Postgres
 				}
 				var matches = await Repository.GetMatchesAndSave(conn, transactions, slimChainedBlock, now, true);
 				_ = AddressPoolService.GenerateAddresses(Network, matches);
+
+				long confirmations = 0;
 				if (slimChainedBlock != null)
 				{
 					if (slimChainedBlock.Height >= _NodeTip.Height)
 						_NodeTip = slimChainedBlock;
+					confirmations = _NodeTip.Height - slimChainedBlock.Height + 1;
 					await conn.NewBlockCommit(slimChainedBlock.Hash);
 					var blockEvent = new Models.NewBlockEvent()
 					{
 						CryptoCode = Network.CryptoCode,
 						Hash = slimChainedBlock.Hash,
 						Height = slimChainedBlock.Height,
-						PreviousBlockHash = slimChainedBlock.Previous
+						PreviousBlockHash = slimChainedBlock.Previous,
+						Confirmations = confirmations
 					};
 					await Repository.SaveEvent(conn, blockEvent);
 					EventAggregator.Publish(blockEvent);
@@ -401,7 +405,7 @@ namespace NBXplorer.Backends.Postgres
 							{
 								BlockId = slimChainedBlock?.Hash,
 								Height = slimChainedBlock?.Height,
-								Confirmations = slimChainedBlock?.Height == null ? 0 : _NodeTip.Height - slimChainedBlock.Height + 1,
+								Confirmations = confirmations,
 								Timestamp = now,
 								Transaction = matches[i].Transaction,
 								TransactionHash = matches[i].TransactionHash

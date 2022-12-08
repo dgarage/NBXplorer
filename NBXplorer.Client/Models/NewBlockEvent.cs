@@ -22,6 +22,8 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
+		public long Confirmations { get; set; }
+
 		[JsonIgnore]
 		public override string EventType => "newblock";
 

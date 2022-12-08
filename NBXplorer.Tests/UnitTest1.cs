@@ -1835,6 +1835,8 @@ namespace NBXplorer.Tests
 						blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
 					Assert.Equal(expectedBlockId, blockEvent.Hash);
 					Assert.NotEqual(0, blockEvent.Height);
+					if (backend == Backend.Postgres)
+						Assert.Equal(1, blockEvent.Confirmations);
 
 					connected.ListenDerivationSchemes(new[] { pubkey });
 					tester.SendToAddress(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));

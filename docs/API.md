@@ -645,7 +645,8 @@ Then a notification will be delivered through the websocket when a new block is 
     "height": 104,
     "hash": "10b0e5178aaf42c4a938f0d37430413b7d76feae14b01fc07e1f23300b8821ce",
     "previousBlockHash": "4c6a9c1cadf143c87249519639e86e236feac9d3cea2904e4c42bc5bc32a48a7",
-    "cryptoCode": "BTC"
+    "cryptoCode": "BTC",
+    "confirmations": 1
   }
 }
 ```
@@ -911,6 +912,7 @@ The smallest `eventId` is 1.
       "hash": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35",
       "previousBlockHash": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
       "cryptoCode": "BTC",
+      "confirmations": 1
     }
   },
   {
