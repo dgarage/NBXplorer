@@ -125,8 +125,23 @@ namespace NBXplorer.Controllers
 
 			await using var conn = await ConnectionFactory.CreateConnection();
 			var height = await conn.ExecuteScalarAsync<long>("SELECT height FROM get_tip(@code)", new { code = network.CryptoCode });
-			string join = derivationScheme is null ? string.Empty : " JOIN descriptors_scripts ds USING (code, script) JOIN descriptors d USING (code, descriptor)";
-			string column = derivationScheme is null ? "NULL as redeem, NULL as keypath, NULL as feature" : "ds.metadata->>'redeem' redeem, nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, d.metadata->>'feature' feature";
+
+
+			// On elements, we can't get blinded address from the scriptPubKey, so we need to fetch it rather than compute it
+			string addrColumns = "NULL as address";
+			if (network.IsElement && !derivationScheme.Unblinded())
+			{
+				addrColumns = "ds.metadata->>'blindedAddress' as address";
+			}
+
+			string descriptorJoin = string.Empty;
+			string descriptorColumns = "NULL as redeem, NULL as keypath, NULL as feature";
+			if (derivationScheme is not null)
+			{
+				descriptorJoin = " JOIN descriptors_scripts ds USING (code, script) JOIN descriptors d USING (code, descriptor)";
+				descriptorColumns = "ds.metadata->>'redeem' redeem, nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, d.metadata->>'feature' feature";
+			}
+
 			var utxos = (await conn.QueryAsync<(
 				long? blk_height,
 				string tx_id,
@@ -140,8 +155,8 @@ namespace NBXplorer.Controllers
 				bool mempool,
 				bool input_mempool,
 				DateTime tx_seen_at)>(
-				$"SELECT blk_height, tx_id, wu.idx, value, script, s.addr, {column}, mempool, input_mempool, seen_at " +
-				$"FROM wallets_utxos wu {join} JOIN scripts s USING (code, script) WHERE code=@code AND wallet_id=@walletId AND immature IS FALSE", new { code = network.CryptoCode, walletId = repo.GetWalletKey(trackedSource).wid }));
+				$"SELECT blk_height, tx_id, wu.idx, value, script, {addrColumns}, {descriptorColumns}, mempool, input_mempool, seen_at " +
+				$"FROM wallets_utxos wu{descriptorJoin} WHERE code=@code AND wallet_id=@walletId AND immature IS FALSE", new { code = network.CryptoCode, walletId = repo.GetWalletKey(trackedSource).wid }));
 			UTXOChanges changes = new UTXOChanges()
 			{
 				CurrentHeight = (int)height,
@@ -170,8 +185,7 @@ namespace NBXplorer.Controllers
 					u.KeyPath = KeyPath.Parse(utxo.keypath);
 					u.Feature = Enum.Parse<DerivationFeature>(utxo.feature);
 				}
-				if (utxo.address != null)
-					u.Address = BitcoinAddress.Create(utxo.address, network.NBitcoinNetwork);
+				u.Address = utxo.address is null ? u.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : BitcoinAddress.Create(utxo.address, network.NBitcoinNetwork);
 				if (!utxo.mempool)
 					changes.Confirmed.UTXOs.Add(u);
 				else if (!utxo.input_mempool)

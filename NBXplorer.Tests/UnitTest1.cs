@@ -3838,9 +3838,11 @@ namespace NBXplorer.Tests
 					
 					//test: Elements should have unblinded the outputs
 					var output = Assert.Single(evt.Outputs);
+					Assert.Equal(address, output.Address);
 					var assetMoney = Assert.IsType<AssetMoney>(output.Value);
 					Assert.Equal(Money.Coins(0.2m).Satoshi, assetMoney.Quantity);
 					Assert.NotNull(assetMoney.AssetId);
+					Assert.Equal(address, (await tester.Client.GetUTXOsAsync(userDerivationScheme)).Unconfirmed.UTXOs[0].Address);
 
 					// but not the transaction itself
 					var tx = Assert.IsAssignableFrom<ElementsTransaction>(evt.TransactionData.Transaction);
