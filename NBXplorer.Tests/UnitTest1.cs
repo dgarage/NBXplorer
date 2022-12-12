@@ -4100,7 +4100,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(wallet.Mnemonic.ToString(), await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.Mnemonic));
 
 				var birthdate = DateTimeOffset.ParseExact(await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.Birthdate), "O", CultureInfo.InvariantCulture);
-				Assert.True(DateTimeOffset.UtcNow - birthdate < TimeSpan.FromSeconds(5));
+				Assert.True(DateTimeOffset.UtcNow - birthdate < TimeSpan.FromSeconds(60));
 				Assert.Equal(walletType == RPCWalletType.Descriptors ? "Descriptors" : "Legacy", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
 
 				Logs.Tester.LogInformation("Let's check if psbt are properly rooted automatically");
