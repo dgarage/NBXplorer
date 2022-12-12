@@ -24,6 +24,9 @@ using NBXplorer.Logging;
 using NBXplorer.DerivationStrategy;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json.Linq;
+using NBitcoin.Altcoins.Elements;
+using NBitcoin.Scripting;
 
 namespace NBXplorer.Tests
 {
@@ -118,6 +121,7 @@ namespace NBXplorer.Tests
 				var cryptoSettings = new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode(CryptoCode);
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, _Directory);
 				NodeBuilder.RPCWalletType = RPCWalletType;
+				NodeBuilder.CreateWallet = CreateWallet;
 				if (KeepPreviousData)
 					NodeBuilder.CleanBeforeStartingNode = false;
 				Explorer = NodeBuilder.CreateNode();
@@ -128,8 +132,6 @@ namespace NBXplorer.Tests
 					node.CookieAuth = cryptoSettings.SupportCookieAuthentication;
 				}
 				NodeBuilder.StartAll();
-				if (!KeepPreviousData)
-					Explorer.CreateRPCClient().EnsureGenerate(Network.Consensus.CoinbaseMaturity + 1);
 
 				datadir = Path.Combine(_Directory, "explorer");
 				if (!KeepPreviousData && !LoadedData)
@@ -180,7 +182,6 @@ namespace NBXplorer.Tests
 			keyValues.Add(("trimevents", TrimEvents.ToString()));
 			keyValues.Add(("mingapsize", "3"));
 			keyValues.Add(("maxgapsize", "8"));
-			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}startheight", Explorer.CreateRPCClient().GetBlockCount().ToString()));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
 			keyValues.Add(("asbcnstr", AzureServiceBusTestConfig.ConnectionString));
 			keyValues.Add(("asbblockq", AzureServiceBusTestConfig.NewBlockQueue));
@@ -409,6 +410,44 @@ namespace NBXplorer.Tests
 				DirectoryInfo nextTargetSubDir =
 					target.CreateSubdirectory(diSourceSubDir.Name);
 				CopyAll(diSourceSubDir, nextTargetSubDir);
+			}
+		}
+		public void ImportPrivKey(BitcoinExtKey key, string path)
+		{
+			ImportPrivKeyAsync(key, path).GetAwaiter().GetResult();
+		}
+		public async Task ImportPrivKeyAsync(BitcoinExtKey key, string path)
+		{
+			var k = PrivateKeyOf(key, path);
+			try
+			{
+				await RPC.ImportPrivKeyAsync(k).ConfigureAwait(false);
+			}
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR)
+			{
+				string[] desc;
+				if (this.RPC.Capabilities.SupportSegwit)
+					desc = new[] { $"wpkh({k})", $"sh(wpkh({k}))" };
+				else
+					desc = new[] { $"pkh({k})" };
+
+				foreach (var d in desc)
+				{
+					await RPC.SendCommandAsync(new RPCRequest()
+					{
+						Method = "importdescriptors",
+						ThrowIfRPCError = true,
+						Params = new[]
+						{
+						new JArray(
+						new JObject()
+						{
+							["desc"] = OutputDescriptor.AddChecksum(d),
+							["timestamp"] = this.RPC.Network.Consensus.CoinbaseMaturity
+						})
+					}
+					}).ConfigureAwait(false);
+				}
 			}
 		}
 

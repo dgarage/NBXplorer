@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -241,10 +242,6 @@ namespace NBXplorer.Backends.Postgres
 
 					int waitTime = 10;
 
-					if (Network.NBitcoinNetwork.ChainName == ChainName.Regtest && !ChainConfiguration.NoWarmup)
-					{
-						await RPCClient.WarmupBlockchain(Logger);
-					}
 					// Need NetworkInfo for the get status
 					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
 					retry:
@@ -255,6 +252,12 @@ namespace NBXplorer.Backends.Postgres
 						await Task.Delay(waitTime * 2, token);
 						waitTime = Math.Min(5_000, waitTime * 2);
 						goto retry;
+					}
+					await RPCClient.EnsureWalletCreated(Logger);
+					if (Network.NBitcoinNetwork.ChainName == ChainName.Regtest && !ChainConfiguration.NoWarmup)
+					{
+						if (await RPCClient.WarmupBlockchain(Logger))
+							BlockchainInfo = await RPCClient.GetBlockchainInfoAsyncEx();
 					}
 					_NodeTip = await RPCClient.GetBlockHeaderAsyncEx(BlockchainInfo.BestBlockHash);
 					State = BitcoinDWaiterState.NBXplorerSynching;

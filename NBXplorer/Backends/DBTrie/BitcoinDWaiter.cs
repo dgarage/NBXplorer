@@ -294,13 +294,6 @@ namespace NBXplorer.Backends.DBTrie
 					try
 					{
 						blockchainInfo = await _OriginalRPC.GetBlockchainInfoAsyncEx();
-						if (blockchainInfo != null && _Network.NBitcoinNetwork.ChainName == ChainName.Regtest && !_ChainConfiguration.NoWarmup)
-						{
-							if (await _OriginalRPC.WarmupBlockchain(Logs.Explorer))
-							{
-								blockchainInfo = await _OriginalRPC.GetBlockchainInfoAsyncEx();
-							}
-						}
 					}
 					catch (Exception ex)
 					{
@@ -313,12 +306,13 @@ namespace NBXplorer.Backends.DBTrie
 					}
 					else
 					{
+						blockchainInfo = await Warmup(blockchainInfo);
 						await ConnectToBitcoinD(token, blockchainInfo);
 						State = BitcoinDWaiterState.NBXplorerSynching;
 					}
 					break;
 				case BitcoinDWaiterState.CoreSynching:
-					GetBlockchainInfoResponse blockchainInfo2 = null;
+					GetBlockchainInfoResponse blockchainInfo2;
 					try
 					{
 						blockchainInfo2 = await _OriginalRPC.GetBlockchainInfoAsyncEx();
@@ -331,6 +325,7 @@ namespace NBXplorer.Backends.DBTrie
 					}
 					if (!blockchainInfo2.IsSynching(_Network))
 					{
+						blockchainInfo2 = await Warmup(blockchainInfo2);
 						await ConnectToBitcoinD(token, blockchainInfo2);
 						State = BitcoinDWaiterState.NBXplorerSynching;
 					}
@@ -369,6 +364,18 @@ namespace NBXplorer.Backends.DBTrie
 				_EventAggregator.Publish(new BitcoinDStateChangedEvent(_Network, oldState, State));
 			}
 			return changed;
+		}
+
+		private async Task<GetBlockchainInfoResponse> Warmup(GetBlockchainInfoResponse blockchainInfo2)
+		{
+			await _OriginalRPC.EnsureWalletCreated(Logger);
+			if (Network.NBitcoinNetwork.ChainName == ChainName.Regtest && !_ChainConfiguration.NoWarmup)
+			{
+				if (await _OriginalRPC.WarmupBlockchain(Logger))
+					blockchainInfo2 = await _OriginalRPC.GetBlockchainInfoAsyncEx();
+			}
+
+			return blockchainInfo2;
 		}
 
 		private Node GetHandshakedNode()

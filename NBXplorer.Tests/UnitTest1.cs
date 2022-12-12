@@ -1656,7 +1656,7 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation($"Funding tx ({fundingTxId}) has two coins");
 				Logs.Tester.LogInformation("Let's spend one of the coins");
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
+				tester.ImportPrivKey(key, "0/1");
 
 				var spending1 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
 				tester.Notifications.WaitForTransaction(pubkey, spending1);
@@ -1673,7 +1673,7 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Let's spend the other coin");
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				tester.ImportPrivKey(key, "0/0");
 				var unspentt = tester.RPC.ListUnspent();
 				var spending2 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
 				tester.Notifications.WaitForTransaction(pubkey, spending2);
@@ -1770,14 +1770,14 @@ namespace NBXplorer.Tests
 				// Let's spend one of the coins of funding and spend it again
 				// [funding, spending1, spending2]
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
+				tester.ImportPrivKey(key, "0/1");
 				var coinDestination = tester.Client.GetUnused(pubkey, DerivationFeature.Deposit);
 				var coinDestinationAddress = coinDestination.ScriptPubKey;
 				var spending1 = tester.RPC.SendToAddress(coinDestinationAddress, Money.Coins(0.1m));
 				Logs.Tester.LogInformation($"Spent the coin to 0/1 in spending1({spending1})");
 				tester.Notifications.WaitForTransaction(pubkey, spending1);
 				LockTestCoins(tester.RPC, new HashSet<Script>());
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, coinDestination.KeyPath.ToString()));
+				tester.ImportPrivKey(key, coinDestination.KeyPath.ToString());
 				var spending2 = tester.RPC.SendToAddress(new Key().GetScriptPubKey(ScriptPubKeyType.Legacy), Money.Coins(0.01m));
 				tester.Notifications.WaitForTransaction(pubkey, spending2);
 				Logs.Tester.LogInformation($"Spent again the coin in spending2({spending2})");
@@ -1797,7 +1797,7 @@ namespace NBXplorer.Tests
 				// Let's spend the other coin of fundingTx
 				Thread.Sleep(1000);
 				LockTestCoins(tester.RPC, new HashSet<Script>());
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				tester.ImportPrivKey(key, "0/0");
 				var spending3 = tester.RPC.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.1m));
 				tester.Notifications.WaitForTransaction(pubkey, spending3);
 				Logs.Tester.LogInformation($"Spent the second coin to 0/0 in spending3({spending3})");
@@ -2155,7 +2155,7 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Let's send 0.6BTC from alice 0/1 to bob 0/3");
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(alice, "0/1"));
+				tester.ImportPrivKey(alice, "0/1");
 				id = tester.SendToAddress(tester.AddressOf(bob, "0/3"), Money.Coins(0.6m));
 				tester.Notifications.WaitForTransaction(bobPubKey, id);
 
@@ -2240,7 +2240,7 @@ namespace NBXplorer.Tests
 				tester.Client.Track(pubkey);
 
 				var addresses = new HashSet<Script>();
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				tester.ImportPrivKey(key, "0/0");
 				var id = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(pubkey, id);
 				addresses.Add(tester.AddressOf(key, "0/0").ScriptPubKey);
@@ -2264,7 +2264,7 @@ namespace NBXplorer.Tests
 					coins = coins - Money.Coins(0.001m);
 					var path = $"0/{i + 1}";
 					var destination = tester.AddressOf(key, path);
-					tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, path));
+					tester.ImportPrivKey(key, path);
 					var txId = tester.SendToAddress(destination, coins);
 					Logs.Tester.LogInformation($"Sent to {path} in {txId}");
 					addresses.Add(destination.ScriptPubKey);
@@ -2460,7 +2460,7 @@ namespace NBXplorer.Tests
 				utxo = tester.Client.GetUTXOs(addressSource);
 				var utxo2 = tester.Client.GetUTXOs(pubkey2);
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(extkey2, "0/0"));
+				tester.ImportPrivKey(extkey2, "0/0");
 				var tx2 = tester.SendToAddress(address, Money.Coins(0.6m));
 				tester.Notifications.WaitForTransaction(address, tx2);
 				tester.RPC.EnsureGenerate(1);
@@ -2497,7 +2497,7 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Let's send 0.6BTC from 0/0 to 1/0");
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				tester.ImportPrivKey(key, "0/0");
 				var tx2 = tester.SendToAddress(tester.AddressOf(key, "1/0"), Money.Coins(0.6m));
 				tester.Notifications.WaitForTransaction(pubkey, tx2);
 
@@ -2704,7 +2704,7 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Let's send from 0/0 to 0/1");
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				tester.ImportPrivKey(key, "0/0");
 				var txId3 = tester.SendToAddress(tester.AddressOf(key, "0/1"), Money.Coins(0.2m));
 				tester.Notifications.WaitForTransaction(pubkey, txId3);
 				result = tester.Client.GetTransactions(pubkey);
@@ -2735,7 +2735,7 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Send 0.2BTC from the 0/0 to a random address");
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/0"));
+				tester.ImportPrivKey(key, "0/0");
 				var spendingTx = tester.SendToAddress(new Key().PubKey.Hash.GetAddress(tester.Network), Money.Coins(0.2m));
 				tester.Notifications.WaitForTransaction(pubkey, spendingTx);
 				Logs.Tester.LogInformation("Check we have empty UTXO as unconfirmed");
@@ -2971,7 +2971,7 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Let's send 0.5 BTC from 0/1 to 0/3");
 				LockTestCoins(tester.RPC);
-				tester.RPC.ImportPrivKey(tester.PrivateKeyOf(key, "0/1"));
+				tester.ImportPrivKey(key, "0/1");
 				txId = tester.SendToAddress(tester.AddressOf(key, "0/3"), Money.Coins(0.5m));
 				tester.Notifications.WaitForTransaction(pubkey, txId);
 
@@ -3996,6 +3996,7 @@ namespace NBXplorer.Tests
 		{
 			using (var tester = ServerTester.CreateNoAutoStart(backend))
 			{
+				tester.CreateWallet = true;
 				tester.RPCWalletType = walletType;
 				tester.Start();
 				var cashNode = tester.NodeBuilder.CreateNode(true);

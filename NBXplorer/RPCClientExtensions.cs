@@ -12,6 +12,8 @@ using System.Threading;
 using Microsoft.Extensions.Logging;
 using NBXplorer.Backends;
 using System.Text.RegularExpressions;
+using System.Net.Http;
+using System.Net;
 
 namespace NBXplorer
 {
@@ -79,7 +81,7 @@ namespace NBXplorer
 	}
 
 	public static class RPCClientExtensions
-    {
+	{
 		public static async Task<bool> WarmupBlockchain(this RPCClient rpc, ILogger logger)
 		{
 			if (await rpc.GetBlockCountAsync() < rpc.Network.Consensus.CoinbaseMaturity)
@@ -122,6 +124,9 @@ namespace NBXplorer
 		}
 		public static bool IsSynching(this GetBlockchainInfoResponse blockchainInfo, NBXplorerNetwork network)
 		{
+			// When no block has been mined, core think it is synching, but it's just there is no block
+			if (blockchainInfo.Headers == 0 && network.NBitcoinNetwork.ChainName == ChainName.Regtest)
+				return false;
 			if (blockchainInfo.InitialBlockDownload == true)
 				return true;
 			if (blockchainInfo.MedianTime.HasValue && network.NBitcoinNetwork.ChainName != ChainName.Regtest)
@@ -140,6 +145,49 @@ namespace NBXplorer
 		{
 			var result = await client.SendCommandAsync("getblockchaininfo", cancellationToken).ConfigureAwait(false);
 			return JsonConvert.DeserializeObject<GetBlockchainInfoResponse>(result.ResultString);
+		}
+
+		public static async Task EnsureWalletCreated(this RPCClient client, ILogger logger)
+		{
+			var network = client.Network.NetworkSet;
+			var walletName = client.CredentialString.WalletName ?? "";
+			try
+			{
+				await client.CreateWalletAsync(walletName, new CreateWalletOptions()
+				{
+					LoadOnStartup = true,
+					Blank = client.Network.ChainName !=	ChainName.Regtest
+				});
+				logger.LogInformation($"{network.CryptoCode}: Created RPC wallet \"{walletName}\"");
+			}
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND || ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR)
+			{
+				// Not supported, or already created? Just ignore.
+				return;
+			}
+			catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized || ex.StatusCode is HttpStatusCode.Forbidden)
+			{
+				// Not allowed, which is fine
+				return;
+			}
+			catch (Exception ex)
+			{
+				logger.LogWarning(ex, $"{network.CryptoCode}: Failed to create a RPC wallet with unknown error, skipping...");
+				return;
+			}
+			try
+			{
+				await client.LoadWalletAsync(walletName, true);
+				logger.LogInformation($"{network.CryptoCode}: RPC Wallet loaded");
+			}
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND || ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR)
+			{
+				// Not supported, or already loaded? Just ignore.
+			}
+			catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized || ex.StatusCode is HttpStatusCode.Forbidden)
+			{
+				// Not allowed, which is fine
+			}
 		}
 
 		public static async Task<GetNetworkInfoResponse> GetNetworkInfoAsync(this RPCClient client)
@@ -200,16 +248,16 @@ namespace NBXplorer
 				{
 					timestamp = NBitcoin.Utils.UnixTimeToDateTime(rpcResult.Value<long>("time"));
 				}
-				
+
 				var rawTx = client.Network.Consensus.ConsensusFactory.CreateTransaction();
 				rawTx.ReadWrite(Encoders.Hex.DecodeData(rpcResult.Value<string>("hex")), client.Network);
 				return new SavedTransaction()
-									{
-										BlockHash = blockHash,
-										BlockHeight = blockHeight,
-										Timestamp = timestamp,
-										Transaction = rawTx
-									};
+				{
+					BlockHash = blockHash,
+					BlockHeight = blockHeight,
+					Timestamp = timestamp,
+					Transaction = rawTx
+				};
 			}
 			return null;
 		}

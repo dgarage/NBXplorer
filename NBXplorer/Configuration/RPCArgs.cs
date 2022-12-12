@@ -32,6 +32,7 @@ namespace NBXplorer.Configuration
 		{
 			get; set;
 		}
+		public string DefaultWallet { get; set; }
 		public bool NoTest
 		{
 			get;
@@ -85,6 +86,8 @@ namespace NBXplorer.Configuration
 					}
 				}
 			}
+			if (DefaultWallet is not null)
+				rpcClient = rpcClient.GetWallet(DefaultWallet);
 			return rpcClient;
 		}
 
@@ -182,6 +185,7 @@ namespace NBXplorer.Configuration
 				{
 					User = confArgs.GetOrDefault<string>(prefix + "rpc.user", null),
 					Password = confArgs.GetOrDefault<string>(prefix + "rpc.password", null),
+					DefaultWallet = confArgs.GetOrDefault<string>(prefix + "rpc.defaultwallet", null),
 					CookieFile = confArgs.GetOrDefault<string>(prefix + "rpc.cookiefile", null),
 					AuthenticationString = confArgs.GetOrDefault<string>(prefix + "rpc.auth", null),
 					Url = url == null ? null : new Uri(url)
