@@ -10,6 +10,8 @@ namespace NBXplorer.Tests
     {
 		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(ChainName.Regtest);
 
+		public bool CreateWallet { get; set; } = false;
+
 		private void SetEnvironment()
 		{
 			//CryptoCode = "AGM";

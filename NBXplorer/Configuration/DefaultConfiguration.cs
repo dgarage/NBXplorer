@@ -39,6 +39,7 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}rescan", $"Rescan from startheight", CommandOptionType.BoolValue);
 				app.Option($"--{crypto}rescaniftimebefore", $"Only perform rescan if before timestamp (UTC unix timestamp in seconds) (requires --{crypto}rescan)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpcuser", $"RPC authentication method 1: The RPC user (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}rpcdefaultwallet", $"The default RPC wallet used by NBXplorer. RPC wallet features aren't strictly needed, only for NBXplorer wallet created with `importKeysToRPC` (default: empty name)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpcpassword", $"RPC authentication method 1: The RPC password (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpccookiefile", $"RPC authentication method 2: The RPC cookiefile (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpcauth", $"RPC authentication method 3: user:password or cookiefile=path (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
