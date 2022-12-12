@@ -24,6 +24,7 @@ using System.Reflection;
 using NBXplorer.Analytics;
 using NBXplorer.Backends;
 using NBitcoin.Scripting;
+using System.Globalization;
 
 namespace NBXplorer.Controllers
 {
@@ -1108,7 +1109,8 @@ namespace NBXplorer.Controllers
 				new[] {
 					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Mnemonic, mnemonic.ToString()),
 					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterHDKey, masterKey),
-					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountHDKey, accountKey)
+					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountHDKey, accountKey),
+					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Birthdate, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture))
 				});
 			}
 			var accountKeyPath = new RootedKeyPath(masterKey.GetPublicKey().GetHDFingerPrint(), keyPath);
