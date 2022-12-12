@@ -4035,6 +4035,8 @@ namespace NBXplorer.Tests
 					Assert.NotNull(await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, metadata));
 				}
 
+				Assert.Equal("False", await tester.Client.GetMetadataAsync<string>(wallet.DerivationScheme, WellknownMetadataKeys.ImportAddressToRPC));
+
 				Logs.Tester.LogInformation("Let's make sure our parameters are not ignored");
 				wallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
 				{

@@ -45,7 +45,7 @@ namespace NBXplorer.Controllers
 			NBXplorerNetworkProvider networkProvider,
 			Analytics.FingerprintHostedService fingerprintService,
 			IIndexers indexers
-			): base(networkProvider, rpcClients, repositoryProvider, indexers)
+			) : base(networkProvider, rpcClients, repositoryProvider, indexers)
 		{
 			ExplorerConfiguration = explorerConfiguration;
 			_SerializerSettings = jsonOptions.SerializerSettings;
@@ -416,7 +416,7 @@ namespace NBXplorer.Controllers
 			{
 				subscriptions.Add(_EventAggregator.Subscribe<NewBlockEvent>(maySetNextEvent));
 				subscriptions.Add(_EventAggregator.Subscribe<NewTransactionEvent>(maySetNextEvent));
-			retry:
+				retry:
 				var repo = RepositoryProvider.GetRepository(network);
 				var result = await repo.GetEvents(lastEventId, limit);
 				if (result.Count == 0 && longPolling)
@@ -1113,9 +1113,8 @@ namespace NBXplorer.Controllers
 			}
 			var accountKeyPath = new RootedKeyPath(masterKey.GetPublicKey().GetHDFingerPrint(), keyPath);
 			saveMetadata.Add(repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountKeyPath, accountKeyPath));
-
 			var importAddressToRPC = await GetImportAddressToRPC(request, network);
-			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, importAddressToRPC.ToString()));
+			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, (importAddressToRPC?.ToString() ?? "False")));
 			var descriptor = GetDescriptor(accountKeyPath, accountKey.Neuter(), request.ScriptPubKeyType.Value);
 			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.AccountDescriptor, descriptor));
 			await Task.WhenAll(saveMetadata.ToArray());
@@ -1137,7 +1136,7 @@ namespace NBXplorer.Controllers
 
 		private async Task<ImportRPCMode> GetImportAddressToRPC(GenerateWalletRequest request, NBXplorerNetwork network)
 		{
-			var importAddressToRPC = ImportRPCMode.Legacy;
+			ImportRPCMode importAddressToRPC = null;
 			if (request.ImportKeysToRPC is true)
 			{
 				var rpc = this.GetAvailableRPC(network);
@@ -1150,6 +1149,10 @@ namespace NBXplorer.Controllers
 						importAddressToRPC = readOnly ? ImportRPCMode.DescriptorsReadOnly : ImportRPCMode.Descriptors;
 						if (!readOnly && request.SavePrivateKeys is false)
 							throw new NBXplorerError(400, "wallet-unavailable", $"Your RPC wallet must include private keys, but savePrivateKeys is false").AsException();
+					}
+					else
+					{
+						importAddressToRPC = ImportRPCMode.Legacy;
 					}
 				}
 				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
@@ -1233,8 +1236,8 @@ namespace NBXplorer.Controllers
 				}
 			}
 
-		// Step2. However, we need to remove those who are spending a UTXO from a transaction that is not pruned
-		retry:
+			// Step2. However, we need to remove those who are spending a UTXO from a transaction that is not pruned
+			retry:
 			bool removedPrunables = false;
 			if (prunableIds.Count != 0)
 			{
