@@ -65,7 +65,7 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Viacoin.Instance.Regtest;
 
 			//CryptoCode = "GRS";
-			//nodeDownloadData = NodeDownloadData.Groestlcoin.v2_16_0;
+			//nodeDownloadData = NodeDownloadData.Groestlcoin.v24_0_1;
 			//Network = NBitcoin.Altcoins.Groestlcoin.Instance.Regtest;
 
 			//CryptoCode = "BTX";
