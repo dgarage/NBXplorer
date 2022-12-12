@@ -87,7 +87,7 @@ namespace NBXplorer.Configuration
 				}
 			}
 			if (DefaultWallet is not null)
-				rpcClient = rpcClient.GetWallet(DefaultWallet);
+				rpcClient = rpcClient.SetWalletContext(DefaultWallet);
 			return rpcClient;
 		}
 
