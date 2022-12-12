@@ -1242,6 +1242,7 @@ Response:
 * `AccountKeyPath`: The fingerprint of the master key as defined by The [BIP174](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki), followed by the derivation path used to generate the `derivationScheme`. ([Purpose field](https://github.com/bitcoin/bips/blob/master/bip-0043.mediawiki) based on [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki), [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki) or [BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki) and [SLIP44](https://github.com/satoshilabs/slips/blob/master/slip-0044.md) for the coin type)
 * `ImportAddressToRPC`: `Legacy` (or `True`, for old wallet) if the generated addresses are added to legacy style Bitcoin core wallet. `Descriptors` or `DescriptorsReadOnly` if the generated addresses and private keys are added to a descriptor enabled Bitcoin Core wallet.
 * `AccountDescriptor`: The output descriptor format of the derivation scheme.
+* `Birthdate`: The birthdate of the wallet in ISO-8601 format.
 
 Note that the metadata `AccountKeyPath` is leveraged by [Create a PSBT](#psbt) and [Update a PSBT](#updatepsbt).
 

@@ -25,6 +25,7 @@ namespace NBXplorer
 		{
 			if (settings == null)
 				throw new ArgumentNullException(nameof(settings));
+			Settings.DateParseHandling = DateParseHandling.None;
 			NBitcoin.JsonConverters.Serializer.RegisterFrontConverters(settings, Network);
 			if (_Network != null)
 			{
