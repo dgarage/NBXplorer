@@ -973,7 +973,8 @@ CREATE VIEW nbxv1_tracked_txs AS
      JOIN ins_outs io ON (((io.code = ws.code) AND (io.script = ws.script))))
      LEFT JOIN ((wallets_descriptors wd
      JOIN descriptors_scripts ds ON (((ds.code = wd.code) AND (ds.descriptor = wd.descriptor))))
-     JOIN descriptors d ON (((d.code = ds.code) AND (d.descriptor = ds.descriptor)))) ON (((wd.wallet_id = ws.wallet_id) AND (wd.code = ws.code) AND (ds.script = ws.script))));
+     JOIN descriptors d ON (((d.code = ds.code) AND (d.descriptor = ds.descriptor)))) ON (((wd.wallet_id = ws.wallet_id) AND (wd.code = ws.code) AND (ds.script = ws.script))))
+  WHERE ((io.blk_id IS NOT NULL) OR (io.mempool IS TRUE));
 
 CREATE TABLE outs (
     code text NOT NULL,
@@ -1325,6 +1326,7 @@ INSERT INTO nbxv1_migrations VALUES ('009.FasterGetUnused2');
 INSERT INTO nbxv1_migrations VALUES ('010.ChangeEventsIdType');
 INSERT INTO nbxv1_migrations VALUES ('011.FixGetWalletsRecent');
 INSERT INTO nbxv1_migrations VALUES ('012.PerfFixGetWalletsRecent');
+INSERT INTO nbxv1_migrations VALUES ('013.FixTrackedTransactions');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);
