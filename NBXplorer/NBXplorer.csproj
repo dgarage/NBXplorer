@@ -19,6 +19,7 @@
     <None Remove="DBScripts\010.ChangeEventsIdType.sql" />
     <None Remove="DBScripts\011.FixGetWalletsRecent.sql" />
     <None Remove="DBScripts\012.PerfFixGetWalletsRecent.sql" />
+    <None Remove="DBScripts\013.FixTrackedTransactions.sql" />
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />

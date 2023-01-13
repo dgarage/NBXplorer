@@ -1133,11 +1133,29 @@ namespace NBXplorer.Tests
 					Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == replacement.GetHash());
 					// Only one missing input, as there is only one txid
 					Assert.Equal(2, rebroadcast.MissingInputs.Count);
+
+					// Nothing should be cleaned now
+					await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
+					rebroadcast = await rebroadcaster.RebroadcastAll();
+					Assert.Empty(rebroadcast.Cleaned);
 				}
-				// Nothing should be cleaned now
-				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
-				rebroadcast = await rebroadcaster.RebroadcastAll();
-				Assert.Empty(rebroadcast.Cleaned);
+				if (backend == Backend.Postgres)
+				{
+					// TXs has been double spent, but unless we rebroadcast it, NBX doesn't know, iterating transactions
+					// will ask rebroadcaster to broadcast
+					txs = await tester.Client.GetTransactionsAsync(bob);
+					rebroadcast = await rebroadcaster.RebroadcastAll();
+					Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == tx2.GetHash());
+
+					txs = await tester.Client.GetTransactionsAsync(bob);
+					Assert.Empty(txs.UnconfirmedTransactions.Transactions);
+
+					// Nothing should be cleaned now
+					rebroadcast = await rebroadcaster.RebroadcastAll();
+					Assert.Empty(rebroadcast.Cleaned);
+				}
+
+				
 
 				Logs.Tester.LogInformation("Let's orphan the block, and check that the orphaned tx is cleaned");
 				var orphanedBlock = tester.RPC.GetBestBlockHash();
