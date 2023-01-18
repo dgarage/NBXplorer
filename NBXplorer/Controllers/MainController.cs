@@ -69,16 +69,25 @@ namespace NBXplorer.Controllers
 		public ExplorerConfiguration ExplorerConfiguration { get; }
 		public ScanUTXOSetService ScanUTXOSetService { get; }
 
+		static HashSet<string> WhitelistedRPCMethods = new HashSet<string>()
+		{
+			"sendrawtransaction",
+			"getrawtransaction",
+			"gettxout",
+			"estimatesmartfee"
+		};
+		private Exception JsonRPCNotExposed()
+		{
+			return new NBXplorerError(401, "json-rpc-not-exposed", $"JSON-RPC is not configured to be exposed. Only the following methods are available: {string.Join(", ", WhitelistedRPCMethods)}").AsException();
+		}
+
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/rpc")]
 		[Consumes("application/json", "application/json-rpc")]
 		public async Task<IActionResult> RPCProxy(string cryptoCode)
 		{
 			var network = GetNetwork(cryptoCode, true);
-			if (!ExplorerConfiguration.ChainConfigurations.First(configuration => configuration.CryptoCode.Equals(cryptoCode, StringComparison.InvariantCultureIgnoreCase)).ExposeRPC)
-			{
-				throw new NBXplorerError(401, "json-rpc-not-exposed", $"JSON-RPC is not configured to be exposed.").AsException();
-			}
+			var exposed = ExplorerConfiguration.ChainConfigurations.First(configuration => configuration.CryptoCode.Equals(cryptoCode, StringComparison.InvariantCultureIgnoreCase)).ExposeRPC;
 			var rpc = RPCClients.Get(network);
 			var jsonRPC = string.Empty;
 			using (var reader = new StreamReader(Request.Body, Encoding.UTF8))
@@ -95,6 +104,8 @@ namespace NBXplorer.Controllers
 				var batchRPC = rpc.PrepareBatch();
 				var results = network.Serializer.ToObject<RPCRequest[]>(jsonRPC).Select(rpcRequest =>
 				{
+					if (!exposed && !WhitelistedRPCMethods.Contains(rpcRequest.Method))
+						throw JsonRPCNotExposed();
 					rpcRequest.ThrowIfRPCError = false;
 					return batchRPC.SendCommandAsync(rpcRequest);
 				}).ToList();
@@ -103,6 +114,8 @@ namespace NBXplorer.Controllers
 			}
 
 			var req = network.Serializer.ToObject<RPCRequest>(jsonRPC);
+			if (!exposed && !WhitelistedRPCMethods.Contains(req.Method))
+				throw JsonRPCNotExposed();
 			req.ThrowIfRPCError = false;
 			return Json(await rpc.SendCommandAsync(req));
 		}
