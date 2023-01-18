@@ -32,6 +32,7 @@ using NBXplorer.Backends;
 using NBXplorer.Backends.Postgres;
 using NBitcoin.Tests;
 using System.Globalization;
+using System.Net;
 
 namespace NBXplorer.Tests
 {
@@ -4177,6 +4178,22 @@ namespace NBXplorer.Tests
 				await batchTest.SendBatchAsync();
 				await balanceResult;
 				await blockchainInfoResult;
+
+				tester.GetService<ExplorerConfiguration>().ChainConfigurations[0].ExposeRPC = false;
+
+				// We shouldn't be able to query non whitelisted rpc methods
+				var ex = await Assert.ThrowsAsync<HttpRequestException>(() => tester.Client.RPCClient.AbandonTransactionAsync(uint256.Zero));
+				Assert.Equal((HttpStatusCode)401, ex.StatusCode);
+
+				// Can't do in batch either...
+				batchTest = tester.Client.RPCClient.PrepareBatch();
+				balanceResult = batchTest.GetBalanceAsync();
+				await batchTest.SendBatchAsync();
+				ex = await Assert.ThrowsAsync<HttpRequestException>(() => balanceResult);
+				Assert.Equal((HttpStatusCode)401, ex.StatusCode);
+
+				// Should be OK, it's whitelisted
+				await tester.Client.RPCClient.GetTxOutAsync(uint256.One, 0);
 			}
 		}
 	}
