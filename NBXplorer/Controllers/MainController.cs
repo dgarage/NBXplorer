@@ -74,7 +74,8 @@ namespace NBXplorer.Controllers
 			"sendrawtransaction",
 			"getrawtransaction",
 			"gettxout",
-			"estimatesmartfee"
+			"estimatesmartfee",
+			"getmempoolinfo"
 		};
 		private Exception JsonRPCNotExposed()
 		{
