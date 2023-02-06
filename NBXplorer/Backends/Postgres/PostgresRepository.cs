@@ -1244,6 +1244,21 @@ namespace NBXplorer.Backends.Postgres
 			using var connection = await ConnectionFactory.CreateConnection();
 			await connection.ExecuteAsync("INSERT INTO wallets VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING", GetWalletKey(strategy));
 		}
+
+		public async Task<bool> Exists(IDestination address)
+		{
+			await using var conn = await connectionFactory.CreateConnection();
+			
+			var walletKey = GetWalletKey(address);
+			
+			var count = await conn.QueryFirstOrDefaultAsync<long>(
+				"SELECT count(1) FROM wallets " +
+				"WHERE metadata = @metadata::JSONB;", new { metadata = walletKey.metadata });
+			
+			
+			return count > 0;
+
+		}
 	}
 
 	public class LegacyDescriptorMetadata

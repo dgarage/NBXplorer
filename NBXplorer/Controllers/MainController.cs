@@ -1286,6 +1286,37 @@ namespace NBXplorer.Controllers
 			}
 			return new PruneResponse() { TotalPruned = prunableIds.Count };
 		}
+		
+		
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/addresses/{address}/istracked")]
+		public async Task<IActionResult> IsTracked(
+			string cryptoCode,
+			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
+			BitcoinAddress address)
+		{
+			var trackedSource = GetTrackedSource(null, address);
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			
+			var repo = RepositoryProvider.GetRepository(GetNetwork(cryptoCode, false));
+
+			IsTrackedResponse response = new IsTrackedResponse  {TrackedSource = trackedSource};
+
+			if (trackedSource is IDestination ats)
+			{
+				response.IsTracked = await repo.Exists(ats);
+			}
+			else
+			{
+				// To check if this address is a derivation of a tracked root is not implemented.
+				// so for now it is useful for whomever has added a specific address to 
+				// be tracked.
+				throw new NotImplementedException();
+			}
+
+			return Json(response, repo.Serializer.Settings);
+		}
 
 		public Task<IActionResult> GetUTXOs(string cryptoCode, DerivationStrategyBase derivationStrategy)
 		{
