@@ -135,7 +135,7 @@ namespace NBXplorer.Tests
 				catch { }
 			}
 			using var client = new HttpClient();
-			var resp = await client.GetAsync($"https://api.qbit.ninja/blocks/{blockId}?format=raw");
+			var resp = await client.GetAsync($"https://mempool.space/api/block/{blockId}/raw");
 			resp.EnsureSuccessStatusCode();
 			var bytes = await resp.Content.ReadAsByteArrayAsync();
 			var block = Block.Load(bytes, Network.Main);
