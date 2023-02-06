@@ -1731,5 +1731,20 @@ namespace NBXplorer.Backends.DBTrie
 		{
 			return Task.CompletedTask;
 		}
+		
+		public async Task<bool> Exists(IDestination address)
+		{
+			using var tx = await engine.OpenTransaction();
+			var info = new KeyPathInformation()
+			{
+				ScriptPubKey = address.ScriptPubKey,
+				TrackedSource = (TrackedSource)address,
+				Address = address.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork)
+			};
+			
+			var count = await GetScriptsIndex(tx, address.ScriptPubKey).Count();
+			tx.Rollback();
+			return count != 0;
+		}
 	}
 }

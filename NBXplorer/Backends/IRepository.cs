@@ -51,5 +51,6 @@ namespace NBXplorer.Backends
 		Task<SlimChainedBlock> GetTip();
 		Task SaveBlocks(IList<SlimChainedBlock> slimBlocks);
 		Task EnsureWalletCreated(DerivationStrategyBase derivation);
+		Task<bool> Exists(IDestination address);
 	}
 }
