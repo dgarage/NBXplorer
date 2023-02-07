@@ -2564,7 +2564,18 @@ namespace NBXplorer.Tests
 				Assert.Equal(99, paths.Select(p => p.Value.GetIndex(KeyPathTemplates.Default)).Max());
 
 				tester.Client.CancelReservation(bob, new[] { new KeyPath("0/0") });
-				Assert.Equal(new KeyPath("0/0"), tester.Client.GetUnused(bob, DerivationFeature.Deposit).KeyPath);
+				var addr = tester.Client.GetUnused(bob, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/0"), addr.KeyPath);
+
+				var t = tester.SendToAddress(addr.Address, Money.Coins(0.6m));
+				tester.Notifications.WaitForTransaction(bob, t);
+
+				var addr2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/100"), addr2.KeyPath);
+				// Cancellation on a used address shouldn't be possible
+				tester.Client.CancelReservation(bob, new[] { new KeyPath("0/0") });
+				addr2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/100"), addr2.KeyPath);
 			}
 		}
 
