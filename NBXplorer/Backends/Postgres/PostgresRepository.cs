@@ -889,7 +889,7 @@ namespace NBXplorer.Backends.Postgres
 						ki.ScriptPubKey.ToHex(),
 						metadata?.ToString(Formatting.None),
 						addr.ToString(),
-						true));
+						false));
 				}
 				else
 				{
@@ -908,7 +908,7 @@ namespace NBXplorer.Backends.Postgres
 
 			if (inserts.Count > 0)
 				await connection.ExecuteAsync(
-					"INSERT INTO scripts VALUES (@code, @script, @address, 't') ON CONFLICT DO NOTHING;" +
+					"INSERT INTO scripts VALUES (@code, @script, @address) ON CONFLICT DO NOTHING;" +
 					"INSERT INTO wallets_scripts VALUES (@code, @script, @walletid) ON CONFLICT DO NOTHING;", inserts);
 		}
 
