@@ -285,7 +285,6 @@ namespace NBXplorer.Backends.DBTrie
 			if (_BlockLoop != null)
 				return;
 			Logs.Explorer.LogInformation($"{Network.CryptoCode}: Handshaked node");
-			node.SendMessageAsync(new MempoolPayload());
 			_BlockLoop = IndexBlockLoop(node, _Cts.Token);
 		}
 
