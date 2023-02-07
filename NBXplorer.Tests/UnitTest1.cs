@@ -2132,6 +2132,20 @@ namespace NBXplorer.Tests
 				unused = tester.Client.GetUnused(alicePubKey, DerivationFeature.Deposit);
 				Assert.Equal("0/4", unused.KeyPath.ToString());
 
+
+				using var ctx = await tester.GetService<DbConnectionFactory>().CreateConnection();
+				// The unused address has never been reserved, nor seen on chain
+				Assert.False(ctx.ExecuteScalar<bool>("SELECT used FROM descriptors_scripts WHERE script=@s", new { s = unused.Address.ScriptPubKey.ToHex() }));
+				Assert.False(ctx.ExecuteScalar<bool>("SELECT used FROM scripts WHERE script=@s", new { s = unused.Address.ScriptPubKey.ToHex() }));
+
+				// 0/0 has been reserved but not received money
+				Assert.True(ctx.ExecuteScalar<bool>("SELECT used FROM descriptors_scripts WHERE script=@s", new { s = tester.AddressOf(alice, "0/0").ScriptPubKey.ToHex() }));
+				Assert.False(ctx.ExecuteScalar<bool>("SELECT used FROM scripts WHERE script=@s", new { s = tester.AddressOf(alice, "0/0").ScriptPubKey.ToHex() }));
+
+				// However 0/1 has received money
+				Assert.True(ctx.ExecuteScalar<bool>("SELECT used FROM descriptors_scripts WHERE script=@s", new { s = tester.AddressOf(alice, "0/1").ScriptPubKey.ToHex() }));
+				Assert.True(ctx.ExecuteScalar<bool>("SELECT used FROM scripts WHERE script=@s", new { s = tester.AddressOf(alice, "0/1").ScriptPubKey.ToHex() }));
+
 				Assert.True(tester.Client.GetMetadata<bool>(alicePubKey, "test"));
 				Assert.True(tester.Client.GetMetadata<bool>(alicePubKey, "test2"));
 

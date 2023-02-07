@@ -13,13 +13,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Hosting;
 using Xunit.Abstractions;
 using Microsoft.Extensions.Configuration;
-using NBXplorer.Configuration;
 using System.Runtime.CompilerServices;
 using System.IO;
 using System.Diagnostics;
-using System.Globalization;
-using NBitcoin.DataEncoders;
-using NBitcoin.Crypto;
 using NBXplorer.Backends.Postgres;
 using NBXplorer.Client;
 

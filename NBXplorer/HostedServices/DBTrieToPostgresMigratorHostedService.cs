@@ -339,6 +339,7 @@ namespace NBXplorer.HostedServices
 					await CreateWalletAndDescriptor(conn, walletKeys, descriptors);
 					await postgresRepo.SaveKeyInformations(conn, batch.ToArray());
 
+					await conn.ExecuteAsync("UPDATE descriptors_scripts SET used='t'");
 					await conn.ExecuteAsync(
 									"ALTER TABLE descriptors_scripts " +
 									"ENABLE TRIGGER USER;");

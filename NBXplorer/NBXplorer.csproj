@@ -20,6 +20,7 @@
     <None Remove="DBScripts\011.FixGetWalletsRecent.sql" />
     <None Remove="DBScripts\012.PerfFixGetWalletsRecent.sql" />
     <None Remove="DBScripts\013.FixTrackedTransactions.sql" />
+    <None Remove="DBScripts\014.FixAddressReuse.sql" />
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />
