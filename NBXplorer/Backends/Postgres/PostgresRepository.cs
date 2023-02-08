@@ -167,8 +167,13 @@ namespace NBXplorer.Backends.Postgres
 					};
 				})
 				.ToList();
+			// We can only set to used='t' descriptors whose scripts haven't been used on chain
 			await conn.Connection.ExecuteAsync(
-				"UPDATE descriptors_scripts SET used='f' WHERE code=@code AND descriptor=@descriptor AND idx=@idx", parameters);
+					"UPDATE descriptors_scripts ds SET used='f' " +
+					"FROM scripts s " +
+					"WHERE " +
+					"ds.code=@code AND ds.descriptor=@descriptor AND ds.idx=@idx AND " +
+					"s.code=ds.code AND s.script=ds.script AND s.used IS FALSE", parameters);
 		}
 
 		public TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, IEnumerable<Coin> coins, Dictionary<Script, KeyPath> knownScriptMapping)
@@ -884,7 +889,7 @@ namespace NBXplorer.Backends.Postgres
 						ki.ScriptPubKey.ToHex(),
 						metadata?.ToString(Formatting.None),
 						addr.ToString(),
-						true));
+						false));
 				}
 				else
 				{
@@ -903,7 +908,7 @@ namespace NBXplorer.Backends.Postgres
 
 			if (inserts.Count > 0)
 				await connection.ExecuteAsync(
-					"INSERT INTO scripts VALUES (@code, @script, @address, 't') ON CONFLICT DO NOTHING;" +
+					"INSERT INTO scripts VALUES (@code, @script, @address) ON CONFLICT DO NOTHING;" +
 					"INSERT INTO wallets_scripts VALUES (@code, @script, @walletid) ON CONFLICT DO NOTHING;", inserts);
 		}
 

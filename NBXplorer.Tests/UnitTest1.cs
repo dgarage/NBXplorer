@@ -2132,6 +2132,20 @@ namespace NBXplorer.Tests
 				unused = tester.Client.GetUnused(alicePubKey, DerivationFeature.Deposit);
 				Assert.Equal("0/4", unused.KeyPath.ToString());
 
+
+				using var ctx = await tester.GetService<DbConnectionFactory>().CreateConnection();
+				// The unused address has never been reserved, nor seen on chain
+				Assert.False(ctx.ExecuteScalar<bool>("SELECT used FROM descriptors_scripts WHERE script=@s", new { s = unused.Address.ScriptPubKey.ToHex() }));
+				Assert.False(ctx.ExecuteScalar<bool>("SELECT used FROM scripts WHERE script=@s", new { s = unused.Address.ScriptPubKey.ToHex() }));
+
+				// 0/0 has been reserved but not received money
+				Assert.True(ctx.ExecuteScalar<bool>("SELECT used FROM descriptors_scripts WHERE script=@s", new { s = tester.AddressOf(alice, "0/0").ScriptPubKey.ToHex() }));
+				Assert.False(ctx.ExecuteScalar<bool>("SELECT used FROM scripts WHERE script=@s", new { s = tester.AddressOf(alice, "0/0").ScriptPubKey.ToHex() }));
+
+				// However 0/1 has received money
+				Assert.True(ctx.ExecuteScalar<bool>("SELECT used FROM descriptors_scripts WHERE script=@s", new { s = tester.AddressOf(alice, "0/1").ScriptPubKey.ToHex() }));
+				Assert.True(ctx.ExecuteScalar<bool>("SELECT used FROM scripts WHERE script=@s", new { s = tester.AddressOf(alice, "0/1").ScriptPubKey.ToHex() }));
+
 				Assert.True(tester.Client.GetMetadata<bool>(alicePubKey, "test"));
 				Assert.True(tester.Client.GetMetadata<bool>(alicePubKey, "test2"));
 
@@ -2564,7 +2578,18 @@ namespace NBXplorer.Tests
 				Assert.Equal(99, paths.Select(p => p.Value.GetIndex(KeyPathTemplates.Default)).Max());
 
 				tester.Client.CancelReservation(bob, new[] { new KeyPath("0/0") });
-				Assert.Equal(new KeyPath("0/0"), tester.Client.GetUnused(bob, DerivationFeature.Deposit).KeyPath);
+				var addr = tester.Client.GetUnused(bob, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/0"), addr.KeyPath);
+
+				var t = tester.SendToAddress(addr.Address, Money.Coins(0.6m));
+				tester.Notifications.WaitForTransaction(bob, t);
+
+				var addr2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/100"), addr2.KeyPath);
+				// Cancellation on a used address shouldn't be possible
+				tester.Client.CancelReservation(bob, new[] { new KeyPath("0/0") });
+				addr2 = tester.Client.GetUnused(bob, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/100"), addr2.KeyPath);
 			}
 		}
 

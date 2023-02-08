@@ -535,7 +535,7 @@ BEGIN
 	LOOP
 	  UPDATE scripts
 		SET used='t'
-		WHERE code=r.code AND script=r.script;
+		WHERE code=r.code AND script=r.script AND used IS FALSE;
 	END LOOP;
 	RETURN NULL;
 END
@@ -605,7 +605,7 @@ CREATE FUNCTION scripts_set_descriptors_scripts_used() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  IF NEW.used != OLD.used THEN
+  IF NEW.used != OLD.used AND NEW.used IS TRUE THEN
     UPDATE descriptors_scripts ds SET used='t' WHERE code=NEW.code AND script=NEW.script AND used='f';
   END IF;
   RETURN NEW;
@@ -1327,6 +1327,7 @@ INSERT INTO nbxv1_migrations VALUES ('010.ChangeEventsIdType');
 INSERT INTO nbxv1_migrations VALUES ('011.FixGetWalletsRecent');
 INSERT INTO nbxv1_migrations VALUES ('012.PerfFixGetWalletsRecent');
 INSERT INTO nbxv1_migrations VALUES ('013.FixTrackedTransactions');
+INSERT INTO nbxv1_migrations VALUES ('014.FixAddressReuse');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);
