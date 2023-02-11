@@ -643,6 +643,7 @@ Then a notification will be delivered through the websocket when a new block is 
 ```json
 {
   "type": "newblock",
+  "eventId": 1,
   "data": {
     "height": 104,
     "hash": "10b0e5178aaf42c4a938f0d37430413b7d76feae14b01fc07e1f23300b8821ce",
@@ -672,6 +673,7 @@ Then you will receive such notifications when a transaction is impacting the `de
 ```json
 {
   "type": "newtransaction",
+  "eventId": 2,
   "data": {
     "blockId": null,
     "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4X2p2D8kx6XV9V5iCJKMBHuBim1BLnZAZC1JobYkdwSrwF8R74V2oUWkJG3H24LwxnXs9wb6Ksivs2gj4RudMteyVai2AsmA-[p2sh]",
