@@ -994,17 +994,12 @@ namespace NBXplorer.Backends.Postgres
 		public async Task<long> SaveEvent(NewEventBase evt)
 		{
 			await using var helper = await GetConnection();
-			return await SaveEvent(helper, evt);
+			await SaveEvent(helper, evt);
+			return evt.EventId;
 		}
-		public async Task<long> SaveEvent(DbConnectionHelper conn, NewEventBase evt)
+		public Task SaveEvent(DbConnectionHelper conn, NewEventBase evt)
 		{
-			var id = await conn.Connection.ExecuteScalarAsync<long>(InsertEventQuery(), new
-			{
-				code = Network.CryptoCode,
-				data = evt.ToJObject(Serializer.Settings).ToString(),
-				type = evt.EventType
-			});
-			return id;
+			return SaveEvents(conn, new NewEventBase[] { evt });
 		}
 
 		private static string InsertEventQuery()
@@ -1018,13 +1013,16 @@ namespace NBXplorer.Backends.Postgres
 
 		public async Task SaveEvents(DbConnectionHelper conn, NewEventBase[] evts)
 		{
-			var parameters = evts.Select(evt => new
+			for (int i = 0; i < evts.Length; i++)
 			{
-				code = Network.CryptoCode,
-				data = evt.ToJObject(Serializer.Settings).ToString(),
-				type = evt.EventType
-			}).ToArray();
-			await conn.Connection.ExecuteAsync(InsertEventQuery(), parameters);
+				var p = new
+				{
+					code = Network.CryptoCode,
+					data = evts[i].ToJObject(Serializer.Settings).ToString(),
+					type = evts[i].EventType
+				};
+				evts[i].EventId = await conn.Connection.ExecuteScalarAsync<long>(InsertEventQuery(), p);
+			}
 		}
 
 		public async Task SaveMatches(TrackedTransaction[] transactions)

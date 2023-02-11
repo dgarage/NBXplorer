@@ -1853,6 +1853,8 @@ namespace NBXplorer.Tests
 					// but make test flaky.
 					if (backend == Backend.Postgres && blockEvent.Hash != expectedBlockId)
 						blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
+					if (backend == Backend.Postgres)
+						Assert.True(blockEvent.EventId != 0);
 					Assert.Equal(expectedBlockId, blockEvent.Hash);
 					Assert.NotEqual(0, blockEvent.Height);
 					if (backend == Backend.Postgres)
