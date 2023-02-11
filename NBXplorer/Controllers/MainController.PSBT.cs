@@ -259,7 +259,7 @@ namespace NBXplorer.Controllers
 			bool hasChange = false;
 			if (request.ExplicitChangeAddress == null)
 			{
-				var keyInfo = await repo.GetUnused(strategy, DerivationFeature.Change, 0, false);
+				var keyInfo = (await GetUnusedAddress(network.CryptoCode, strategy, DerivationFeature.Change)).As<KeyPathInformation>();
 				change = (keyInfo.ScriptPubKey, keyInfo.KeyPath);
 			}
 			else
@@ -323,7 +323,7 @@ namespace NBXplorer.Controllers
 			// We made sure we can build the PSBT, so now we can reserve the change address if we need to
 			if (hasChange && request.ExplicitChangeAddress == null && request.ReserveChangeAddress)
 			{
-				var derivation = await repo.GetUnused(strategy, DerivationFeature.Change, 0, true);
+				var derivation = (await GetUnusedAddress(network.CryptoCode, strategy, DerivationFeature.Change, reserve: true)).As<KeyPathInformation>();
 				// In most of the time, this is the same as previously, so no need to rebuild PSBT
 				if (derivation.ScriptPubKey != change.ScriptPubKey)
 				{
