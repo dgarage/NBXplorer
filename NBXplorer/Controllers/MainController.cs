@@ -145,7 +145,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> GetUnusedAddress(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false)
+			DerivationStrategyBase strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false, bool autoTrack = false)
 		{
 			if (strategy == null)
 				throw new ArgumentNullException(nameof(strategy));
@@ -156,14 +156,15 @@ namespace NBXplorer.Controllers
 			try
 			{
 				var result = await repository.GetUnused(strategy, feature, skip, reserve);
-				if (reserve)
+				if (reserve || autoTrack)
 				{
 					while (result == null)
 					{
 						await AddressPoolService.GenerateAddresses(network, strategy, feature, new GenerateAddressQuery(1, null));
 						result = await repository.GetUnused(strategy, feature, skip, reserve);
 					}
-					_ = AddressPoolService.GenerateAddresses(network, strategy, feature);
+					if (reserve)
+						_ = AddressPoolService.GenerateAddresses(network, strategy, feature);
 				}
 				return Json(result, network.Serializer.Settings);
 			}
