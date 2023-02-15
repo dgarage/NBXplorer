@@ -129,7 +129,6 @@ namespace NBXplorer.Tests
 				foreach (var node in NodeBuilder.Nodes)
 				{
 					node.WhiteBind = true;
-					node.CookieAuth = cryptoSettings.SupportCookieAuthentication;
 				}
 				NodeBuilder.StartAll();
 
