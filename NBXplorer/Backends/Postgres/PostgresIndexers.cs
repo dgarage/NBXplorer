@@ -219,6 +219,10 @@ namespace NBXplorer.Backends.Postgres
 					await node.SendMessageAsync(new SendHeadersPayload());
 
 					await RPCArgs.TestRPCAsync(Network, RPCClient, token, Logger);
+					if (await RPCClient.SupportTxIndex() is bool txIndex)
+					{
+						ChainConfiguration.HasTxIndex = txIndex;
+					}
 					var peer = (await RPCClient.GetPeersInfoAsync())
 										.FirstOrDefault(p => p.SubVersion == userAgent);
 					if (peer.IsWhitelisted())

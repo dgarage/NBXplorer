@@ -82,6 +82,20 @@ namespace NBXplorer
 
 	public static class RPCClientExtensions
 	{
+		public static async Task<bool?> SupportTxIndex(this RPCClient rpc)
+		{
+			try
+			{
+				var result = await rpc.SendCommandAsync(new RPCRequest("getindexinfo", new[] { "txindex" }) { ThrowIfRPCError = false });
+				if (result.Error != null)
+					return null;
+				return result.Result["txindex"] is not null;
+			}
+			catch
+			{
+				return null;
+			}
+		}
 		public static async Task<bool> WarmupBlockchain(this RPCClient rpc, ILogger logger)
 		{
 			if (await rpc.GetBlockCountAsync() < rpc.Network.Consensus.CoinbaseMaturity)

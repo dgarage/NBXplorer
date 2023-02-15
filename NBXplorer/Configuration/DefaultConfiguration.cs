@@ -47,7 +47,7 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}startheight", $"The height where starting the scan (default: where your rpc server was synched when you first started this program)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}minutxovalue", $"The minimum value of tracked UTXOs, any UTXO with value less than this is ignored. (default: 1 (satoshi))", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}nodeendpoint", $"The p2p connection to a Bitcoin node, make sure you are whitelisted (default: default p2p node on localhost, depends on network)", CommandOptionType.SingleValue);
-				app.Option($"--{crypto}hastxindex", "If true, NBXplorer will try to fetch missing transactions from the local node (default: false)", CommandOptionType.BoolValue);
+				app.Option($"--{crypto}hastxindex", "If true, NBXplorer will try to fetch missing transactions from the local node. If the node support getindexinfo, this setting is ignored. (default: false)", CommandOptionType.BoolValue);
 				app.Option($"--{crypto}exposerpc", $"Expose the node RPCs through the REST API (default: false)", CommandOptionType.SingleValue);
 			}
 
