@@ -455,7 +455,17 @@ namespace NBXplorer.Backends.Postgres
 						data.Inventory.Add(inv);
 					}
 					if (data.Inventory.Count != 0)
+					{
 						node.SendMessageAsync(data);
+					}
+					// DOGE coin doing doge things forget we want header first sync... reboot the connection
+					else
+					{
+						if (invs.Inventory.Where(t => t.Type.HasFlag(InventoryType.MSG_BLOCK)).Any())
+						{
+							node.DisconnectAsync("Not sending headers first anymore");
+						}
+					}
 				}
 				else if (message.Message.Payload is TxPayload tx)
 				{
