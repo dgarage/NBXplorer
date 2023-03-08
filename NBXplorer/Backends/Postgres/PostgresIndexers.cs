@@ -223,6 +223,10 @@ namespace NBXplorer.Backends.Postgres
 					{
 						ChainConfiguration.HasTxIndex = txIndex;
 					}
+					if (ChainConfiguration.HasTxIndex)
+					{
+						Logger.LogInformation($"Has txindex support");
+					}
 					var peer = (await RPCClient.GetPeersInfoAsync())
 										.FirstOrDefault(p => p.SubVersion == userAgent);
 					if (peer.IsWhitelisted())
