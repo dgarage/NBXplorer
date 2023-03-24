@@ -706,11 +706,11 @@ namespace NBXplorer.Backends.Postgres
 			return await connection.GetOutputs(outPoints);
 		}
 
-		record SavedTransactionRow(byte[] raw, string blk_id, long? blk_height, DateTime seen_at);
+		record SavedTransactionRow(byte[] raw, string blk_id, long? blk_height, string replaced_by, DateTime seen_at);
 		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
 		{
 			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
-			var tx = await connection.Connection.QueryFirstOrDefaultAsync<SavedTransactionRow>("SELECT raw, blk_id, blk_height, seen_at FROM txs WHERE code=@code AND tx_id=@tx_id", new { code = Network.CryptoCode, tx_id = txid.ToString() });
+			var tx = await connection.Connection.QueryFirstOrDefaultAsync<SavedTransactionRow>("SELECT raw, blk_id, blk_height, replaced_by, seen_at FROM txs WHERE code=@code AND tx_id=@tx_id", new { code = Network.CryptoCode, tx_id = txid.ToString() });
 			if (tx?.raw is null)
 				return Array.Empty<SavedTransaction>();
 			return new[] { new SavedTransaction()
@@ -718,7 +718,8 @@ namespace NBXplorer.Backends.Postgres
 				BlockHash = tx.blk_id is null ? null : uint256.Parse(tx.blk_id),
 				BlockHeight = tx.blk_height,
 				Timestamp = new DateTimeOffset(tx.seen_at),
-				Transaction = Transaction.Load(tx.raw, Network.NBitcoinNetwork)
+				Transaction = Transaction.Load(tx.raw, Network.NBitcoinNetwork),
+				ReplacedBy = tx.replaced_by is null ? null : uint256.Parse(tx.replaced_by)
 			}};
 		}
 

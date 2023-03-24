@@ -22,5 +22,6 @@ namespace NBXplorer.Backends
 			get;
 			set;
 		}
+		public uint256 ReplacedBy { get; set; }
 	}
 }
