@@ -421,7 +421,8 @@ namespace NBXplorer.Backends.Postgres
 								Transaction = matches[i].Transaction,
 								TransactionHash = matches[i].TransactionHash
 							},
-							Outputs = matches[i].GetReceivedOutputs().ToList()
+							Outputs = matches[i].GetReceivedOutputs().ToList(),
+							Replacing = matches[i].Replacing.ToList()
 						};
 
 						evts[i] = txEvt;

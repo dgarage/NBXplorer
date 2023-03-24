@@ -696,7 +696,8 @@ Then you will receive such notifications when a transaction is impacting the `de
         "value": 100000000
       }
     ],
-    "cryptoCode": "BTC"
+    "cryptoCode": "BTC",
+    "replacing": ["25d6bc1b2812670550aca8b2984670203b5ebf00e75f9b2bbf1940c3fa27841e", "81a20eb55ec16b92c65d4e142278fd521caa9e5dcad9d941c8e256dbd917ae84"]
   }
 }
 ```
@@ -724,6 +725,10 @@ If you want all transactions of all derivation schemes of all crypto currencies,
 ```
 
 As an alternative to get notification, you can also use long polling with the [event stream](#eventStream).
+
+Fields:
+
+* `replacing`: The list of the unconfirmed transactions of this wallet which have been replaced by this new transaction. This can typically be used to detect when the sender is bumping fee. This can't be used to detect when the sender is attempting to abort a transaction.
 
 ## <a name="broadcast"></a>Broadcast a transaction
 
