@@ -56,5 +56,6 @@ namespace NBXplorer.Models
 			get;
 			set;
 		}
+		public uint256 ReplacedBy { get; set; }
 	}
 }

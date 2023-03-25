@@ -123,7 +123,7 @@ namespace NBXplorer
 
 			var conf = confBlock.BlockHash is null ? 0 : height - confBlock.BlockHeight.Value + 1;
 
-			return new TransactionResult() { Confirmations = conf, BlockId = confBlock.BlockHash, Transaction = oldest.Transaction, TransactionHash = oldest.Transaction.GetHash(), Height = confBlock.BlockHeight, Timestamp = oldest.Timestamp };
+			return new TransactionResult() { Confirmations = conf, BlockId = confBlock.BlockHash, Transaction = oldest.Transaction, TransactionHash = oldest.Transaction.GetHash(), Height = confBlock.BlockHeight, Timestamp = oldest.Timestamp, ReplacedBy = oldest.ReplacedBy };
 		}
 	}
 }
