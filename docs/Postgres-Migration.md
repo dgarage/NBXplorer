@@ -1,9 +1,8 @@
 # Migration from DBTrie backend to Postgres backend
 
-NBXplorer for a long time relied on an embedded database called DBTrie.
-This internal database was limiting for a number of reason, and we decided to update NBXplorer to use a postgres backend instead of DBTrie.
+For an extended period, NBXplorer depended on an embedded database dubbed DBTrie. This internal database imposed limitations for various reasons, prompting us to upgrade NBXplorer to employ a Postgres backend rather than DBTrie.
 
-While we still support DBTrie, it is deprecated. We provide a migration path for currently current deployments.
+Although we continue to support DBTrie, it is now deemed obsolete. We offer a migration pathway for existing deployments.
 
 | Command line argument  | Environment variable | Description |
 |---|---|---|
@@ -13,14 +12,16 @@ While we still support DBTrie, it is deprecated. We provide a migration path for
 | --nomigrateevts  | NBXPLORER_NOMIGRATEEVTS=1  | Do not migrate the events table (default: false) |
 | --nomigraterawtxs  | NBXPLORER_NOMIGRATERAWTXS=1  | Do not migrate the raw bytes of transactions (default: false) |
 
-`automigrate` will automatically detect if a DBTrie database need to be migrated. As such, if the migration already happened or that there is nothing to migrate, the flag will be ignored.
+`automigrate`: will seamlessly determine if a DBTrie database necessitates migration, disregarding the flag if migration is unnecessary or already executed.
 
-`nomigrateevts` can be used if the services depending on NBXplorer isn't querying past events. It can make the migration a bit faster. (BTCPay Server doesn't use the past events)
+`nomigrateevts`: may be employed for services reliant on NBXplorer that do not query past events, thereby hastening the migration process. (BTCPay Server, for example, does not utilize past events)
 
-`nomigraterawtxs` can be used if you don't need to keep the raw transaction bytes. It can make the migration a bit faster. The raw transactions are typically needed when you need to sign a non-segwit wallet.
+`nomigraterawtxs`: may be utilized if preserving raw transaction bytes is nonessential, consequently expediting migration. Raw transactions are typically crucial for signing with a non-segwit wallet.
 
-The migration will take less than 5 minutes for the majority of small instance.
+The majority of instances will complete migration in under five minutes.
 
-On bigger instance, our testing on the mainnet demo server of BTCPay Server with 800 000 addresses and 44 000 transactions (around the DBTrie database being around 5GB) took around 40 minutes.
+For larger instances, our BTCPay Server's mainnet demo server with 800,000 addresses and 44,000 transactions and the DBTrie database approximating 5GB took roughly 40 minutes.
 
-Afterwards you need to set `BTCPAY_EXPLORERPOSTGRES` to the same connection string as NBXplorer.
+If you use BTCPay Server, ensure that its environment variable `BTCPAY_EXPLORERPOSTGRES` is assigned the same connection string as NBXplorer.
+
+You can find more information in this [blog post](https://blog.btcpayserver.org/nbxplorer-postgres/).
