@@ -28,7 +28,7 @@ namespace NBXplorer.HostedServices
 			foreach (var task in ServiceProvider.GetServices<ScheduledTask>())
 				jobs.Writer.TryWrite(task);
 
-			loop = Loop(cts.Token);
+			loop = Task.WhenAll(Enumerable.Range(0, 3).Select(_ => Loop(cts.Token)).ToArray());
 			return Task.CompletedTask;
 		}
 		Task loop;
