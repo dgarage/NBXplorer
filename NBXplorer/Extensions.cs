@@ -179,6 +179,8 @@ namespace NBXplorer
 			services.TryAddSingleton<CookieRepository>();
 			services.TryAddSingleton<Broadcaster>();
 
+			// MainController wants to resolve this, even if unused by postgres backend
+			services.TryAddSingleton<RebroadcasterHostedService>();
 			if (configuration.IsPostgres())
 			{
 				services.AddHostedService<HostedServices.DatabaseSetupHostedService>();
@@ -212,6 +214,7 @@ namespace NBXplorer
 				services.TryAddSingleton<BitcoinDWaiters>();
 				services.TryAddSingleton<IIndexers>(o => o.GetRequiredService<BitcoinDWaiters>());
 				services.AddSingleton<IHostedService, BitcoinDWaiters>(o => o.GetRequiredService<BitcoinDWaiters>());
+				services.AddSingleton<IHostedService, RebroadcasterHostedService>(o => o.GetRequiredService<RebroadcasterHostedService>());
 			}
 
 			services.TryAddSingleton<EventAggregator>();
@@ -219,10 +222,8 @@ namespace NBXplorer
 			services.AddSingleton<IHostedService, AddressPoolService>(o => o.GetRequiredService<AddressPoolService>());
 			services.TryAddSingleton<IRPCClients, RPCClientProvider>();
 			services.AddHostedService<RPCReadyFileHostedService>();
-			services.TryAddSingleton<RebroadcasterHostedService>();
 			services.AddSingleton<IHostedService, ScanUTXOSetService>();
 			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
-			services.AddSingleton<IHostedService, RebroadcasterHostedService>(o => o.GetRequiredService<RebroadcasterHostedService>());
 			services.AddSingleton<IHostedService, BrokerHostedService>();
 
 			services.AddSingleton<Analytics.FingerprintHostedService>();
