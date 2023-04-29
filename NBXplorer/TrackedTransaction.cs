@@ -131,6 +131,7 @@ namespace NBXplorer
 		public int? BlockIndex { get; set; }
 		public long? BlockHeight { get; set; }
 		public bool Immature { get; internal set; }
+		public HashSet<uint256> Replacing { get; internal set; }
 
 		public IEnumerable<MatchedOutput> GetReceivedOutputs()
 		{

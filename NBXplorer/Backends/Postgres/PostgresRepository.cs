@@ -620,11 +620,13 @@ namespace NBXplorer.Backends.Postgres
 
 			using (var result = await connection.Connection.QueryMultipleAsync(
 				"SELECT * FROM matched_outs;" +
-				"SELECT * FROM matched_ins"))
+				"SELECT * FROM matched_ins;" +
+				// the query matched_conflicts need to fetch wallet_id as we don't want replacing include transaction that aren't owned by the wallet
+				"SELECT tt.wallet_id, mc.* FROM matched_conflicts mc JOIN nbxv1_tracked_txs tt ON tt.code=mc.code AND tt.tx_id=mc.replaced_tx_id"))
 			{
 				var matchedOuts = await result.ReadAsync();
 				var matchedIns = await result.ReadAsync();
-
+				var matchedConflicts = await result.ReadAsync();
 				var elementContext = Network.IsElement ? new ElementMatchContext() : null;
 				foreach (var r in matchedOuts)
 				{
@@ -661,6 +663,17 @@ namespace NBXplorer.Backends.Postgres
 									match.FirstSeen = now;
 									match.Inserted = now;
 									match.Immature = tx.IsCoinBase;
+									match.Replacing = new HashSet<uint256>();
+									foreach (var r in matchedConflicts)
+									{
+										var wallet_id = GetWalletKey(match.TrackedSource).wid;
+										uint256 replacingTxId = uint256.Parse(r.replacing_tx_id);
+										if (replacingTxId == match.TransactionHash && r.wallet_id == wallet_id)
+										{
+											uint256 replacedTxId = uint256.Parse(r.replaced_tx_id);
+											match.Replacing.Add(replacedTxId);
+										}
+									}
 									matches.Add(matchesGroupingKey, match);
 								}
 								match.AddKnownKeyPathInformation(keyInfo);

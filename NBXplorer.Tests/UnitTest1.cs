@@ -1058,7 +1058,14 @@ namespace NBXplorer.Tests
 				var replacement = tester.RPC.SignRawTransaction(tx);
 				Logs.Tester.LogInformation($"Tx3: {replacement.GetHash()}");
 				tester.RPC.SendRawTransaction(replacement);
-				tester.Notifications.WaitForTransaction(bob, replacement.GetHash());
+				var txEvt = tester.Notifications.WaitForTransaction(bob, replacement.GetHash());
+				if (backend == Backend.Postgres)
+				{
+					// tx3 replace tx1, so tx2 should also be replaced
+					Assert.Equal(2, txEvt.Replacing.Count);
+					Assert.Contains(tx1, txEvt.Replacing);
+					Assert.Contains(tx2.GetHash(), txEvt.Replacing);
+				}
 				var prevUtxo = utxo;
 				utxo = tester.Client.GetUTXOs(bob); //Wait tx received
 				Assert.Single(utxo.Unconfirmed.UTXOs);

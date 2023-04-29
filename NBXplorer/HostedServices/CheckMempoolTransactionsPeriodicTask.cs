@@ -47,11 +47,11 @@ namespace NBXplorer.HostedServices
 				var result = await Broadcaster.Broadcast(tx.Network, tx.Tx, tx.Id);
 				if (result.MissingInput && result.MempoolConflict)
 				{
-					await conn.ExecuteAsync("UPDATE txs SET replaced_by=@unk_tx_id WHERE code=@code AND tx_id=@tx_id", new { code = tx.Network.CryptoCode, tx_id = tx.Id.ToString(), unk_tx_id = NBXplorerNetwork.UnknownTxId.ToString() });
+					await conn.ExecuteAsync("UPDATE txs SET replaced_by=@unk_tx_id WHERE code=@code AND tx_id=@tx_id AND mempool IS TRUE AND replaced_by IS NULL AND replaced_by!=@unk_tx_id", new { code = tx.Network.CryptoCode, tx_id = tx.Id.ToString(), unk_tx_id = NBXplorerNetwork.UnknownTxId.ToString() });
 				}
 				else if (result.MissingInput || result.UnknownError)
 				{
-					await conn.ExecuteAsync("UPDATE txs SET mempool='f' WHERE code=@code AND tx_id=@tx_id", new { code = tx.Network.CryptoCode, tx_id = tx.Id.ToString() });
+					await conn.ExecuteAsync("UPDATE txs SET mempool='f' WHERE code=@code AND tx_id=@tx_id AND mempool IS TRUE", new { code = tx.Network.CryptoCode, tx_id = tx.Id.ToString() });
 				}
 			}
 
