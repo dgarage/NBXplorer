@@ -1162,7 +1162,7 @@ namespace NBXplorer.Backends.Postgres
 
 		public async ValueTask<int> TrimmingEvents(int maxEvents, CancellationToken cancellationToken = default)
 		{
-			await using var conn = await GetConnection();
+			await using var conn = await connectionFactory.CreateConnectionHelper(Network, o => o.CommandTimeout = Constants.FifteenMinutes);
 			var id = conn.Connection.ExecuteScalar<long?>("SELECT id FROM nbxv1_evts WHERE code=@code ORDER BY id DESC OFFSET @maxEvents LIMIT 1", new { code = Network.CryptoCode, maxEvents = maxEvents - 1 });
 			if (id is long i)
 				return await conn.Connection.ExecuteAsync("DELETE FROM nbxv1_evts WHERE code=@code AND id < @id", new { code = Network.CryptoCode, id = i });

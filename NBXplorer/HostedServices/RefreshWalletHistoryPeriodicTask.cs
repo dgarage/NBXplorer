@@ -18,7 +18,7 @@ namespace NBXplorer.HostedServices
 		{
 			await using var conn = await ConnectionFactory.CreateConnection(b =>
 			{
-				b.CommandTimeout = 60 * 15;
+				b.CommandTimeout = Constants.FifteenMinutes;
 			});
 			await conn.ExecuteAsync("SELECT wallets_history_refresh();");
 		}
