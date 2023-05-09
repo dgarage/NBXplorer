@@ -160,11 +160,37 @@ namespace NBXplorer.Backends.Postgres
 					{
 						await ConnectNode(token, false);
 					}
-					if (item is NewTransaction nt)
+					if (item is Transaction tx)
 					{
-						await SaveMatches(conn, new List<Transaction>(1) { nt.tx }, null, nt.fireEvents);
+						var txs = PullTransactions(_Channel.Reader, tx);
+						await SaveMatches(conn, txs, null, true);
 					}
 				}
+			}
+
+			// Attempt to pull as much non-conflicting transactions as possible in one batch
+			private List<Transaction> PullTransactions(ChannelReader<object> reader, Transaction tx)
+			{
+				List<Transaction> txs = new List<Transaction>();
+				HashSet<OutPoint> spent = new HashSet<OutPoint>(tx.Inputs.Capacity);
+				bool EnsureNoConflict(Transaction tx)
+				{
+					foreach (var i in tx.Inputs.Select(i => i.PrevOut))
+						if (!spent.Add(i))
+							return false;
+					return true;
+				}
+				EnsureNoConflict(tx);
+				txs.Add(tx);
+
+				while (reader.TryPeek(out var p) && p is Transaction tx2)
+				{
+					if (!EnsureNoConflict(tx2))
+						break;
+					txs.Add(tx2);
+					reader.TryRead(out _);
+				}
+				return txs;
 			}
 
 			// We sometimes receive burst of blocks, with some dups.
@@ -437,7 +463,6 @@ namespace NBXplorer.Backends.Postgres
 
 			SlimChainedBlock lastIndexedBlock;
 			record PullBlocks(IList<BlockHeader> headers);
-			record NewTransaction(Transaction tx, bool fireEvents);
 			record NodeDisconnected();
 			private void Node_MessageReceived(Node node, IncomingMessage message)
 			{
@@ -474,7 +499,7 @@ namespace NBXplorer.Backends.Postgres
 				}
 				else if (message.Message.Payload is TxPayload tx)
 				{
-					_Channel.Writer.TryWrite(new NewTransaction(tx.Object, true));
+					_Channel.Writer.TryWrite(tx.Object);
 				}
 			}
 
