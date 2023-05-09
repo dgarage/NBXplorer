@@ -33,7 +33,7 @@ namespace NBXplorer.HostedServices
 				await using var conn = await ConnectionFactory.CreateConnection(b =>
 				{
 					// 10H timeout
-					b.CommandTimeout = 60 * 60 * 10;
+					b.CommandTimeout = Constants.TenHours;
 				});
 				await RunScripts(conn);
 			}
