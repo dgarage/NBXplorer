@@ -1,14 +1,14 @@
-﻿CREATE OR REPLACE PROCEDURE fetch_matches(in_code text, in_outs public.new_out[], in_ins public.new_in[], INOUT has_match boolean)
+﻿CREATE OR REPLACE PROCEDURE fetch_matches(in_code text, in_outs new_out[], in_ins new_in[], INOUT has_match boolean)
     LANGUAGE plpgsql
     AS $$
 BEGIN
 	BEGIN
 	  TRUNCATE TABLE matched_outs, matched_ins, matched_conflicts, new_ins;
 	EXCEPTION WHEN others THEN
-	  CREATE TEMPORARY TABLE matched_outs (LIKE public.new_out);
+	  CREATE TEMPORARY TABLE matched_outs (LIKE new_out);
 	  ALTER TABLE matched_outs ADD COLUMN "order" BIGINT;
 
-	  CREATE TEMPORARY TABLE new_ins (LIKE public.new_in);
+	  CREATE TEMPORARY TABLE new_ins (LIKE new_in);
 	  ALTER TABLE new_ins ADD COLUMN "order" BIGINT;
 	  ALTER TABLE new_ins ADD COLUMN code TEXT;
 
