@@ -183,12 +183,27 @@ CREATE PROCEDURE fetch_matches(in_code text, in_outs public.new_out[], in_ins pu
     LANGUAGE plpgsql
     AS $$
 BEGIN
-	DROP TABLE IF EXISTS matched_outs;
-	DROP TABLE IF EXISTS matched_ins;
-	DROP TABLE IF EXISTS matched_conflicts;
-	DROP TABLE IF EXISTS new_ins;
+	BEGIN
+	  TRUNCATE TABLE matched_outs, matched_ins, matched_conflicts, new_ins;
+	EXCEPTION WHEN others THEN
+	  CREATE TEMPORARY TABLE matched_outs (LIKE new_out);
+	  ALTER TABLE matched_outs ADD COLUMN "order" BIGINT;
+	  CREATE TEMPORARY TABLE new_ins (LIKE new_in);
+	  ALTER TABLE new_ins ADD COLUMN "order" BIGINT;
+	  ALTER TABLE new_ins ADD COLUMN code TEXT;
+	  CREATE TEMPORARY TABLE matched_ins (LIKE new_ins);
+	  ALTER TABLE matched_ins ADD COLUMN script TEXT;
+	  ALTER TABLE matched_ins ADD COLUMN value bigint;
+	  ALTER TABLE matched_ins ADD COLUMN asset_id TEXT;
+	  CREATE TEMPORARY TABLE matched_conflicts (
+		code TEXT,
+		spent_tx_id TEXT,
+		spent_idx BIGINT,
+		replacing_tx_id TEXT,
+		replaced_tx_id TEXT);
+	END;
 	has_match := 'f';
-	CREATE TEMPORARY TABLE matched_outs AS 
+	INSERT INTO matched_outs
 	SELECT o.* FROM scripts s
 	JOIN unnest(in_outs)  WITH ORDINALITY AS o(tx_id, idx, script, value, asset_id, "order") USING (script)
 	WHERE s.code=in_code
@@ -202,9 +217,9 @@ BEGIN
       WHERE a.tx_id = b.tx_id AND a.idx = b.idx
       AND a.ctid <> b.ctid;
 	-- This table will include only the ins we need to add to the spent_outs for double spend detection
-	CREATE TEMPORARY TABLE new_ins AS
-	SELECT in_code code, i.* FROM unnest(in_ins) WITH ORDINALITY AS i(tx_id, idx, spent_tx_id, spent_idx, "order");
-	CREATE TEMPORARY TABLE matched_ins AS
+	INSERT INTO new_ins
+	SELECT i.*, in_code code FROM unnest(in_ins) WITH ORDINALITY AS i(tx_id, idx, spent_tx_id, spent_idx, "order");
+	INSERT INTO matched_ins
 	SELECT * FROM
 	  (SELECT i.*, o.script, o.value, o.asset_id  FROM new_ins i
 	  JOIN outs o ON o.code=i.code AND o.tx_id=i.spent_tx_id AND o.idx=i.spent_idx
@@ -214,7 +229,7 @@ BEGIN
 	ORDER BY "order";
 	DELETE FROM new_ins
 	WHERE NOT tx_id=ANY(SELECT tx_id FROM matched_ins) AND NOT tx_id=ANY(SELECT tx_id FROM matched_outs);
-	CREATE TEMPORARY TABLE matched_conflicts AS
+	INSERT INTO matched_conflicts
 	WITH RECURSIVE cte(code, spent_tx_id, spent_idx, replacing_tx_id, replaced_tx_id) AS
 	(
 	  SELECT in_code code, i.spent_tx_id, i.spent_idx, i.tx_id replacing_tx_id, so.spent_by replaced_tx_id FROM new_ins i
@@ -228,17 +243,16 @@ BEGIN
 	  WHERE i.code=c.code AND i.mempool IS TRUE
 	)
 	SELECT * FROM cte;
-	
 	DELETE FROM matched_ins a USING (
       SELECT MIN(ctid) as ctid, tx_id, idx
-        FROM matched_ins 
+        FROM matched_ins
         GROUP BY tx_id, idx HAVING COUNT(*) > 1
       ) b
       WHERE a.tx_id = b.tx_id AND a.idx = b.idx
       AND a.ctid <> b.ctid;
 	DELETE FROM matched_conflicts a USING (
       SELECT MIN(ctid) as ctid, replaced_tx_id
-        FROM matched_conflicts 
+        FROM matched_conflicts
         GROUP BY replaced_tx_id HAVING COUNT(*) > 1
       ) b
       WHERE a.replaced_tx_id = b.replaced_tx_id
@@ -1328,6 +1342,7 @@ INSERT INTO nbxv1_migrations VALUES ('011.FixGetWalletsRecent');
 INSERT INTO nbxv1_migrations VALUES ('012.PerfFixGetWalletsRecent');
 INSERT INTO nbxv1_migrations VALUES ('013.FixTrackedTransactions');
 INSERT INTO nbxv1_migrations VALUES ('014.FixAddressReuse');
+INSERT INTO nbxv1_migrations VALUES ('015.AvoidWAL');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);
