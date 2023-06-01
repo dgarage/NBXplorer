@@ -1112,7 +1112,7 @@ namespace NBXplorer.Controllers
 			DerivationStrategyBase derivation = network.DerivationStrategyFactory.CreateDirectDerivationStrategy(accountKey.Neuter(), new DerivationStrategyOptions()
 			{
 				ScriptPubKeyType = request.ScriptPubKeyType.Value,
-				AdditionalOptions = request.AdditionalOptions
+				AdditionalOptions = request.AdditionalOptions is not null ? new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(request.AdditionalOptions) : null
 			});
 
 			await RepositoryProvider.GetRepository(network).EnsureWalletCreated(derivation);

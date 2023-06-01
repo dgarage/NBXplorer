@@ -21,6 +21,6 @@ namespace NBXplorer.Models
 		public string Passphrase { get; set; }
 		public bool ImportKeysToRPC { get; set; }
 		public bool SavePrivateKeys { get; set; }
-		public ReadOnlyDictionary<string, string> AdditionalOptions { get; set; }
+		public Dictionary<string, string> AdditionalOptions { get; set; }
 	}
 }
