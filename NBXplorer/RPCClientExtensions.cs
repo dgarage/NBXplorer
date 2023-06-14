@@ -170,14 +170,18 @@ namespace NBXplorer
 				await client.CreateWalletAsync(walletName, new CreateWalletOptions()
 				{
 					LoadOnStartup = true,
-					Blank = client.Network.ChainName !=	ChainName.Regtest
+					Blank = client.Network.ChainName != ChainName.Regtest
 				});
 				logger.LogInformation($"{network.CryptoCode}: Created RPC wallet \"{walletName}\"");
 			}
-			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND || ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR)
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
 			{
-				// Not supported, or already created? Just ignore.
+				// Not supported
 				return;
+			}
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR || ex.RPCCode == RPCErrorCode.RPC_WALLET_ALREADY_EXISTS)
+			{
+				// Already exists, let's load it
 			}
 			catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized || ex.StatusCode is HttpStatusCode.Forbidden)
 			{
@@ -194,7 +198,7 @@ namespace NBXplorer
 				await client.LoadWalletAsync(walletName, true);
 				logger.LogInformation($"{network.CryptoCode}: RPC Wallet loaded");
 			}
-			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND || ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR)
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND || ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR || ex.RPCCode == RPCErrorCode.RPC_WALLET_ALREADY_LOADED)
 			{
 				// Not supported, or already loaded? Just ignore.
 			}
