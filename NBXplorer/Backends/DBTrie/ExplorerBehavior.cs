@@ -1,4 +1,5 @@
-﻿using NBXplorer.Logging;
+﻿#if SUPPORT_DBTRIE
+using NBXplorer.Logging;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
@@ -345,3 +346,4 @@ namespace NBXplorer.Backends.DBTrie
 		}
 	}
 }
+#endif

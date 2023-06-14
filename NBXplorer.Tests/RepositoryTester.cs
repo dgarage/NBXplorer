@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBXplorer.Backends;
+#if SUPPORT_DBTRIE
 using NBXplorer.Backends.DBTrie;
+#endif
 using NBXplorer.Backends.Postgres;
 using NBXplorer.Configuration;
 using System;
@@ -43,11 +45,16 @@ namespace NBXplorer.Tests
 			services.AddSingleton(conf);
 			services.AddSingleton(KeyPathTemplates.Default);
 			services.AddSingleton(new NBXplorerNetworkProvider(ChainName.Regtest));
+
 			if (backend == Backend.DBTrie)
 			{
+#if SUPPORT_DBTRIE
 				ServerTester.DeleteFolderRecursive(name);
 				services.AddSingleton<IRepositoryProvider, RepositoryProvider>();
 				services.AddSingleton<ChainProvider>();
+#else
+				throw new NotSupportedException("DBTrie not supported");
+#endif
 			}
 			else
 			{

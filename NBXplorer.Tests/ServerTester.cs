@@ -89,6 +89,7 @@ namespace NBXplorer.Tests
 				Start();
 		}
 
+#if SUPPORT_DBTRIE
 		public async Task Load(string dataName)
 		{
 			datadir = Path.Combine(_Directory, "explorer");
@@ -106,7 +107,8 @@ namespace NBXplorer.Tests
 			await using var db = await DBTrie.DBTrieEngine.OpenFromFolder(datadir);
 			using var tx = await db.OpenTransaction();
 			await tx.GetTable("IndexProgress").Delete();
-		}
+	}
+#endif
 
 		public RPCWalletType? RPCWalletType
 		{
@@ -165,6 +167,7 @@ namespace NBXplorer.Tests
 			else
 			{
 				additionalFlags.Add("--dbtrie");
+				keyValues.Add(("cachechain", "0"));
 			}
 			keyValues.AddRange(AdditionalConfiguration);
 			keyValues.Add(("datadir", datadir));
@@ -175,7 +178,6 @@ namespace NBXplorer.Tests
 			keyValues.Add(("verbose", "1"));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcauth", Explorer.GetRPCAuth()));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
-			keyValues.Add(("cachechain", "0"));
 			keyValues.Add(("exposerpc", "1"));
 			keyValues.Add(("rpcnotest", "1"));
 			keyValues.Add(("trimevents", TrimEvents.ToString()));

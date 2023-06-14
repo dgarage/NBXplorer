@@ -849,7 +849,7 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
 			return Json(info, network.Serializer.Settings);
 		}
-
+#if SUPPORT_DBTRIE
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balance")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}/balance")]
@@ -951,7 +951,7 @@ namespace NBXplorer.Controllers
 				utxo.Timestamp = transactions.GetByTxId(utxo.Outpoint.Hash).Record.FirstSeen;
 			}
 		}
-
+#endif
 		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(IRepository repo, TrackedSource trackedSource, bool includeTransaction, uint256 txId = null)
 		{
 			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, this.HttpContext?.RequestAborted ?? default);
@@ -1287,10 +1287,16 @@ namespace NBXplorer.Controllers
 			}
 			return new PruneResponse() { TotalPruned = prunableIds.Count };
 		}
-
+#if SUPPORT_DBTRIE
 		public Task<IActionResult> GetUTXOs(string cryptoCode, DerivationStrategyBase derivationStrategy)
 		{
 			return this.GetUTXOs(cryptoCode, derivationStrategy, null);
 		}
+#else
+		public Task<IActionResult> GetUTXOs(string cryptoCode, DerivationStrategyBase derivationStrategy)
+		{
+			throw new NotSupportedException("This should never be called");
+		}
+#endif
 	}
 }

@@ -85,7 +85,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void RepositoryCanTrackAddresses(Backend backend)
 		{
 			using (var tester = RepositoryTester.Create(backend, true))
@@ -97,7 +99,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public async Task CanGetEvents(Backend backend)
 		{
 			using (var tester = RepositoryTester.Create(backend, false))
@@ -181,7 +185,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanSerializeKeyPathFast(Backend backend)
 		{
 			using (var tester = RepositoryTester.Create(backend, true))
@@ -304,7 +310,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanEasilySpendUTXOs(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -369,7 +377,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanCreatePSBT(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -1001,7 +1011,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public async Task ShowRBFedTransaction(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -1185,7 +1197,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanGetUnusedAddresses(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -1601,7 +1615,9 @@ namespace NBXplorer.Tests
 		}
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanTrimEvents(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -1628,7 +1644,9 @@ namespace NBXplorer.Tests
 		}
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanGetAndSetMetadata(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -1659,7 +1677,9 @@ namespace NBXplorer.Tests
 		PruneRequest PruneTheMost = new PruneRequest() { DaysToKeep = 0.0 };
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanPrune(Backend backend)
 		{
 			// In this test we have fundingTxId with 2 output and spending1
@@ -1770,7 +1790,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanPrune2(Backend backend)
 		{
 			// In this test we have fundingTxId with 2 output and spending1
@@ -1842,7 +1864,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanUseWebSockets(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -1896,7 +1920,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanUseLongPollingNotifications(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -1942,7 +1968,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanUseWebSockets2(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -1988,6 +2016,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
+#if SUPPORT_DBTRIE
 		[Fact]
 		public async Task CanMigrateTable()
 		{
@@ -2002,6 +2031,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(new uint256("4c6585d568dc854059f392130a52e48c44ee4a3fdfd5aceb441a60de3628ea20"), txs[1].BlockHash);
 			}
 		}
+
 
 		[Fact]
 		public async Task CanMigrateOutPointsFromTransactions()
@@ -2066,10 +2096,12 @@ namespace NBXplorer.Tests
 				await AssertMigration();
 			}
 		}
-
+#endif
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public async Task DoNotLoseTimestampForLongConfirmations(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -2091,6 +2123,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
+#if SUPPORT_DBTRIE
 		[Fact]
 		public async Task CanMigrateToPostgres()
 		{
@@ -2167,9 +2200,13 @@ namespace NBXplorer.Tests
 				Assert.False(Directory.Exists(Path.Combine(explorerConf.DataDir, "db")));
 			}
 		}
-
+#endif
 		[TheoryWithTimeout]
+#if SUPPORT_DBTRIE
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
+#endif
 		[InlineData(Backend.Postgres)]
 		public void CanTrack4(Backend backend)
 		{
@@ -2232,7 +2269,9 @@ namespace NBXplorer.Tests
 		}
 
 		[TheoryWithTimeout]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		[InlineData(Backend.Postgres)]
 		public void CanTrack3(Backend backend)
 		{
@@ -2273,7 +2312,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanTrackSeveralTransactions(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -2326,7 +2367,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public async void CanUseWebSocketsOnAddress(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -2388,7 +2431,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanUseWebSocketsOnAddress2(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -2424,7 +2469,9 @@ namespace NBXplorer.Tests
 		}
 
 		[TheoryWithTimeout]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		[InlineData(Backend.Postgres)]
 		public void CanTrackAddress(Backend backend)
 		{
@@ -2521,7 +2568,9 @@ namespace NBXplorer.Tests
 		}
 
 		[TheoryWithTimeout]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		[InlineData(Backend.Postgres)]
 		public void CanTrack2(Backend backend)
 		{
@@ -2566,7 +2615,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanReserveAddress(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -2679,7 +2730,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public async Task CanGetStatus(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -2708,7 +2761,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanGetTransactionsOfDerivation(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -2770,7 +2825,9 @@ namespace NBXplorer.Tests
 		}
 
 		[TheoryWithTimeout]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		[InlineData(Backend.Postgres)]
 		public void CanTrack5(Backend backend)
 		{
@@ -2829,7 +2886,9 @@ namespace NBXplorer.Tests
 		}
 
 		[TheoryWithTimeout]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		[InlineData(Backend.Postgres)]
 		public void CanRescan(Backend backend)
 		{
@@ -2888,7 +2947,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanTrackManyAddressesAtOnce(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -2917,7 +2978,9 @@ namespace NBXplorer.Tests
 		}
 
 		[TheoryWithTimeout]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		[InlineData(Backend.Postgres)]
 		public void CanTrack(Backend backend)
 		{
@@ -3095,7 +3158,9 @@ namespace NBXplorer.Tests
 		}
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanCacheTransactions(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -3117,7 +3182,9 @@ namespace NBXplorer.Tests
 		}
 		[Theory(Timeout = 60 * 1000)]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanUseLongPollingOnEvents(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -3459,7 +3526,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanBroadcast(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -3481,7 +3550,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanGetKeyInformations(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -3587,7 +3658,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public void CanRescanFullyIndexedTransaction(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -3625,7 +3698,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public async Task CanScanUTXOSet(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -3836,7 +3911,9 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public async Task ElementsTests(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -4044,8 +4121,11 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres, RPCWalletType.Descriptors)]
+
 		[InlineData(Backend.Postgres, RPCWalletType.Legacy)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie, RPCWalletType.Legacy)]
+#endif
 		public async Task CanGenerateWallet(Backend backend, RPCWalletType walletType)
 		{
 			using (var tester = ServerTester.CreateNoAutoStart(backend))
@@ -4199,7 +4279,9 @@ namespace NBXplorer.Tests
 		}
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public async Task CanUseRPCProxy(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))

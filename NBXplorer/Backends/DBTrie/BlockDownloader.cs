@@ -1,4 +1,5 @@
-﻿using NBitcoin;
+﻿#if SUPPORT_DBTRIE
+using NBitcoin;
 using NBitcoin.Protocol;
 using System;
 using System.Collections.Generic;
@@ -103,3 +104,4 @@ namespace NBXplorer.Backends.DBTrie
 		}
 	}
 }
+#endif

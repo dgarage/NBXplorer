@@ -952,7 +952,7 @@ namespace NBXplorer.Backends.Postgres
 				}
 			}
 		}
-
+#if SUPPORT_DBTRIE
 		public ValueTask<bool> MigrateOutPoints(string directory, CancellationToken cancellationToken = default)
 		{
 			return default;
@@ -962,12 +962,11 @@ namespace NBXplorer.Backends.Postgres
 		{
 			return default;
 		}
-
+#endif
 		public Task Ping()
 		{
 			return Task.CompletedTask;
 		}
-
 		public async Task Prune(TrackedSource trackedSource, IEnumerable<TrackedTransaction> prunable)
 		{
 			if (prunable.TryGetNonEnumeratedCount(out var c) && c == 0)
