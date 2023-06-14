@@ -1,3 +1,4 @@
+#if SUPPORT_DBTRIE
 extern alias DBTrieLib;
 using Microsoft.Extensions.Logging;
 using System.Linq;
@@ -1733,3 +1734,4 @@ namespace NBXplorer.Backends.DBTrie
 		}
 	}
 }
+#endif

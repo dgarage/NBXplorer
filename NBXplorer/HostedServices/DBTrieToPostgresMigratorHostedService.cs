@@ -1,4 +1,5 @@
-﻿extern alias DBTrieLib;
+﻿#if SUPPORT_DBTRIE
+extern alias DBTrieLib;
 
 using Dapper;
 using DBTrieLib::DBTrie;
@@ -972,3 +973,4 @@ namespace NBXplorer.HostedServices
 		}
 	}
 }
+#endif

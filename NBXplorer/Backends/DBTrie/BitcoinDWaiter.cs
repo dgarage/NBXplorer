@@ -1,4 +1,5 @@
-﻿using NBitcoin.RPC;
+﻿#if SUPPORT_DBTRIE
+using NBitcoin.RPC;
 using Microsoft.Extensions.Logging;
 using NBXplorer.Logging;
 using System;
@@ -673,3 +674,4 @@ namespace NBXplorer.Backends.DBTrie
 		public ILogger Logger { get; }
 	}
 }
+#endif
