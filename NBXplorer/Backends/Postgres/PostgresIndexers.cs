@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.Protocol;
+using NBitcoin.Protocol.Behaviors;
 using NBitcoin.RPC;
 using NBXplorer.Configuration;
 using NBXplorer.Events;
@@ -30,6 +31,7 @@ namespace NBXplorer.Backends.Postgres
 				RPCClient rpcClient,
 				PostgresRepository repository,
 				DbConnectionFactory connectionFactory,
+				ExplorerConfiguration explorerConfiguration,
 				ChainConfiguration chainConfiguration,
 				EventAggregator eventAggregator)
 			{
@@ -39,6 +41,7 @@ namespace NBXplorer.Backends.Postgres
 				RPCClient = rpcClient;
 				Repository = repository;
 				ConnectionFactory = connectionFactory;
+				ExplorerConfiguration = explorerConfiguration;
 				ChainConfiguration = chainConfiguration;
 				EventAggregator = eventAggregator;
 			}
@@ -233,12 +236,24 @@ namespace NBXplorer.Backends.Postgres
 				using (var handshakeTimeout = CancellationTokenSource.CreateLinkedTokenSource(token))
 				{
 					var userAgent = "NBXplorer-" + RandomUtils.GetInt64();
-					var node = await Node.ConnectAsync(network.NBitcoinNetwork, ChainConfiguration.NodeEndpoint, new NodeConnectionParameters()
+					var nodeParams = new NodeConnectionParameters()
 					{
 						UserAgent = userAgent,
 						ConnectCancellation = handshakeTimeout.Token,
 						IsRelay = true
-					});
+					};
+					if (ExplorerConfiguration.SocksEndpoint != null)
+					{
+						var socks = new SocksSettingsBehavior()
+						{
+							OnlyForOnionHosts = false,
+							SocksEndpoint = ExplorerConfiguration.SocksEndpoint
+						};
+						if (ExplorerConfiguration.SocksCredentials != null)
+							socks.NetworkCredential = ExplorerConfiguration.SocksCredentials;
+						nodeParams.TemplateBehaviors.Add(socks);
+					}
+					var node = await Node.ConnectAsync(network.NBitcoinNetwork, ChainConfiguration.NodeEndpoint, nodeParams);
 					Logger.LogInformation($"TCP Connection succeed, handshaking...");
 					node.VersionHandshake(handshakeTimeout.Token);
 					Logger.LogInformation($"Handshaked");
@@ -572,6 +587,7 @@ namespace NBXplorer.Backends.Postgres
 			public RPCClient RPCClient { get; }
 			public PostgresRepository Repository { get; }
 			public DbConnectionFactory ConnectionFactory { get; }
+			public ExplorerConfiguration ExplorerConfiguration { get; }
 			public ChainConfiguration ChainConfiguration { get; }
 			public EventAggregator EventAggregator { get; }
 			public GetBlockchainInfoResponse BlockchainInfo { get; private set; }
@@ -639,6 +655,7 @@ namespace NBXplorer.Backends.Postgres
 					RpcClients.Get(network),
 					(PostgresRepository)RepositoryProvider.GetRepository(network),
 					ConnectionFactory,
+					Configuration,
 					config,
 					EventAggregator));
 			}
