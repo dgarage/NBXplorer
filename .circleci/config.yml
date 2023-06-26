@@ -1,12 +1,10 @@
 version: 2
 jobs:
   test:
-    docker:
-      - image: cimg/base:stable
+    machine:
+      - image: ubuntu-2004:202201-02
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.7
       - run:
           command: |
             cd .circleci && ./run-tests.sh

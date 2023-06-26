@@ -86,6 +86,9 @@ namespace NBXplorer.Configuration
 			app.Option("--nomigrateevts", $"Do not migrate the events table (default: false)", CommandOptionType.BoolValue);
 			app.Option("--nomigraterawtxs", $"Do not migrate the raw bytes of transactions (default: false)", CommandOptionType.BoolValue);
 #endif
+			app.Option("--socksendpoint", "Configure a SocksV5 endpoint as proxy to connect to P2P", CommandOptionType.SingleValue);
+			app.Option("--socksuser", "SocksV5 username credential", CommandOptionType.SingleValue);
+			app.Option("--sockspassword", "SocksV5 password credential", CommandOptionType.SingleValue);
 			app.Option("-v | --verbose", $"Verbose logs (default: true)", CommandOptionType.SingleValue);
 			return app;
 		}

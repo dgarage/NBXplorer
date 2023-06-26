@@ -171,6 +171,18 @@ namespace NBXplorer.Configuration
 			var invalidChains = String.Join(',', supportedChains.Where(s => !validChains.Contains(s)).ToArray());
 			if(!string.IsNullOrEmpty(invalidChains))
 				throw new ConfigException($"Invalid chains {invalidChains} for {NetworkProvider.NetworkType}");
+			SocksEndpoint = config.GetOrDefault<string>($"socks.endpoint", null) is string e ? NBitcoin.Utils.ParseEndpoint(e, 1080) : null;
+			if (SocksEndpoint != null)
+			{
+				Logs.Configuration.LogInformation("Socks endpoint: " + SocksEndpoint.ToEndpointString());
+				var user = config.GetOrDefault<string>("socks.user", null);
+				var pass = config.GetOrDefault<string>("socks.password", null);
+				if (user != null && pass != null)
+				{
+					Logs.Configuration.LogInformation("Socks credentials detected");
+					SocksCredentials = new NetworkCredential(user, pass);
+				}
+			}
 
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
 			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);
@@ -312,5 +324,7 @@ namespace NBXplorer.Configuration
         public string RabbitMqBlockExchange { get; set; }
 
 		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
+		public EndPoint SocksEndpoint { get; set; }
+		public NetworkCredential SocksCredentials { get; set; }
 	}
 }
