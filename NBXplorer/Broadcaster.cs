@@ -15,6 +15,7 @@ namespace NBXplorer
 		public bool UnknownError { get; set; }
 		public bool MissingInput { get; set; }
 		public bool MempoolConflict { get; set; }
+		public bool NotEnoughFee { get; set; }
 	}
 	public class Broadcaster
 	{
@@ -65,6 +66,11 @@ namespace NBXplorer
 						result.MissingInput = true;
 						if (accepted.RejectReason.Equals("txn-mempool-conflict", StringComparison.OrdinalIgnoreCase))
 							result.MempoolConflict = true;
+					}
+					else if (accepted.RejectReason == "mempool min fee not met")
+					{
+						broadcast = false;
+						result.NotEnoughFee = true;
 					}
 				}
 				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
