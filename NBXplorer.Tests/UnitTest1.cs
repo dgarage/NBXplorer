@@ -1113,12 +1113,7 @@ namespace NBXplorer.Tests
 					RBF = true,
 					Destinations = new List<CreatePSBTDestination>()
 					{
-						new CreatePSBTDestination()
-						{
-							SubstractFees = true,
-							Destination = a2.Address,
-							Amount = Money.Satoshis(500),
-						}
+						
 					},
 					FeePreference = new FeePreference()
 					{
