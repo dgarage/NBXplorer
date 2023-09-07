@@ -978,6 +978,24 @@ namespace NBXplorer.Tests
 				Assert.Equal("output-too-small", ex.Error.Code);
 			}
 
+			Logs.Tester.LogInformation("Let's check what happens when the amout to send is too low");
+
+			foreach (Money tooLowAmount in new[] { Money.Satoshis(500), Money.Satoshis(100), Money.Satoshis(1)})
+			{
+				ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+					{
+						new CreatePSBTDestination()
+						{
+							Destination = newAddress.Address,
+							Amount = tooLowAmount
+						}
+					}
+				}));
+				Assert.Equal("output-below-dust", ex.Error.Code);
+			}
+
 			if (type == ScriptPubKeyType.Segwit || type == ScriptPubKeyType.TaprootBIP86)
 			{
 				// some PSBT signers are incompliant with spec and require the non_witness_utxo even for segwit inputs

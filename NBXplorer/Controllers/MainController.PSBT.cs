@@ -312,9 +312,13 @@ namespace NBXplorer.Controllers
 				psbt = txBuilder.BuildPSBT(false);
 				hasChange = psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
 			}
-			catch (OutputTooSmallException)
+			catch (OutputTooSmallException ex) when( ex.Reason == OutputTooSmallException.ErrorType.TooSmallAfterSubstractedFee)
 			{
 				throw new NBXplorerException(new NBXplorerError(400, "output-too-small", "You can't substract fee on this destination, because not enough money was sent to it"));
+			}
+			catch (OutputTooSmallException ex) when( ex.Reason == OutputTooSmallException.ErrorType.TooSmallBeforeSubstractedFee)
+			{
+				throw new NBXplorerException(new NBXplorerError(400, "output-below-dust", "The amount is being sent is below dust threshold"));
 			}
 			catch (NotEnoughFundsException)
 			{
