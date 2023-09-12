@@ -35,6 +35,10 @@ namespace NBXplorer.Models
 		/// </summary>
 		public bool? RBF { get; set; }
 		/// <summary>
+		/// Whether this transaction should merge the outputs.
+		/// </summary>
+		public bool? MergeOutputs { get; set; }
+		/// <summary>
 		/// The destinations where to send the money
 		/// </summary>
 		public List<CreatePSBTDestination> Destinations { get; set; } = new List<CreatePSBTDestination>();

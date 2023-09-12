@@ -107,6 +107,11 @@ namespace NBXplorer.Controllers
 				txBuilder.StandardTransactionPolicy.MinRelayTxFee = feeRate;
 			}
 
+			if(request.MergeOutputs is bool mergeOutputs)
+			{
+				txBuilder.MergeOutputs = mergeOutputs;
+			}
+
 			txBuilder.OptInRBF = !(request.RBF is false);
 			if (request.LockTime is LockTime lockTime)
 			{
