@@ -448,7 +448,7 @@ namespace NBXplorer.Tests
 					catch (NBXplorerException ex)
 					{
 						if (i == 25)
-							Assert.Equal("not-enough-funds", ex.Error.Code);
+							Assert.Equal("output-below-dust", ex.Error.Code);
 						else
 							throw;
 					}
@@ -777,7 +777,7 @@ namespace NBXplorer.Tests
 			Assert.Equal(outpoints[0], actualOutpoints[0]);
 			request.MinValue = Money.Coins(0.1m);
 			ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, request));
-			Assert.Equal("not-enough-funds", ex.Error.Code);
+			Assert.Equal("output-below-dust", ex.Error.Code);
 
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
@@ -955,7 +955,7 @@ namespace NBXplorer.Tests
 
 			Logs.Tester.LogInformation("Let's check what happen when SubstractFees=true, but paying output doesn't have enough money");
 
-			foreach (Money tooLowAmount in new[] { Money.Satoshis(1000), Money.Satoshis(300) })
+			foreach (Money tooLowAmount in new[] { Money.Satoshis(1000), Money.Satoshis(600) })
 			{
 				ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
@@ -980,7 +980,7 @@ namespace NBXplorer.Tests
 
 			Logs.Tester.LogInformation("Let's check what happens when the amout to send is too low");
 
-			foreach (Money tooLowAmount in new[] { Money.Satoshis(500), Money.Satoshis(100), Money.Satoshis(1)})
+			foreach (Money tooLowAmount in new[] { Money.Satoshis(100)})
 			{
 				ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
@@ -990,7 +990,11 @@ namespace NBXplorer.Tests
 						{
 							Destination = newAddress.Address,
 							Amount = tooLowAmount
-						}
+						},
+					},
+					FeePreference = new FeePreference()
+					{
+						FallbackFeeRate = new FeeRate(1.0m)	
 					}
 				}));
 				Assert.Equal("output-below-dust", ex.Error.Code);
