@@ -319,11 +319,15 @@ namespace NBXplorer.Controllers
 			}
 			catch (OutputTooSmallException ex) when( ex.Reason == OutputTooSmallException.ErrorType.TooSmallAfterSubstractedFee)
 			{
-				throw new NBXplorerException(new NBXplorerError(400, "output-too-small", "You can't substract fee on this destination, because not enough money was sent to it"));
+				throw new NBXplorerException(new NBXplorerError(400, "output-too-small", 
+					message: "You can't substract fee on this destination, because not enough money was sent to it", 
+					reason: OutputTooSmallException.ErrorType.TooSmallAfterSubstractedFee.ToString()));
 			}
 			catch (OutputTooSmallException ex) when( ex.Reason == OutputTooSmallException.ErrorType.TooSmallBeforeSubstractedFee)
 			{
-				throw new NBXplorerException(new NBXplorerError(400, "output-below-dust", "The amount is being sent is below dust threshold"));
+				throw new NBXplorerException(new NBXplorerError(400, "output-too-small", 
+					message: "The amount is being sent is below dust threshold", 
+					reason: OutputTooSmallException.ErrorType.TooSmallBeforeSubstractedFee.ToString()));
 			}
 			catch (NotEnoughFundsException)
 			{
