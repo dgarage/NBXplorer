@@ -1022,7 +1022,8 @@ Fields:
     }
   ],
   "disableFingerprintRandomization": false,
-  "alwaysIncludeNonWitnessUTXO": false
+  "alwaysIncludeNonWitnessUTXO": false,
+  "mergeOutputs": true
 }
 ```
 
@@ -1053,6 +1054,7 @@ Fields:
 * `rebaseKeyPaths[].accountKeyPath`: The path from the root to the account key prefixed by the master public key fingerprint.
 * `disableFingerprintRandomization`: Disable the randomization of default parameter's value to match the network's fingerprint distribution. (randomized default values are `version`, `timeLock`, `rbf`, `discourageFeeSniping`)
 * `alwaysIncludeNonWitnessUTXO`: Try to set the full transaction in `non_witness_utxo`, even for segwit inputs (default to `false`)
+* `mergeOutputs`: Optional, default to true, whether the outputs sending to the same scriptPubKey should be merged into a single output.
 
 Response:
 
