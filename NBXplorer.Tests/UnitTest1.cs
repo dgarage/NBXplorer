@@ -955,7 +955,7 @@ namespace NBXplorer.Tests
 
 			Logs.Tester.LogInformation("Let's check what happen when SubstractFees=true, but paying output doesn't have enough money");
 
-			foreach (Money tooLowAmount in new[] { Money.Satoshis(1000), Money.Satoshis(300) })
+			foreach (Money tooLowAmount in new[] { Money.Satoshis(1000), Money.Satoshis(600) })
 			{
 				ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
@@ -976,6 +976,29 @@ namespace NBXplorer.Tests
 					ReserveChangeAddress = true
 				}));
 				Assert.Equal("output-too-small", ex.Error.Code);
+			}
+
+			Logs.Tester.LogInformation("Let's check what happens when the amout to send is too low");
+
+			foreach (Money tooLowAmount in new[] { Money.Satoshis(100)})
+			{
+				ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+				{
+					Destinations =
+					{
+						new CreatePSBTDestination()
+						{
+							Destination = newAddress.Address,
+							Amount = tooLowAmount
+						},
+					},
+					FeePreference = new FeePreference()
+					{
+						FallbackFeeRate = new FeeRate(1.0m)	
+					}
+				}));
+				Assert.Equal("output-too-small", ex.Error.Code);
+				Assert.Equal(OutputTooSmallException.ErrorType.TooSmallBeforeSubtractedFee.ToString(), ex.Error.Reason);
 			}
 
 			if (type == ScriptPubKeyType.Segwit || type == ScriptPubKeyType.TaprootBIP86)

@@ -230,19 +230,13 @@ namespace NBXplorer.Controllers
 				coins = availableCoinsByOutpoint.Values.Select(v => v.AsCoin()).ToArray();
 			}
 			txBuilder.AddCoins(coins);
-
+			bool sweepAll = false;
 			foreach (var dest in request.Destinations)
 			{
 				if (dest.SweepAll)
 				{
-					try
-					{
-						txBuilder.SendAll(dest.Destination);
-					}
-					catch
-					{
-						throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "You can't sweep funds, because you don't have any."));
-					}
+					sweepAll = true;
+					txBuilder.SendAll(dest.Destination);
 				}
 				else
 				{
@@ -317,9 +311,24 @@ namespace NBXplorer.Controllers
 				psbt = txBuilder.BuildPSBT(false);
 				hasChange = psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
 			}
-			catch (OutputTooSmallException)
+			catch (OutputTooSmallException ex) when (ex.Reason == OutputTooSmallException.ErrorType.TooSmallAfterSubtractedFee)
 			{
-				throw new NBXplorerException(new NBXplorerError(400, "output-too-small", "You can't substract fee on this destination, because not enough money was sent to it"));
+				throw new NBXplorerException(new NBXplorerError(400, "output-too-small",
+					message: "You can't substract fee on this destination, because not enough money was sent to it",
+					reason: OutputTooSmallException.ErrorType.TooSmallAfterSubtractedFee.ToString()));
+			}
+			catch (OutputTooSmallException ex) when (ex.Reason == OutputTooSmallException.ErrorType.TooSmallBeforeSubtractedFee)
+			{
+				if (sweepAll)
+				{
+					throw new NBXplorerException(new NBXplorerError(400, "not-enough-funds", "You can't sweep funds, because you don't have any."));
+				}
+				else
+				{
+					throw new NBXplorerException(new NBXplorerError(400, "output-too-small",
+						message: "The amount is being sent is below dust threshold",
+						reason: OutputTooSmallException.ErrorType.TooSmallBeforeSubtractedFee.ToString()));
+				}
 			}
 			catch (NotEnoughFundsException)
 			{
