@@ -448,7 +448,7 @@ namespace NBXplorer.Tests
 					catch (NBXplorerException ex)
 					{
 						if (i == 25)
-							Assert.Equal("output-too-small", ex.Error.Code);
+							Assert.Equal("not-enough-funds", ex.Error.Code);
 						else
 							throw;
 					}
@@ -777,8 +777,7 @@ namespace NBXplorer.Tests
 			Assert.Equal(outpoints[0], actualOutpoints[0]);
 			request.MinValue = Money.Coins(0.1m);
 			ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, request));
-			Assert.Equal("output-too-small", ex.Error.Code);
-			Assert.Equal(OutputTooSmallException.ErrorType.TooSmallBeforeSubstractedFee.ToString(), ex.Error.Reason);
+			Assert.Equal("not-enough-funds", ex.Error.Code);
 
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
@@ -999,7 +998,7 @@ namespace NBXplorer.Tests
 					}
 				}));
 				Assert.Equal("output-too-small", ex.Error.Code);
-				Assert.Equal(OutputTooSmallException.ErrorType.TooSmallBeforeSubstractedFee.ToString(), ex.Error.Reason);
+				Assert.Equal(OutputTooSmallException.ErrorType.TooSmallBeforeSubtractedFee.ToString(), ex.Error.Reason);
 			}
 
 			if (type == ScriptPubKeyType.Segwit || type == ScriptPubKeyType.TaprootBIP86)
