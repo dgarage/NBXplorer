@@ -186,16 +186,16 @@ BEGIN
 	BEGIN
 	  TRUNCATE TABLE matched_outs, matched_ins, matched_conflicts, new_ins;
 	EXCEPTION WHEN others THEN
-	  CREATE TEMPORARY TABLE matched_outs (LIKE new_out);
-	  ALTER TABLE matched_outs ADD COLUMN "order" BIGINT;
-	  CREATE TEMPORARY TABLE new_ins (LIKE new_in);
-	  ALTER TABLE new_ins ADD COLUMN "order" BIGINT;
-	  ALTER TABLE new_ins ADD COLUMN code TEXT;
-	  CREATE TEMPORARY TABLE matched_ins (LIKE new_ins);
-	  ALTER TABLE matched_ins ADD COLUMN script TEXT;
-	  ALTER TABLE matched_ins ADD COLUMN value bigint;
-	  ALTER TABLE matched_ins ADD COLUMN asset_id TEXT;
-	  CREATE TEMPORARY TABLE matched_conflicts (
+	  CREATE TEMPORARY TABLE IF NOT EXISTS matched_outs (LIKE new_out);
+	  ALTER TABLE matched_outs ADD COLUMN IF NOT EXISTS "order" BIGINT;
+	  CREATE TEMPORARY TABLE IF NOT EXISTS new_ins (LIKE new_in);
+	  ALTER TABLE new_ins ADD COLUMN IF NOT EXISTS "order" BIGINT;
+	  ALTER TABLE new_ins ADD COLUMN IF NOT EXISTS code TEXT;
+	  CREATE TEMPORARY TABLE IF NOT EXISTS matched_ins (LIKE new_ins);
+	  ALTER TABLE matched_ins ADD COLUMN IF NOT EXISTS script TEXT;
+	  ALTER TABLE matched_ins ADD COLUMN IF NOT EXISTS value bigint;
+	  ALTER TABLE matched_ins ADD COLUMN IF NOT EXISTS asset_id TEXT;
+	  CREATE TEMPORARY TABLE IF NOT EXISTS matched_conflicts (
 		code TEXT,
 		spent_tx_id TEXT,
 		spent_idx BIGINT,
@@ -1343,6 +1343,7 @@ INSERT INTO nbxv1_migrations VALUES ('012.PerfFixGetWalletsRecent');
 INSERT INTO nbxv1_migrations VALUES ('013.FixTrackedTransactions');
 INSERT INTO nbxv1_migrations VALUES ('014.FixAddressReuse');
 INSERT INTO nbxv1_migrations VALUES ('015.AvoidWAL');
+INSERT INTO nbxv1_migrations VALUES ('016.FixTempTableCreation');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);

@@ -24,6 +24,7 @@
     <None Remove="DBScripts\013.FixTrackedTransactions.sql" />
     <None Remove="DBScripts\014.FixAddressReuse.sql" />
     <None Remove="DBScripts\015.AvoidWAL.sql" />
+    <None Remove="DBScripts\016.FixTempTableCreation.sql" />
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />
