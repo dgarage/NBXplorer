@@ -48,7 +48,13 @@ namespace NBXplorer.Controllers
 			var network = GetNetwork(cryptoCode, false);
 			var repo = (PostgresRepository)RepositoryProvider.GetRepository(cryptoCode);
 			await using var conn = await ConnectionFactory.CreateConnection();
-			var b = await conn.QueryAsync("SELECT * FROM wallets_balances WHERE code=@code AND wallet_id=@walletId", new { code = network.CryptoCode, walletId = repo.GetWalletKey(trackedSource).wid });
+			var b = await conn.QueryAsync(@"SELECT 
+				wallet_id, code, asset_id,
+				CAST(confirmed_balance AS VARCHAR), 
+				CAST(unconfirmed_balance AS VARCHAR),  
+				CAST(available_balance AS VARCHAR),
+				CAST(immature_balance AS VARCHAR)
+				FROM wallets_balances WHERE code=@code AND wallet_id=@walletId", new { code = network.CryptoCode, walletId = repo.GetWalletKey(trackedSource).wid });
 			MoneyBag
 				available = new MoneyBag(),
 				confirmed = new MoneyBag(),
@@ -57,22 +63,27 @@ namespace NBXplorer.Controllers
 				unconfirmed = new MoneyBag();
 			foreach (var r in b)
 			{
+				var confirmedBalance = long.Parse(r.confirmed_balance);
+				var unconfirmedBalance = long.Parse(r.unconfirmed_balance);
+				var availableBalance = long.Parse(r.available_balance);
+				var immatureBalance = long.Parse(r.immature_balance);
+
 				if (r.asset_id == string.Empty)
 				{
-					confirmed += Money.Satoshis((long)r.confirmed_balance);
-					unconfirmed += Money.Satoshis((long)r.unconfirmed_balance - (long)r.confirmed_balance);
-					available += Money.Satoshis((long)r.available_balance);
-					total += Money.Satoshis((long)r.available_balance + (long)r.immature_balance);
-					immature += Money.Satoshis((long)r.immature_balance);
+					confirmed += Money.Satoshis(confirmedBalance);
+					unconfirmed += Money.Satoshis(unconfirmedBalance - confirmedBalance);
+					available += Money.Satoshis(availableBalance);
+					total += Money.Satoshis(availableBalance + immatureBalance);
+					immature += Money.Satoshis(immatureBalance);
 				}
 				else
 				{
 					var assetId = uint256.Parse(r.asset_id);
-					confirmed += new AssetMoney(assetId, (long)r.confirmed_balance);
-					unconfirmed += new AssetMoney(assetId, (long)r.unconfirmed_balance - (long)r.confirmed_balance);
-					available += new AssetMoney(assetId, (long)r.available_balance);
-					total += new AssetMoney(assetId, (long)r.available_balance + (long)r.immature_balance);
-					immature += new AssetMoney(assetId, (long)r.immature_balance);
+					confirmed += new AssetMoney(assetId, confirmedBalance);
+					unconfirmed += new AssetMoney(assetId, unconfirmedBalance - confirmedBalance);
+					available += new AssetMoney(assetId, availableBalance);
+					total += new AssetMoney(assetId, availableBalance + immatureBalance);
+					immature += new AssetMoney(assetId, immatureBalance);
 				}
 			}
 
