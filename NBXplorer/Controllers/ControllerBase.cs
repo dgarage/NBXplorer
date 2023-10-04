@@ -27,13 +27,15 @@ namespace NBXplorer.Controllers
 		public IRepositoryProvider RepositoryProvider { get; }
 		public IIndexers Indexers { get; }
 
-		internal static TrackedSource GetTrackedSource(DerivationStrategyBase derivationScheme, BitcoinAddress address)
+		internal static TrackedSource GetTrackedSource(DerivationStrategyBase derivationScheme, BitcoinAddress address, string walletId)
 		{
 			TrackedSource trackedSource = null;
 			if (address != null)
 				trackedSource = new AddressTrackedSource(address);
 			if (derivationScheme != null)
 				trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
+			if (walletId != null)
+				trackedSource = new WalletTrackedSource(walletId);
 			return trackedSource;
 		}
 		internal NBXplorerNetwork GetNetwork(string cryptoCode, bool checkRPC)

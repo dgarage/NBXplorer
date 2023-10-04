@@ -269,7 +269,7 @@ namespace NBXplorer
 		}
 		public Task TrackAsync(DerivationStrategyBase strategy, CancellationToken cancellation = default)
 		{
-			return TrackAsync(TrackedSource.Create(strategy), cancellation);
+			return TrackAsync(TrackedSource.Create(strategy), cancellation: cancellation);
 		}
 
 		public void Track(DerivationStrategyBase strategy, TrackWalletRequest trackDerivationRequest, CancellationToken cancellation = default)
@@ -285,14 +285,13 @@ namespace NBXplorer
 
 		public void Track(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
-			TrackAsync(trackedSource, cancellation).GetAwaiter().GetResult();
+			TrackAsync(trackedSource, cancellation: cancellation).GetAwaiter().GetResult();
 		}
-		public Task TrackAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
+		public Task TrackAsync(TrackedSource trackedSource, TrackWalletRequest trackDerivationRequest = null, CancellationToken cancellation = default)
 		{
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
-
-			return SendAsync<string>(HttpMethod.Post, null, GetBasePath(trackedSource), cancellation);
+			return SendAsync<string>(HttpMethod.Post, trackDerivationRequest, GetBasePath(trackedSource), cancellation);
 		}
 
 		private Exception UnSupported(TrackedSource trackedSource)
@@ -311,19 +310,20 @@ namespace NBXplorer
 		}
 		public Task<GetBalanceResponse> GetBalanceAsync(DerivationStrategyBase userDerivationScheme, CancellationToken cancellation = default)
 		{
-			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{userDerivationScheme}/balance", cancellation);
+			return GetBalanceAsync(TrackedSource.Create(userDerivationScheme), cancellation);
 		}
-
-
 		public GetBalanceResponse GetBalance(BitcoinAddress address, CancellationToken cancellation = default)
 		{
 			return GetBalanceAsync(address, cancellation).GetAwaiter().GetResult();
 		}
 		public Task<GetBalanceResponse> GetBalanceAsync(BitcoinAddress address, CancellationToken cancellation = default)
 		{
-			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/addresses/{address}/balance", cancellation);
+			return GetBalanceAsync(TrackedSource.Create(address), cancellation);
 		}
-
+		public Task<GetBalanceResponse> GetBalanceAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
+		{
+			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/balance", cancellation);
+		}
 		public Task CancelReservationAsync(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default)
 		{
 			return SendAsync<string>(HttpMethod.Post, keyPaths, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/addresses/cancelreservation", cancellation);
@@ -365,19 +365,8 @@ namespace NBXplorer
 		{
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
-			if (trackedSource is DerivationSchemeTrackedSource dsts)
-			{
-				return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{dsts.DerivationStrategy}/transactions", cancellation);
-			}
-			else if (trackedSource is AddressTrackedSource asts)
-			{
-				return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/addresses/{asts.Address}/transactions", cancellation);
-			}
-			else
-				throw UnSupported(trackedSource);
+			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/transactions", cancellation);
 		}
-
-
 		public TransactionInformation GetTransaction(TrackedSource trackedSource, uint256 txId, CancellationToken cancellation = default)
 		{
 			return this.GetTransactionAsync(trackedSource, txId, cancellation).GetAwaiter().GetResult();
@@ -399,16 +388,23 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(txId));
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
-			if (trackedSource is DerivationSchemeTrackedSource dsts)
-			{
-				return SendAsync<TransactionInformation>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{dsts.DerivationStrategy}/transactions/{txId}", cancellation);
-			}
-			else if (trackedSource is AddressTrackedSource asts)
-			{
-				return SendAsync<TransactionInformation>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/addresses/{asts.Address}/transactions/{txId}", cancellation);
-			}
-			else
-				throw UnSupported(trackedSource);
+			return SendAsync<TransactionInformation>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/transactions/{txId}", cancellation);
+		}		
+		public async Task AssociateScriptsAsync(TrackedSource trackedSource, Dictionary<string, bool> scripts, CancellationToken cancellation = default)
+		{
+			if (scripts == null)
+				throw new ArgumentNullException(nameof(scripts));
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			await SendAsync(HttpMethod.Post, scripts, $"{GetBasePath(trackedSource)}/associate", cancellation);
+		}
+		public async Task ImportUTXOs(TrackedSource trackedSource, ImportUTXORequest[] utxos, CancellationToken cancellation = default)
+		{
+			if (utxos == null)
+				throw new ArgumentNullException(nameof(utxos));
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			await SendAsync(HttpMethod.Post, utxos, $"{GetBasePath(trackedSource)}/import-utxos", cancellation);
 		}
 
 		public Task RescanAsync(RescanRequest rescanRequest, CancellationToken cancellation = default)
@@ -653,12 +649,30 @@ namespace NBXplorer
 				if (Auth.RefreshCache())
 				{
 					message = CreateMessage(method, body, relativePath);
-					result = await Client.SendAsync(message).ConfigureAwait(false);
+					result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
 				}
 			}
 			return await ParseResponse<T>(result).ConfigureAwait(false);
 		}
+		internal async Task SendAsync(HttpMethod method, object body, FormattableString relativePath, CancellationToken cancellation)
+		{
+			var message = CreateMessage(method, body, relativePath);
+			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
 
+			if (result.StatusCode == HttpStatusCode.GatewayTimeout || result.StatusCode == HttpStatusCode.RequestTimeout)
+			{
+				throw new HttpRequestException($"HTTP error {(int)result.StatusCode}", new TimeoutException());
+			}
+			if ((int)result.StatusCode == 401)
+			{
+				if (Auth.RefreshCache())
+				{
+					message = CreateMessage(method, body, relativePath);
+					result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
+				}
+			}
+			await ParseResponse(result).ConfigureAwait(false);
+		}
 		internal HttpRequestMessage CreateMessage(HttpMethod method, object body, FormattableString relativePath)
 		{
 			var uri = GetFullUri(relativePath);
@@ -721,6 +735,7 @@ namespace NBXplorer
 			{
 				DerivationSchemeTrackedSource dsts => $"v1/cryptos/{CryptoCode}/derivations/{dsts.DerivationStrategy}",
 				AddressTrackedSource asts => $"v1/cryptos/{CryptoCode}/addresses/{asts.Address}",
+				WalletTrackedSource wts => $"v1/cryptos/{CryptoCode}/wallets/{wts.WalletId}",
 				_ => throw UnSupported(trackedSource)
 			};
 		}

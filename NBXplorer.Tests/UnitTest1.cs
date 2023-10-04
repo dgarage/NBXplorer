@@ -4523,5 +4523,133 @@ namespace NBXplorer.Tests
 				await tester.Client.RPCClient.GetTxOutAsync(uint256.One, 0);
 			}
 		}
+
+
+		private async Task Eventually(Func<Task> tsk)
+		{
+			var i = 0;
+			while (i <10)
+			{
+				try
+				{
+
+				await tsk.Invoke();
+				break;
+				
+				}
+				catch (Exception e)
+				{
+					await Task.Delay(500);
+				}
+
+				i++;
+			}
+		}
+
+		[Theory]
+		[InlineData(Backend.Postgres)]
+		[InlineData(Backend.DBTrie)]
+		public async Task CanAssociateIndependentScripts(Backend backend)
+		{
+			using var tester = ServerTester.Create(backend);
+
+			var wallet1 = Guid.NewGuid().ToString();
+			var wallet1TS = new WalletTrackedSource(wallet1);
+			var parentWallet = Guid.NewGuid().ToString();
+			var parentWalletTS = new WalletTrackedSource(parentWallet);
+
+
+			//this should create both wallets
+			if (backend == Backend.DBTrie)
+			{
+				await Assert.ThrowsAsync<NBXplorerException>(async () => await tester.Client.TrackAsync(wallet1TS,
+					new TrackWalletRequest()
+					{
+						ParentWallet = parentWalletTS
+					}, CancellationToken.None));
+				
+				await Assert.ThrowsAsync<NBXplorerException>(async () =>await tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
+				{
+					ParentWallet = parentWalletTS
+				}));
+				
+				await Assert.ThrowsAsync<HttpRequestException>(async () =>await tester.Client.AssociateScriptsAsync(parentWalletTS, new Dictionary<string, bool>()));
+				await Assert.ThrowsAsync<HttpRequestException>(async () =>await tester.Client.ImportUTXOs(parentWalletTS, Array.Empty<ImportUTXORequest>()));
+				return;
+			}
+
+			await tester.Client.TrackAsync(wallet1TS, new TrackWalletRequest()
+			{
+				ParentWallet = parentWalletTS
+			}, CancellationToken.None);
+
+			GenerateWalletResponse derivationWallet = null;
+			
+				derivationWallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
+				{
+					ParentWallet = parentWalletTS
+				});
+			
+			var derivationWalletTS = TrackedSource.Create(derivationWallet.DerivationScheme);
+
+			var address = await tester.Client.GetUnusedAsync(derivationWallet.DerivationScheme,
+				DerivationFeature.Deposit, 0, true);
+			await tester.RPC.SendToAddressAsync(address.Address, Money.FromUnit(0.1m, MoneyUnit.BTC));
+			var b1 = await tester.Client.GetBalanceAsync(derivationWalletTS);
+			var b2 = await tester.Client.GetBalanceAsync(parentWalletTS);
+			Assert.Equal(b1.Total, b2.Total);
+
+			var derivationUtxos = await tester.Client.GetUTXOsAsync(derivationWalletTS);
+			var parentWalletUtxos = await tester.Client.GetUTXOsAsync(parentWalletTS);
+			Assert.Equal(derivationUtxos.GetUnspentUTXOs().Count(), parentWalletUtxos.GetUnspentUTXOs().Count());
+
+			var newAddr = await tester.RPC.GetNewAddressAsync();
+			var newAddr2 = await tester.RPC.GetNewAddressAsync();
+			var udetectedTxId = await tester.RPC.SendToAddressAsync(newAddr, Money.FromUnit(0.1m, MoneyUnit.BTC));
+			await Task.Delay(3000);
+			var utxos = Assert.Single(await tester.RPC.ListUnspentAsync(0, 0, newAddr));
+			await tester.Client.AssociateScriptsAsync(wallet1TS, new Dictionary<string, bool>()
+			{
+				{newAddr2.ToString(), true}
+			});
+
+
+			await tester.RPC.SendToAddressAsync(newAddr2, Money.FromUnit(0.2m, MoneyUnit.BTC));
+
+			derivationUtxos = await tester.Client.GetUTXOsAsync(derivationWalletTS);
+			UTXOChanges scriptBagUtxos = null;
+			//1 utxo was before we started tracking
+
+			await Eventually(async () =>
+			{
+				parentWalletUtxos = await tester.Client.GetUTXOsAsync(parentWalletTS);
+				scriptBagUtxos = await tester.Client.GetUTXOsAsync(wallet1TS);
+				Assert.Equal(1, scriptBagUtxos.GetUnspentUTXOs().Length);
+				Assert.Equal(2, parentWalletUtxos.GetUnspentUTXOs().Length);
+				Assert.Equal(derivationUtxos.GetUnspentUTXOs().Count() + scriptBagUtxos.GetUnspentUTXOs().Length,
+					parentWalletUtxos.GetUnspentUTXOs().Count());
+			});
+
+
+			await tester.Client.AssociateScriptsAsync(wallet1TS, new Dictionary<string, bool>()
+			{
+				{newAddr.ToString(), true}
+			});
+
+			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest[]
+			{
+				new ImportUTXORequest()
+				{
+					Coin = utxos.AsCoin(),
+					Proof = null
+				}
+			});
+
+			await Eventually(async () =>
+			{
+				scriptBagUtxos = await tester.Client.GetUTXOsAsync(wallet1TS);
+				Assert.Equal(2, scriptBagUtxos.GetUnspentUTXOs().Length);
+			});
+		}
 	}
 }

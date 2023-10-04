@@ -8,8 +8,15 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.ModelBinders;
 using NBXplorer.Models;
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using NBitcoin.DataEncoders;
+using NBitcoin.RPC;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace NBXplorer.Controllers
 {
@@ -35,14 +42,16 @@ namespace NBXplorer.Controllers
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balance")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}/balance")]
+		[Route("cryptos/{cryptoCode}/wallets/{walletId}/balance")]
 		[PostgresImplementationActionConstraint(true)]
 		public async Task<IActionResult> GetBalance(string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
+			BitcoinAddress address,
+			string walletId)
 		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
+			var trackedSource = GetTrackedSource(derivationScheme, address, walletId);
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
 			var network = GetNetwork(cryptoCode, false);
@@ -86,6 +95,113 @@ namespace NBXplorer.Controllers
 			};
 			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
 			return Json(balance, network.JsonSerializerSettings);
+		}		
+		
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/associate")]
+		[Route("cryptos/{cryptoCode}/addresses/{address}/associate")]
+		[Route("cryptos/{cryptoCode}/wallets/{walletId}/associate")]
+		[PostgresImplementationActionConstraint(true)]
+		public async Task<IActionResult> AssociateScripts(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme,
+			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
+			BitcoinAddress address,
+			string walletId,
+			[FromBody] Dictionary<string, bool> scripts)
+		{
+			var trackedSource = GetTrackedSource(derivationScheme, address, walletId);
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			var network = GetNetwork(cryptoCode, false);
+			var repo = (PostgresRepository)RepositoryProvider.GetRepository(cryptoCode);
+
+			await repo.AssociateScriptsToWalletExplicitly(trackedSource,
+				scripts.ToDictionary(pair => (IDestination) BitcoinAddress.Create(pair.Key, network.NBitcoinNetwork),
+					pair => pair.Value));
+			return Ok();
+		}
+		
+		
+		
+		[HttpPost]
+		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/import-utxos")]
+		[Route("cryptos/{cryptoCode}/addresses/{address}/import-utxos")]
+		[Route("cryptos/{cryptoCode}/wallets/{walletId}/import-utxos")]
+		[PostgresImplementationActionConstraint(true)]
+		public async Task<IActionResult> ImportUTXOs(string cryptoCode,
+			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
+			DerivationStrategyBase derivationScheme,
+			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
+			BitcoinAddress address,
+			string walletId,
+			[FromBody] JArray rawRequest)
+		{
+			var network = GetNetwork(cryptoCode, true);
+			var jsonSerializer = JsonSerializer.Create(network.JsonSerializerSettings);
+			var coins = rawRequest.ToObject<ImportUTXORequest[]>(jsonSerializer)?.Where(c => c.Coin != null).ToArray();
+			if (coins?.Any() is not true)
+				throw new ArgumentNullException(nameof(coins));
+			
+			var trackedSource = GetTrackedSource(derivationScheme, address, walletId);
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			var repo = (PostgresRepository) RepositoryProvider.GetRepository(cryptoCode);
+			
+			var rpc = RPCClients.Get(network);
+
+			var clientBatch = rpc.PrepareBatch();
+			var coinToTxOut = new ConcurrentDictionary<Coin, GetTxOutResponse>();
+			var coinToBlock = new ConcurrentDictionary<Coin, BlockHeader>();
+			await Task.WhenAll(coins.SelectMany(o =>
+			{
+				return new[]
+				{
+					Task.Run(async () =>
+					{
+						var txOutResponse =
+							await clientBatch.GetTxOutAsync(o.Coin.Outpoint.Hash, (int) o.Coin.Outpoint.N);
+						if (txOutResponse is not null)
+							coinToTxOut.TryAdd(o.Coin, txOutResponse);
+					}),
+					Task.Run(async () =>
+					{
+						if (o.Proof is not null && o.Proof.PartialMerkleTree.Hashes.Contains(o.Coin.Outpoint.Hash))
+						{
+							// var merkleBLockProofBytes = Encoders.Hex.DecodeData(o.TxOutProof);
+							// var mb = new MerkleBlock();
+							// mb.FromBytes(merkleBLockProofBytes);
+							// mb.ReadWrite(merkleBLockProofBytes, network.NBitcoinNetwork);
+
+							var txoutproofResult =
+								await clientBatch.SendCommandAsync("verifytxoutproof", o.Proof);
+
+							var txHash = o.Coin.Outpoint.Hash.ToString();
+							if (txoutproofResult.Error is not null && txoutproofResult.Result is JArray prooftxs &&
+							    prooftxs.Any(token =>
+								    token.Value<string>()
+									    ?.Equals(txHash, StringComparison.InvariantCultureIgnoreCase) is true))
+							{
+								coinToBlock.TryAdd(o.Coin, o.Proof.Header);
+							}
+						}
+					})
+				};
+			}).Concat(new[] {clientBatch.SendBatchAsync()}).ToArray());
+
+			DateTimeOffset now = DateTimeOffset.UtcNow;
+			await repo.SaveMatches(coinToTxOut.Select(pair =>
+			{
+				coinToBlock.TryGetValue(pair.Key, out var blockHeader);
+				var ttx = repo.CreateTrackedTransaction(trackedSource,
+					new TrackedTransactionKey(pair.Key.Outpoint.Hash, blockHeader?.GetHash(), true){},
+					new[] {pair.Key}, null);
+				ttx.Inserted = now;
+				ttx.FirstSeen = blockHeader?.BlockTime?? NBitcoin.Utils.UnixTimeToDateTime(0);;
+				return ttx;
+			}).ToArray());
+			
+			return Ok();
 		}
 
 		private IMoney Format(NBXplorerNetwork network, MoneyBag bag)
@@ -109,15 +225,17 @@ namespace NBXplorer.Controllers
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}/utxos")]
+		[Route("cryptos/{cryptoCode}/wallets/{walletId}/utxos")]
 		[PostgresImplementationActionConstraint(true)]
 		public async Task<IActionResult> GetUTXOs(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
+			BitcoinAddress address,
+			string walletId)
 		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
+			var trackedSource = GetTrackedSource(derivationScheme, address, walletId);
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
 			var network = GetNetwork(cryptoCode, false);
@@ -202,7 +320,7 @@ namespace NBXplorer.Controllers
 
 		public Task<IActionResult> GetUTXOs(string cryptoCode, DerivationStrategyBase derivationStrategy)
 		{
-			return this.GetUTXOs(cryptoCode, derivationStrategy, null);
+			return this.GetUTXOs(cryptoCode, derivationStrategy, null, null);
 		}
 	}
 }

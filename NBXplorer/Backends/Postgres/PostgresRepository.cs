@@ -4,6 +4,7 @@ using NBXplorer.Configuration;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -216,6 +217,14 @@ namespace NBXplorer.Backends.Postgres
 			m.Add(new JProperty("address", new JValue(address.ToString())));
 			return new WalletKey(hash, m.ToString(Formatting.None));
 		}
+
+		WalletKey GetWalletKey(WalletTrackedSource walletTrackedSource)
+		{
+			var m = new JObject {new JProperty("type", new JValue("Wallet"))};
+			var res = new WalletKey(walletTrackedSource.WalletId, m.ToString(Formatting.None));
+			return res;
+		}
+
 		internal WalletKey GetWalletKey(TrackedSource source)
 		{
 			if (source is null)
@@ -224,10 +233,36 @@ namespace NBXplorer.Backends.Postgres
 			{
 				DerivationSchemeTrackedSource derivation => GetWalletKey(derivation.DerivationStrategy),
 				AddressTrackedSource addr => GetWalletKey(addr.Address),
+				WalletTrackedSource wallet => GetWalletKey(wallet),
+			
+
 				_ => throw new NotSupportedException(source.GetType().ToString())
 			};
 		}
+		public async Task AssociateScriptsToWalletExplicitly(TrackedSource trackedSource,
+			Dictionary<IDestination, bool> scripts)
+		{
+			var walletKey = GetWalletKey(trackedSource);
 
+			await using var conn = await GetConnection();
+			var scriptsRecords = scripts.Select(pair => new ScriptInsert(this.Network.CryptoCode, walletKey.wid,
+				pair.Key.ScriptPubKey.ToHex(), pair.Key.ToString(), pair.Value)).ToArray();
+			{
+
+				await conn.Connection.ExecuteAsync(
+
+					"INSERT INTO wallets VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING", new
+					{
+						walletKey.wid,
+						walletKey.metadata
+					});
+				await conn.Connection.ExecuteAsync(
+					"INSERT INTO scripts (code, script, addr, used) VALUES(@code, @script, @addr, @used) ON CONFLICT DO NOTHING;" +
+					   "INSERT INTO wallets_scripts (code, wallet_id, script) VALUES(@code, @wallet_id, @script) ON CONFLICT DO NOTHING;"
+					, scriptsRecords);
+			}
+		}
+		internal record ScriptInsert(string code, string wallet_id, string script, string addr, bool used);
 		internal record DescriptorScriptInsert(string descriptor, int idx, string script, string metadata, string addr, bool used);
 		public async Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, GenerateAddressQuery query = null)
 		{
@@ -448,12 +483,26 @@ namespace NBXplorer.Backends.Postgres
 			if (scripts.Count == 0)
 				return result;
 			string additionalColumn = Network.IsElement ? ", ts.blinded_addr" : "";
-			var rows = await connection.QueryAsync($"SELECT ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem {additionalColumn} FROM " +
-				"unnest(@records) AS r (script)," +
-				" LATERAL (" +
-				"	SELECT script, addr, descriptor_metadata->>'derivation' derivation, keypath, descriptors_scripts_metadata->>'redeem' redeem, descriptors_scripts_metadata->>'blindedAddress' blinded_addr " +
-				"	FROM nbxv1_keypath_info ki " +
-				"   WHERE ki.code=@code AND ki.script=r.script) ts;", new { code = Network.CryptoCode, records = scripts.Select(s => s.ToHex()).ToArray() });
+			var rows = await connection.QueryAsync($@"
+			    SELECT DISTINCT ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem ,
+				       COALESCE(wd.wallet_id, ws.wallet_id) AS wallet_id,
+				       COALESCE(wd_wallet.metadata->>'type', ws_wallet.metadata->>'type') AS wallet_type
+				FROM unnest(@records) AS r (script),
+				LATERAL (
+				    SELECT script, addr, descriptor_metadata->>'derivation' derivation, 
+				           keypath, descriptors_scripts_metadata->>'redeem' redeem, 
+				           descriptors_scripts_metadata->>'blindedAddress' blinded_addr, 
+				           descriptor_metadata->>'descriptor' descriptor
+				    FROM nbxv1_keypath_info ki 
+				    WHERE ki.code=@code AND ki.script=r.script
+				) ts
+				LEFT JOIN wallets_descriptors wd ON wd.descriptor = ts.descriptor AND wd.code = @code
+				LEFT JOIN wallets wd_wallet ON wd_wallet.wallet_id = wd.wallet_id
+				LEFT JOIN wallets_scripts ws ON ws.script = ts.script AND ws.code = @code
+				LEFT JOIN wallets ws_wallet ON ws_wallet.wallet_id = ws.wallet_id
+				WHERE COALESCE(wd.wallet_id, ws.wallet_id) IS NOT NULL;",
+				new { code = Network.CryptoCode, records = scripts.Select(s => s.ToHex()).ToArray() });
+
 			foreach (var r in rows)
 			{
 				// This might be the case for a derivation added by a different indexer
@@ -466,14 +515,21 @@ namespace NBXplorer.Backends.Postgres
 				var derivationStrategy = isDescriptor ? Network.DerivationStrategyFactory.Parse(r.derivation) : null;
 				var keypath = isDescriptor ? KeyPath.Parse(r.keypath) : null;
 				var redeem = (string)r.redeem;
+				string walletType = r.wallet_type;
+				string walletId = r.wallet_id;
+
+				var trackedSource = derivationStrategy is not null
+					?
+					new DerivationSchemeTrackedSource(derivationStrategy)
+					: walletType == "Wallet" ? walletId is null ? (TrackedSource)null : new WalletTrackedSource(walletId) : new AddressTrackedSource(addr);
+				
 				result.Add(script, new KeyPathInformation()
 				{
 					Address = addr,
 					DerivationStrategy = isDescriptor ? derivationStrategy : null,
 					KeyPath = isDescriptor ? keypath : null,
 					ScriptPubKey = script,
-					TrackedSource = isDescriptor && derivationStrategy is not null ? new DerivationSchemeTrackedSource(derivationStrategy) :
-									isExplicit ? new AddressTrackedSource(addr) : null,
+					TrackedSource = trackedSource,
 					Feature = keypath is null ? DerivationFeature.Deposit : KeyPathTemplates.GetDerivationFeature(keypath),
 					Redeem = redeem is null ? null : Script.FromHex(redeem)
 				});
@@ -1251,8 +1307,29 @@ namespace NBXplorer.Backends.Postgres
 
 		public async Task EnsureWalletCreated(DerivationStrategyBase strategy)
 		{
-			using var connection = await ConnectionFactory.CreateConnection();
-			await connection.ExecuteAsync("INSERT INTO wallets VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING", GetWalletKey(strategy));
+			await EnsureWalletCreated(GetWalletKey(strategy));
+		}
+
+		public async Task EnsureWalletCreated(TrackedSource trackedSource, TrackedSource[] parentTrackedSource = null)
+		{
+			await EnsureWalletCreated(GetWalletKey(trackedSource), parentTrackedSource?.Select(GetWalletKey).ToArray());
+		}
+
+		record WalletHierarchyInsert(string child, string parent);
+		public async Task EnsureWalletCreated(WalletKey walletKey, WalletKey[] parentWallets = null)
+		{
+			await using var connection = await ConnectionFactory.CreateConnection();
+			parentWallets ??= Array.Empty<WalletKey>();
+			var walletRecords = new[] {walletKey}.Concat(parentWallets).ToArray();
+			var parentsRecords = parentWallets.Select(key => new WalletHierarchyInsert(walletKey.wid, key.wid)).ToArray();
+
+			
+			await connection.ExecuteAsync(
+				"INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING"
+				, walletRecords);
+			await connection.ExecuteAsync(
+				"INSERT INTO wallets_wallets (wallet_id, parent_id) VALUES (@child, @parent)ON CONFLICT DO NOTHING"
+				, parentsRecords);
 		}
 	}
 

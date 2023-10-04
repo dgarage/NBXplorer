@@ -25,6 +25,7 @@ using NBXplorer.Analytics;
 using NBXplorer.Backends;
 using NBitcoin.Scripting;
 using System.Globalization;
+using NBXplorer.Backends.Postgres;
 
 namespace NBXplorer.Controllers
 {
@@ -75,7 +76,9 @@ namespace NBXplorer.Controllers
 			"getrawtransaction",
 			"gettxout",
 			"estimatesmartfee",
-			"getmempoolinfo"
+			"getmempoolinfo",
+			"gettxoutproof",
+			"verifytxoutproof"
 		};
 		private Exception JsonRPCNotExposed()
 		{
@@ -509,18 +512,31 @@ namespace NBXplorer.Controllers
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}")]
+		[Route("cryptos/{cryptoCode}/wallets/{walletId}")]
 		public async Task<IActionResult> TrackWallet(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address, [FromBody] TrackWalletRequest request = null)
+			BitcoinAddress address, 
+			string walletId, 
+			[FromBody] JObject rawRequest = null)
 		{
-			request = request ?? new TrackWalletRequest();
-			TrackedSource trackedSource = GetTrackedSource(derivationScheme, address);
+			var request = ParseJObject<TrackWalletRequest>(rawRequest ?? new JObject(), GetNetwork(cryptoCode, false));
+			TrackedSource trackedSource = GetTrackedSource(derivationScheme, address, walletId);
 			if (trackedSource == null)
 				return NotFound();
 			var network = GetNetwork(cryptoCode, false);
+			var repo = RepositoryProvider.GetRepository(network);
+			if (repo is PostgresRepository postgresRepository && 
+			    (trackedSource is WalletTrackedSource || 
+			     request?.ParentWallet is not null))
+			{
+				await postgresRepository.EnsureWalletCreated(trackedSource, request?.ParentWallet is null? null: new []{request?.ParentWallet });
+			}
+			if (repo is not PostgresRepository && request.ParentWallet is not null)
+				throw new NBXplorerException(new NBXplorerError(400, "parent-wallet-not-supported",
+					"Parent wallet is only supported with Postgres"));
 			if (trackedSource is DerivationSchemeTrackedSource dts)
 			{
 				if (request.Wait)
@@ -566,17 +582,20 @@ namespace NBXplorer.Controllers
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId?}")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}/transactions/{txId?}")]
+		[Route("cryptos/{cryptoCode}/wallets/{walletId}/transactions/{txId?}")]
+		
 		public async Task<IActionResult> GetTransactions(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
 			BitcoinAddress address,
+			string walletId, 
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId = null,
 			bool includeTransaction = true)
 		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
+			var trackedSource = GetTrackedSource(derivationScheme, address, walletId);
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
 			TransactionInformation fetchedTransactionInfo = null;
@@ -859,7 +878,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
 			BitcoinAddress address)
 		{
-			var getTransactionsResult = await GetTransactions(cryptoCode, derivationScheme, address, includeTransaction: false);
+			var getTransactionsResult = await GetTransactions(cryptoCode, derivationScheme, address, null, includeTransaction: false);
 			var jsonResult = getTransactionsResult as JsonResult;
 			var transactions = jsonResult?.Value as GetTransactionsResponse;
 			if (transactions == null)
@@ -892,15 +911,18 @@ namespace NBXplorer.Controllers
 		[HttpGet]
 		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos")]
 		[Route("cryptos/{cryptoCode}/addresses/{address}/utxos")]
+		[Route("cryptos/{cryptoCode}/wallets/{walletId}/utxos")]
+		
 		[PostgresImplementationActionConstraint(false)]
 		public async Task<IActionResult> GetUTXOs(
 			string cryptoCode,
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
+			BitcoinAddress address,
+			string walletId)
 		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
+			var trackedSource = GetTrackedSource(derivationScheme, address, walletId);
 			UTXOChanges changes = null;
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
@@ -980,10 +1002,12 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase derivationScheme,
 			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address, bool testMempoolAccept = false)
+			BitcoinAddress address, 
+			string walletId,
+			bool testMempoolAccept = false)
 		{
 			var network = GetNetwork(cryptoCode, true);
-			var trackedSource = GetTrackedSource(derivationScheme ?? extPubKey, address);
+			var trackedSource = GetTrackedSource(derivationScheme ?? extPubKey, address, walletId);
 			var tx = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
 			var buffer = new MemoryStream();
 			await Request.Body.CopyToAsync(buffer);
@@ -1070,8 +1094,10 @@ namespace NBXplorer.Controllers
 
 		[HttpPost]
 		[Route("cryptos/{cryptoCode}/derivations")]
-		public async Task<IActionResult> GenerateWallet(string cryptoCode, [FromBody] GenerateWalletRequest request)
+		public async Task<IActionResult> GenerateWallet(string cryptoCode, [FromBody] JObject rawRequest = null)
 		{
+			var request = ParseJObject<GenerateWalletRequest>(rawRequest, GetNetwork(cryptoCode, false));
+			
 			if (request == null)
 				request = new GenerateWalletRequest();
 			var network = GetNetwork(cryptoCode, request.ImportKeysToRPC);
@@ -1089,6 +1115,9 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
 
 			var repo = RepositoryProvider.GetRepository(network);
+			if (repo is not PostgresRepository && request.ParentWallet is not null)
+				throw new NBXplorerException(new NBXplorerError(400, "parent-wallet-not-supported",
+					"Parent wallet is only supported with Postgres"));
 			Mnemonic mnemonic = null;
 			if (request.ExistingMnemonic != null)
 			{
@@ -1113,8 +1142,14 @@ namespace NBXplorer.Controllers
 				ScriptPubKeyType = request.ScriptPubKeyType.Value,
 				AdditionalOptions = request.AdditionalOptions is not null ? new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(request.AdditionalOptions) : null
 			});
-
-			await RepositoryProvider.GetRepository(network).EnsureWalletCreated(derivation);
+			if (request.ParentWallet is not null && repo is PostgresRepository postgresRepository)
+			{
+				await postgresRepository.EnsureWalletCreated(TrackedSource.Create(derivation), new[] {request.ParentWallet});
+			}
+			else
+			{
+				await repo.EnsureWalletCreated(derivation);
+			}
 			var derivationTrackedSource = new DerivationSchemeTrackedSource(derivation);
 			List<Task> saveMetadata = new List<Task>();
 			if (request.SavePrivateKeys)
@@ -1135,7 +1170,7 @@ namespace NBXplorer.Controllers
 			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.AccountDescriptor, descriptor));
 			await Task.WhenAll(saveMetadata.ToArray());
 
-			await TrackWallet(cryptoCode, derivation, null);
+			await TrackWallet(cryptoCode, derivation,null, null);
 			return Json(new GenerateWalletResponse()
 			{
 				MasterHDKey = masterKey,
@@ -1289,7 +1324,7 @@ namespace NBXplorer.Controllers
 #if SUPPORT_DBTRIE
 		public Task<IActionResult> GetUTXOs(string cryptoCode, DerivationStrategyBase derivationStrategy)
 		{
-			return this.GetUTXOs(cryptoCode, derivationStrategy, null);
+			return this.GetUTXOs(cryptoCode, derivationStrategy, null, null);
 		}
 #else
 		public Task<IActionResult> GetUTXOs(string cryptoCode, DerivationStrategyBase derivationStrategy)
