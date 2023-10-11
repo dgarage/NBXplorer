@@ -3934,13 +3934,14 @@ namespace NBXplorer.Tests
 #endif
 		public async Task ElementsTests(Backend backend)
 		{
-			using (var tester = ServerTester.Create(backend))
+			using (var tester = ServerTester.CreateNoAutoStart(backend))
 			{
 				if (tester.Network.NetworkSet != NBitcoin.Altcoins.Liquid.Instance)
 				{
 					return;
 				}
-
+				tester.CreateWallet = true;
+				tester.Start();
 				var cashNode = tester.NodeBuilder.CreateNode(true);
 				cashNode.Sync(tester.Explorer, true);
 				var cashCow = cashNode.CreateRPCClient();
