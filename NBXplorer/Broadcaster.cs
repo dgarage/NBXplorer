@@ -37,6 +37,12 @@ namespace NBXplorer
 			"txn-already-known",
 			"Transaction already in block chain"
 		};
+		private bool IsMissingInput(string rejectReason) =>
+		 missingInputCodes.Contains(rejectReason, StringComparer.OrdinalIgnoreCase) ||
+		IsMempoolConflict(rejectReason);
+		private bool IsMempoolConflict(string rejectReason) =>
+			rejectReason.Equals("txn-mempool-conflict", StringComparison.OrdinalIgnoreCase) ||
+			rejectReason.StartsWith("rejecting replacement", StringComparison.OrdinalIgnoreCase);
 
 		public async Task<BroadcasterResult> Broadcast(NBXplorerNetwork network, Transaction tx, uint256 transactionId = null)
 		{
@@ -60,11 +66,11 @@ namespace NBXplorer
 						result.AlreadyInMempool = true;
 						broadcast = false;
 					}
-					else if (missingInputCodes.Contains(accepted.RejectReason, StringComparer.OrdinalIgnoreCase))
+					else if (IsMissingInput(accepted.RejectReason))
 					{
 						broadcast = false;
 						result.MissingInput = true;
-						if (accepted.RejectReason.Equals("txn-mempool-conflict", StringComparison.OrdinalIgnoreCase))
+						if (IsMempoolConflict(accepted.RejectReason))
 							result.MempoolConflict = true;
 					}
 					else if (accepted.RejectReason == "mempool min fee not met")
@@ -90,10 +96,10 @@ namespace NBXplorer
 			}
 			catch (RPCException ex) when (
 			ex.RPCCode == RPCErrorCode.RPC_TRANSACTION_ALREADY_IN_CHAIN ||
-			missingInputCodes.Contains(ex.Message, StringComparer.OrdinalIgnoreCase))
+			IsMissingInput(ex.Message))
 			{
 				result.MissingInput = true;
-				if (ex.Message.Equals("txn-mempool-conflict", StringComparison.OrdinalIgnoreCase))
+				if (IsMempoolConflict(ex.Message))
 					result.MempoolConflict = true;
 			}
 			catch (Exception ex)
