@@ -42,7 +42,7 @@ namespace NBXplorer
 		IsMempoolConflict(rejectReason);
 		private bool IsMempoolConflict(string rejectReason) =>
 			rejectReason.Equals("txn-mempool-conflict", StringComparison.OrdinalIgnoreCase) ||
-			rejectReason.StartsWith("rejecting replacement", StringComparison.OrdinalIgnoreCase);
+			rejectReason.Contains("rejecting replacement", StringComparison.OrdinalIgnoreCase);
 
 		public async Task<BroadcasterResult> Broadcast(NBXplorerNetwork network, Transaction tx, uint256 transactionId = null)
 		{
