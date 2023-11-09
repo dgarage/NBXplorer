@@ -45,9 +45,9 @@ namespace NBXplorer.HostedServices
 			foreach (var tx in txs)
 			{
 				var result = await Broadcaster.Broadcast(tx.Network, tx.Tx, tx.Id);
-				if (result.MissingInput && result.MempoolConflict)
+				if (result.MempoolConflict)
 				{
-					await conn.ExecuteAsync("UPDATE txs SET replaced_by=@unk_tx_id WHERE code=@code AND tx_id=@tx_id AND mempool IS TRUE AND replaced_by IS NULL AND replaced_by!=@unk_tx_id", new { code = tx.Network.CryptoCode, tx_id = tx.Id.ToString(), unk_tx_id = NBXplorerNetwork.UnknownTxId.ToString() });
+					await conn.ExecuteAsync("UPDATE txs SET replaced_by=@unk_tx_id WHERE code=@code AND tx_id=@tx_id AND mempool IS TRUE AND replaced_by IS NULL", new { code = tx.Network.CryptoCode, tx_id = tx.Id.ToString(), unk_tx_id = NBXplorerNetwork.UnknownTxId.ToString() });
 				}
 				else if (result.MissingInput || result.UnknownError)
 				{

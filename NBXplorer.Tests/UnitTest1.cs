@@ -33,6 +33,7 @@ using NBXplorer.Backends.Postgres;
 using NBitcoin.Tests;
 using System.Globalization;
 using System.Net;
+using NBXplorer.HostedServices;
 
 namespace NBXplorer.Tests
 {
@@ -1034,9 +1035,6 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
-#if SUPPORT_DBTRIE
-		[InlineData(Backend.DBTrie)]
-#endif
 		public async Task ShowRBFedTransaction(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
@@ -1082,6 +1080,7 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation($"Tx2: {tx2.GetHash()}");
 
 				var tx = tester.RPC.GetRawTransaction(tx1);
+				var tx1t = tx.Clone();
 				foreach (var input in tx.Inputs)
 				{
 					input.ScriptSig = Script.Empty; //Strip signatures
@@ -1094,13 +1093,12 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation($"Tx3: {replacement.GetHash()}");
 				tester.RPC.SendRawTransaction(replacement);
 				var txEvt = tester.Notifications.WaitForTransaction(bob, replacement.GetHash());
-				if (backend == Backend.Postgres)
-				{
-					// tx3 replace tx1, so tx2 should also be replaced
-					Assert.Equal(2, txEvt.Replacing.Count);
-					Assert.Contains(tx1, txEvt.Replacing);
-					Assert.Contains(tx2.GetHash(), txEvt.Replacing);
-				}
+
+				// tx3 replace tx1, so tx2 should also be replaced
+				Assert.Equal(2, txEvt.Replacing.Count);
+				Assert.Contains(tx1, txEvt.Replacing);
+				Assert.Contains(tx2.GetHash(), txEvt.Replacing);
+
 				var prevUtxo = utxo;
 				utxo = tester.Client.GetUTXOs(bob); //Wait tx received
 				Assert.Single(utxo.Unconfirmed.UTXOs);
@@ -1120,15 +1118,14 @@ namespace NBXplorer.Tests
 				Assert.Equal(replacement.GetHash(), txs.ReplacedTransactions.Transactions[0].ReplacedBy);
 
 				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should fail");
-				var rebroadcaster = tester.GetService<RebroadcasterHostedService>();
-				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { tx1 });
-				var rebroadcast = await rebroadcaster.RebroadcastAll();
-				Assert.Single(rebroadcast.UnknownFailure);
+				var broadcaster = tester.GetService<Broadcaster>();
+				var check = tester.GetService<CheckMempoolTransactionsPeriodicTask>();
+				var rebroadcast = await broadcaster.Broadcast(tester.Client.Network, tx1t);
+				Assert.True(rebroadcast.MempoolConflict);
 
 				Logs.Tester.LogInformation("Rebroadcasting the replacement should succeed");
-				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
-				rebroadcast = await rebroadcaster.RebroadcastAll();
-				Assert.Single(rebroadcast.AlreadyInMempool); // Success
+				rebroadcast = await broadcaster.Broadcast(tester.Client.Network, replacement);
+				Assert.True(rebroadcast.AlreadyInMempool);
 
 				Logs.Tester.LogInformation("Now tx4 is spending the tx3");
 				var tx4psbt = (await tester.Client.CreatePSBTAsync(bob, new CreatePSBTRequest()
@@ -1158,58 +1155,15 @@ namespace NBXplorer.Tests
 				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 
 				Logs.Tester.LogInformation("Rebroadcasting the replaced TX should clean two tx record (tx3 and tx4) from the list");
-				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
-				rebroadcast = await rebroadcaster.RebroadcastAll();
-				if (backend == Backend.DBTrie)
-				{
-					Assert.Equal(2, rebroadcast.Cleaned.Count);
-					foreach (var cleaned in rebroadcast.Cleaned)
-					{
-						Assert.Null(cleaned.BlockHash);
-					}
-					Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == tx4.GetHash() && o.BlockHash is null);
-					Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == replacement.GetHash());
-					// Only one missing input, as there is only one txid
-					Assert.Equal(2, rebroadcast.MissingInputs.Count);
+				rebroadcast = await broadcaster.Broadcast(tester.Client.Network, replacement);
+				Assert.True(rebroadcast.MissingInput);
+				Assert.False(rebroadcast.MempoolConflict);
 
-					// Nothing should be cleaned now
-					await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
-					rebroadcast = await rebroadcaster.RebroadcastAll();
-					Assert.Empty(rebroadcast.Cleaned);
-				}
-				if (backend == Backend.Postgres)
-				{
-					// TXs has been double spent, but unless we rebroadcast it, NBX doesn't know, iterating transactions
-					// will ask rebroadcaster to broadcast
-					txs = await tester.Client.GetTransactionsAsync(bob);
-					rebroadcast = await rebroadcaster.RebroadcastAll();
-					Assert.Contains(rebroadcast.Cleaned, o => o.Key.TxId == tx2.GetHash());
-
-					txs = await tester.Client.GetTransactionsAsync(bob);
-					Assert.Empty(txs.UnconfirmedTransactions.Transactions);
-
-					// Nothing should be cleaned now
-					rebroadcast = await rebroadcaster.RebroadcastAll();
-					Assert.Empty(rebroadcast.Cleaned);
-				}
-
-				
-
-				Logs.Tester.LogInformation("Let's orphan the block, and check that the orphaned tx is cleaned");
-				var orphanedBlock = tester.RPC.GetBestBlockHash();
-				tester.RPC.InvalidateBlock(orphanedBlock);
-
-				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
-
-				await rebroadcaster.RebroadcastPeriodically(tester.Client.Network, bobSource, new[] { replacement.GetHash() });
-				rebroadcast = await rebroadcaster.RebroadcastAll();
-				{
-					if (backend == Backend.DBTrie)
-					{
-						var cleaned = Assert.Single(rebroadcast.Cleaned);
-						Assert.Equal(orphanedBlock, cleaned.BlockHash);
-					}
-				}
+				// TXs has been double spent, but unless we rebroadcast it, NBX doesn't know, iterating transactions
+				// will ask rebroadcaster to broadcast
+				await check.Do(default);
+				txs = await tester.Client.GetTransactionsAsync(bob);
+				Assert.Empty(txs.UnconfirmedTransactions.Transactions);
 			}
 		}
 
