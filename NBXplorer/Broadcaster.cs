@@ -1,11 +1,8 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.Azure.Amqp.Framing;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.RPC;
 using NBXplorer.Backends;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace NBXplorer
