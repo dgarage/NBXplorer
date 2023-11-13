@@ -88,6 +88,83 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		[Fact]
+		public async Task CanCalculateReplacing()
+		{
+			await using var conn = await GetConnection();
+			async Task AssertBalance(decimal expectedAmount)
+			{
+				var balance = await conn.QueryFirstAsync<decimal>("SELECT available_balance FROM wallets_balances;");
+				Assert.Equal(expectedAmount, balance);
+			}
+			// Alice has two addresses, fund and address.
+			await conn.ExecuteAsync(
+				"INSERT INTO wallets VALUES ('Alice');" +
+				"INSERT INTO scripts VALUES ('BTC', 'fund', 'fund'), ('BTC', 'a1', 'a1');" +
+				"INSERT INTO wallets_scripts (code, wallet_id, script) VALUES ('BTC', 'Alice', 'a1'), ('BTC', 'Alice', 'fund');"
+				);
+
+			Assert.True(await conn.ExecuteScalarAsync<bool>("CALL fetch_matches ('BTC', ARRAY[" +
+				"('t1', 0, 'fund', 5,'')," +
+				"('t1', 1, 'untracked', 10,'')" +
+				"]::new_out[]," +
+				"ARRAY[]::new_in[], 'f')"));
+			await conn.ExecuteAsync("CALL save_matches('BTC');");
+			await AssertBalance(5.0m);
+
+			// t2: First spend of untracked
+			Assert.True(await conn.ExecuteScalarAsync<bool>("CALL fetch_matches ('BTC', " +
+				"ARRAY[" +
+				"('t2', 0, 'a1', 1, '')" +
+				"]::new_out[]," +
+				"ARRAY[" +
+				"('t2', 0, 't1', 1)" +
+				"]::new_in[], 'f')"));
+			await conn.ExecuteAsync("CALL save_matches('BTC');");
+			await AssertBalance(5.0m + 1.0m);
+
+			// t2s: Double spend of untracked
+			// Note that this double spend doesn't spend any output, or create any output belonging to any wallet.
+			// however, this transaction affects wallets, as it double spend t2, a transaction that Alice wallet is
+			// interested in.
+			Assert.True(await conn.ExecuteScalarAsync<bool>("CALL fetch_matches ('BTC', " +
+				"ARRAY[" +
+				"" +
+				"]::new_out[]," +
+				"ARRAY[" +
+				"('t2s', 0, 't1', 1)" +
+				"]::new_in[], 'f')"));
+			var conflict = await conn.QueryFirstAsync("SELECT * FROM matched_conflicts");
+			Assert.Equal(conflict.spent_tx_id, "t1");
+			Assert.Equal(conflict.spent_idx, 1);
+			Assert.Equal(conflict.replacing_tx_id, "t2s");
+			Assert.Equal(conflict.replaced_tx_id, "t2");
+			await conn.ExecuteAsync("CALL save_matches('BTC');");
+			await AssertBalance(5.0m);
+
+			// Another double spent, but this time having an output
+			Assert.True(await conn.ExecuteScalarAsync<bool>("CALL fetch_matches ('BTC', " +
+				"ARRAY[" +
+				"('t2ss', 0, 'a1', 51, '')" +
+				"]::new_out[]," +
+				"ARRAY[" +
+				"('t2ss', 0, 't1', 1)" +
+				"]::new_in[], 'f')"));
+			conflict = await conn.QueryFirstAsync("SELECT * FROM matched_conflicts");
+			Assert.Equal(conflict.spent_tx_id, "t1");
+			Assert.Equal(conflict.spent_idx, 1);
+			Assert.Equal(conflict.replacing_tx_id, "t2ss");
+			Assert.Equal(conflict.replaced_tx_id, "t2s");
+			await conn.ExecuteAsync("CALL save_matches('BTC');");
+			await AssertBalance(5.0m + 51m);
+
+			// Check t2s is tracked despite not having any input/output.
+			foreach (var txid in new[] { "t2s", "t2ss" })
+			{
+				await conn.QueryFirstAsync($"SELECT * FROM txs WHERE tx_id='{txid}'");
+			}
+		}
+
 
 		[Fact]
 		public async Task CanCalculateHistogram()

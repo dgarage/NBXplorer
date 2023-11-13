@@ -25,6 +25,7 @@ using NBXplorer.Altcoins.Liquid;
 using NBXplorer.Client;
 using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
+using static NBXplorer.Backends.Postgres.DbConnectionHelper;
 
 namespace NBXplorer.Backends.Postgres
 {
@@ -589,8 +590,24 @@ namespace NBXplorer.Backends.Postgres
 		record UpdateMatchesOuts(string tx_id, long idx, string asset_id, long value);
 		async Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache, bool immediateSave)
 		{
+			var blockIndexes = slimBlock is null ? null : new Dictionary<uint256, int>(txs.Count);
+			SaveTransactionRecord CreateTransactionRecord(Transaction tx) => new SaveTransactionRecord(
+						tx,
+						tx.GetHash(),
+						slimBlock?.Hash,
+						blockIndexes?.TryGetValue(tx.GetHash(), out var v) is true ? v : null,
+						slimBlock?.Height,
+						tx.IsCoinBase,
+						now
+					);
+
+			int i = 0;
 			foreach (var tx in txs)
+			{
 				tx.PrecomputeHash(false, true);
+				blockIndexes?.Add(tx.GetHash(), i);
+			}
+
 
 			var outputCount = txs.Select(tx => tx.Outputs.Count).Sum();
 			var inputCount = txs.Select(tx => tx.Inputs.Count).Sum();
@@ -627,7 +644,14 @@ namespace NBXplorer.Backends.Postgres
 				var matchedOuts = await result.ReadAsync();
 				var matchedIns = await result.ReadAsync();
 				var matchedConflicts = await result.ReadAsync();
+				List<SaveTransactionRecord> txRecords = new ();
 				var elementContext = Network.IsElement ? new ElementMatchContext() : null;
+				foreach (var r in matchedConflicts)
+				{
+					var txId = uint256.Parse(r.replacing_tx_id);
+					var tx = transactions[txId];
+					txRecords.Add(CreateTransactionRecord(tx));
+				}
 				foreach (var r in matchedOuts)
 				{
 					var s = Script.FromHex(r.script);
@@ -659,10 +683,13 @@ namespace NBXplorer.Backends.Postgres
 										new TrackedTransactionKey(tx.GetHash(), slimBlock?.Hash, false),
 										tx,
 										new Dictionary<Script, KeyPath>());
-									match.BlockHeight = slimBlock?.Height;
+
+									var record = CreateTransactionRecord(tx);
+									match.BlockHeight = record.BlockHeight;
 									match.FirstSeen = now;
+									match.BlockIndex = record.BlockIndex;
 									match.Inserted = now;
-									match.Immature = tx.IsCoinBase;
+									match.Immature = record.Immature;
 									match.Replacing = new HashSet<uint256>();
 									foreach (var r in matchedConflicts)
 									{
@@ -675,6 +702,7 @@ namespace NBXplorer.Backends.Postgres
 										}
 									}
 									matches.Add(matchesGroupingKey, match);
+									txRecords.Add(record);
 								}
 								match.AddKnownKeyPathInformation(keyInfo);
 								elementContext?.TrackedTransaction(match, keyInfo);
@@ -689,9 +717,9 @@ namespace NBXplorer.Backends.Postgres
 					}
 				}
 
-				if (immediateSave && matches.Values.Count != 0)
+				if (immediateSave && txRecords.Count != 0)
 				{
-					await SetTxs(connection, matches.Values);
+					await connection.SaveTransactions(txRecords);
 					if (elementContext is not null)
 						await elementContext.UpdateMatchedOuts(connection.Connection);
 					await connection.Connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
@@ -1075,13 +1103,8 @@ namespace NBXplorer.Backends.Postgres
 				}
 			}
 			await helper.FetchMatches(outs, ins);
-			await SetTxs(helper, transactions);
+			await helper.SaveTransactions(transactions.Select(SaveTransactionRecord.Create));
 			await helper.Connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
-		}
-
-		private static async Task SetTxs(DbConnectionHelper helper, IEnumerable<TrackedTransaction> transactions)
-		{
-			await helper.SaveTransactions(transactions.Select(t => (t.Transaction, t.TransactionHash, t.BlockHash, t.BlockIndex, t.BlockHeight, t.IsCoinBase, new DateTimeOffset?(t.FirstSeen))));
 		}
 
 		public async Task SaveMetadata<TMetadata>(TrackedSource source, string key, TMetadata value) where TMetadata : class
@@ -1105,7 +1128,7 @@ namespace NBXplorer.Backends.Postgres
 		public async Task<List<SavedTransaction>> SaveTransactions(DateTimeOffset now, Transaction[] transactions, SlimChainedBlock slimBlock)
 		{
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
-			await helper.SaveTransactions(transactions.Select(t => (t, null as uint256, slimBlock?.Hash, null as int?, (long?)slimBlock?.Height, false, new DateTimeOffset?(now))));
+			await helper.SaveTransactions(transactions.Select(t => new SaveTransactionRecord(t, null as uint256, slimBlock?.Hash, null as int?, (long?)slimBlock?.Height, false, new DateTimeOffset?(now))));
 			return transactions.Select(t => new SavedTransaction()
 			{
 				BlockHash = slimBlock?.Hash,

@@ -228,7 +228,8 @@ BEGIN
 	  JOIN matched_outs o ON i.spent_tx_id = o.tx_id AND i.spent_idx = o.idx) i
 	ORDER BY "order";
 	DELETE FROM new_ins
-	WHERE NOT tx_id=ANY(SELECT tx_id FROM matched_ins) AND NOT tx_id=ANY(SELECT tx_id FROM matched_outs);
+	WHERE NOT tx_id=ANY(SELECT tx_id FROM matched_ins UNION SELECT tx_id FROM matched_outs)
+	AND NOT (spent_tx_id || spent_idx::TEXT)=ANY(SELECT (tx_id || idx::TEXT) FROM spent_outs);
 	INSERT INTO matched_conflicts
 	WITH RECURSIVE cte(code, spent_tx_id, spent_idx, replacing_tx_id, replaced_tx_id) AS
 	(
@@ -575,6 +576,8 @@ BEGIN
 	SELECT tx_id FROM matched_outs
 	UNION
 	SELECT tx_id FROM matched_ins
+    UNION
+    SELECT replacing_tx_id FROM matched_conflicts
   ) q
   ON CONFLICT (code, tx_id)
   DO UPDATE SET seen_at=in_seen_at
@@ -1344,6 +1347,7 @@ INSERT INTO nbxv1_migrations VALUES ('013.FixTrackedTransactions');
 INSERT INTO nbxv1_migrations VALUES ('014.FixAddressReuse');
 INSERT INTO nbxv1_migrations VALUES ('015.AvoidWAL');
 INSERT INTO nbxv1_migrations VALUES ('016.FixTempTableCreation');
+INSERT INTO nbxv1_migrations VALUES ('017.FixDoubleSpendDetection');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);

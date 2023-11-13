@@ -1034,6 +1034,68 @@ namespace NBXplorer.Tests
 		}
 
 		[TheoryWithTimeout]
+		[InlineData(true)]
+		[InlineData(false)]
+		public void ShowRBFedTransaction3(bool cancelB)
+		{
+			// Let's do a chain of two transactions implicating Bob A and B.
+			// Then B get replaced by B'.
+			// We should make sure that B' is still saved in the database, and B properly marked as replaced.
+			// If cancelB is true, then B' output shouldn't be related to Bob.
+			using var tester = ServerTester.Create(Backend.Postgres);
+
+			var bobW = tester.Client.GenerateWallet();
+			var bob = bobW.DerivationScheme;
+			tester.Client.Track(bob);
+			
+			var bobAddr = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+			var bobAddr1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 1);
+
+			var aId = tester.RPC.SendToAddress(bobAddr.ScriptPubKey, Money.Satoshis(100_000), new SendToAddressParameters() { Replaceable = true });
+			var a = tester.Notifications.WaitForTransaction(bob, aId).TransactionData.Transaction;
+			Logs.Tester.LogInformation("a: " + aId);
+
+			// b shouldn't have any input belonging to our wallets.
+			var changeAddr = a.Outputs.Where(o => o.ScriptPubKey != bobAddr.ScriptPubKey).First().ScriptPubKey;
+			LockTestCoins(tester.RPC, new HashSet<Script>() { changeAddr });
+
+			var bId = tester.RPC.SendToAddress(bobAddr1.ScriptPubKey, Money.Satoshis(200_000), new SendToAddressParameters() { Replaceable = true });
+			var b = tester.Notifications.WaitForTransaction(bob, bId).TransactionData.Transaction;
+			Logs.Tester.LogInformation("b: " + bId);
+
+			// b' shouldn't have any output belonging to our wallets.
+			var bp = b.Clone();
+			var o = bp.Outputs.First(o => o.ScriptPubKey == bobAddr1.ScriptPubKey);
+			if (cancelB)
+				o.ScriptPubKey = changeAddr;
+			o.Value -= Money.Satoshis(5000); // Add some fee to bump the tx
+			foreach (var input in bp.Inputs)
+			{
+				input.ScriptSig = Script.Empty;
+				input.WitScript = WitScript.Empty;
+			}
+			bp = tester.RPC.SignRawTransaction(bp);
+			tester.RPC.SendRawTransaction(bp);
+			Logs.Tester.LogInformation("bp: " + bp.GetHash());
+
+			// If not a cancellation, B' should send an event, and replacing B
+			if (!cancelB)
+			{
+				var evt = tester.Notifications.WaitForTransaction(bob, bp.GetHash());
+				Assert.Equal(bId, Assert.Single(evt.Replacing));
+			}
+			
+			tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+			var bpr = tester.Client.GetTransaction(bp.GetHash());
+			Assert.NotNull(bpr?.Transaction);
+			Assert.Equal(1, bpr.Confirmations);
+			var br = tester.Client.GetTransaction(b.GetHash());
+			Assert.NotNull(br?.Transaction);
+			Assert.Equal(bp.GetHash(), br.ReplacedBy);
+			Assert.Equal(0, br.Confirmations);
+		}
+
+		[TheoryWithTimeout]
 		[InlineData(Backend.Postgres)]
 		public async Task ShowRBFedTransaction(Backend backend)
 		{
