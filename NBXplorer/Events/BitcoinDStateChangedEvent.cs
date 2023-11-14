@@ -1,4 +1,4 @@
-﻿using NBXplorer.Backends;
+﻿using NBXplorer.Backend;
 
 namespace NBXplorer.Events
 {

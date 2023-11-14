@@ -79,106 +79,12 @@ namespace NBXplorer
 			dictionary = new Dictionary<TKey, InnerCollectionView>(capacity);
 		}
 
-		/// <summary>
-		/// Initializes a new instance of the <see cref="MultiValueDictionary{TKey, TValue}" /> class 
-		/// that is empty, has the default initial capacity, and uses the 
-		/// specified <see cref="IEqualityComparer{TKey}" />.
-		/// </summary>
-		/// <param name="comparer">Specified comparer to use for the <typeparamref name="TKey"/>s</param>
-		/// <remarks>If <paramref name="comparer"/> is set to null, then the default <see cref="IEqualityComparer" /> for <typeparamref name="TKey"/> is used.</remarks>
-		public MultiValueDictionary(IEqualityComparer<TKey> comparer)
-		{
-			dictionary = new Dictionary<TKey, InnerCollectionView>(comparer);
-		}
-
-		/// <summary>
-		/// Initializes a new instance of the <see cref="MultiValueDictionary{TKey, TValue}" /> class 
-		/// that is empty, has the specified initial capacity, and uses the 
-		/// specified <see cref="IEqualityComparer{TKey}" />.
-		/// </summary>
-		/// <param name="capacity">Initial number of keys that the <see cref="MultiValueDictionary{TKey, TValue}" /> will allocate space for</param>
-		/// <param name="comparer">Specified comparer to use for the <typeparamref name="TKey"/>s</param>
-		/// <exception cref="ArgumentOutOfRangeException">Capacity must be >= 0</exception>
-		/// <remarks>If <paramref name="comparer"/> is set to null, then the default <see cref="IEqualityComparer" /> for <typeparamref name="TKey"/> is used.</remarks>
-		public MultiValueDictionary(int capacity, IEqualityComparer<TKey> comparer)
-		{
-			if(capacity < 0)
-				throw new ArgumentOutOfRangeException("capacity", Properties.Resources.ArgumentOutOfRange_NeedNonNegNum);
-			dictionary = new Dictionary<TKey, InnerCollectionView>(capacity, comparer);
-		}
-
 		#endregion
 
 		#region Static Factories
 		/*======================================================================
         ** Static Factories
         ======================================================================*/
-
-		/// <summary>
-		/// Creates a new new instance of the <see cref="MultiValueDictionary{TKey, TValue}" /> 
-		/// class that is empty, has the default initial capacity, and uses the default
-		/// <see cref="IEqualityComparer{TKey}" /> for <typeparamref name="TKey"/>. The 
-		/// internal dictionary will use instances of the <typeparamref name="TValueCollection"/>
-		/// class as its collection type.
-		/// </summary>
-		/// <typeparam name="TValueCollection">
-		/// The collection type that this <see cref="MultiValueDictionary{TKey, TValue}" />
-		/// will contain in its internal dictionary.
-		/// </typeparam>
-		/// <returns>A new <see cref="MultiValueDictionary{TKey, TValue}" /> with the specified
-		/// parameters.</returns>
-		/// <exception cref="InvalidOperationException"><typeparamref name="TValueCollection"/> must not have
-		/// IsReadOnly set to true by default.</exception>
-		/// <remarks>
-		/// Note that <typeparamref name="TValueCollection"/> must implement <see cref="ICollection{TValue}"/>
-		/// in addition to being constructable through new(). The collection returned from the constructor
-		/// must also not have IsReadOnly set to True by default.
-		/// </remarks>
-		public static MultiValueDictionary<TKey, TValue> Create<TValueCollection>()
-			where TValueCollection : ICollection<TValue>, new()
-		{
-			if(new TValueCollection().IsReadOnly)
-				throw new InvalidOperationException(Properties.Resources.Create_TValueCollectionReadOnly);
-
-			var multiValueDictionary = new MultiValueDictionary<TKey, TValue>();
-			multiValueDictionary.NewCollectionFactory = () => new TValueCollection();
-			return multiValueDictionary;
-		}
-
-		/// <summary>
-		/// Creates a new new instance of the <see cref="MultiValueDictionary{TKey, TValue}" /> 
-		/// class that is empty, has the specified initial capacity, and uses the default
-		/// <see cref="IEqualityComparer{TKey}" /> for <typeparamref name="TKey"/>. The 
-		/// internal dictionary will use instances of the <typeparamref name="TValueCollection"/>
-		/// class as its collection type.
-		/// </summary>
-		/// <typeparam name="TValueCollection">
-		/// The collection type that this <see cref="MultiValueDictionary{TKey, TValue}" />
-		/// will contain in its internal dictionary.
-		/// </typeparam>
-		/// <param name="capacity">Initial number of keys that the <see cref="MultiValueDictionary{TKey, TValue}" /> will allocate space for</param>
-		/// <returns>A new <see cref="MultiValueDictionary{TKey, TValue}" /> with the specified
-		/// parameters.</returns>
-		/// <exception cref="ArgumentOutOfRangeException">Capacity must be >= 0</exception>
-		/// <exception cref="InvalidOperationException"><typeparamref name="TValueCollection"/> must not have
-		/// IsReadOnly set to true by default.</exception>
-		/// <remarks>
-		/// Note that <typeparamref name="TValueCollection"/> must implement <see cref="ICollection{TValue}"/>
-		/// in addition to being constructable through new(). The collection returned from the constructor
-		/// must also not have IsReadOnly set to True by default.
-		/// </remarks>
-		public static MultiValueDictionary<TKey, TValue> Create<TValueCollection>(int capacity)
-			where TValueCollection : ICollection<TValue>, new()
-		{
-			if(capacity < 0)
-				throw new ArgumentOutOfRangeException("capacity", Properties.Resources.ArgumentOutOfRange_NeedNonNegNum);
-			if(new TValueCollection().IsReadOnly)
-				throw new InvalidOperationException(Properties.Resources.Create_TValueCollectionReadOnly);
-
-			var multiValueDictionary = new MultiValueDictionary<TKey, TValue>(capacity);
-			multiValueDictionary.NewCollectionFactory = () => new TValueCollection();
-			return multiValueDictionary;
-		}
 
 		#endregion
 

@@ -49,11 +49,6 @@ namespace NBXplorer
 					}
 				}
 			}
-
-			public void Unsubscribe()
-			{
-				Dispose();
-			}
 		}
 
 		public void Publish<T>(T evt, bool internalEvent = false) where T : class

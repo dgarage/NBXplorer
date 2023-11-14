@@ -6,7 +6,7 @@ using System.Linq;
 using NBXplorer.DerivationStrategy;
 using NBitcoin.RPC;
 using System.Threading;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 
 namespace NBXplorer.Tests
 {
@@ -61,7 +61,7 @@ namespace NBXplorer.Tests
 		}
 
 		static BitcoinAddress Dummy = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.Main);
-		public static KeyPathInformation GetKeyInformation(this IRepository repo, Script script)
+		public static KeyPathInformation GetKeyInformation(this Repository repo, Script script)
 		{
 			return repo.GetKeyInformations(new Script[] { script }).GetAwaiter().GetResult()[script].SingleOrDefault();
 		}

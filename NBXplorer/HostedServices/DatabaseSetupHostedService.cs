@@ -1,7 +1,7 @@
 ﻿using Dapper;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using NBXplorer.Backends.Postgres;
+using NBXplorer.Backend;
 using Npgsql;
 using System.Collections.Generic;
 using System.Globalization;

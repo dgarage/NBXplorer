@@ -19,7 +19,7 @@ namespace NBXplorer.Tests
 		[Trait("Maintenance", "Maintenance")]
 		public async Task GenerateFullSchema()
 		{
-			using var t = ServerTester.Create(Backend.Postgres);
+			using var t = ServerTester.Create();
 			var script = await GenerateDbScript(t);
 			File.WriteAllText(GetFullSchemaFile(), script);
 		}

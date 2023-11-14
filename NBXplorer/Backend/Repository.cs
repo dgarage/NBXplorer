@@ -20,13 +20,14 @@ using NBXplorer.Altcoins.Liquid;
 using NBXplorer.Client;
 using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
-using static NBXplorer.Backends.Postgres.DbConnectionHelper;
+using static NBXplorer.Backend.DbConnectionHelper;
+using Microsoft.Extensions.Hosting;
 
-namespace NBXplorer.Backends.Postgres
+namespace NBXplorer.Backend
 {
-	public class PostgresRepositoryProvider : IRepositoryProvider
+	public class RepositoryProvider : IHostedService
 	{
-		Dictionary<string, PostgresRepository> _Repositories = new Dictionary<string, PostgresRepository>();
+		Dictionary<string, Repository> _Repositories = new Dictionary<string, Repository>();
 		ExplorerConfiguration _Configuration;
 
 		public Task StartCompletion => Task.CompletedTask;
@@ -35,7 +36,7 @@ namespace NBXplorer.Backends.Postgres
 		public DbConnectionFactory ConnectionFactory { get; }
 		public KeyPathTemplates KeyPathTemplates { get; }
 
-		public PostgresRepositoryProvider(NBXplorerNetworkProvider networks,
+		public RepositoryProvider(NBXplorerNetworkProvider networks,
 			ExplorerConfiguration configuration,
 			DbConnectionFactory connectionFactory,
 			KeyPathTemplates keyPathTemplates)
@@ -46,12 +47,12 @@ namespace NBXplorer.Backends.Postgres
 			KeyPathTemplates = keyPathTemplates;
 		}
 
-		public IRepository GetRepository(string cryptoCode)
+		public Repository GetRepository(string cryptoCode)
 		{
-			_Repositories.TryGetValue(cryptoCode.ToUpperInvariant(), out PostgresRepository repository);
+			_Repositories.TryGetValue(cryptoCode.ToUpperInvariant(), out Repository repository);
 			return repository;
 		}
-		public IRepository GetRepository(NBXplorerNetwork network)
+		public Repository GetRepository(NBXplorerNetwork network)
 		{
 			return GetRepository(network.CryptoCode);
 		}
@@ -63,7 +64,7 @@ namespace NBXplorer.Backends.Postgres
 				var settings = GetChainSetting(net);
 				if (settings != null)
 				{
-					var repo = new PostgresRepository(ConnectionFactory, net, KeyPathTemplates, settings.RPC, _Configuration);
+					var repo = new Repository(ConnectionFactory, net, KeyPathTemplates, settings.RPC, _Configuration);
 					repo.MaxPoolSize = _Configuration.MaxGapSize;
 					repo.MinPoolSize = _Configuration.MinGapSize;
 					repo.MinUtxoValue = settings.MinUtxoValue;
@@ -120,13 +121,13 @@ namespace NBXplorer.Backends.Postgres
 			return Task.CompletedTask;
 		}
 	}
-	public class PostgresRepository : IRepository
+	public class Repository
 	{
 		private DbConnectionFactory connectionFactory;
 		private readonly RPCClient rpc;
 
 		public DbConnectionFactory ConnectionFactory => connectionFactory;
-		public PostgresRepository(DbConnectionFactory connectionFactory, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc, ExplorerConfiguration conf)
+		public Repository(DbConnectionFactory connectionFactory, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc, ExplorerConfiguration conf)
 		{
 			this.connectionFactory = connectionFactory;
 			Network = network;
@@ -180,11 +181,6 @@ namespace NBXplorer.Backends.Postgres
 		public TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, Transaction tx, Dictionary<Script, KeyPath> knownScriptMapping)
 		{
 			return new TrackedTransaction(transactionKey, trackedSource, tx, knownScriptMapping);
-		}
-
-		public ValueTask<int> DefragmentTables(CancellationToken cancellationToken = default)
-		{
-			return default;
 		}
 
 		public record DescriptorKey(string code, string descriptor);
@@ -345,7 +341,7 @@ namespace NBXplorer.Backends.Postgres
 
 		private long ToGenerateCount(GenerateAddressQuery query, long? gap)
 		{
-			var toGenerate = (gap is null || gap >= MinPoolSize) ? 0 : Math.Max(0, MaxPoolSize - gap.Value);
+			var toGenerate = gap is null || gap >= MinPoolSize ? 0 : Math.Max(0, MaxPoolSize - gap.Value);
 			if (query?.MaxAddresses is int max)
 				toGenerate = Math.Min(max, toGenerate);
 			if (query?.MinAddresses is int min)
@@ -601,11 +597,11 @@ namespace NBXplorer.Backends.Postgres
 			var outpointCount = inputCount + outputCount;
 
 			var scripts = new List<Script>(outpointCount);
-			var transactionsPerScript = new MultiValueDictionary<Script, NBitcoin.Transaction>(outpointCount);
+			var transactionsPerScript = new MultiValueDictionary<Script, Transaction>(outpointCount);
 
 			var matches = new Dictionary<string, TrackedTransaction>();
 			var noMatchTransactions = slimBlock?.Hash is null ? new HashSet<uint256>(txs.Count) : null;
-			var transactions = new Dictionary<uint256, NBitcoin.Transaction>(txs.Count);
+			var transactions = new Dictionary<uint256, Transaction>(txs.Count);
 			var outpoints = new List<OutPoint>(inputCount);
 
 			foreach (var tx in txs)
@@ -631,7 +627,7 @@ namespace NBXplorer.Backends.Postgres
 				var matchedOuts = await result.ReadAsync();
 				var matchedIns = await result.ReadAsync();
 				var matchedConflicts = await result.ReadAsync();
-				List<SaveTransactionRecord> txRecords = new ();
+				List<SaveTransactionRecord> txRecords = new();
 				var elementContext = Network.IsElement ? new ElementMatchContext() : null;
 				foreach (var r in matchedConflicts)
 				{
@@ -712,7 +708,7 @@ namespace NBXplorer.Backends.Postgres
 					await connection.Connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
 				}
 			}
-			end:
+		end:
 			if (noMatchTransactions != null)
 			{
 				foreach (var txId in noMatchTransactions)
@@ -836,7 +832,7 @@ namespace NBXplorer.Backends.Postgres
 			var connection = helper.Connection;
 			var key = GetDescriptorKey(strategy, derivationFeature);
 			string additionalColumn = Network.IsElement ? ", ds_metadata->>'blindedAddress' blinded_addr" : string.Empty;
-			retry:
+		retry:
 			var unused = await connection.QueryFirstOrDefaultAsync(
 				$"SELECT script, addr, nbxv1_get_keypath(d_metadata, idx) keypath, ds_metadata->>'redeem' redeem {additionalColumn} FROM descriptors_scripts_unused " +
 				"WHERE code=@code AND descriptor=@descriptor " +
@@ -907,7 +903,7 @@ namespace NBXplorer.Backends.Postgres
 								ki.KeyPath,
 								derivation,
 								addr);
-				}				
+				}
 
 				var wid = GetWalletKey(ki.TrackedSource).wid;
 				if (descriptorKey is not null)
@@ -944,7 +940,7 @@ namespace NBXplorer.Backends.Postgres
 		private async Task ImportAddressToRPC(DbConnectionHelper connection, TrackedSource trackedSource, BitcoinAddress address, KeyPath keyPath)
 		{
 			var k = GetWalletKey(trackedSource);
-			var shouldImportRPC = ImportRPCMode.Parse((await connection.GetMetadata<string>(k.wid, WellknownMetadataKeys.ImportAddressToRPC)));
+			var shouldImportRPC = ImportRPCMode.Parse(await connection.GetMetadata<string>(k.wid, WellknownMetadataKeys.ImportAddressToRPC));
 			if (shouldImportRPC != ImportRPCMode.Legacy)
 				return;
 			var accountKey = await connection.GetMetadata<BitcoinExtKey>(k.wid, WellknownMetadataKeys.AccountHDKey);
@@ -967,17 +963,6 @@ namespace NBXplorer.Backends.Postgres
 				}
 			}
 		}
-#if SUPPORT_DBTRIE
-		public ValueTask<bool> MigrateOutPoints(string directory, CancellationToken cancellationToken = default)
-		{
-			return default;
-		}
-
-		public ValueTask<int> MigrateSavedTransactions(CancellationToken cancellationToken = default)
-		{
-			return default;
-		}
-#endif
 		public Task Ping()
 		{
 			return Task.CompletedTask;
@@ -1062,15 +1047,15 @@ namespace NBXplorer.Backends.Postgres
 
 			var outCount = transactions.Select(t => t.ReceivedCoins.Count).Sum();
 			var inCount = transactions.Select(t => t.SpentOutpoints.Count).Sum();
-			List<DbConnectionHelper.NewOut> outs = new List<DbConnectionHelper.NewOut>(outCount);
-			List<DbConnectionHelper.NewIn> ins = new List<DbConnectionHelper.NewIn>(inCount);
+			List<NewOut> outs = new List<NewOut>(outCount);
+			List<NewIn> ins = new List<NewIn>(inCount);
 			foreach (var tx in transactions)
 			{
 				if (!tx.IsCoinBase)
 				{
 					foreach (var input in tx.SpentOutpoints)
 					{
-						ins.Add(new DbConnectionHelper.NewIn(
+						ins.Add(new NewIn(
 							tx.TransactionHash,
 							tx.IndexOfInput(input),
 							input.Hash,
@@ -1081,7 +1066,7 @@ namespace NBXplorer.Backends.Postgres
 
 				foreach (var output in tx.GetReceivedOutputs())
 				{
-					outs.Add(new DbConnectionHelper.NewOut(
+					outs.Add(new NewOut(
 						tx.TransactionHash,
 						output.Index,
 						output.ScriptPubKey,
@@ -1115,7 +1100,7 @@ namespace NBXplorer.Backends.Postgres
 		public async Task<List<SavedTransaction>> SaveTransactions(DateTimeOffset now, Transaction[] transactions, SlimChainedBlock slimBlock)
 		{
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
-			await helper.SaveTransactions(transactions.Select(t => new SaveTransactionRecord(t, null as uint256, slimBlock?.Hash, null as int?, (long?)slimBlock?.Height, false, new DateTimeOffset?(now))));
+			await helper.SaveTransactions(transactions.Select(t => new SaveTransactionRecord(t, null as uint256, slimBlock?.Hash, null as int?, slimBlock?.Height, false, new DateTimeOffset?(now))));
 			return transactions.Select(t => new SavedTransaction()
 			{
 				BlockHash = slimBlock?.Hash,
@@ -1199,7 +1184,7 @@ namespace NBXplorer.Backends.Postgres
 				.Select(p => new
 				{
 					code = Network.CryptoCode,
-					descriptor = this.GetDescriptorKey(trackedSource.DerivationStrategy, p.DerivationFeature).descriptor,
+					GetDescriptorKey(trackedSource.DerivationStrategy, p.DerivationFeature).descriptor,
 					next_index = p.HighestKeyIndexFound + 1
 				})
 				.ToArray();

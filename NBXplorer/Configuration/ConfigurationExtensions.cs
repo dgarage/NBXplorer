@@ -7,10 +7,6 @@ namespace NBXplorer.Configuration
 {
     public static class ConfigurationExtensions
     {
-		public static bool IsPostgres(this IConfiguration configuration)
-		{
-			return configuration.GetOrDefault<string>("POSTGRES", null) is string;
-		}
 		public static T GetOrDefault<T>(this IConfiguration configuration, string key, T defaultValue)
 		{
 			var str = configuration[key] ?? configuration[key.Replace(".", string.Empty)];

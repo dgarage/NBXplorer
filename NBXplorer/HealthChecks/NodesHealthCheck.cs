@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,14 +10,14 @@ namespace NBXplorer.HealthChecks
 	{
 		public NodesHealthCheck(
 			NBXplorerNetworkProvider networkProvider,
-			IIndexers indexers)
+			Indexers indexers)
 		{
 			NetworkProvider = networkProvider;
 			Indexers = indexers;
 		}
 
 		public NBXplorerNetworkProvider NetworkProvider { get; }
-		public IIndexers Indexers { get; }
+		public Indexers Indexers { get; }
 
 		public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
 		{

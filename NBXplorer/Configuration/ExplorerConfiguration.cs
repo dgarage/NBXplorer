@@ -77,15 +77,6 @@ namespace NBXplorer.Configuration
 		{
 			get; set;
 		} = 30;
-#if SUPPORT_DBTRIE
-		public bool IsPostgres { get; set; }
-		public bool IsDbTrie { get; set; }
-		public bool NoMigrateEvents { get; private set; }
-		public bool NoMigrateRawTxs { get; private set; }
-		public int DBCache { get; set; }
-#else
-		public bool IsPostgres => true;
-#endif
 		public List<ChainConfiguration> ChainConfigurations
 		{
 			get; set;
@@ -173,11 +164,6 @@ namespace NBXplorer.Configuration
 			Logs.Configuration.LogInformation("Supported chains: " + String.Join(',', supportedChains.ToArray()));
 			MinGapSize = config.GetOrDefault<int>("mingapsize", 20);
 			MaxGapSize = config.GetOrDefault<int>("maxgapsize", 30);
-#if SUPPORT_DBTRIE
-			DBCache = config.GetOrDefault<int>("dbcache", 50);
-			if (DBCache > 0)
-				Logs.Configuration.LogInformation($"DBCache: {DBCache} MB");
-#endif
 			if (MinGapSize >= MaxGapSize)
 				throw new ConfigException("mingapsize should be equal or lower than maxgapsize");
 			if(!Directory.Exists(BaseDataDir))
@@ -189,9 +175,6 @@ namespace NBXplorer.Configuration
 			SignalFilesDir = SignalFilesDir ?? DataDir;
 			if (!Directory.Exists(SignalFilesDir))
 				Directory.CreateDirectory(SignalFilesDir);
-#if SUPPORT_DBTRIE
-			CacheChain = config.GetOrDefault<bool>("cachechain", true);
-#endif
 			NoAuthentication = config.GetOrDefault<bool>("noauth", false);
 			InstanceName = config.GetOrDefault<string>("instancename", "");
 			TrimEvents = config.GetOrDefault<int>("trimevents", -1);
@@ -218,26 +201,13 @@ namespace NBXplorer.Configuration
 			RabbitMqPassword = config.GetOrDefault<string>("rmqpass", "");
 			RabbitMqTransactionExchange = config.GetOrDefault<string>("rmqtranex", "");
 			RabbitMqBlockExchange = config.GetOrDefault<string>("rmqblockex", "");
-#if SUPPORT_DBTRIE
-			IsPostgres = config.IsPostgres();
-			IsDbTrie = config.GetOrDefault<bool>("dbtrie", false); ;
-			NoMigrateEvents = config.GetOrDefault<bool>("nomigrateevts", false);
-			NoMigrateRawTxs = config.GetOrDefault<bool>("nomigraterawtxs", false);
-			if (!IsPostgres && !IsDbTrie)
-			{
-				throw new ConfigException("You need to select your backend implementation. There is two choices, PostgresSQL and DBTrie." + Environment.NewLine +
-					"  * To use postgres, please use --postgres \"...\" (or NBXPLORER_POSTGRES=\"...\") with a postgres connection string (see https://www.connectionstrings.com/postgresql/)" + Environment.NewLine +
-					"  * To use DBTrie, use --dbtrie (or NBXPLORER_DBTRIE=1). This backend is deprecated, only use if you haven't yet migrated. For more information about how to migrate, see https://github.com/dgarage/NBXplorer/tree/master/docs/Postgres-Migration.md");
-			}
-			if (IsDbTrie)
-			{
-				Logs.Configuration.LogWarning("Warning: A DBTrie backend has been selected, but this backend is deprecated, only use if you haven't yet migrated to postgres. For more information about how to migrate, see https://github.com/dgarage/NBXplorer/tree/master/docs/Postgres-Migration.md");
-			}
-			if (IsDbTrie && IsPostgres)
-			{
-				throw new ConfigException("You need to select your backend implementation. But --dbtrie and --postgres are both specified.");
-			}
-#endif
+
+			var obsolete = string.Join(", ",
+				new[] { "dbtrie", "automigrate", "nomigrateevts", "nomigraterawtxs", "cachechain", "deleteaftermigration", "dbcache" }
+				.Where(o => config.GetOrDefault<bool>(o, false)));
+			if (obsolete != string.Empty)
+				throw new ConfigException($"Options '{obsolete}' are not supported anymore, if you need to migrate an old instance to the new postgres backend, please use NBXplorer v2.3.67 and follow https://github.com/dgarage/NBXplorer/blob/master/docs/Postgres-Migration.md.");
+
 			return this;
 		}
 
@@ -254,14 +224,6 @@ namespace NBXplorer.Configuration
 		{
 			return ChainConfigurations.Any(c => network.CryptoCode == c.CryptoCode);
 		}
-
-#if SUPPORT_DBTRIE
-		public bool CacheChain
-		{
-			get;
-			set;
-		}
-#endif
 		public bool NoAuthentication
 		{
 			get;

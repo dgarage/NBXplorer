@@ -9,7 +9,7 @@ using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace NBXplorer.Backends.Postgres
+namespace NBXplorer.Backend
 {
 	public class DbConnectionHelper : IDisposable, IAsyncDisposable
 	{
@@ -51,15 +51,15 @@ namespace NBXplorer.Backends.Postgres
 			typeMapper.MapComposite<NewOutRaw>("new_out");
 			typeMapper.MapComposite<NewInRaw>("new_in");
 			typeMapper.MapComposite<OutpointRaw>("outpoint");
-			typeMapper.MapComposite<PostgresRepository.DescriptorScriptInsert>("nbxv1_ds");
+			typeMapper.MapComposite<Repository.DescriptorScriptInsert>("nbxv1_ds");
 		}
 
 		public Task<bool> FetchMatches(IEnumerable<Transaction> txs, SlimChainedBlock slimBlock, Money? minUtxoValue)
 		{
 			var outCount = txs.Select(t => t.Outputs.Count).Sum();
-			List<DbConnectionHelper.NewOut> outs = new List<DbConnectionHelper.NewOut>(outCount);
+			List<NewOut> outs = new List<NewOut>(outCount);
 			var inCount = txs.Select(t => t.Inputs.Count).Sum();
-			List<DbConnectionHelper.NewIn> ins = new List<DbConnectionHelper.NewIn>(inCount);
+			List<NewIn> ins = new List<NewIn>(inCount);
 			foreach (var tx in txs)
 			{
 				if (!tx.IsCoinBase)
@@ -67,7 +67,7 @@ namespace NBXplorer.Backends.Postgres
 					int i = 0;
 					foreach (var input in tx.Inputs)
 					{
-						ins.Add(new DbConnectionHelper.NewIn(tx.GetHash(), i, input.PrevOut.Hash, (int)input.PrevOut.N));
+						ins.Add(new NewIn(tx.GetHash(), i, input.PrevOut.Hash, (int)input.PrevOut.N));
 						i++;
 					}
 				}
@@ -77,7 +77,7 @@ namespace NBXplorer.Backends.Postgres
 					io++;
 					if (minUtxoValue != null && output.Value < minUtxoValue)
 						continue;
-					outs.Add(new DbConnectionHelper.NewOut(tx.GetHash(), io, output.ScriptPubKey, output.Value));
+					outs.Add(new NewOut(tx.GetHash(), io, output.ScriptPubKey, output.Value));
 				}
 			}
 
@@ -117,7 +117,7 @@ namespace NBXplorer.Backends.Postgres
 			{
 				ins.Add(new NewInRaw(ni.txId.ToString(), ni.idx, ni.spentTxId.ToString(), ni.spentIdx));
 			}
-			return await Connection.ExecuteScalarAsync<bool>("CALL fetch_matches(@code, @outs, @ins, 'f');", new { code = Network.CryptoCode, outs = outs, ins = ins });
+			return await Connection.ExecuteScalarAsync<bool>("CALL fetch_matches(@code, @outs, @ins, 'f');", new { code = Network.CryptoCode, outs, ins });
 		}
 		public record SaveTransactionRecord(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset? SeenAt)
 		{
@@ -150,7 +150,7 @@ namespace NBXplorer.Backends.Postgres
 
 		public async Task MakeOrphanFrom(int height)
 		{
-			await Connection.ExecuteAsync("UPDATE blks SET confirmed='f' WHERE code=@code AND height >= @height;", new { code = Network.CryptoCode, height = height });
+			await Connection.ExecuteAsync("UPDATE blks SET confirmed='f' WHERE code=@code AND height >= @height;", new { code = Network.CryptoCode, height });
 		}
 
 		public async Task<Dictionary<OutPoint, TxOut>> GetOutputs(IEnumerable<OutPoint> outPoints)
@@ -159,7 +159,7 @@ namespace NBXplorer.Backends.Postgres
 			List<OutpointRaw> rawOutpoints = new List<OutpointRaw>(outpointCount);
 			foreach (var o in outPoints)
 				rawOutpoints.Add(new OutpointRaw(o.Hash.ToString(), o.N));
-			Dictionary <OutPoint, TxOut> result = new Dictionary<OutPoint, TxOut>();
+			Dictionary<OutPoint, TxOut> result = new Dictionary<OutPoint, TxOut>();
 			foreach (var r in await Connection.QueryAsync<(string tx_id, long idx, string script, long value, string asset_id)>(
 				"SELECT o.tx_id, o.idx, o.script, o.value, o.asset_id FROM unnest(@outpoints) outpoints " +
 				"JOIN outs o ON code=@code AND o.tx_id=outpoints.tx_id AND o.idx=outpoints.idx",
@@ -169,7 +169,7 @@ namespace NBXplorer.Backends.Postgres
 					outpoints = rawOutpoints
 				}))
 			{
-				var txout = this.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
+				var txout = Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
 				txout.Value = Money.Satoshis(r.value);
 				txout.ScriptPubKey = Script.FromHex(r.script);
 				result.TryAdd(new OutPoint(uint256.Parse(r.tx_id), (uint)r.idx), txout);
