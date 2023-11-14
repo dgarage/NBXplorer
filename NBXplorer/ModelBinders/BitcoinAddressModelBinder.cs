@@ -3,7 +3,6 @@ using NBitcoin;
 using System.Reflection;
 using System;
 using System.Threading.Tasks;
-using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.ModelBinders
 {

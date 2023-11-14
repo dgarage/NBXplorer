@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Threading.Tasks;
 
 namespace NBXplorer.Analytics
 {
@@ -145,12 +144,6 @@ namespace NBXplorer.Analytics
 				currentRange = nextRange;
 			}
 			throw new NotSupportedException("This should never happen BUG!");
-		}
-		public double GetProbabilityOf(Fingerprint fingerprint)
-		{
-			if (!_FingerprintsCount.TryGetValue(fingerprint, out int count))
-				return 0.0;
-			return (double)count / TotalCount;
 		}
 		public double GetProbabilityOf(params (Fingerprint feature, bool value)[] conditions)
 		{

@@ -1,8 +1,6 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using System.Linq;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Builder;
 using System.Threading.Tasks;

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
 
 namespace NBXplorer
 {
@@ -13,13 +10,6 @@ namespace NBXplorer
 			this.youngToOld = youngToOld;
 		}
 		private static readonly AnnotatedTransactionComparer _Youngness = new AnnotatedTransactionComparer(true);
-		public static AnnotatedTransactionComparer YoungToOld
-		{
-			get
-			{
-				return _Youngness;
-			}
-		}
 		private static readonly AnnotatedTransactionComparer _Oldness = new AnnotatedTransactionComparer(false);
 		public static AnnotatedTransactionComparer OldToYoung
 		{
@@ -28,10 +18,7 @@ namespace NBXplorer
 				return _Oldness;
 			}
 		}
-		public AnnotatedTransactionComparer Inverse()
-		{
-			return this == YoungToOld ? OldToYoung : YoungToOld;
-		}
+
 		public int Compare(AnnotatedTransaction a, AnnotatedTransaction b)
 		{
 			var result = CompareCore(a, b);

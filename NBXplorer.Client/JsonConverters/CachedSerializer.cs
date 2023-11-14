@@ -1,11 +1,8 @@
-﻿using NBitcoin;
-using System.Linq;
-using NBitcoin.JsonConverters;
+﻿using System.Linq;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Threading;
 
 namespace NBXplorer.JsonConverters

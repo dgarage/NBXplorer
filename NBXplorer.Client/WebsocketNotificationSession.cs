@@ -1,10 +1,8 @@
-using NBitcoin;
 using System.Linq;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;

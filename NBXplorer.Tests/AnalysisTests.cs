@@ -3,17 +3,10 @@ using System.Linq;
 using System.IO;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Xunit;
-using System.Runtime.InteropServices;
 using System.Net.Http;
 using Xunit.Abstractions;
-using System.Collections.ObjectModel;
-using System.Text.RegularExpressions;
-using Microsoft.IdentityModel.Tokens;
-using NBitcoin.Crypto;
-using Microsoft.Extensions.DependencyInjection;
 using NBXplorer.Analytics;
 
 namespace NBXplorer.Tests

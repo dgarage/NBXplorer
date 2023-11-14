@@ -1,9 +1,7 @@
 ﻿using NBitcoin;
-using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace NBXplorer
 {
@@ -33,17 +31,7 @@ namespace NBXplorer
 
 
 			TransactionMiniKeyInformation[] _Inputs;
-			public TransactionMiniKeyInformation[] Inputs
-			{
-				get
-				{
-					return _Inputs;
-				}
-				set
-				{
-					_Inputs = value;
-				}
-			}
+			public TransactionMiniKeyInformation[] Inputs => _Inputs;
 
 			public void ReadWrite(BitcoinStream stream)
 			{
@@ -123,17 +111,6 @@ namespace NBXplorer
 
 
 			CoinData[] _CoinsData;
-			CoinData[] CoinsData
-			{
-				get
-				{
-					return _CoinsData;
-				}
-				set
-				{
-					_CoinsData = value;
-				}
-			}
 
 
 			long _TickCount;

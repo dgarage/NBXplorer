@@ -1,20 +1,11 @@
 ﻿using NBitcoin;
-using Microsoft.Extensions.Logging;
-using NBXplorer.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using NBXplorer.Models;
 
 namespace NBXplorer
 {
-	public enum AnnotatedTransactionType
-	{
-		Confirmed,
-		Unconfirmed,
-		Orphan
-	}
 	public class AnnotatedTransaction
 	{
 		public AnnotatedTransaction(long? height, TrackedTransaction record, bool isMature)

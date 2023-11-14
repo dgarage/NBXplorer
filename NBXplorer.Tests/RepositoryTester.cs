@@ -1,17 +1,14 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBXplorer.Backends;
 #if SUPPORT_DBTRIE
 using NBXplorer.Backends.DBTrie;
 #endif
 using NBXplorer.Backends.Postgres;
-using NBXplorer.Configuration;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace NBXplorer.Tests
 {

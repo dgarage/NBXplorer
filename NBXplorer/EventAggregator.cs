@@ -3,15 +3,12 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Threading;
 using NBXplorer.Logging;
 
 namespace NBXplorer
 {
 	public interface IEventAggregatorSubscription : IDisposable
 	{
-		void Unsubscribe();
-		void Resubscribe();
 	}
 	public class EventAggregator : IDisposable
 	{
@@ -53,36 +50,9 @@ namespace NBXplorer
 				}
 			}
 
-			public void Resubscribe()
-			{
-				aggregator.Subscribe(t, this);
-			}
-
 			public void Unsubscribe()
 			{
 				Dispose();
-			}
-		}
-		public Task<T> WaitNext<T>(CancellationToken cancellation = default)
-		{
-			return WaitNext<T>(o => true, cancellation);
-		}
-		public async Task<T> WaitNext<T>(Func<T, bool> predicate, CancellationToken cancellation = default)
-		{
-			TaskCompletionSource<T> tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-			var subscription = Subscribe<T>((a, b) => {
-				if(predicate(b))
-				{
-					tcs.TrySetResult(b);
-					a.Unsubscribe();
-				}
-			});
-			using(cancellation.Register(() => {
-				tcs.TrySetCanceled();
-				subscription.Unsubscribe();
-			}))
-			{
-				return await tcs.Task.ConfigureAwait(false);
 			}
 		}
 
@@ -139,16 +109,6 @@ namespace NBXplorer
 		Dictionary<Type, Dictionary<Subscription, Action<object>>> _Subscriptions = new Dictionary<Type, Dictionary<Subscription, Action<object>>>();
 
 		public ILogger Logger { get; }
-
-		public IEventAggregatorSubscription Subscribe<T, TReturn>(Func<T, TReturn> subscription)
-		{
-			return Subscribe(new Action<T>((t) => subscription(t)));
-		}
-
-		public IEventAggregatorSubscription Subscribe<T, TReturn>(Func<IEventAggregatorSubscription, T, TReturn> subscription)
-		{
-			return Subscribe(new Action<IEventAggregatorSubscription, T>((sub, t) => subscription(sub, t)));
-		}
 
 		public IEventAggregatorSubscription Subscribe<T>(Action<T> subscription)
 		{

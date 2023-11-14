@@ -1,16 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
-using NBXplorer.Logging;
 using NBXplorer.ModelBinders;
 using NBXplorer.Models;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using NBitcoin.RPC;
 using NBXplorer.Analytics;

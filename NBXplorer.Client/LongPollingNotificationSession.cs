@@ -1,13 +1,11 @@
 ﻿using System;
 using System.Linq;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
 using NBXplorer.Models;
-using System.Collections.Concurrent;
 
 namespace NBXplorer
 {

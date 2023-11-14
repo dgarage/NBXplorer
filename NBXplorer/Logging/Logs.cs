@@ -1,9 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace NBXplorer.Logging
 {
@@ -31,7 +28,6 @@ namespace NBXplorer.Logging
 		{
 			get; set;
 		}
-		public const int ColumnLength = 16;
 	}
 
 	public class FuncLoggerFactory : ILoggerFactory

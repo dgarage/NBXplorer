@@ -2,8 +2,6 @@
 using NBXplorer.DerivationStrategy;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace NBXplorer
 {

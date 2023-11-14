@@ -1,6 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using NBitcoin;
-using NBXplorer.Models;
 using System.Threading.Tasks;
 
 namespace NBXplorer

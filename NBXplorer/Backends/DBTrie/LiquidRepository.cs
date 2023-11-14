@@ -8,8 +8,6 @@ using NBitcoin.Altcoins.Elements;
 using NBXplorer.Altcoins.Liquid;
 using NBitcoin.RPC;
 using NBXplorer.Models;
-using System;
-using NBXplorer.DerivationStrategy;
 
 namespace NBXplorer.Backends.DBTrie
 {
@@ -156,17 +154,8 @@ namespace NBXplorer.Backends.DBTrie
 
 
 			List<UnblindData> _UnblindData = new List<UnblindData>();
-			internal List<UnblindData> Unblind
-			{
-				get
-				{
-					return _UnblindData;
-				}
-				set
-				{
-					_UnblindData = value;
-				}
-			}
+			internal List<UnblindData> Unblind => _UnblindData;
+
 			public ElementsTransactionMatchData(TrackedTransactionKey key) : base(key)
 			{
 

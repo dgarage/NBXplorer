@@ -8,7 +8,6 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using NBitcoin;
-using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;

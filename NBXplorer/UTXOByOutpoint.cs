@@ -1,9 +1,6 @@
 ﻿using NBitcoin;
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace NBXplorer
 {
@@ -19,7 +16,7 @@ namespace NBXplorer
 		{
 			_Inner = new Dictionary<OutPoint, ICoin>();
 		}
-		public int Count => _Inner.Count;
+
 		internal bool ContainsKey(OutPoint outpoint)
 		{
 			return _Inner.ContainsKey(outpoint);

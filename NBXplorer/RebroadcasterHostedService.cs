@@ -1,11 +1,8 @@
 ﻿using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using NBitcoin;
-using NBitcoin.RPC;
 using NBXplorer.Backends;
 using NBXplorer.Configuration;
 using NBXplorer.Events;
-using NBXplorer.Logging;
 using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
@@ -126,16 +123,6 @@ namespace NBXplorer
 			if (network == null)
 				throw new ArgumentNullException(nameof(network));
 			_BroadcastedTransactionsByCryptoCode[network].RebroadcastPeriodically(trackedSource, txIds);
-		}
-
-		public async Task RebroadcastPeriodically(NBXplorerNetwork network, TrackedSource trackedSource, params uint256[] txIds)
-		{
-			List<TrackedTransactionKey> keys = new List<TrackedTransactionKey>();
-			foreach (var txId in txIds)
-			{
-				keys.AddRange((await _Repositories.GetRepository(network).GetTransactions(trackedSource, txId)).Select(k => k.Key));
-			}
-			RebroadcastPeriodically(network, trackedSource, keys.ToArray());
 		}
 
 		private async Task RebroadcastLoop(CancellationToken cancellationToken)

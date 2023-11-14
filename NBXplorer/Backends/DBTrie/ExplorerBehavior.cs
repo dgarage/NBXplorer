@@ -6,18 +6,9 @@ using NBitcoin;
 using NBitcoin.Protocol;
 using NBitcoin.Protocol.Behaviors;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Threading;
-using System.Collections.Concurrent;
 using System.Threading.Tasks;
-using NBitcoin.Crypto;
-using NBXplorer.DerivationStrategy;
-using System.Net.Http;
 using NBXplorer.Models;
-using NBXplorer.Events;
-using NBXplorer.Configuration;
-using Microsoft.AspNetCore.Mvc.Formatters;
 
 namespace NBXplorer.Backends.DBTrie
 {

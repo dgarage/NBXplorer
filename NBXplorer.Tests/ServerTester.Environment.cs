@@ -1,7 +1,4 @@
 using NBitcoin.Tests;
-using System;
-using System.Collections.Generic;
-using System.Text;
 using NBitcoin;
 
 namespace NBXplorer.Tests

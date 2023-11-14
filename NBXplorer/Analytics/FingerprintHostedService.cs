@@ -1,7 +1,5 @@
 ﻿using Microsoft.Extensions.Hosting;
-using NBitcoin;
 using NBXplorer.Backends;
-using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;

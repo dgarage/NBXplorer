@@ -1,16 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.ServiceBus;
-using Microsoft.Azure.ServiceBus.Core;
+﻿using Microsoft.Azure.ServiceBus;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NBXplorer.Configuration;
-using NBXplorer.Logging;
-using Newtonsoft.Json;
 using RabbitMQ.Client;
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 

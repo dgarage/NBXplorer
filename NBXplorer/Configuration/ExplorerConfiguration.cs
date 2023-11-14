@@ -2,16 +2,12 @@ using System;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Collections.Generic;
-using System.Text;
 using NBitcoin;
 using System.IO;
 using System.Net;
 using NBXplorer.Logging;
-using NBitcoin.Protocol;
-using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Ini;
 
 namespace NBXplorer.Configuration
 {
@@ -58,11 +54,6 @@ namespace NBXplorer.Configuration
 	}
 	public class ExplorerConfiguration
 	{
-		public string ConfigurationFile
-		{
-			get;
-			set;
-		}
 		public string BaseDataDir
 		{
 			get;
@@ -77,11 +68,6 @@ namespace NBXplorer.Configuration
 		public NBXplorerNetworkProvider NetworkProvider
 		{
 			get; set;
-		}
-		public RPCArgs RPC
-		{
-			get;
-			set;
 		}
 		public int MinGapSize
 		{

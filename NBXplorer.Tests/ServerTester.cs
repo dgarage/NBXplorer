@@ -6,26 +6,18 @@ using NBitcoin;
 using NBitcoin.Tests;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Server.Kestrel;
-using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using NBitcoin.RPC;
 using System.Net;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.Extensions.Configuration;
-using NBXplorer.Logging;
 using NBXplorer.DerivationStrategy;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
-using NBitcoin.Altcoins.Elements;
 using NBitcoin.Scripting;
 
 namespace NBXplorer.Tests

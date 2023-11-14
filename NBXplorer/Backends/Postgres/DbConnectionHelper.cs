@@ -1,19 +1,12 @@
 ﻿#nullable enable
 using Dapper;
-using Microsoft.Extensions.Logging;
 using NBitcoin;
-using NBitcoin.DataEncoders;
-using NBXplorer.Configuration;
 using NBXplorer.DerivationStrategy;
-using NBXplorer.Logging;
-using NBXplorer.Models;
-using Npgsql;
 using Npgsql.TypeMapping;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace NBXplorer.Backends.Postgres
@@ -61,10 +54,6 @@ namespace NBXplorer.Backends.Postgres
 			typeMapper.MapComposite<PostgresRepository.DescriptorScriptInsert>("nbxv1_ds");
 		}
 
-		public class FetchOptions
-		{
-			public Money? MinUtxoValue { get; set; }
-		}
 		public Task<bool> FetchMatches(IEnumerable<Transaction> txs, SlimChainedBlock slimBlock, Money? minUtxoValue)
 		{
 			var outCount = txs.Select(t => t.Outputs.Count).Sum();
