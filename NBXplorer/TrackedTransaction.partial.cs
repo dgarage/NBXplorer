@@ -31,17 +31,7 @@ namespace NBXplorer
 
 
 			TransactionMiniKeyInformation[] _Inputs;
-			public TransactionMiniKeyInformation[] Inputs
-			{
-				get
-				{
-					return _Inputs;
-				}
-				set
-				{
-					_Inputs = value;
-				}
-			}
+			public TransactionMiniKeyInformation[] Inputs => _Inputs;
 
 			public void ReadWrite(BitcoinStream stream)
 			{
@@ -121,17 +111,6 @@ namespace NBXplorer
 
 
 			CoinData[] _CoinsData;
-			CoinData[] CoinsData
-			{
-				get
-				{
-					return _CoinsData;
-				}
-				set
-				{
-					_CoinsData = value;
-				}
-			}
 
 
 			long _TickCount;

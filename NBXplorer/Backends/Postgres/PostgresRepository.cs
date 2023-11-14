@@ -490,14 +490,6 @@ namespace NBXplorer.Backends.Postgres
 			return BitcoinAddress.Create(r.addr, Network.NBitcoinNetwork);
 		}
 
-		internal LegacyDescriptorMetadata GetDescriptorMetadata(string str)
-		{
-			var o = JObject.Parse(str);
-			if (o["type"].Value<string>() != LegacyDescriptorMetadata.TypeName)
-				return null;
-			return this.Serializer.ToObject<LegacyDescriptorMetadata>(o);
-		}
-
 		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
 
 		record ScriptPubKeyQuery(string code, string id);
@@ -1216,23 +1208,6 @@ namespace NBXplorer.Backends.Postgres
 
 			foreach (var p in highestKeyIndexFound.Where(k => k.Value is not null))
 				await GenerateAddresses(trackedSource.DerivationStrategy, p.Key);
-		}
-
-		public async Task NewBlock(SlimChainedBlock newTip)
-		{
-			await using var conn = await GetConnection();
-			await conn.NewBlock(newTip);
-		}
-
-		public async Task NewBlockCommit(uint256 blockHash)
-		{
-			await using var conn = await GetConnection();
-			await conn.Connection.ExecuteAsync("UPDATE blks SET confirmed='t' WHERE blk_id=@blk_id AND confirmed IS FALSE;",
-				new
-				{
-					code = Network.CryptoCode,
-					blk_id = blockHash.ToString()
-				});
 		}
 
 		public async Task<SlimChainedBlock> GetTip()

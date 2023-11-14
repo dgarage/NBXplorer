@@ -52,16 +52,6 @@ namespace NBXplorer.Logging
 			_newLineWithMessagePadding = Environment.NewLine + _messagePadding;
 		}
 
-		public CustomerConsoleLogger(string name, Func<string, LogLevel, bool> filter, bool includeScopes)
-			: this(name, filter, includeScopes ? new LoggerExternalScopeProvider() : null, new ConsoleLoggerProcessor())
-		{
-		}
-
-		internal CustomerConsoleLogger(string name, Func<string, LogLevel, bool> filter, IExternalScopeProvider scopeProvider)
-			: this(name, filter, scopeProvider, new ConsoleLoggerProcessor())
-		{
-		}
-
 		internal CustomerConsoleLogger(string name, Func<string, LogLevel, bool> filter, IExternalScopeProvider scopeProvider, ConsoleLoggerProcessor loggerProcessor)
 		{
 			if(name == null)
@@ -86,10 +76,6 @@ namespace NBXplorer.Logging
 
 		public IConsole Console
 		{
-			get
-			{
-				return _queueProcessor.Console;
-			}
 			set
 			{
 				if(value == null)
@@ -331,11 +317,6 @@ namespace NBXplorer.Logging
 			public void Write(string message)
 			{
 				System.Console.Write(message);
-			}
-
-			public void WriteLine(string message)
-			{
-				System.Console.WriteLine(message);
 			}
 		}
 	}

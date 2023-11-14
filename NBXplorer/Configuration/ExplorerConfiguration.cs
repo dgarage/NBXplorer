@@ -54,11 +54,6 @@ namespace NBXplorer.Configuration
 	}
 	public class ExplorerConfiguration
 	{
-		public string ConfigurationFile
-		{
-			get;
-			set;
-		}
 		public string BaseDataDir
 		{
 			get;
@@ -73,11 +68,6 @@ namespace NBXplorer.Configuration
 		public NBXplorerNetworkProvider NetworkProvider
 		{
 			get; set;
-		}
-		public RPCArgs RPC
-		{
-			get;
-			set;
 		}
 		public int MinGapSize
 		{

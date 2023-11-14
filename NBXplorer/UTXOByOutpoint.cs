@@ -16,7 +16,7 @@ namespace NBXplorer
 		{
 			_Inner = new Dictionary<OutPoint, ICoin>();
 		}
-		public int Count => _Inner.Count;
+
 		internal bool ContainsKey(OutPoint outpoint)
 		{
 			return _Inner.ContainsKey(outpoint);

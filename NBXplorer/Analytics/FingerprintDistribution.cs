@@ -145,12 +145,6 @@ namespace NBXplorer.Analytics
 			}
 			throw new NotSupportedException("This should never happen BUG!");
 		}
-		public double GetProbabilityOf(Fingerprint fingerprint)
-		{
-			if (!_FingerprintsCount.TryGetValue(fingerprint, out int count))
-				return 0.0;
-			return (double)count / TotalCount;
-		}
 		public double GetProbabilityOf(params (Fingerprint feature, bool value)[] conditions)
 		{
 			ulong mask = 0UL;

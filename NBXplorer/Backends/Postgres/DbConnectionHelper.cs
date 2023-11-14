@@ -54,10 +54,6 @@ namespace NBXplorer.Backends.Postgres
 			typeMapper.MapComposite<PostgresRepository.DescriptorScriptInsert>("nbxv1_ds");
 		}
 
-		public class FetchOptions
-		{
-			public Money? MinUtxoValue { get; set; }
-		}
 		public Task<bool> FetchMatches(IEnumerable<Transaction> txs, SlimChainedBlock slimBlock, Money? minUtxoValue)
 		{
 			var outCount = txs.Select(t => t.Outputs.Count).Sum();

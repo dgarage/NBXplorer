@@ -30,11 +30,7 @@ namespace NBXplorer.Configuration
 			get; set;
 		}
 		public string DefaultWallet { get; set; }
-		public bool NoTest
-		{
-			get;
-			set;
-		}
+
 		public string AuthenticationString
 		{
 			get;
@@ -156,15 +152,6 @@ namespace NBXplorer.Configuration
 				   ex.Message.Contains("Rewinding blocks...") ||
 				   ex.Message.Contains("Verifying blocks...") ||
 				   ex.Message.Contains("Loading addresses...");
-		}
-
-		public static void CheckNetwork(Network network, RPCClient rpcClient)
-		{
-			if(network.GenesisHash != null && rpcClient.GetBlockHash(0) != network.GenesisHash)
-			{
-				Logs.Configuration.LogError("The RPC server is not using the chain " + network.Name);
-				throw new ConfigException();
-			}
 		}
 
 		public static RPCArgs Parse(IConfiguration confArgs, Network network, string prefix = null)

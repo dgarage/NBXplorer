@@ -154,17 +154,8 @@ namespace NBXplorer.Backends.DBTrie
 
 
 			List<UnblindData> _UnblindData = new List<UnblindData>();
-			internal List<UnblindData> Unblind
-			{
-				get
-				{
-					return _UnblindData;
-				}
-				set
-				{
-					_UnblindData = value;
-				}
-			}
+			internal List<UnblindData> Unblind => _UnblindData;
+
 			public ElementsTransactionMatchData(TrackedTransactionKey key) : base(key)
 			{
 

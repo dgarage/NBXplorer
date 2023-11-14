@@ -322,10 +322,6 @@ namespace NBXplorer.Backends.DBTrie
 				await table.Delete(key);
 			}
 
-			public async ValueTask Insert(int index, ReadOnlyMemory<byte> value)
-			{
-				await table.Insert($"{index:D10}", value);
-			}
 			public async ValueTask Insert(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value)
 			{
 				await (table).Insert(key, value);
@@ -835,11 +831,6 @@ namespace NBXplorer.Backends.DBTrie
 
 		class TimeStampedTransaction : IBitcoinSerializable
 		{
-
-			public TimeStampedTransaction()
-			{
-
-			}
 			public TimeStampedTransaction(Network network, ReadOnlyMemory<byte> hex)
 			{
 				var segment = DBTrieLib.DBTrie.PublicExtensions.GetUnderlyingArraySegment(hex);
@@ -854,31 +845,11 @@ namespace NBXplorer.Backends.DBTrie
 				_Transaction = tx;
 			}
 			NBitcoin.Transaction _Transaction;
-			public NBitcoin.Transaction Transaction
-			{
-				get
-				{
-					return _Transaction;
-				}
-				set
-				{
-					_Transaction = value;
-				}
-			}
+			public NBitcoin.Transaction Transaction => _Transaction;
 
 
 			ulong _TimeStamp = 0;
-			public ulong TimeStamp
-			{
-				get
-				{
-					return _TimeStamp;
-				}
-				set
-				{
-					_TimeStamp = value;
-				}
-			}
+			public ulong TimeStamp => _TimeStamp;
 
 			public void ReadWrite(BitcoinStream stream)
 			{

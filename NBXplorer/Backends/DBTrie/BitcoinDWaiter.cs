@@ -98,14 +98,6 @@ namespace NBXplorer.Backends.DBTrie
 			return GetWaiter(network)?.RPC;
 		}
 
-		public RPCClient GetAvailableRPCClient(NBXplorerNetwork network)
-		{
-			var waiter = GetWaiter(network);
-			if (!waiter.RPCAvailable)
-				return null;
-			return waiter.RPC;
-		}
-
 		public IIndexer GetIndexer(NBXplorerNetwork network)
 		{
 			return GetWaiter(network);
@@ -149,12 +141,6 @@ namespace NBXplorer.Backends.DBTrie
 			_ChainConfiguration = _Configuration.ChainConfigurations.First(c => c.CryptoCode == _Network.CryptoCode);
 			_ExplorerPrototype = new ExplorerBehavior(repository, chain, addressPoolService, eventAggregator) { StartHeight = _ChainConfiguration.StartHeight };
 		}
-		public NodeState NodeState
-		{
-			get;
-			private set;
-		}
-
 		private Node _Node;
 
 
@@ -648,13 +634,6 @@ namespace NBXplorer.Backends.DBTrie
 
 		bool _Disposed = false;
 
-		public bool Connected
-		{
-			get
-			{
-				return GetHandshakedNode() != null;
-			}
-		}
 
 		public GetNetworkInfoResponse NetworkInfo { get; internal set; }
 

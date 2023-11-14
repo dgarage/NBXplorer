@@ -793,7 +793,6 @@ namespace NBXplorer.Controllers
 			var result = await repo.GetMetadata<JToken>(trackedSource, key);
 			return result == null ? (IActionResult)NotFound() : Json(result, repo.Serializer.Settings);
 		}
-		Encoding UTF8 = new UTF8Encoding(false);
 
 
 		[HttpPost]

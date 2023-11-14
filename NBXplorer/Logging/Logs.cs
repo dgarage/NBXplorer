@@ -28,7 +28,6 @@ namespace NBXplorer.Logging
 		{
 			get; set;
 		}
-		public const int ColumnLength = 16;
 	}
 
 	public class FuncLoggerFactory : ILoggerFactory

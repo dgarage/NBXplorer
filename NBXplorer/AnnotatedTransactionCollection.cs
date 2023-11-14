@@ -6,12 +6,6 @@ using NBXplorer.Models;
 
 namespace NBXplorer
 {
-	public enum AnnotatedTransactionType
-	{
-		Confirmed,
-		Unconfirmed,
-		Orphan
-	}
 	public class AnnotatedTransaction
 	{
 		public AnnotatedTransaction(long? height, TrackedTransaction record, bool isMature)
