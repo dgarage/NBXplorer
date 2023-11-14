@@ -19,12 +19,8 @@ using NBXplorer.Logging;
 using Microsoft.AspNetCore.Authentication;
 using NBXplorer.Authentication;
 using NBXplorer.Configuration;
-#if NETCOREAPP21
-using IWebHostEnvironment = Microsoft.AspNetCore.Hosting.IHostingEnvironment;
-#else
 using Newtonsoft.Json.Serialization;
 using Microsoft.Extensions.Hosting;
-#endif
 
 namespace NBXplorer
 {
@@ -49,16 +45,12 @@ namespace NBXplorer
 			services.AddNBXplorer(Configuration);
 			services.ConfigureNBxplorer(Configuration);
 			var builder = services.AddMvcCore();
-#if NETCOREAPP21
-			builder.AddJsonFormatters();
-#else
 			services.AddHealthChecks().AddCheck<HealthChecks.NodesHealthCheck>("NodesHealthCheck");
 			builder.AddNewtonsoftJson(options =>
 			{
 				options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
 				new Serializer(null).ConfigureSerializer(options.SerializerSettings);
 			});
-#endif
 			builder.AddMvcOptions(o => o.InputFormatters.Add(new NoContentTypeInputFormatter()))
 			.AddAuthorization()
 			.AddFormatterMappings();
@@ -86,18 +78,11 @@ namespace NBXplorer
 					await next();
 				});
 			}
-#if !NETCOREAPP21
 			app.UseRouting();
-#endif
 			app.UseAuthentication();
-#if !NETCOREAPP21
 			app.UseAuthorization();
-#endif
 			app.UseWebSockets();
 			//app.UseMiddleware<LogAllRequestsMiddleware>();
-#if NETCOREAPP21
-			app.UseMvc();
-#else
 			app.UseEndpoints(endpoints =>
 			{
 				endpoints.MapHealthChecks("health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions()
@@ -106,7 +91,6 @@ namespace NBXplorer
 				});
 				endpoints.MapControllers();
 			});
-#endif
 		}
 	}
 }

@@ -117,15 +117,6 @@ namespace NBXplorer
 			}
 			return keyPathInformation;
 		}
-#if NETCOREAPP21
-		class MVCConfigureOptions : IConfigureOptions<MvcJsonOptions>
-		{
-			public void Configure(MvcJsonOptions options)
-			{
-				new Serializer(null).ConfigureSerializer(options.SerializerSettings);
-			}
-		}
-#endif
 
 		public class ConfigureCookieFileBasedConfiguration : IConfigureNamedOptions<BasicAuthenticationOptions>
 		{
@@ -171,12 +162,7 @@ namespace NBXplorer
 				mvc.Filters.Add(new NBXplorerExceptionFilter());
 			});
 
-#if NETCOREAPP21
-			services.AddSingleton<IConfigureOptions<MvcJsonOptions>, MVCConfigureOptions>();
-			services.AddSingleton<MvcNewtonsoftJsonOptions>();
-#else
 			services.AddSingleton<MvcNewtonsoftJsonOptions>(o =>  o.GetRequiredService<IOptions<MvcNewtonsoftJsonOptions>>().Value);
-#endif
 
 			services.TryAddSingleton<CookieRepository>();
 			services.TryAddSingleton<Broadcaster>();
