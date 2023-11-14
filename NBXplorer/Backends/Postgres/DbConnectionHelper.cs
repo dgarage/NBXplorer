@@ -130,9 +130,15 @@ namespace NBXplorer.Backends.Postgres
 			}
 			return await Connection.ExecuteScalarAsync<bool>("CALL fetch_matches(@code, @outs, @ins, 'f');", new { code = Network.CryptoCode, outs = outs, ins = ins });
 		}
-		public async Task SaveTransactions(IEnumerable<(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool immature, DateTimeOffset? SeenAt)> transactions)
+		public record SaveTransactionRecord(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset? SeenAt)
 		{
-			var parameters = transactions.Select(tx =>
+			public static SaveTransactionRecord Create(TrackedTransaction t) => new SaveTransactionRecord(t.Transaction, t.TransactionHash, t.BlockHash, t.BlockIndex, t.BlockHeight, t.IsCoinBase, new DateTimeOffset?(t.FirstSeen));
+		}
+		public async Task SaveTransactions(IEnumerable<SaveTransactionRecord> transactions)
+		{
+			var parameters = transactions
+				.DistinctBy(o => o.Id)
+				.Select(tx =>
 			new
 			{
 				code = Network.CryptoCode,
@@ -143,7 +149,7 @@ namespace NBXplorer.Backends.Postgres
 				seen_at = tx.SeenAt,
 				blk_idx = tx.BlockIndex is int i ? i : 0,
 				blk_height = tx.BlockHeight,
-				immature = tx.immature
+				immature = tx.Immature
 			})
 			.Where(o => o.id is not null)
 			.ToArray();
