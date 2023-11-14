@@ -153,11 +153,27 @@ namespace NBXplorer.Controllers
 					txBuilder.SetLockTime(new LockTime(0));
 				}
 			}
-			var utxos = (await utxoService.GetUTXOs(network.CryptoCode, strategy)).As<UTXOChanges>().GetUnspentUTXOs(request.MinConfirmations);
+			var utxoChanges = (await utxoService.GetUTXOs(network.CryptoCode, strategy)).As<UTXOChanges>();
+			var utxos = utxoChanges.GetUnspentUTXOs(request.MinConfirmations);
 			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)
 			{
 				var includeOnlyOutpoints = request.IncludeOnlyOutpoints.ToHashSet();
+				// IncludeOnlyOutpoints has the ability to include UTXOs that are spent by unconfirmed UTXOs
+				{
+					// We need to add the unconfirmed utxos that are spent by unconfirmed utxos
+					foreach (var u in utxoChanges.SpentUnconfirmed)
+					{
+						availableCoinsByOutpoint.TryAdd(u.Outpoint, u);
+					}
+					// We need to add the confirmed utxos that are spent by unconfirmed utxos
+					var spentConfs = utxoChanges.Unconfirmed.SpentOutpoints.Select(o => o.Hash).ToHashSet();
+					foreach (var u in utxoChanges.Confirmed.UTXOs)
+					{
+						if (spentConfs.Contains(u.Outpoint.Hash))
+							availableCoinsByOutpoint.TryAdd(u.Outpoint, u);
+					}
+				}
 				availableCoinsByOutpoint = availableCoinsByOutpoint.Where(c => includeOnlyOutpoints.Contains(c.Key)).ToDictionary(o => o.Key, o => o.Value);
 			}
 
@@ -304,6 +320,8 @@ namespace NBXplorer.Controllers
 						txBuilder.SendEstimatedFees(fallbackFeeRate);
 					}
 				}
+				if (request.SpendAllMatchingOutpoints is true)
+					txBuilder.SendAllRemainingToChange();
 				psbt = txBuilder.BuildPSBT(false);
 				hasChange = psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
 			}

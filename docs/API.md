@@ -555,11 +555,32 @@ Result:
     "spentOutpoints": [
       "9345f9585d643a31202e686ec7a4c2fe17917a5e7731a79d2327d24d25c0339f01000000"
     ],
+    "spentUnconfirmed": [
+    {
+      "feature": "Deposit",
+      "outpoint": "c8fd6675624d0b88056b9eaf945c5fd0c4614f7ddf44eb81911b3a66ba0e57a001000000",
+      "index": 1,
+      "transactionHash": "a0570eba663a1b9181eb44df7d4f61c4d05f5c94af9e6b05880b4d627566fdc8",
+      "scriptPubKey": "0014d77089591a85fa3a91e14f587c50e4b777ffd833",
+      "address": "bcrt1q6acgjkg6shar4y0pfav8c58ykamllkpnz6rnxh",
+      "value": 100000,
+      "keyPath": "0/0",
+      "timestamp": 1699930040,
+      "confirmations": 0
+    }
+    ],
     "hasChanges": true
   },
   "hasChanges": true
 }
 ```
+
+Response:
+* `confirmed.utxOs`: UTXOs that are confirmed. (UTXO spent by an unconfirmed transaction are also included)
+* `unconfirmed.spentOutpoints`: Always empty.
+* `unconfirmed.utxOs`: UTXOs that will be confirmed once the unconfirmed transactions are confirmed.
+* `unconfirmed.spentOutpoints`: Confirmed UTXOs that will spent once the transactions are confirmed.
+* `spentUnconfirmed`: UTXOs that are spent by an unconfirmed transaction.
 
 This call does not returns conflicted unconfirmed UTXOs.
 Note that confirmed utxo, do not include immature UTXOs. (ie. UTXOs belonging to a coinbase transaction with less than 100 confirmations)
@@ -1010,6 +1031,7 @@ Fields:
   },
   "discourageFeeSniping": true,
   "reserveChangeAddress": false,
+  "spendAllMatchingOutpoints": false,
   "minConfirmations": 0,
   "excludeOutpoints": [
     "7c02d7d6923ab5e9bbdadf7cf6873a5454ae5aa86d15308ed8d68840a79cf644-1",
@@ -1035,9 +1057,10 @@ Fields:
 * `includeGlobalXPub`: Optional. Whether or not to include the global xpubs of the derivation scheme in the PSBT. (default: false)
 * `rbf`: Optional, determine if the transaction should have Replace By Fee (RBF) activated (default: `true`, if `disableFingerprintRandomization` is `true`)
 * `reserveChangeAddress`: default to false, whether the creation of this PSBT will reserve a new change address.
+* `spendAllMatchingOutpoints`: If `true`, all the UTXOs that have been selected will be used as input in the PSBT. (default to false)
 * `explicitChangeAddress`: default to null, use a specific change address (Optional, mutually exclusive with reserveChangeAddress)
 * `minConfirmations`: default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
-* `includeOnlyOutpoints`: Only select the following outpoints for creating the PSBT (default to null)
+* `includeOnlyOutpoints`: Only select the following outpoints for creating the PSBT. Note that it can also select outpoints that has been already spent, but where the spending is unconfirmed, so it can be used for RBF. (default to null)
 * `excludeOutpoints`: Do not select the following outpoints for creating the PSBT (default to empty)
 * `minValue`: UTXO's with value below this amount will be ignored (default to null)
 * `destinations`: Required, the destinations where to send the money

@@ -187,11 +187,15 @@ namespace NBXplorer.Controllers
 				}
 				u.Address = utxo.address is null ? u.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : BitcoinAddress.Create(utxo.address, network.NBitcoinNetwork);
 				if (!utxo.mempool)
+				{
 					changes.Confirmed.UTXOs.Add(u);
+					if (utxo.input_mempool)
+						changes.Unconfirmed.SpentOutpoints.Add(u.Outpoint);
+				}
 				else if (!utxo.input_mempool)
 					changes.Unconfirmed.UTXOs.Add(u);
-				if (utxo.input_mempool && !utxo.mempool)
-					changes.Unconfirmed.SpentOutpoints.Add(u.Outpoint);
+				else // (utxo.mempool && utxo.input_mempool)
+					changes.SpentUnconfirmed.Add(u);
 			}
 			return Json(changes, network.JsonSerializerSettings);
 		}

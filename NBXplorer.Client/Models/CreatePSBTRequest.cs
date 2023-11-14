@@ -64,6 +64,11 @@ namespace NBXplorer.Models
 		public List<OutPoint> IncludeOnlyOutpoints { get; set; }
 
 		/// <summary>
+		/// If `true`, all the UTXOs that have been selected will be used as input in the PSBT. (default to false)
+		/// </summary>
+		public bool? SpendAllMatchingOutpoints { get; set; }
+
+		/// <summary>
 		/// Use a specific change address (Optional, default: null, mutually exclusive with ReserveChangeAddress)
 		/// </summary>
 		public BitcoinAddress ExplicitChangeAddress { get; set; }

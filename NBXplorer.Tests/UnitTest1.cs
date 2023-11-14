@@ -478,6 +478,30 @@ namespace NBXplorer.Tests
 			tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
 			utxos = tester.Client.GetUTXOs(userDerivationScheme);
 
+			Logs.Tester.LogInformation("Let's check that if we can select all coins");
+			{
+				var req = new CreatePSBTRequest()
+				{
+					Destinations =
+					{
+						new CreatePSBTDestination()
+						{
+							Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
+							Amount = Money.Coins(0.5m)
+						}
+					},
+					FeePreference = new FeePreference()
+					{
+						ExplicitFee = Money.Coins(0.00001m),
+					}
+				};
+				var minimumInputs = tester.Client.CreatePSBT(userDerivationScheme, req);
+				req.SpendAllMatchingOutpoints = true;
+				var spendAllOutpoints = tester.Client.CreatePSBT(userDerivationScheme, req);
+				Assert.Single(minimumInputs.PSBT.Inputs);
+				Assert.Equal(2, spendAllOutpoints.PSBT.Inputs.Count);
+			}
+
 			utxos = tester.Client.GetUTXOs(userDerivationScheme);
 			Assert.Equal(2, utxos.GetUnspentCoins().Length);
 			for (int i = 0; i < 3; i++)
@@ -1023,7 +1047,68 @@ namespace NBXplorer.Tests
 					Assert.NotNull(psbtInput.NonWitnessUtxo);
 				}
 			}
+		}
 
+		[TheoryWithTimeout]
+		[InlineData(true)]
+		[InlineData(false)]
+		public void CanDoubleSpend(bool onConfirmedUTXO)
+		{
+			using var tester = ServerTester.Create(Backend.Postgres);
+			var bobW = tester.Client.GenerateWallet(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Segwit });
+			var bob = bobW.DerivationScheme;
+			var bobAddr = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+
+
+			var aId = tester.RPC.SendToAddress(bobAddr.ScriptPubKey, Money.Satoshis(100_000), new SendToAddressParameters() { Replaceable = true });
+			var a = tester.Notifications.WaitForTransaction(bob, aId);
+			var aIdx = a.TransactionData.Transaction.Outputs.FindIndex(o => o.ScriptPubKey == bobAddr.ScriptPubKey);
+			var bobOutpoint = new OutPoint(aId, aIdx);
+			if (onConfirmedUTXO)
+			{
+				tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+			}
+			var psbt = tester.Client.CreatePSBT(bob, new CreatePSBTRequest()
+			{
+				Destinations =
+				{
+					new CreatePSBTDestination()
+					{
+						Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
+						Amount = Money.Satoshis(50_000)
+					}
+				},
+				FeePreference = new FeePreference() { ExplicitFee = Money.Satoshis(500) },
+				RBF = true
+			}).PSBT;
+
+			psbt = psbt.SignAll(ScriptPubKeyType.Segwit, bobW.AccountHDKey, bobW.AccountKeyPath);
+			psbt.Finalize();
+			tester.Client.Broadcast(psbt.ExtractTransaction());
+
+			var utxos = tester.Client.GetUTXOs(bob);
+			if (onConfirmedUTXO)
+				Assert.Empty(utxos.SpentUnconfirmed);
+			else
+				Assert.Equal(bobOutpoint, Assert.Single(utxos.SpentUnconfirmed).Outpoint);
+
+			var replacement = psbt = tester.Client.CreatePSBT(bob, new CreatePSBTRequest()
+			{
+				Destinations =
+				{
+					new CreatePSBTDestination()
+					{
+						Destination = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network),
+						Amount = Money.Satoshis(40_000)
+					}
+				},
+				IncludeOnlyOutpoints = new List<OutPoint>() { bobOutpoint },
+				FeePreference = new FeePreference() { ExplicitFee = Money.Satoshis(2000) },
+				RBF = true
+			}).PSBT;
+
+			Assert.Equal(replacement.Inputs[0].GetCoin().Outpoint, bobOutpoint);
+			Assert.Equal(psbt.Inputs[0].GetCoin().Outpoint, bobOutpoint);
 		}
 
 		[TheoryWithTimeout]
@@ -1039,8 +1124,7 @@ namespace NBXplorer.Tests
 
 			var bobW = tester.Client.GenerateWallet();
 			var bob = bobW.DerivationScheme;
-			tester.Client.Track(bob);
-
+			
 			var bobAddr = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 			var bobAddr1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 1);
 
