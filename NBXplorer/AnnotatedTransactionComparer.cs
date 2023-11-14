@@ -9,7 +9,6 @@ namespace NBXplorer
 		{
 			this.youngToOld = youngToOld;
 		}
-		private static readonly AnnotatedTransactionComparer _Youngness = new AnnotatedTransactionComparer(true);
 		private static readonly AnnotatedTransactionComparer _Oldness = new AnnotatedTransactionComparer(false);
 		public static AnnotatedTransactionComparer OldToYoung
 		{

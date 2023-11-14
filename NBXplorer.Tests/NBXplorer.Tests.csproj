@@ -3,8 +3,6 @@
     <TargetFramework Condition="'$(TargetFrameworkOverride)' == ''">net6.0</TargetFramework>
 	<LangVersion>10.0</LangVersion>
     <TargetFramework Condition="'$(TargetFrameworkOverride)' != ''">$(TargetFrameworkOverride)</TargetFramework>
-	<SupportDBTrie Condition="'$(SupportDBTrie)' == ''">true</SupportDBTrie>
-	<DefineConstants Condition="'$(SupportDBTrie)' == 'true'">$(DefineConstants);SUPPORT_DBTRIE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="Scripts\generate-whale.sql" />
@@ -30,10 +28,5 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Properties\" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Update="Data\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 </Project>

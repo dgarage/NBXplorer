@@ -10,7 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using NBitcoin.RPC;
 using NBXplorer.Analytics;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 
 namespace NBXplorer.Controllers
 {
@@ -24,9 +24,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
 			DerivationStrategyBase strategy,
 			[FromBody]
-			JObject body,
-			[FromServices]
-			IUTXOService utxoService)
+			JObject body)
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
@@ -153,7 +151,7 @@ namespace NBXplorer.Controllers
 					txBuilder.SetLockTime(new LockTime(0));
 				}
 			}
-			var utxos = (await utxoService.GetUTXOs(network.CryptoCode, strategy)).As<UTXOChanges>().GetUnspentUTXOs(request.MinConfirmations);
+			var utxos = (await GetUTXOs(network.CryptoCode, strategy, null)).As<UTXOChanges>().GetUnspentUTXOs(request.MinConfirmations);
 			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)
 			{
@@ -432,7 +430,7 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		private static async Task UpdateHDKeyPathsWitnessAndRedeem(UpdatePSBTRequest update, IRepository repo)
+		private static async Task UpdateHDKeyPathsWitnessAndRedeem(UpdatePSBTRequest update, Repository repo)
 		{
 			var strategy = update.DerivationScheme;
 			var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
@@ -498,7 +496,7 @@ namespace NBXplorer.Controllers
 												!((input.GetSignableCoin() ?? input.GetCoin())?.IsMalleable is false));
 		}
 
-		private async Task UpdateUTXO(UpdatePSBTRequest update, IRepository repo, RPCClient rpc)
+		private async Task UpdateUTXO(UpdatePSBTRequest update, Repository repo, RPCClient rpc)
 		{
 			if (rpc is not null)
 			{

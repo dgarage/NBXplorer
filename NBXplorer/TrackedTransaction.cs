@@ -149,11 +149,6 @@ namespace NBXplorer
 							});
 		}
 
-		public virtual ITrackedTransactionSerializable CreateBitcoinSerializable()
-		{
-			return new TransactionMatchData(this);
-		}
-
 		Dictionary<OutPoint, int> inputsIndexes;
 		public int IndexOfInput(OutPoint spent)
 		{

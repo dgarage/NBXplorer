@@ -16,8 +16,8 @@ using Microsoft.Extensions.Configuration;
 using System.Runtime.CompilerServices;
 using System.IO;
 using System.Diagnostics;
-using NBXplorer.Backends.Postgres;
 using NBXplorer.Client;
+using NBXplorer.Backend;
 
 namespace NBXplorer.Tests
 {

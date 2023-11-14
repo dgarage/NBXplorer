@@ -271,10 +271,6 @@ namespace NBXplorer
 		}
 
 		Dictionary<Script, KeyPath> _KeyPaths = new Dictionary<Script, KeyPath>();
-		public KeyPath GetKeyPath(Script scriptPubkey)
-		{
-			return _KeyPaths.TryGet(scriptPubkey);
-		}
 
 		Dictionary<uint256, AnnotatedTransaction> _TxById = new Dictionary<uint256, AnnotatedTransaction>();
 		public AnnotatedTransaction GetByTxId(uint256 txId)

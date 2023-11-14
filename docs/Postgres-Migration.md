@@ -1,5 +1,8 @@
 # Migration from DBTrie backend to Postgres backend
 
+> [!WARNING]  
+> The last version to support the migration is `2.3.67`. If you are running a version newer than this and need to migrate, please upgrade to `2.3.67` first.
+
 For an extended period, NBXplorer depended on an embedded database dubbed DBTrie. This internal database imposed limitations for various reasons, prompting us to upgrade NBXplorer to employ a Postgres backend rather than DBTrie.
 
 Although we continue to support DBTrie, it is now deemed obsolete. We offer a migration pathway for existing deployments.

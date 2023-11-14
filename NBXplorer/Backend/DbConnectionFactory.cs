@@ -6,7 +6,7 @@ using System;
 using System.Data.Common;
 using System.Threading.Tasks;
 
-namespace NBXplorer.Backends.Postgres
+namespace NBXplorer.Backend
 {
 	public class DbConnectionFactory
 	{
@@ -30,7 +30,7 @@ namespace NBXplorer.Backends.Postgres
 		{
 			return CreateConnectionHelper(network, null);
 		}
-		public async Task<DbConnectionHelper> CreateConnectionHelper(NBXplorerNetwork network, Action<Npgsql.NpgsqlConnectionStringBuilder> action)
+		public async Task<DbConnectionHelper> CreateConnectionHelper(NBXplorerNetwork network, Action<NpgsqlConnectionStringBuilder> action)
 		{
 			return new DbConnectionHelper(network, await CreateConnection(action), KeyPathTemplates)
 			{
@@ -42,12 +42,12 @@ namespace NBXplorer.Backends.Postgres
 		{
 			return CreateConnection(null);
 		}
-		public async Task<DbConnection> CreateConnection(Action<Npgsql.NpgsqlConnectionStringBuilder> action)
+		public async Task<DbConnection> CreateConnection(Action<NpgsqlConnectionStringBuilder> action)
 		{
 			int maxRetries = 10;
 			int retries = maxRetries;
-			retry:
-			var conn = new Npgsql.NpgsqlConnection(GetConnectionString(action));
+		retry:
+			var conn = new NpgsqlConnection(GetConnectionString(action));
 			try
 			{
 				await conn.OpenAsync();

@@ -26,22 +26,13 @@ namespace NBXplorer.Tests
 	{
 		private readonly string _Directory;
 
-		public static ServerTester Create(Backend backend, [CallerMemberNameAttribute] string caller = null)
+		public static ServerTester Create([CallerMemberNameAttribute] string caller = null)
 		{
-			return new ServerTester(backend, caller);
-		}
-
-		public static ServerTester Create([CallerMemberNameAttribute]string caller = null)
-		{
-			return Create(Backend.DBTrie, caller);
+			return new ServerTester(caller);
 		}
 		public static ServerTester CreateNoAutoStart([CallerMemberNameAttribute]string caller = null)
 		{
-			return new ServerTester(Backend.DBTrie, caller, false);
-		}
-		public static ServerTester CreateNoAutoStart(Backend backend, [CallerMemberNameAttribute] string caller = null)
-		{
-			return new ServerTester(backend, caller, false);
+			return new ServerTester(caller, false);
 		}
 
 		public void Dispose()
@@ -66,10 +57,9 @@ namespace NBXplorer.Tests
 		}
 
 		public string Caller { get; }
-		public ServerTester(Backend backend, string directory, bool autoStart = true)
+		public ServerTester(string directory, bool autoStart = true)
 		{
 			_Name = directory;
-			Backend = backend;
 			SetEnvironment();
 			Caller = directory;
 			var rootTestData = "TestData";
@@ -80,28 +70,6 @@ namespace NBXplorer.Tests
 			if (autoStart)
 				Start();
 		}
-
-#if SUPPORT_DBTRIE
-		public async Task Load(string dataName)
-		{
-			datadir = Path.Combine(_Directory, "explorer");
-			if (Directory.Exists(datadir))
-				DeleteFolderRecursive(datadir);
-			Directory.CreateDirectory(_Directory);
-			Directory.CreateDirectory(datadir);
-			datadir = Path.Combine(datadir, "RegTest", "db");
-			Directory.CreateDirectory(datadir);
-			foreach (var file in Directory.GetFiles(Path.Combine("Data", dataName)))
-			{
-				File.Copy(file, Path.Combine(datadir, Path.GetFileName(file)));
-			}
-			LoadedData = true;
-			await using var db = await DBTrie.DBTrieEngine.OpenFromFolder(datadir);
-			using var tx = await db.OpenTransaction();
-			await tx.GetTable("IndexProgress").Delete();
-	}
-#endif
-
 		public RPCWalletType? RPCWalletType
 		{
 			get;
@@ -151,16 +119,8 @@ namespace NBXplorer.Tests
 			var port = CustomServer.FreeTcpPort();
 			List<(string key, string value)> keyValues = new List<(string key, string value)>();
 			keyValues.Add(("conf", Path.Combine(datadir, "settings.config")));
-			if (Backend == Backend.Postgres)
-			{
-				PostgresConnectionString ??= GetTestPostgres(null, _Name);
-				keyValues.Add(("postgres", PostgresConnectionString));
-			}
-			else
-			{
-				additionalFlags.Add("--dbtrie");
-				keyValues.Add(("cachechain", "0"));
-			}
+			PostgresConnectionString ??= GetTestPostgres(null, _Name);
+			keyValues.Add(("postgres", PostgresConnectionString));
 			keyValues.AddRange(AdditionalConfiguration);
 			keyValues.Add(("datadir", datadir));
 			keyValues.Add(("port", port.ToString()));
@@ -490,8 +450,6 @@ namespace NBXplorer.Tests
 		public bool LoadedData { get; private set; }
 
 		private readonly string _Name;
-
-		public Backend Backend { get; set; }
 
 		public uint256 SendToAddress(BitcoinAddress address, Money amount)
 		{

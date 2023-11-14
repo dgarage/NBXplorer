@@ -7,7 +7,6 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "NBXPLORER_POSTGRES": "User ID=postgres;Application Name=test;Include Error Detail=true;Host=localhost;Port=39383",
-        "NBXPLORER_AUTOMIGRATE": "1"
       },
       "applicationUrl": "http://localhost:4774",
       "launchUrl": "v1/cryptos/btc/status"
