@@ -2,7 +2,6 @@
 using NBXplorer.Configuration;
 using NBXplorer.Events;
 using System;
-using System.Linq;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;

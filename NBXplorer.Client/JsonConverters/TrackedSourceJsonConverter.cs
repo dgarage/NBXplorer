@@ -1,8 +1,5 @@
-﻿using NBitcoin;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Reflection;
 using NBXplorer.Models;
 using NBitcoin.JsonConverters;

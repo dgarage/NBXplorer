@@ -1,7 +1,5 @@
 ﻿using NBitcoin;
-using System.Linq;
 using NBitcoin.DataEncoders;
-using NBitcoin.JsonConverters;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using System;
@@ -15,7 +13,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Net.WebSockets;
 using NBitcoin.RPC;
-using Newtonsoft.Json.Linq;
 
 namespace NBXplorer
 {

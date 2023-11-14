@@ -1,12 +1,9 @@
 ﻿using NBitcoin;
 using NBitcoin.RPC;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 using NBXplorer.Logging;
 using System.Net;
 using Microsoft.Extensions.Configuration;

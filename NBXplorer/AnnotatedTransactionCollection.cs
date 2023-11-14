@@ -1,10 +1,7 @@
 ﻿using NBitcoin;
-using Microsoft.Extensions.Logging;
-using NBXplorer.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using NBXplorer.Models;
 
 namespace NBXplorer

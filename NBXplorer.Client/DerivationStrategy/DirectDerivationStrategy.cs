@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
 using NBitcoin;
-using NBitcoin.Crypto;
 
 namespace NBXplorer.DerivationStrategy
 {

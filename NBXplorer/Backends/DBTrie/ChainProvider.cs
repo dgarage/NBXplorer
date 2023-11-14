@@ -1,10 +1,8 @@
 ﻿#if SUPPORT_DBTRIE
 using NBitcoin;
 using NBXplorer.Configuration;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace NBXplorer.Backends.DBTrie
 {

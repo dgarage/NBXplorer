@@ -18,7 +18,6 @@ using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Hosting;
-using System.Buffers;
 using System.Diagnostics;
 
 namespace NBXplorer.Backends.DBTrie

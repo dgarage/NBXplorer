@@ -1,11 +1,5 @@
 ﻿using NBitcoin;
-using System.Linq;
-using NBitcoin.Crypto;
-using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
-using NBXplorer.Models;
 
 namespace NBXplorer
 {

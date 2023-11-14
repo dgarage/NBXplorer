@@ -2,9 +2,6 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Reflection;
 using NBitcoin;
 using System.Threading.Tasks;
-using System.Collections.Generic;
-using System;
-using System.Linq;
 using NBitcoin.DataEncoders;
 
 namespace NBXplorer.ModelBinders

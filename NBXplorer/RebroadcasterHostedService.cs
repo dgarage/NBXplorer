@@ -1,11 +1,8 @@
 ﻿using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using NBitcoin;
-using NBitcoin.RPC;
 using NBXplorer.Backends;
 using NBXplorer.Configuration;
 using NBXplorer.Events;
-using NBXplorer.Logging;
 using NBXplorer.Models;
 using System;
 using System.Collections.Generic;

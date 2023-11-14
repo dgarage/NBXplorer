@@ -4,14 +4,6 @@
 using System;
 using System.IO;
 using System.Text;
-using System.Collections;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Mvc.Formatters;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.AspNetCore.Mvc.NewtonsoftJson;
-using Newtonsoft.Json;
-using Microsoft.AspNetCore.WebUtilities;
 
 
 namespace Microsoft.Extensions.Logging.Console.Internal

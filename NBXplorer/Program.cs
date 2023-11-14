@@ -1,20 +1,9 @@
-﻿using System;
-using Microsoft.Extensions.Logging;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using NBXplorer.Configuration;
 using NBXplorer.Logging;
-using NBitcoin.Protocol;
-using System.Collections;
 using Microsoft.Extensions.Configuration;
-using Microsoft.AspNetCore;
-using NBitcoin;
-using System.Text;
-using System.Net;
 using CommandLine;
 using System.Runtime.CompilerServices;
 

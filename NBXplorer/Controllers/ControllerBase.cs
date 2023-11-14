@@ -5,7 +5,6 @@ using NBXplorer.Backends;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using System;
-using System.Threading.Tasks;
 
 namespace NBXplorer.Controllers
 {

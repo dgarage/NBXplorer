@@ -1,11 +1,7 @@
 ﻿using NBitcoin;
 using System.Linq;
-using NBitcoin.Protocol;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using NBitcoin.Crypto;
-using System.IO;
 using Newtonsoft.Json;
 using NBXplorer.DerivationStrategy;
 

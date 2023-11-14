@@ -1,10 +1,6 @@
-﻿using NBXplorer.DerivationStrategy;
-using System.Linq;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Text;
 using NBitcoin;
-using NBitcoin.Crypto;
 
 namespace NBXplorer.DerivationStrategy
 {

@@ -15,8 +15,6 @@ using System.Net;
 using NBitcoin.Protocol.Behaviors;
 using Microsoft.Extensions.Hosting;
 using NBXplorer.Events;
-using Newtonsoft.Json.Linq;
-using System.Text;
 
 namespace NBXplorer.Backends.DBTrie
 {

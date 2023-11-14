@@ -1,10 +1,8 @@
-﻿using NBitcoin;
-using NBXplorer.Backends;
+﻿using NBXplorer.Backends;
 using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace NBXplorer
 {

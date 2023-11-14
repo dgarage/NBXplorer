@@ -1,9 +1,6 @@
 ﻿using NBitcoin;
 using NBXplorer.DerivationStrategy;
 using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace NBXplorer.Models
 {

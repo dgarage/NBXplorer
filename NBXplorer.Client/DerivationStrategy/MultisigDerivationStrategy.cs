@@ -1,11 +1,9 @@
 ﻿using NBitcoin;
 using System.Linq;
-using NBXplorer.DerivationStrategy;
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
-using NBitcoin.Crypto;
 using System.Threading.Tasks;
 using System.Collections.ObjectModel;
 
