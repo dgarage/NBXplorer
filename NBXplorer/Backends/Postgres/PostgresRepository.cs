@@ -578,23 +578,22 @@ namespace NBXplorer.Backends.Postgres
 		async Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache, bool immediateSave)
 		{
 			var blockIndexes = slimBlock is null ? null : new Dictionary<uint256, int>(txs.Count);
-			SaveTransactionRecord CreateTransactionRecord(Transaction tx) => new SaveTransactionRecord(
-						tx,
-						tx.GetHash(),
-						slimBlock?.Hash,
-						blockIndexes?.TryGetValue(tx.GetHash(), out var v) is true ? v : null,
-						slimBlock?.Height,
-						tx.IsCoinBase,
-						now
-					);
-
+			SaveTransactionRecord CreateTransactionRecord(Transaction tx) => SaveTransactionRecord.Create(
+				slimBlock,
+				tx,
+				blockIndexes?.TryGetValue(tx.GetHash(), out var bi) is true ? bi : null,
+				now);
 			int i = 0;
+			var unconfTxs = await connection.GetUnconfirmedTxs();
+			List<SaveTransactionRecord> txRecords = new();
 			foreach (var tx in txs)
 			{
 				tx.PrecomputeHash(false, true);
 				blockIndexes?.Add(tx.GetHash(), i);
+				i++;
+				if (unconfTxs.Contains(tx.GetHash()))
+					txRecords.Add(CreateTransactionRecord(tx));
 			}
-
 
 			var outputCount = txs.Select(tx => tx.Outputs.Count).Sum();
 			var inputCount = txs.Select(tx => tx.Inputs.Count).Sum();
@@ -607,6 +606,7 @@ namespace NBXplorer.Backends.Postgres
 			var noMatchTransactions = slimBlock?.Hash is null ? new HashSet<uint256>(txs.Count) : null;
 			var transactions = new Dictionary<uint256, NBitcoin.Transaction>(txs.Count);
 			var outpoints = new List<OutPoint>(inputCount);
+			var elementContext = Network.IsElement ? new ElementMatchContext() : null;
 
 			foreach (var tx in txs)
 			{
@@ -631,8 +631,6 @@ namespace NBXplorer.Backends.Postgres
 				var matchedOuts = await result.ReadAsync();
 				var matchedIns = await result.ReadAsync();
 				var matchedConflicts = await result.ReadAsync();
-				List<SaveTransactionRecord> txRecords = new ();
-				var elementContext = Network.IsElement ? new ElementMatchContext() : null;
 				foreach (var r in matchedConflicts)
 				{
 					var txId = uint256.Parse(r.replacing_tx_id);
@@ -703,16 +701,15 @@ namespace NBXplorer.Backends.Postgres
 							await elementContext.Unblind(rpc, m);
 					}
 				}
-
-				if (immediateSave && txRecords.Count != 0)
-				{
-					await connection.SaveTransactions(txRecords);
-					if (elementContext is not null)
-						await elementContext.UpdateMatchedOuts(connection.Connection);
-					await connection.Connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
-				}
 			}
 			end:
+			if (immediateSave && txRecords.Count != 0)
+			{
+				await connection.SaveTransactions(txRecords);
+				if (elementContext is not null)
+					await elementContext.UpdateMatchedOuts(connection.Connection);
+				await connection.Connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
+			}
 			if (noMatchTransactions != null)
 			{
 				foreach (var txId in noMatchTransactions)

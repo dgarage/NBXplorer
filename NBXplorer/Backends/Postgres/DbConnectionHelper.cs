@@ -122,6 +122,15 @@ namespace NBXplorer.Backends.Postgres
 		public record SaveTransactionRecord(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset? SeenAt)
 		{
 			public static SaveTransactionRecord Create(TrackedTransaction t) => new SaveTransactionRecord(t.Transaction, t.TransactionHash, t.BlockHash, t.BlockIndex, t.BlockHeight, t.IsCoinBase, new DateTimeOffset?(t.FirstSeen));
+			public static SaveTransactionRecord Create(SlimChainedBlock slimBlock, Transaction tx, int? blockIndex, DateTimeOffset now) => new SaveTransactionRecord(
+						tx,
+						tx.GetHash(),
+						slimBlock?.Hash,
+						blockIndex,
+						slimBlock?.Height,
+						tx.IsCoinBase,
+						now
+					);
 		}
 		public async Task SaveTransactions(IEnumerable<SaveTransactionRecord> transactions)
 		{
@@ -205,6 +214,12 @@ namespace NBXplorer.Backends.Postgres
 			if (result is null)
 				return null;
 			return Network.Serializer.ToObject<TMetadata>(result);
+		}
+
+		public async Task<HashSet<uint256>> GetUnconfirmedTxs()
+		{
+			var txs = await Connection.QueryAsync<string>("SELECT tx_id FROM txs WHERE code=@code AND mempool IS TRUE;", new { code = Network.CryptoCode });
+			return new HashSet<uint256>(txs.Select(t => uint256.Parse(t)));
 		}
 
 		public async Task NewBlock(SlimChainedBlock newTip)
