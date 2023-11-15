@@ -741,9 +741,9 @@ namespace NBXplorer.HostedServices
 						{
 							batch.Add(new NewInRaw(
 								tt.TransactionHash.ToString(),
-								tt.IndexOfInput(o),
-								o.Hash.ToString(),
-								o.N));
+								o.InputIndex,
+								o.Outpoint.Hash.ToString(),
+								o.Outpoint.N));
 
 							if (batch.Count >= 2000)
 							{

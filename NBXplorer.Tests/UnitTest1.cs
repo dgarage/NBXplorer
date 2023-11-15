@@ -974,7 +974,7 @@ namespace NBXplorer.Tests
 
 			Logs.Tester.LogInformation("Let's check what happens when the amout to send is too low");
 
-			foreach (Money tooLowAmount in new[] { Money.Satoshis(100)})
+			foreach (Money tooLowAmount in new[] { Money.Satoshis(100) })
 			{
 				ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
@@ -988,7 +988,7 @@ namespace NBXplorer.Tests
 					},
 					FeePreference = new FeePreference()
 					{
-						FallbackFeeRate = new FeeRate(1.0m)	
+						FallbackFeeRate = new FeeRate(1.0m)
 					}
 				}));
 				Assert.Equal("output-too-small", ex.Error.Code);
@@ -1040,7 +1040,7 @@ namespace NBXplorer.Tests
 			var bobW = tester.Client.GenerateWallet();
 			var bob = bobW.DerivationScheme;
 			tester.Client.Track(bob);
-			
+
 			var bobAddr = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
 			var bobAddr1 = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 1);
 
@@ -1077,7 +1077,7 @@ namespace NBXplorer.Tests
 				var evt = tester.Notifications.WaitForTransaction(bob, bp.GetHash());
 				Assert.Equal(bId, Assert.Single(evt.Replacing));
 			}
-			
+
 			tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
 			var bpr = tester.Client.GetTransaction(bp.GetHash());
 			Assert.NotNull(bpr?.Transaction);
@@ -1188,7 +1188,7 @@ namespace NBXplorer.Tests
 					RBF = true,
 					Destinations = new List<CreatePSBTDestination>()
 					{
-						
+
 					},
 					FeePreference = new FeePreference()
 					{
@@ -2334,6 +2334,33 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation("Did we received 5 UTXOs?");
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(5, utxo.Confirmed.UTXOs.Count);
+
+				if (backend == Backend.Postgres)
+				{
+					var psbt = tester.Client.CreatePSBT(pubkey, new CreatePSBTRequest()
+					{
+						Destinations = new List<CreatePSBTDestination>()
+						{
+							new CreatePSBTDestination()
+							{
+								Amount = Money.Coins(5m),
+								Destination = new Key().GetAddress(ScriptPubKeyType.Legacy, tester.Network)
+							}
+						},
+						FeePreference = new FeePreference() { ExplicitFee = Money.Satoshis(5000) }
+					}).PSBT;
+					Assert.Equal(5, psbt.Inputs.Count);
+					psbt = psbt.SignAll(ScriptPubKeyType.Segwit, key);
+					psbt.Finalize();
+					var tx = psbt.ExtractTransaction();
+					tester.Client.Broadcast(tx);
+					tester.Notifications.WaitForTransaction(pubkey, tx.GetHash());
+					var unconfTx = tester.Client.GetTransaction(pubkey, tx.GetHash());
+					foreach (var i in Enumerable.Range(0, 5))
+					{
+						Assert.Contains(unconfTx.Inputs, input => input.InputIndex == i);
+					}
+				}
 			}
 		}
 
@@ -2742,7 +2769,7 @@ namespace NBXplorer.Tests
 			Assert.Equal(factory.Parse($"2-of-{toto}-{tata}-[a]-[p2sh]-[keeporder]-[b]").ToString(), factory.Parse($"2-of-{toto}-{tata}-[keeporder]-[p2sh]-[a]-[b]").ToString());
 
 			var taproot = factory.Parse($"{toto}-[taproot]");
-			Assert.Equal($"{toto}-[taproot]",taproot.ToString());
+			Assert.Equal($"{toto}-[taproot]", taproot.ToString());
 			generated = Generate(taproot);
 			Assert.IsType<TaprootPubKey>(generated.ScriptPubKey.GetDestination());
 		}
@@ -3327,7 +3354,7 @@ namespace NBXplorer.Tests
 			tx2 = CreateRandomAnnotatedTransaction(trackedSource, seen: 2);
 
 			var outpoint = new OutPoint(tx2.Record.Key.TxId, 0);
-			tx1.Record.SpentOutpoints.Add(outpoint);
+			tx1.Record.SpentOutpoints.Add(outpoint, 0);
 			tx2.Record.ReceivedCoins.Add(new Coin(outpoint, new TxOut()));
 			AssertExpectedOrder(new[] { tx2, tx1 }, true); // tx1 depends on tx2 so even if tx1 has been seen first, topological sort should be used
 
@@ -3981,20 +4008,20 @@ namespace NBXplorer.Tests
 					Assert.Equal(txid, evt.TransactionData.TransactionHash);
 					Assert.Equal(nodeTx.GetHash(), evt.TransactionData.Transaction.GetHash());
 					var nbxTx = await tester.Client.GetTransactionAsync(txid);
-					
+
 					Assert.Equal(txid, nbxTx.TransactionHash);
 					Assert.Equal(nodeTx.GetHash(), nbxTx.Transaction.GetHash());
 					nbxTx.Transaction.PrecomputeHash(false, true);
 					Assert.Equal(nodeTx.GetHash(), nbxTx.Transaction.GetHash());
 
 					var fetched = await tester.Client.GetTransactionAsync(txid);
-					
+
 					Assert.Equal(nodeTx.GetHash(), fetched.Transaction.GetHash());
 					fetched.Transaction.PrecomputeHash(false, true);
 					Assert.Equal(nodeTx.GetHash(), fetched.Transaction.GetHash());
 					Assert.Equal(nodeTx.GetHash(), fetched.TransactionHash);
-					
-					
+
+
 					//test: Elements should have unblinded the outputs
 					var output = Assert.Single(evt.Outputs);
 					Assert.Equal(address, output.Address);

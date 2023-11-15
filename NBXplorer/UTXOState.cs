@@ -1,5 +1,6 @@
 ﻿using NBitcoin;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace NBXplorer
 {
@@ -51,7 +52,7 @@ namespace NBXplorer
 				}
 			}
 
-			foreach(var spentOutpoint in trackedTransaction.SpentOutpoints)
+			foreach(var spentOutpoint in trackedTransaction.SpentOutpoints.Select(o => o.Outpoint))
 			{
 				if(_KnownInputs.Contains(spentOutpoint) || 
 					(!UTXOByOutpoint.ContainsKey(spentOutpoint) && SpentUTXOs.Contains(spentOutpoint)))
@@ -67,7 +68,7 @@ namespace NBXplorer
 				UTXOByOutpoint.TryAdd(coin.Outpoint, coin);
 			}
 
-			foreach (var spentOutpoint in trackedTransaction.SpentOutpoints)
+			foreach (var spentOutpoint in trackedTransaction.SpentOutpoints.Select(o => o.Outpoint))
 			{
 				if(UTXOByOutpoint.Remove(spentOutpoint))
 				{

@@ -623,7 +623,7 @@ namespace NBXplorer.Controllers
 						Transaction = includeTransaction ? tx.Record.Transaction : null,
 						Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 						Timestamp = tx.Record.FirstSeen,
-						Inputs = tx.Record.SpentOutpoints.Select(o => txs.GetUTXO(o)).Where(o => o != null).ToList(),
+						Inputs = tx.Record.SpentOutpoints.Select(o =>txs.GetSpentUTXO(o.Outpoint, o.InputIndex)).Where(o => o != null).ToList(),
 						Outputs = tx.Record.GetReceivedOutputs().ToList(),
 						Replaceable = tx.Replaceable,
 						ReplacedBy = tx.ReplacedBy == NBXplorerNetwork.UnknownTxId ? null : tx.ReplacedBy,
@@ -958,7 +958,7 @@ namespace NBXplorer.Controllers
 			// If the called is interested by only a single txId, we need to fetch the parents as well
 			if (txId != null)
 			{
-				var spentOutpoints = transactions.SelectMany(t => t.SpentOutpoints.Select(o => o.Hash)).ToHashSet();
+				var spentOutpoints = transactions.SelectMany(t => t.SpentOutpoints.Select(o => o.Outpoint.Hash)).ToHashSet();
 				var gettingParents = spentOutpoints.Select(async h => await repo.GetTransactions(trackedSource, h)).ToList();
 				await Task.WhenAll(gettingParents);
 				transactions = gettingParents.SelectMany(p => p.GetAwaiter().GetResult()).Concat(transactions).ToArray();
@@ -1264,7 +1264,7 @@ namespace NBXplorer.Controllers
 					if (!prunableIds.Contains(tx.Record.TransactionHash))
 						continue;
 					foreach (var parent in tx.Record.SpentOutpoints
-													.Select(spent => transactions.GetByTxId(spent.Hash))
+													.Select(spent => transactions.GetByTxId(spent.Outpoint.Hash))
 													.Where(parent => parent != null)
 													.Where(parent => !prunableIds.Contains(parent.Record.TransactionHash)))
 					{

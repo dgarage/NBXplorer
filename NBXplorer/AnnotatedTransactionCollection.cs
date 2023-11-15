@@ -82,7 +82,7 @@ namespace NBXplorer
 					// No way to have double spent in confirmed transactions
 					try
 					{
-						spentBy.Add(spent, annotatedTransaction.Record.TransactionHash);
+						spentBy.Add(spent.Outpoint, annotatedTransaction.Record.TransactionHash);
 					}
 					catch
 					{
@@ -98,7 +98,7 @@ namespace NBXplorer
 			HashSet<uint256> toRemove = new HashSet<uint256>();
 			foreach (var annotatedTransaction in unconfs.Values)
 			{
-				foreach (var spent in annotatedTransaction.Record.SpentOutpoints)
+				foreach (var spent in annotatedTransaction.Record.SpentOutpoints.Select(o => o.Outpoint))
 				{
 					// All children of a replaced transaction should be replaced
 					if (replaced.TryGetValue(spent.Hash, out var parent) && parent.ReplacedBy is uint256)
@@ -214,7 +214,7 @@ namespace NBXplorer
 						// but we don't want user cancelling a chain of transaction
 						foreach (var parentOutpoint in tx.Record.SpentOutpoints)
 						{
-							if (_TxById.TryGetValue(parentOutpoint.Hash, out var parent) && parent.Height is null)
+							if (_TxById.TryGetValue(parentOutpoint.Outpoint.Hash, out var parent) && parent.Height is null)
 							{
 								parent.Replaceable = false;
 							}
@@ -265,8 +265,24 @@ namespace NBXplorer
 		{
 			if (_TxById.TryGetValue(outpoint.Hash, out var tx))
 			{
-				return tx.Record.GetReceivedOutputs().Where(c => c.Index == outpoint.N).FirstOrDefault();
+				return tx.Record.GetReceivedOutputs().FirstOrDefault(c => c.Index == outpoint.N);
 			}
+			return null;
+		}
+		public MatchedInput GetSpentUTXO(OutPoint outpoint, int inputIndex)
+		{
+			if (GetUTXO(outpoint) is { } result)
+			{
+				return new MatchedInput()
+				{
+					InputIndex = inputIndex,
+					Index = result.Index,
+					Value = result.Value,
+					KeyPath = result.KeyPath,
+					ScriptPubKey = result.ScriptPubKey
+				};
+			}
+
 			return null;
 		}
 
