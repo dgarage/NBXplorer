@@ -222,7 +222,7 @@ namespace NBXplorer.HostedServices
 		{
 			using var conn = await postgresRepo.ConnectionFactory.CreateConnection(builder =>
 			{
-				builder.CommandTimeout = 120;
+				builder.CommandTimeout = Constants.TenHours;
 			});
 			var data = await conn.QueryFirstOrDefaultAsync<string>("SELECT data_json FROM nbxv1_settings WHERE code=@code AND key='MigrationProgress'", new { code = network.CryptoCode });
 			var progress = data is null ? new MigrationProgress() : JsonConvert.DeserializeObject<MigrationProgress>(data);
