@@ -42,6 +42,11 @@ namespace NBXplorer.Models
 			}
 		}
 
+		public List<UTXO> SpentUnconfirmed
+		{
+			get;
+			set;
+		} = new List<UTXO>();
 
 		UTXOChange _Confirmed = new UTXOChange();
 		public UTXOChange Confirmed
