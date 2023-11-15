@@ -120,11 +120,11 @@ You can check [the sample](docker-compose.regtest.yml) for configuring and compo
 
 ## How to develop on it?
 
-If you are on Windows, I recommend Visual Studio 2017 update 4 (15.4).
+If you are on Windows, I recommend Visual Studio 2022 (17.8.0).
 If you are on other platform and want lightweight environment, use [Visual Studio Code](https://code.visualstudio.com/).
 If you are hardcore, you can code on vim.
 
-I like Visual Studio Code and Visual Studio 2017 as it allows me to debug in step by step.
+I like Visual Studio Code and Visual Studio 2022 as it allows me to debug in step by step.
 
 ## How to configure?
 
