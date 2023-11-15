@@ -28,11 +28,38 @@ using NBXplorer.Backends.DBTrie;
 using NBXplorer.Backends.Postgres;
 using NBXplorer.Backends;
 using NBitcoin.Altcoins.Elements;
+using Npgsql;
+using NBitcoin.Altcoins;
+using System.Threading;
 
 namespace NBXplorer
 {
 	public static class Extensions
 	{
+		public static async Task<NpgsqlConnection> ReliableOpenConnectionAsync(this NpgsqlDataSource ds, CancellationToken cancellationToken = default)
+		{
+			int maxRetries = 10;
+			int retries = maxRetries;
+			retry:
+			var conn = ds.CreateConnection();
+			try
+			{
+				await conn.OpenAsync(cancellationToken);
+			}
+			catch (PostgresException ex) when (!cancellationToken.IsCancellationRequested && ex.IsTransient && retries > 0)
+			{
+				retries--;
+				await conn.DisposeAsync();
+				await Task.Delay((maxRetries - retries) * 100, cancellationToken);
+				goto retry;
+			}
+			catch
+			{
+				conn.Dispose();
+				throw;
+			}
+			return conn;
+		}
 		public static bool IsUnknown(this IMoney money)
 		{
 			return money is AssetMoney am && am == NBXplorerNetwork.UnknownAssetMoney;

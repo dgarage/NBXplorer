@@ -28,11 +28,11 @@
         </PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="NBitcoin" Version="7.0.31" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.19" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.20" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>
   <ItemGroup>
-	<None Include="..\README.md" Pack="true" PackagePath="\"/>
-	<None Include="Bitcoin.png" Pack="true" PackagePath="\"/>
+	<None Include="..\README.md" Pack="true" PackagePath="\" />
+	<None Include="Bitcoin.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

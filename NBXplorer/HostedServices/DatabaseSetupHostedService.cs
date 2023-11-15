@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NBXplorer.Backends.Postgres;
 using Npgsql;
+using RabbitMQ.Client;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -27,33 +28,31 @@ namespace NBXplorer.HostedServices
 		public async Task StartAsync(CancellationToken cancellationToken)
 		{
 			Logger.LogInformation("Postgres services activated");
+			var dsBuilder = ConnectionFactory.CreateDataSourceBuilder(b => b.CommandTimeout = Constants.TenHours);
 			retry:
 			try
 			{
-				await using var conn = await ConnectionFactory.CreateConnection(b =>
-				{
-					// 10H timeout
-					b.CommandTimeout = Constants.TenHours;
-				});
+				await using var ds = dsBuilder.Build();
+				using var conn = await ds.ReliableOpenConnectionAsync();
 				await RunScripts(conn);
 			}
 			catch (Npgsql.NpgsqlException pgex) when (pgex.SqlState == "3D000")
 			{
-				var builder = new Npgsql.NpgsqlConnectionStringBuilder(ConnectionFactory.ConnectionString);
-				var dbname = builder.Database;
-				Logger.LogInformation($"Database '{dbname}' doesn't exists, creating it...");
-				builder.Database = null;
-				var conn2Str = builder.ToString();
-				var conn2 = new Npgsql.NpgsqlConnection(conn2Str);
-				await conn2.OpenAsync();
-				await conn2.ExecuteAsync($"CREATE DATABASE {dbname} TEMPLATE 'template0' LC_CTYPE 'C' LC_COLLATE 'C' ENCODING 'UTF8'");
+				string dbname = string.Empty;
+				await using var ds = ConnectionFactory.CreateDataSourceBuilder(b =>
+				{
+					dbname = b.Database;
+					Logger.LogInformation($"Database '{dbname}' doesn't exists, creating it...");
+					b.Database = null;
+				}).Build();
+				using var conn = await ds.ReliableOpenConnectionAsync();
+				await conn.ExecuteAsync($"CREATE DATABASE {dbname} TEMPLATE 'template0' LC_CTYPE 'C' LC_COLLATE 'C' ENCODING 'UTF8'");
 				goto retry;
 			}
 		}
 
 		private async Task RunScripts(System.Data.Common.DbConnection conn)
 		{
-			DbConnectionHelper.Register(NpgsqlConnection.GlobalTypeMapper);
 			await using (conn)
 			{
 				HashSet<string> executed;
@@ -85,7 +84,7 @@ namespace NBXplorer.HostedServices
 					Logger.LogInformation($"Execute script {scriptName}...");
 					await conn.ExecuteAsync($"{content}; INSERT INTO nbxv1_migrations VALUES (@scriptName)", new { scriptName });
 				}
-				((NpgsqlConnection)conn).ReloadTypes();
+				await ((NpgsqlConnection)conn).ReloadTypesAsync();
 			}
 		}
 

@@ -84,7 +84,7 @@ namespace NBXplorer.Tests
 					await connection.ExecuteAsync("ANALYZE;");
 					goto retry;
 				}
-				Assert.False(true, "Unacceptable response time for " + script);
+				Assert.Fail("Unacceptable response time for " + script);
 			}
 		}
 

@@ -2,6 +2,7 @@
 using Dapper;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
+using Npgsql;
 using Npgsql.TypeMapping;
 using System;
 using System.Collections.Generic;
@@ -46,12 +47,12 @@ namespace NBXplorer.Backends.Postgres
 		public record NewInRaw(string tx_id, long idx, string spent_tx_id, long spent_idx);
 		internal record OutpointRaw(string tx_id, long idx);
 
-		public static void Register(INpgsqlTypeMapper typeMapper)
+		public static void Register(NpgsqlDataSourceBuilder dsBuilder)
 		{
-			typeMapper.MapComposite<NewOutRaw>("new_out");
-			typeMapper.MapComposite<NewInRaw>("new_in");
-			typeMapper.MapComposite<OutpointRaw>("outpoint");
-			typeMapper.MapComposite<PostgresRepository.DescriptorScriptInsert>("nbxv1_ds");
+			dsBuilder.MapComposite<NewOutRaw>("new_out");
+			dsBuilder.MapComposite<NewInRaw>("new_in");
+			dsBuilder.MapComposite<OutpointRaw>("outpoint");
+			dsBuilder.MapComposite<PostgresRepository.DescriptorScriptInsert>("nbxv1_ds");
 		}
 
 		public Task<bool> FetchMatches(IEnumerable<Transaction> txs, SlimChainedBlock slimBlock, Money? minUtxoValue)
