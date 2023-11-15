@@ -71,6 +71,8 @@ namespace NBXplorer.Tests
 			_Name = directory;
 			Backend = backend;
 			SetEnvironment();
+			if (backend == Backend.DBTrie)
+				Environment.SetEnvironmentVariable("NBXPLORER_ALLOW_DBTRIE", "1");
 			Caller = directory;
 			var rootTestData = "TestData";
 			directory = Path.Combine(rootTestData, directory);
