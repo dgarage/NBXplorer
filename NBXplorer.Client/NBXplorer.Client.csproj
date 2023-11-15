@@ -3,32 +3,36 @@
 	<PropertyGroup>
 		<TargetFrameworks>netstandard2.1</TargetFrameworks>
 		<Company>Digital Garage</Company>
-		<Version>4.2.5</Version>
+		<Version>4.2.6</Version>
 		<Copyright>Copyright © Digital Garage 2017</Copyright>
 		<Description>Client API for the minimalist HD Wallet Tracker NBXplorer</Description>
-		<PackageIconUrl>https://aois.blob.core.windows.net/public/Bitcoin.png</PackageIconUrl>
+		<PackageIcon>Bitcoin.png</PackageIcon>
 		<PackageTags>bitcoin</PackageTags>
 		<PackageProjectUrl>https://github.com/dgarage/NBXplorer/</PackageProjectUrl>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/dgarage/NBXplorer</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<LangVersion>10.0</LangVersion>
 	</PropertyGroup>
   <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
     <DefineConstants>$(DefineConstants);NO_SPAN</DefineConstants>
   </PropertyGroup>
-      	<ItemGroup Condition=" '$(Configuration)' == 'Release' ">
-		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
-	</ItemGroup>
         <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-             	<PublishRepositoryUrl>true</PublishRepositoryUrl>
-		<EmbedUntrackedSources>true</EmbedUntrackedSources>
-		<DebugType>portable</DebugType>
-		<Optimize>true</Optimize>
+		  <PublishRepositoryUrl>true</PublishRepositoryUrl>
+		  <EmbedUntrackedSources>true</EmbedUntrackedSources>
+		  <IncludeSymbols>true</IncludeSymbols>
+		  <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+		  <NoWarn>$(NoWarn);1591;1573;1572;1584;1570;3021</NoWarn>
         </PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="NBitcoin" Version="7.0.31" />
 		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.19" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>
+  <ItemGroup>
+	<None Include="..\README.md" Pack="true" PackagePath="\"/>
+	<None Include="Bitcoin.png" Pack="true" PackagePath="\"/>
+  </ItemGroup>
 </Project>
