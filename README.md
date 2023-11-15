@@ -53,9 +53,9 @@ Read our [API Specification](./docs/API.md).
 
 ## Prerequisite
 
-* Install [.NET Core SDK v6.0 or above](https://www.microsoft.com/net/download)
-* Bitcoin Core instance synched and running (at least 0.16.0).
-* PostgresSQL v13+ (Technically 11+ works, but you may have performance issues at higher scale)
+* Install [.NET Core SDK v8.0 or above](https://www.microsoft.com/net/download)
+* Bitcoin Core instance synched and running (at least 24.0).
+* PostgresSQL v13+
 
 There are two backend available:
 
