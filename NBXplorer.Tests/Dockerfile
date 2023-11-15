@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:6.0.401-bullseye-slim AS builder
+FROM mcr.microsoft.com/dotnet/sdk:8.0.100-bookworm-slim AS builder
 ARG SupportDBTrie=true
 ENV SupportDBTrie $SupportDBTrie
 WORKDIR /source

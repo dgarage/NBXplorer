@@ -8,6 +8,7 @@ using NBXplorer.Logging;
 using NBXplorer.Configuration;
 using Newtonsoft.Json.Serialization;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.Http;
 
 namespace NBXplorer
 {
@@ -61,7 +62,7 @@ namespace NBXplorer
 			{
 				app.Use(async (httpContext, next) =>
 				{
-					httpContext.Response.Headers.Add("instance-name", explorerConfiguration.InstanceName);
+					httpContext.Response.Headers.Append("instance-name", explorerConfiguration.InstanceName);
 					await next();
 				});
 			}
