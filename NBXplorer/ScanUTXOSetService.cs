@@ -153,7 +153,7 @@ namespace NBXplorer
 						workItem.State.Progress.UpdateRemainingBatches(workItem.Options.GapLimit);
 						workItem.State.Status = ScanUTXOStatus.Pending;
 						var scannedItems = GetScannedItems(workItem, workItem.State.Progress, workItem.Network);
-						var scanning = rpc.StartScanTxoutSetAsync(new ScanTxoutSetParameters(scannedItems.Descriptors));
+						var scanning = rpc.StartScanTxoutSetExAsync(new ScanTxoutSetParameters(scannedItems.Descriptors), _Cts.Token);
 
 						while (true)
 						{

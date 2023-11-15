@@ -21,6 +21,7 @@ using NBXplorer.Client;
 using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
 using static NBXplorer.Backends.Postgres.DbConnectionHelper;
+using RabbitMQ.Client;
 
 namespace NBXplorer.Backends.Postgres
 {
@@ -1168,10 +1169,11 @@ namespace NBXplorer.Backends.Postgres
 
 		public async ValueTask<int> TrimmingEvents(int maxEvents, CancellationToken cancellationToken = default)
 		{
-			await using var conn = await connectionFactory.CreateConnectionHelper(Network, o => o.CommandTimeout = Constants.FifteenMinutes);
-			var id = conn.Connection.ExecuteScalar<long?>("SELECT id FROM nbxv1_evts WHERE code=@code ORDER BY id DESC OFFSET @maxEvents LIMIT 1", new { code = Network.CryptoCode, maxEvents = maxEvents - 1 });
+			await using var ds = connectionFactory.CreateDataSourceBuilder(o => o.CommandTimeout = Constants.FifteenMinutes).Build();
+			await using var conn = await ds.ReliableOpenConnectionAsync();
+			var id = await conn.ExecuteScalarAsync<long?>("SELECT id FROM nbxv1_evts WHERE code=@code ORDER BY id DESC OFFSET @maxEvents LIMIT 1", new { code = Network.CryptoCode, maxEvents = maxEvents - 1 });
 			if (id is long i)
-				return await conn.Connection.ExecuteAsync("DELETE FROM nbxv1_evts WHERE code=@code AND id < @id", new { code = Network.CryptoCode, id = i });
+				return await conn.ExecuteAsync("DELETE FROM nbxv1_evts WHERE code=@code AND id < @id", new { code = Network.CryptoCode, id = i });
 			return 0;
 		}
 

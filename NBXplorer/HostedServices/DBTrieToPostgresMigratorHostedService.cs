@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NBitcoin;
+using NBitcoin.Altcoins;
 using NBitcoin.RPC;
 using NBXplorer.Backends;
 using NBXplorer.Backends.DBTrie;
@@ -16,6 +17,7 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Npgsql;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -146,10 +148,12 @@ namespace NBXplorer.HostedServices
 				return;
 			}
 			var logger = LoggerFactory.CreateLogger($"NBXplorer.PostgresMigration");
-			await using (var conn = await ConnectionFactory.CreateConnection(builder =>
+			var dsBuilder = ConnectionFactory.CreateDataSourceBuilder(builder =>
 			{
 				builder.CommandTimeout = Constants.FifteenMinutes;
-			}))
+			});
+			await using var ds = dsBuilder.Build();
+			await using (var conn = await ds.ReliableOpenConnectionAsync())
 			{
 				logger.LogInformation($"Running ANALYZE and VACUUM FULL...");
 				try
@@ -179,34 +183,38 @@ namespace NBXplorer.HostedServices
 			}
 		}
 
-		private async Task RegisterTypes(System.Data.Common.DbConnection conn)
+		private async Task RegisterTypes(NpgsqlDataSourceBuilder dsBuilder)
 		{
-			var pconn = (Npgsql.NpgsqlConnection)conn;
 			try
 			{
+				using var ds = dsBuilder.Build();
+				using var pconn = ds.CreateConnection();
 				await pconn.ExecuteAsync(
 					"CREATE TYPE m_txs AS (tx_id TEXT, raw BYTEA, seen_at TIMESTAMPTZ);" +
 					"CREATE TYPE m_blks_txs AS (tx_id TEXT, blk_id TEXT);" +
 					"CREATE TYPE m_evt AS (id BIGINT, type TEXT, data JSONB);");
+				await pconn.ReloadTypesAsync();
 			}
 			// They may already exists
 			catch { }
-			pconn.ReloadTypes();
-			pconn.TypeMapper.MapComposite<UpdateTransaction>("m_txs");
-			pconn.TypeMapper.MapComposite<UpdateBlockTransaction>("m_blks_txs");
-			pconn.TypeMapper.MapComposite<InsertEvents>("m_evt");
+			dsBuilder.MapComposite<UpdateTransaction>("m_txs");
+			dsBuilder.MapComposite<UpdateBlockTransaction>("m_blks_txs");
+			dsBuilder.MapComposite<InsertEvents>("m_evt");
 		}
-		private async Task UnregisterTypes(System.Data.Common.DbConnection conn)
+		private async Task UnregisterTypes(NpgsqlDataSourceBuilder dsBuilder)
 		{
-			var pconn = (Npgsql.NpgsqlConnection)conn;
-			pconn.TypeMapper.UnmapComposite<UpdateTransaction>("m_txs");
-			pconn.TypeMapper.UnmapComposite<UpdateBlockTransaction>("m_blks_txs");
-			pconn.TypeMapper.UnmapComposite<InsertEvents>("m_evt");
-			await pconn.ExecuteAsync(
-				"DROP TYPE m_txs;" +
-				"DROP TYPE m_blks_txs;" +
-				"DROP TYPE m_evt;");
-			pconn.ReloadTypes();
+			dsBuilder.UnmapComposite<UpdateTransaction>("m_txs");
+			dsBuilder.UnmapComposite<UpdateBlockTransaction>("m_blks_txs");
+			dsBuilder.UnmapComposite<InsertEvents>("m_evt");
+			{
+				using var ds = dsBuilder.Build();
+				using var pconn = ds.CreateConnection();
+				await pconn.ExecuteAsync(
+					"DROP TYPE m_txs;" +
+					"DROP TYPE m_blks_txs;" +
+					"DROP TYPE m_evt;");
+				await pconn.ReloadTypesAsync();
+			}
 		}
 
 
@@ -220,15 +228,18 @@ namespace NBXplorer.HostedServices
 		record UpdateBlockTransaction(string tx_id, string blk_id);
 		private async Task Migrate(NBXplorerNetwork network, Repository legacyRepo, PostgresRepository postgresRepo, ILogger logger, CancellationToken cancellationToken)
 		{
-			using var conn = await postgresRepo.ConnectionFactory.CreateConnection(builder =>
+			var builder = postgresRepo.ConnectionFactory.CreateDataSourceBuilder(builder =>
 			{
 				builder.CommandTimeout = Constants.TenHours;
 			});
+			await RegisterTypes(builder);
+			using var ds = builder.Build();
+			using var conn = await ds.ReliableOpenConnectionAsync(cancellationToken);
 			var data = await conn.QueryFirstOrDefaultAsync<string>("SELECT data_json FROM nbxv1_settings WHERE code=@code AND key='MigrationProgress'", new { code = network.CryptoCode });
 			var progress = data is null ? new MigrationProgress() : JsonConvert.DeserializeObject<MigrationProgress>(data);
 			if (progress.FullyUpdated)
 				return;
-			await RegisterTypes(conn);
+			
 			if (!progress.EventsMigrated)
 			{
 				if (!ExplorerConfiguration.NoMigrateEvents)
@@ -760,7 +771,7 @@ namespace NBXplorer.HostedServices
 				await FindInsMatches(network, conn, batch, filteredBatch);
 				await InsertInsMatches(conn, network, filteredBatch);
 				await conn.ExecuteAsync("DROP TABLE tmp_mapping_tracked_sources;");
-				await UnregisterTypes(conn);
+				await UnregisterTypes(builder);
 				progress.TrackedTransactionsInputsMigrated = true;
 				await SaveProgress(network, conn, progress);
 				await tx.CommitAsync();

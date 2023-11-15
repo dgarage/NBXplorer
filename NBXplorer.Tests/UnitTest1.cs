@@ -153,7 +153,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(23, ((NewBlockEvent)latestEvtsNoArg[9]).Height);
 
 				var latestEvts1 = await tester.Repository.GetLatestEvents(1);
-				Assert.Equal(1, latestEvts1.Count);
+				Assert.Single(latestEvts1);
 				Assert.Equal(23, ((NewBlockEvent)latestEvts1[0]).Height);
 
 				var latestEvts10 = await tester.Repository.GetLatestEvents(10);
@@ -434,7 +434,7 @@ namespace NBXplorer.Tests
 							FeePreference = new FeePreference() { ExplicitFeeRate = new FeeRate(2.0m) }
 						});
 						if (i == 25)
-							Assert.False(true, "CreatePSBT shouldn't have created a PSBT with a UTXO having too many ancestors");
+							Assert.Fail("CreatePSBT shouldn't have created a PSBT with a UTXO having too many ancestors");
 						psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
 						psbt.PSBT.Finalize();
 						Assert.True(tester.Client.Broadcast(psbt.PSBT.ExtractTransaction()).Success);
@@ -1890,12 +1890,12 @@ namespace NBXplorer.Tests
 				}
 				if (tx != null)
 					break;
-				Assert.False(true, $"Transaction {txid} should exists");
+				Assert.Fail($"Transaction {txid} should exists");
 			}
 			if (shouldBePruned && tx.Transaction != null)
-				Assert.False(true, $"Transaction {txid} should be pruned");
+				Assert.Fail($"Transaction {txid} should be pruned");
 			if (!shouldBePruned && tx.Transaction == null)
-				Assert.False(true, $"Transaction {txid} should not be pruned");
+				Assert.Fail($"Transaction {txid} should not be pruned");
 			return tx;
 		}
 
@@ -3323,7 +3323,7 @@ namespace NBXplorer.Tests
 #if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
 #endif
-		public void CanUseLongPollingOnEvents(Backend backend)
+		public async Task CanUseLongPollingOnEvents(Backend backend)
 		{
 			using (var tester = ServerTester.Create(backend))
 			{
@@ -3347,7 +3347,7 @@ namespace NBXplorer.Tests
 						evts = session.GetEvents(lastId, longPolling: true, cancellation: cts.Token);
 						lastId = evts.Last().EventId;
 						evts = session.GetEvents(lastId, longPolling: true, cancellation: cts.Token);
-						Assert.False(true, "Should throws");
+						Assert.Fail("Should throws");
 					}
 					catch (OperationCanceledException)
 					{
@@ -3367,7 +3367,7 @@ namespace NBXplorer.Tests
 				Assert.False(gettingEvts.IsCompleted);
 				tester.RPC.Generate(1);
 				Logs.Tester.LogInformation("Block mined");
-				evts = gettingEvts.GetAwaiter().GetResult();
+				evts = await gettingEvts;
 				Assert.Equal(lastId + 1, evts.Last().EventId);
 				Assert.Single(evts);
 				Assert.True(DateTimeOffset.UtcNow - now < TimeSpan.FromSeconds(5.0));
@@ -3453,7 +3453,7 @@ namespace NBXplorer.Tests
 			foreach (var tx in sorted)
 			{
 				if (tx.Height.Value < highest)
-					Assert.False(true, "Transactions out of order");
+					Assert.Fail("Transactions out of order");
 				highest = Math.Max(highest, tx.Height.Value);
 			}
 		}
@@ -3988,9 +3988,9 @@ namespace NBXplorer.Tests
 					return info;
 				}
 				if (info.Status == ScanUTXOStatus.Error)
-					Assert.False(true, $"Scanning should not have failed {info.Error}");
+					Assert.Fail($"Scanning should not have failed {info.Error}");
 				if (cts.IsCancellationRequested)
-					Assert.False(true, $"Scanning seems to be stuck (State: {info.Status})");
+					Assert.Fail($"Scanning seems to be stuck (State: {info.Status})");
 				Assert.Null(info.Progress.CompletedAt);
 				Thread.Sleep(100);
 			}

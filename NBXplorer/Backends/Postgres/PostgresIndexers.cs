@@ -78,17 +78,7 @@ namespace NBXplorer.Backends.Postgres
 				await ConnectNode(token, true);
 				await foreach (var item in _Channel.Reader.ReadAllAsync(token))
 				{
-					await using var conn = await ConnectionFactory.CreateConnectionHelper(Network, b =>
-					{
-						b.NoResetOnClose = true;
-						// It seems that when running a big rescan, the postgres connection process
-						// is taking more and more RAM.
-						// While I didn't find the source of the issue, disabling connection pooling
-						// will force postgres to create a new connection process, freeing the memory.
-						// Note that since PullBlocks are consolidated during rescans, it will only create
-						// 1 connection every ~2000 blocks.
-						b.Pooling = !(item is PullBlocks && State == BitcoinDWaiterState.NBXplorerSynching);
-					});
+					await using var conn = await ConnectionFactory.CreateConnectionHelper(Network);
 					if (item is PullBlocks pb)
 					{
 						var headers = ConsolidatePullBlocks(_Channel.Reader, pb);

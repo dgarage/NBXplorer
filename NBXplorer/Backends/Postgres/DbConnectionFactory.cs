@@ -4,11 +4,13 @@ using NBXplorer.Configuration;
 using Npgsql;
 using System;
 using System.Data.Common;
+using System.Threading;
 using System.Threading.Tasks;
+using static System.Collections.Specialized.BitVector32;
 
 namespace NBXplorer.Backends.Postgres
 {
-	public class DbConnectionFactory
+	public class DbConnectionFactory : IAsyncDisposable
 	{
 		public DbConnectionFactory(ILogger<DbConnectionFactory> logger,
 			IConfiguration configuration,
@@ -19,61 +21,48 @@ namespace NBXplorer.Backends.Postgres
 			ExplorerConfiguration = conf;
 			KeyPathTemplates = keyPathTemplates;
 			ConnectionString = configuration.GetRequired("POSTGRES");
+			_DS = CreateDataSourceBuilder(null).Build();
 		}
 
+		public NpgsqlDataSourceBuilder CreateDataSourceBuilder(Action<NpgsqlConnectionStringBuilder> action)
+		{
+			var connStrBuilder = new NpgsqlConnectionStringBuilder(ConnectionString);
+			// Since we create lots of connection in the indexer loop, this saves one round
+			// trip.
+			connStrBuilder.NoResetOnClose = true;
+			// This force connections to recreate, fixing some issues where connection
+			// take more and more RAM on postgres.
+			connStrBuilder.ConnectionLifetime = (int)TimeSpan.FromMinutes(10).TotalSeconds;
+			action?.Invoke(connStrBuilder);
+			var builder = new NpgsqlDataSourceBuilder(connStrBuilder.ConnectionString);
+			DbConnectionHelper.Register(builder);
+			builder.Build();
+			return builder;
+		}
+
+		NpgsqlDataSource _DS;
 		public string ConnectionString { get; }
 		public ILogger<DbConnectionFactory> Logger { get; }
 		public ExplorerConfiguration ExplorerConfiguration { get; }
 		public KeyPathTemplates KeyPathTemplates { get; }
 
-		public Task<DbConnectionHelper> CreateConnectionHelper(NBXplorerNetwork network)
+		public async Task<DbConnectionHelper> CreateConnectionHelper(NBXplorerNetwork network)
 		{
-			return CreateConnectionHelper(network, null);
-		}
-		public async Task<DbConnectionHelper> CreateConnectionHelper(NBXplorerNetwork network, Action<Npgsql.NpgsqlConnectionStringBuilder> action)
-		{
-			return new DbConnectionHelper(network, await CreateConnection(action), KeyPathTemplates)
+			return new DbConnectionHelper(network, await CreateConnection(), KeyPathTemplates)
 			{
 				MinPoolSize = ExplorerConfiguration.MinGapSize,
 				MaxPoolSize = ExplorerConfiguration.MaxGapSize
 			};
 		}
-		public Task<DbConnection> CreateConnection()
+
+		public async Task<DbConnection> CreateConnection(CancellationToken cancellationToken = default)
 		{
-			return CreateConnection(null);
-		}
-		public async Task<DbConnection> CreateConnection(Action<Npgsql.NpgsqlConnectionStringBuilder> action)
-		{
-			int maxRetries = 10;
-			int retries = maxRetries;
-			retry:
-			var conn = new Npgsql.NpgsqlConnection(GetConnectionString(action));
-			try
-			{
-				await conn.OpenAsync();
-			}
-			catch (PostgresException ex) when (ex.IsTransient && retries > 0)
-			{
-				retries--;
-				await conn.DisposeAsync();
-				await Task.Delay((maxRetries - retries) * 100);
-				goto retry;
-			}
-			catch
-			{
-				conn.Dispose();
-				throw;
-			}
-			return conn;
+			return await _DS.ReliableOpenConnectionAsync(cancellationToken);
 		}
 
-		private string GetConnectionString(Action<NpgsqlConnectionStringBuilder> action)
+		public ValueTask DisposeAsync()
 		{
-			if (action is null)
-				return ConnectionString;
-			NpgsqlConnectionStringBuilder builder = new NpgsqlConnectionStringBuilder(ConnectionString);
-			action(builder);
-			return builder.ConnectionString;
+			return _DS.DisposeAsync();
 		}
 	}
 }

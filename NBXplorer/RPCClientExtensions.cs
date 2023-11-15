@@ -12,6 +12,7 @@ using NBXplorer.Backends;
 using System.Text.RegularExpressions;
 using System.Net.Http;
 using System.Net;
+using System.Net.Http.Headers;
 
 namespace NBXplorer
 {
@@ -80,6 +81,21 @@ namespace NBXplorer
 
 	public static class RPCClientExtensions
 	{
+		public static async Task<ScanTxoutSetResponse> StartScanTxoutSetExAsync(this RPCClient rpc, ScanTxoutSetParameters parameters, CancellationToken cancellationToken)
+		{
+			int delay = 100;
+			retry:
+			try
+			{
+				return await rpc.StartScanTxoutSetAsync(parameters, cancellationToken);
+			}
+			catch (RPCException ex) when (!cancellationToken.IsCancellationRequested && ex.Message.StartsWith("Scan already in progress", StringComparison.OrdinalIgnoreCase))
+			{
+				await Task.Delay(delay, cancellationToken);
+				delay = Math.Max(delay * 2, 10_000);
+				goto retry;
+			}
+		}
 		public static async Task<bool?> SupportTxIndex(this RPCClient rpc)
 		{
 			try
