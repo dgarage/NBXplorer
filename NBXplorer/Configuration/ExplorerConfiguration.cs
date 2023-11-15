@@ -229,9 +229,9 @@ namespace NBXplorer.Configuration
 					"  * To use postgres, please use --postgres \"...\" (or NBXPLORER_POSTGRES=\"...\") with a postgres connection string (see https://www.connectionstrings.com/postgresql/)" + Environment.NewLine +
 					"  * To use DBTrie, use --dbtrie (or NBXPLORER_DBTRIE=1). This backend is deprecated, only use if you haven't yet migrated. For more information about how to migrate, see https://github.com/dgarage/NBXplorer/tree/master/docs/Postgres-Migration.md");
 			}
-			if (IsDbTrie)
+			if (IsDbTrie && config["ALLOW_DBTRIE"] != "1")
 			{
-				Logs.Configuration.LogWarning("Warning: A DBTrie backend has been selected, but this backend is deprecated, only use if you haven't yet migrated to postgres. For more information about how to migrate, see https://github.com/dgarage/NBXplorer/tree/master/docs/Postgres-Migration.md");
+				throw new ConfigException("DBTrie backend isn't supported anymore. Please migrate to postgres backend. (https://github.com/dgarage/NBXplorer/blob/master/docs/Postgres-Migration.md)");
 			}
 			if (IsDbTrie && IsPostgres)
 			{
