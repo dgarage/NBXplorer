@@ -1,4 +1,4 @@
-﻿CREATE OR REPLACE PROCEDURE fetch_matches(in_code text, in_outs public.new_out[], in_ins public.new_in[], INOUT has_match boolean)
+﻿CREATE OR REPLACE PROCEDURE fetch_matches(in_code text, in_outs new_out[], in_ins new_in[], INOUT has_match boolean)
     LANGUAGE plpgsql
     AS $$
 BEGIN
