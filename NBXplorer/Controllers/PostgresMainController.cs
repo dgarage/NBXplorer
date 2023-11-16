@@ -1,29 +1,33 @@
-﻿using Dapper;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
+using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NBitcoin;
-using NBXplorer.Backends;
+using NBitcoin.RPC;
 using NBXplorer.Backends.Postgres;
 using NBXplorer.DerivationStrategy;
-using NBXplorer.ModelBinders;
 using NBXplorer.Models;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace NBXplorer.Controllers
 {
-	[Route("v1")]
+	[PostgresImplementationActionConstraint(true)]
+	[Route($"v1/{CommonRoutes.DerivationEndpoint}")]
+	[Route($"v1/{CommonRoutes.AddressEndpoint}")]
+	[Route($"v1/{CommonRoutes.WalletEndpoint}")]
+	[Route($"v1/{CommonRoutes.TrackedSourceEndpoint}")]
 	[Authorize]
-	public class PostgresMainController : ControllerBase, IUTXOService
+	public class PostgresMainController :Controller, IUTXOService
 	{
 		public PostgresMainController(
 			DbConnectionFactory connectionFactory,
-			NBXplorerNetworkProvider networkProvider,
-			IRPCClients rpcClients,
-			IIndexers indexers,
-			KeyPathTemplates keyPathTemplates,
-			IRepositoryProvider repositoryProvider) : base(networkProvider, rpcClients, repositoryProvider, indexers)
+			KeyPathTemplates keyPathTemplates) 
 		{
 			ConnectionFactory = connectionFactory;
 			KeyPathTemplates = keyPathTemplates;
@@ -32,21 +36,12 @@ namespace NBXplorer.Controllers
 		public DbConnectionFactory ConnectionFactory { get; }
 		public KeyPathTemplates KeyPathTemplates { get; }
 
-		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balance")]
-		[Route("cryptos/{cryptoCode}/addresses/{address}/balance")]
-		[PostgresImplementationActionConstraint(true)]
-		public async Task<IActionResult> GetBalance(string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme,
-			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
+		[HttpGet("balance")]
+		public async Task<IActionResult> GetBalance(TrackedSourceContext trackedSourceContext)
 		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
-			if (trackedSource == null)
-				throw new ArgumentNullException(nameof(trackedSource));
-			var network = GetNetwork(cryptoCode, false);
-			var repo = (PostgresRepository)RepositoryProvider.GetRepository(cryptoCode);
+			var trackedSource = trackedSourceContext.TrackedSource;
+			var network = trackedSourceContext.Network;
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
 			await using var conn = await ConnectionFactory.CreateConnection();
 			var b = await conn.QueryAsync("SELECT * FROM wallets_balances WHERE code=@code AND wallet_id=@walletId", new { code = network.CryptoCode, walletId = repo.GetWalletKey(trackedSource).wid });
 			MoneyBag
@@ -106,30 +101,19 @@ namespace NBXplorer.Controllers
 			return new MoneyBag(bag.Where(a => !a.Negate().Equals(a)).ToArray());
 		}
 
-		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos")]
-		[Route("cryptos/{cryptoCode}/addresses/{address}/utxos")]
-		[PostgresImplementationActionConstraint(true)]
-		public async Task<IActionResult> GetUTXOs(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme,
-			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
-		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
-			if (trackedSource == null)
-				throw new ArgumentNullException(nameof(trackedSource));
-			var network = GetNetwork(cryptoCode, false);
-			var repo = (PostgresRepository)RepositoryProvider.GetRepository(cryptoCode);
 
+		[HttpGet("utxos")]
+		public async Task<IActionResult> GetUTXOs( TrackedSourceContext trackedSourceContext)
+		{
+			var trackedSource = trackedSourceContext.TrackedSource;
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			var network = trackedSourceContext.Network;
 			await using var conn = await ConnectionFactory.CreateConnection();
 			var height = await conn.ExecuteScalarAsync<long>("SELECT height FROM get_tip(@code)", new { code = network.CryptoCode });
-
-
 			// On elements, we can't get blinded address from the scriptPubKey, so we need to fetch it rather than compute it
 			string addrColumns = "NULL as address";
-			if (network.IsElement && !derivationScheme.Unblinded())
+			var derivationScheme = (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+			if (network.IsElement && derivationScheme?.Unblinded() is true)
 			{
 				addrColumns = "ds.metadata->>'blindedAddress' as address";
 			}
@@ -198,11 +182,6 @@ namespace NBXplorer.Controllers
 					changes.SpentUnconfirmed.Add(u);
 			}
 			return Json(changes, network.JsonSerializerSettings);
-		}
-
-		public Task<IActionResult> GetUTXOs(string cryptoCode, DerivationStrategyBase derivationStrategy)
-		{
-			return this.GetUTXOs(cryptoCode, derivationStrategy, null);
 		}
 	}
 }

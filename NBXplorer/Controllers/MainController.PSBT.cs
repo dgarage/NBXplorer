@@ -17,12 +17,10 @@ namespace NBXplorer.Controllers
 	public partial class MainController
 	{
 		[HttpPost]
-		[Route("cryptos/{network}/derivations/{strategy}/psbt/create")]
+		[Route($"{CommonRoutes.DerivationEndpoint}/psbt/create")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
 		public async Task<IActionResult> CreatePSBT(
-			[ModelBinder(BinderType = typeof(NetworkModelBinder))]
-			NBXplorerNetwork network,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase strategy,
+			TrackedSourceContext trackedSourceContext,
 			[FromBody]
 			JObject body,
 			[FromServices]
@@ -30,14 +28,13 @@ namespace NBXplorer.Controllers
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
+			var network = trackedSourceContext.Network;
 			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(body, network);
-			if (strategy == null)
-				throw new ArgumentNullException(nameof(strategy));
 
 			var repo = RepositoryProvider.GetRepository(network);
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
-
+			var strategy = ((DerivationSchemeTrackedSource) trackedSourceContext.TrackedSource).DerivationStrategy;
 			CreatePSBTSuggestions suggestions = null;
 			if (!(request.DisableFingerprintRandomization is true) &&
 				fingerprintService.GetDistribution(network) is FingerprintDistribution distribution)
@@ -153,7 +150,7 @@ namespace NBXplorer.Controllers
 					txBuilder.SetLockTime(new LockTime(0));
 				}
 			}
-			var utxoChanges = (await utxoService.GetUTXOs(network.CryptoCode, strategy)).As<UTXOChanges>();
+			var utxoChanges = (await utxoService.GetUTXOs(trackedSourceContext)).As<UTXOChanges>();
 			var utxos = utxoChanges.GetUnspentUTXOs(request.MinConfirmations);
 			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)
@@ -197,7 +194,7 @@ namespace NBXplorer.Controllers
 			if (network.CryptoCode == "BTC" && unconfUtxos.Count > 0 && request.MinConfirmations == 0)
 			{
 				HashSet<uint256> requestedTxs = new HashSet<uint256>();
-				var rpc = RPCClients.Get(network);
+				var rpc = trackedSourceContext.RpcClient;
 				rpc = rpc.PrepareBatch();
 				var mempoolEntries = 
 					unconfUtxos
@@ -270,7 +267,7 @@ namespace NBXplorer.Controllers
 			bool hasChange = false;
 			if (request.ExplicitChangeAddress == null)
 			{
-				var keyInfo = (await GetUnusedAddress(network.CryptoCode, strategy, DerivationFeature.Change, autoTrack: true)).As<KeyPathInformation>();
+				var keyInfo = (await GetUnusedAddress(trackedSourceContext, DerivationFeature.Change, autoTrack: true)).As<KeyPathInformation>();
 				change = (keyInfo.ScriptPubKey, keyInfo.KeyPath);
 			}
 			else
@@ -351,7 +348,7 @@ namespace NBXplorer.Controllers
 			// We made sure we can build the PSBT, so now we can reserve the change address if we need to
 			if (hasChange && request.ExplicitChangeAddress == null && request.ReserveChangeAddress)
 			{
-				var derivation = (await GetUnusedAddress(network.CryptoCode, strategy, DerivationFeature.Change, reserve: true, autoTrack: true)).As<KeyPathInformation>();
+				var derivation = (await GetUnusedAddress(trackedSourceContext, DerivationFeature.Change, reserve: true, autoTrack: true)).As<KeyPathInformation>();
 				// In most of the time, this is the same as previously, so no need to rebuild PSBT
 				if (derivation.ScriptPubKey != change.ScriptPubKey)
 				{

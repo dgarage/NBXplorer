@@ -6,7 +6,7 @@
     <Version>2.4.1</Version>
 	  <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\NBXplorer.xml</DocumentationFile>
 	  <NoWarn>1701;1702;1705;1591;CS1591</NoWarn>
-	  <LangVersion>10.0</LangVersion>
+	  <LangVersion>12</LangVersion>
 	<SupportDBTrie Condition="'$(SupportDBTrie)' == ''">true</SupportDBTrie>
 	<DefineConstants Condition="'$(SupportDBTrie)' == 'true'">$(DefineConstants);SUPPORT_DBTRIE</DefineConstants>
   </PropertyGroup>
