@@ -26,6 +26,7 @@
     <None Remove="DBScripts\015.AvoidWAL.sql" />
     <None Remove="DBScripts\016.FixTempTableCreation.sql" />
     <None Remove="DBScripts\017.FixDoubleSpendDetection.sql" />
+    <None Remove="DBScripts\018.FastWalletRecent.sql" />
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />

@@ -316,9 +316,7 @@ $$;
 CREATE FUNCTION get_wallets_recent(in_wallet_id text, in_code text, in_asset_id text, in_interval interval, in_limit integer, in_offset integer) RETURNS TABLE(code text, asset_id text, tx_id text, seen_at timestamp with time zone, balance_change bigint, balance_total bigint)
     LANGUAGE sql STABLE
     AS $$
-  -- We need to materialize, if too many utxos, postgres just call this one over and over...
-  -- however Postgres 11 doesn't support AS MATERIALIZED :(
-  WITH this_balances AS (
+  WITH this_balances AS MATERIALIZED (
 	  SELECT code, asset_id, unconfirmed_balance FROM wallets_balances
 	  WHERE wallet_id=in_wallet_id
   ),
@@ -1348,6 +1346,7 @@ INSERT INTO nbxv1_migrations VALUES ('014.FixAddressReuse');
 INSERT INTO nbxv1_migrations VALUES ('015.AvoidWAL');
 INSERT INTO nbxv1_migrations VALUES ('016.FixTempTableCreation');
 INSERT INTO nbxv1_migrations VALUES ('017.FixDoubleSpendDetection');
+INSERT INTO nbxv1_migrations VALUES ('018.FastWalletRecent');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);

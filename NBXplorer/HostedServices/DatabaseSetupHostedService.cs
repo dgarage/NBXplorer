@@ -51,10 +51,13 @@ namespace NBXplorer.HostedServices
 			}
 		}
 
-		private async Task RunScripts(System.Data.Common.DbConnection conn)
+		private async Task RunScripts(NpgsqlConnection conn)
 		{
 			await using (conn)
 			{
+				if (conn.PostgreSqlVersion.Major <= 11)
+					Logger.LogWarning($"You are using postgres {conn.PostgreSqlVersion.Major}, this major release reached end-of-life (EOL) and is no longer supported, use at your own risks. (https://www.postgresql.org/support/versioning/)");
+
 				HashSet<string> executed;
 				try
 				{
@@ -74,6 +77,12 @@ namespace NBXplorer.HostedServices
 					var scriptName = $"{parts[^3]}.{parts[^2]}";
 					if (executed.Contains(scriptName))
 						continue;
+					if (scriptName == "018.FastWalletRecent" && conn.PostgreSqlVersion.Major <= 11)
+					{
+						Logger.LogWarning($"Skipping script {scriptName} because it is not supported by postgres {conn.PostgreSqlVersion.Major}");
+						continue;
+					}
+
 					var stream = System.Reflection.Assembly.GetExecutingAssembly()
 														   .GetManifestResourceStream(resource);
 					string content = null;
@@ -84,7 +93,7 @@ namespace NBXplorer.HostedServices
 					Logger.LogInformation($"Execute script {scriptName}...");
 					await conn.ExecuteAsync($"{content}; INSERT INTO nbxv1_migrations VALUES (@scriptName)", new { scriptName });
 				}
-				await ((NpgsqlConnection)conn).ReloadTypesAsync();
+				await conn.ReloadTypesAsync();
 			}
 		}
 
