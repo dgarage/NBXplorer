@@ -50,6 +50,16 @@ namespace NBXplorer.Models
 		public bool ReserveChangeAddress { get; set; }
 
 		/// <summary>
+		/// Use a specific change address (Optional, default: null, mutually exclusive with ReserveChangeAddress, DonateChangeToMiners)
+		/// </summary>
+		public BitcoinAddress ExplicitChangeAddress { get; set; }
+
+		/// <summary>
+		/// donate any leftover from selected coins to miners (Optional, default: false,  mutually exclusive with ReserveChangeAddress, ExplicitChangeAddress)
+		/// </summary>
+		public bool DonateChangeToMiners { get; set; }
+
+		/// <summary>
 		/// Default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
 		/// </summary>
 		public int MinConfirmations { get; set; }
@@ -67,11 +77,6 @@ namespace NBXplorer.Models
 		/// If `true`, all the UTXOs that have been selected will be used as input in the PSBT. (default to false)
 		/// </summary>
 		public bool? SpendAllMatchingOutpoints { get; set; }
-
-		/// <summary>
-		/// Use a specific change address (Optional, default: null, mutually exclusive with ReserveChangeAddress)
-		/// </summary>
-		public BitcoinAddress ExplicitChangeAddress { get; set; }
 
 		/// <summary>
 		/// Rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about)

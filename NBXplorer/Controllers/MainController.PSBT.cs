@@ -323,7 +323,15 @@ namespace NBXplorer.Controllers
 				if (request.SpendAllMatchingOutpoints is true)
 					txBuilder.SendAllRemainingToChange();
 				psbt = txBuilder.BuildPSBT(false);
-				hasChange = psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
+				hasChange =  psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
+				if (request.DonateChangeToMiners && hasChange)
+				{
+					var txTmp = psbt.GetGlobalTransaction();
+					txTmp.Outputs.RemoveAll(o => o.ScriptPubKey == change.ScriptPubKey);
+					psbt = txBuilder.CreatePSBTFrom(txTmp, false);
+					hasChange =  psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
+				}
+				
 			}
 			catch (OutputTooSmallException ex) when (ex.Reason == OutputTooSmallException.ErrorType.TooSmallAfterSubtractedFee)
 			{
@@ -379,7 +387,7 @@ namespace NBXplorer.Controllers
 			var resp = new CreatePSBTResponse()
 			{
 				PSBT = update.PSBT,
-				ChangeAddress = hasChange ? change.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : null,
+				ChangeAddress = hasChange? change.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : null,
 				Suggestions = suggestions
 			};
 			return Json(resp, network.JsonSerializerSettings);

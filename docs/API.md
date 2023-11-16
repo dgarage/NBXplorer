@@ -1058,7 +1058,8 @@ Fields:
 * `rbf`: Optional, determine if the transaction should have Replace By Fee (RBF) activated (default: `true`, if `disableFingerprintRandomization` is `true`)
 * `reserveChangeAddress`: default to false, whether the creation of this PSBT will reserve a new change address.
 * `spendAllMatchingOutpoints`: If `true`, all the UTXOs that have been selected will be used as input in the PSBT. (default to false)
-* `explicitChangeAddress`: default to null, use a specific change address (Optional, mutually exclusive with reserveChangeAddress)
+* `explicitChangeAddress`: default to null, use a specific change address (Optional, mutually exclusive with reserveChangeAddress and donateChangeToMiners)
+* `donateChangeToMiners`: default to false, donate any leftover from selected coins to miners (Optional, mutually exclusive with reserveChangeAddress, explicitChangeAddress)
 * `minConfirmations`: default to 0, the minimum confirmations a UTXO need to be selected. (by default unconfirmed and confirmed UTXO will be used)
 * `includeOnlyOutpoints`: Only select the following outpoints for creating the PSBT. Note that it can also select outpoints that has been already spent, but where the spending is unconfirmed, so it can be used for RBF. (default to null)
 * `excludeOutpoints`: Do not select the following outpoints for creating the PSBT (default to empty)
