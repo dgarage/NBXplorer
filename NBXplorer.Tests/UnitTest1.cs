@@ -4548,7 +4548,9 @@ namespace NBXplorer.Tests
 
 		[Theory]
 		[InlineData(Backend.Postgres)]
+#if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
+#endif
 		public async Task CanAssociateIndependentScripts(Backend backend)
 		{
 			using var tester = ServerTester.Create(backend);

@@ -17,12 +17,10 @@ namespace NBXplorer.Controllers
 	public partial class MainController
 	{
 		[HttpPost]
-		[Route("cryptos/{network}/derivations/{strategy}/psbt/create")]
+		[Route($"{CommonRoutes.DerivationEndpoint}/psbt/create")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes:typeof(DerivationSchemeTrackedSource))]
 		public async Task<IActionResult> CreatePSBT(
-			[ModelBinder(BinderType = typeof(NetworkModelBinder))]
-			NBXplorerNetwork network,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase strategy,
+			TrackedSourceContext trackedSourceContext,
 			[FromBody]
 			JObject body,
 			[FromServices]
@@ -30,17 +28,15 @@ namespace NBXplorer.Controllers
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
-			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(body, network);
-			if (strategy == null)
-				throw new ArgumentNullException(nameof(strategy));
+			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(body, trackedSourceContext.Network);
 
-			var repo = RepositoryProvider.GetRepository(network);
-			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
-												: network.NBitcoinNetwork.CreateTransactionBuilder();
-
+			var repo = RepositoryProvider.GetRepository(trackedSourceContext.Network);
+			var txBuilder = request.Seed is int s ? trackedSourceContext.Network.NBitcoinNetwork.CreateTransactionBuilder(s)
+												: trackedSourceContext.Network.NBitcoinNetwork.CreateTransactionBuilder();
+			var strategy = ((DerivationSchemeTrackedSource) trackedSourceContext.TrackedSource).DerivationStrategy;
 			CreatePSBTSuggestions suggestions = null;
 			if (!(request.DisableFingerprintRandomization is true) &&
-				fingerprintService.GetDistribution(network) is FingerprintDistribution distribution)
+				fingerprintService.GetDistribution(trackedSourceContext.Network) is FingerprintDistribution distribution)
 			{
 				suggestions ??= new CreatePSBTSuggestions();
 				var known = new List<(Fingerprint feature, bool value)>();
@@ -97,8 +93,7 @@ namespace NBXplorer.Controllers
 				suggestions.ShouldEnforceLowR = fingerprint.HasFlag(Fingerprint.LowR);
 			}
 
-			var indexer = Indexers.GetIndexer(network);
-			if (indexer.NetworkInfo?.GetRelayFee() is FeeRate feeRate)
+			if (trackedSourceContext.Indexer.NetworkInfo?.GetRelayFee() is FeeRate feeRate)
 			{
 				txBuilder.StandardTransactionPolicy.MinRelayTxFee = feeRate;
 			}
@@ -135,7 +130,7 @@ namespace NBXplorer.Controllers
 			// nLockTime that preclude a fix later.
 			else if (!(request.DiscourageFeeSniping is false))
 			{
-				if (indexer.State is BitcoinDWaiterState.Ready)
+				if (trackedSourceContext.Indexer.State is BitcoinDWaiterState.Ready)
 				{
 					int blockHeight = (await repo.GetTip()).Height;
 					// Secondly occasionally randomly pick a nLockTime even further back, so
@@ -153,7 +148,7 @@ namespace NBXplorer.Controllers
 					txBuilder.SetLockTime(new LockTime(0));
 				}
 			}
-			var utxoChanges = (await utxoService.GetUTXOs(network.CryptoCode, strategy)).As<UTXOChanges>();
+			var utxoChanges = (await utxoService.GetUTXOs(trackedSourceContext)).As<UTXOChanges>();
 			var utxos = utxoChanges.GetUnspentUTXOs(request.MinConfirmations);
 			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)
@@ -194,10 +189,10 @@ namespace NBXplorer.Controllers
 			// We remove unconf utxos with too many ancestors, as it will result in a transaction
 			// that can't be broadcasted.
 			// We do only for BTC, as this isn't a shitcoin issue.
-			if (network.CryptoCode == "BTC" && unconfUtxos.Count > 0 && request.MinConfirmations == 0)
+			if (trackedSourceContext.Network.CryptoCode == "BTC" && unconfUtxos.Count > 0 && request.MinConfirmations == 0)
 			{
 				HashSet<uint256> requestedTxs = new HashSet<uint256>();
-				var rpc = RPCClients.Get(network);
+				var rpc = trackedSourceContext.RpcClient;
 				rpc = rpc.PrepareBatch();
 				var mempoolEntries = 
 					unconfUtxos
@@ -270,7 +265,7 @@ namespace NBXplorer.Controllers
 			bool hasChange = false;
 			if (request.ExplicitChangeAddress == null)
 			{
-				var keyInfo = (await GetUnusedAddress(network.CryptoCode, strategy, DerivationFeature.Change, autoTrack: true)).As<KeyPathInformation>();
+				var keyInfo = (await GetUnusedAddress(trackedSourceContext, DerivationFeature.Change, autoTrack: true)).As<KeyPathInformation>();
 				change = (keyInfo.ScriptPubKey, keyInfo.KeyPath);
 			}
 			else
@@ -296,7 +291,7 @@ namespace NBXplorer.Controllers
 				{
 					try
 					{
-						var rate = await GetFeeRate(blockTarget, network.CryptoCode);
+						var rate = await GetFeeRate(blockTarget, trackedSourceContext.Network.CryptoCode);
 						txBuilder.SendEstimatedFees(rate.FeeRate);
 					}
 					catch (NBXplorerException e) when (e.Error.Code == "fee-estimation-unavailable" && request.FeePreference?.FallbackFeeRate is FeeRate fallbackFeeRate)
@@ -312,7 +307,7 @@ namespace NBXplorer.Controllers
 				{
 					try
 					{
-						var rate = await GetFeeRate(1, network.CryptoCode);
+						var rate = await GetFeeRate(1, trackedSourceContext.Network.CryptoCode);
 						txBuilder.SendEstimatedFees(rate.FeeRate);
 					}
 					catch (NBXplorerException e) when (e.Error.Code == "fee-estimation-unavailable" && request.FeePreference?.FallbackFeeRate is FeeRate fallbackFeeRate)
@@ -351,7 +346,7 @@ namespace NBXplorer.Controllers
 			// We made sure we can build the PSBT, so now we can reserve the change address if we need to
 			if (hasChange && request.ExplicitChangeAddress == null && request.ReserveChangeAddress)
 			{
-				var derivation = (await GetUnusedAddress(network.CryptoCode, strategy, DerivationFeature.Change, reserve: true, autoTrack: true)).As<KeyPathInformation>();
+				var derivation = (await GetUnusedAddress(trackedSourceContext, DerivationFeature.Change, reserve: true, autoTrack: true)).As<KeyPathInformation>();
 				// In most of the time, this is the same as previously, so no need to rebuild PSBT
 				if (derivation.ScriptPubKey != change.ScriptPubKey)
 				{
@@ -375,14 +370,14 @@ namespace NBXplorer.Controllers
 				AlwaysIncludeNonWitnessUTXO = request.AlwaysIncludeNonWitnessUTXO,
 				IncludeGlobalXPub = request.IncludeGlobalXPub
 			};
-			await UpdatePSBTCore(update, network);
+			await UpdatePSBTCore(update, trackedSourceContext.Network);
 			var resp = new CreatePSBTResponse()
 			{
 				PSBT = update.PSBT,
-				ChangeAddress = hasChange ? change.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : null,
+				ChangeAddress = hasChange ? change.ScriptPubKey.GetDestinationAddress(trackedSourceContext.Network.NBitcoinNetwork) : null,
 				Suggestions = suggestions
 			};
-			return Json(resp, network.JsonSerializerSettings);
+			return Json(resp, trackedSourceContext.Network.JsonSerializerSettings);
 		}
 
 		[HttpPost]
