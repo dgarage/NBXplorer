@@ -30,7 +30,7 @@ namespace NBXplorer
 
 		internal async Task ConnectAsync(CancellationToken cancellation)
 		{
-			var uri = _Client.GetFullUri($"v1/cryptos/{_Client.CryptoCode}/connect", null);
+			var uri = _Client.GetFullUri($"v1/cryptos/{_Client.CryptoCode}/connect");
 			uri = ToWebsocketUri(uri);
 			WebSocket socket = null;
 			try
