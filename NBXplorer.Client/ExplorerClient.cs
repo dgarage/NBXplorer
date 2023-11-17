@@ -443,7 +443,11 @@ namespace NBXplorer
 
 		public async Task<KeyPathInformation> GetKeyInformationAsync(DerivationStrategyBase strategy, Script script, CancellationToken cancellation = default)
 		{
-			return await SendAsync<KeyPathInformation>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/scripts/{script.ToHex()}", cancellation).ConfigureAwait(false);
+			return await GetKeyInformationAsync(new DerivationSchemeTrackedSource(strategy), script, cancellation).ConfigureAwait(false);
+		}
+		public async Task<KeyPathInformation> GetKeyInformationAsync(TrackedSource trackedSource, Script script, CancellationToken cancellation = default)
+		{
+			return await SendAsync<KeyPathInformation>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/scripts/{script.ToHex()}", cancellation).ConfigureAwait(false);
 		}
 
 		[Obsolete("Use GetKeyInformationAsync(DerivationStrategyBase strategy, Script script) instead")]

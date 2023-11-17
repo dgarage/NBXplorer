@@ -200,13 +200,14 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route($"{CommonRoutes.DerivationEndpoint}/scripts/{{script}}")]
-		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes:typeof(DerivationSchemeTrackedSource))]
+		[Route($"{CommonRoutes.AddressEndpoint}/scripts/{{script}}")]
+		[Route($"{CommonRoutes.WalletEndpoint}/scripts/{{script}}")]
+		[Route($"{CommonRoutes.TrackedSourceEndpoint}/scripts/{{script}}")]
 		public async Task<IActionResult> GetKeyInformations(TrackedSourceContext trackedSourceContext, [ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
 		{
-			var derivationScheme = ((DerivationSchemeTrackedSource ) trackedSourceContext.TrackedSource).DerivationStrategy;
 			var result = (await trackedSourceContext.Repository.GetKeyInformations(new[] { script }))
 				.SelectMany(k => k.Value)
-				.FirstOrDefault(k => k.DerivationStrategy == derivationScheme);
+				.FirstOrDefault(k => k.TrackedSource == trackedSourceContext.TrackedSource);
 			if (result == null)
 				throw new NBXplorerError(404, "script-not-found", "The script does not seem to be tracked").AsException();
 			return Json(result, trackedSourceContext.Network.Serializer.Settings);
@@ -518,6 +519,11 @@ namespace NBXplorer.Controllers
 			    (trackedSourceContext.TrackedSource is WalletTrackedSource || 
 			     request?.ParentWallet is not null))
 			{
+				if (request?.ParentWallet == trackedSourceContext.TrackedSource)
+				{
+					throw new NBXplorerException(new NBXplorerError(400, "parent-wallet-same-as-tracked-source",
+						"Parent wallets cannot be the same as the tracked source"));
+				}
 				await postgresRepository.EnsureWalletCreated(trackedSourceContext.TrackedSource, request?.ParentWallet is null? null: new []{request?.ParentWallet });
 			}
 			if (repo is not PostgresRepository && request.ParentWallet is not null)

@@ -4560,7 +4560,7 @@ namespace NBXplorer.Tests
 			var parentWallet = Guid.NewGuid().ToString();
 			var parentWalletTS = new WalletTrackedSource(parentWallet);
 
-
+#if SUPPORT_DBTRIE
 			//this should create both wallets
 			if (backend == Backend.DBTrie)
 			{
@@ -4579,7 +4579,7 @@ namespace NBXplorer.Tests
 				await Assert.ThrowsAsync<HttpRequestException>(async () =>await tester.Client.ImportUTXOs(parentWalletTS, Array.Empty<ImportUTXORequest>()));
 				return;
 			}
-
+#endif
 			await tester.Client.TrackAsync(wallet1TS, new TrackWalletRequest()
 			{
 				ParentWallet = parentWalletTS
@@ -4652,6 +4652,32 @@ namespace NBXplorer.Tests
 				scriptBagUtxos = await tester.Client.GetUTXOsAsync(wallet1TS);
 				Assert.Equal(2, scriptBagUtxos.GetUnspentUTXOs().Length);
 			});
+			
+			//create wallet A
+			//create wallet b using generate and make it child of A
+			// create address using unused  on B
+			// creat wallet C tracking address from B, make it child of A, B
+			var walletA = new WalletTrackedSource(Guid.NewGuid().ToString());
+			await  tester.Client.TrackAsync(walletA);
+			var generatResponse = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest()
+			{
+				ParentWallet = walletA
+			});
+			var walletB = TrackedSource.Create(generatResponse.DerivationScheme);
+			var addressA = await tester.Client.GetUnusedAsync(generatResponse.DerivationScheme, DerivationFeature.Deposit, 0, true);
+			var walletC =  AddressTrackedSource.Create(addressA.Address);
+			await  tester.Client.TrackAsync(walletC, new TrackWalletRequest()
+			{
+				ParentWallet = walletB
+			});
+			await  tester.Client.TrackAsync(walletC, new TrackWalletRequest()
+			{
+				ParentWallet = walletA
+			});
+			
+			 var kpi = await tester.Client.GetKeyInformationsAsync(addressA.ScriptPubKey, CancellationToken.None);
+			 var tss = kpi.Select(information => information.TrackedSource);
+			Assert.True(tss.Distinct().Count() == tss.Count(), "The result should only distinct tracked source matches. While this endpoint is marked obsolete, the same logic is used to trigger events, which means there will be duplicated events when the script is matched against");
 		}
 	}
 }

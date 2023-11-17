@@ -472,10 +472,12 @@ Returns:
 
 Note: `redeem` is returning the segwit redeem if the derivation scheme is a P2SH-P2WSH or P2WSH, or the p2sh redeem if just a p2sh.
 
-## <a name="scriptPubKey"></a>Get scriptPubKey information of a Derivation Scheme
+## <a name="scriptPubKey"></a>Get scriptPubKey information of a tracked source
 
 `HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/scripts/{script}`
-
+`HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/scripts/{script}`
+`HTTP GET v1/cryptos/{cryptoCode}/wallets/{walletId}/scripts/{script}`
+`HTTP GET v1/cryptos/{cryptoCode}/tracked-sources/{trackedSource}/scripts/{script}`
 Error codes:
 
 * HTTP 404: `cryptoCode-not-supported`
@@ -498,6 +500,7 @@ Returns:
 `HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos`
 `HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/utxos`
 `HTTP GET v1/cryptos/{cryptoCode}/wallets/{walletId}/utxos`
+`HTTP GET v1/cryptos/{cryptoCode}/tracked-sources/{trackedSource}/utxos`
 
 Error:
 
