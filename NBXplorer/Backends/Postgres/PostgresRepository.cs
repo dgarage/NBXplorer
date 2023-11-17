@@ -484,7 +484,7 @@ namespace NBXplorer.Backends.Postgres
 				return result;
 			string additionalColumn = Network.IsElement ? ", ts.blinded_addr" : "";
 			var rows = await connection.QueryAsync($@"
-			    SELECT DISTINCT ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem ,
+			    SELECT DISTINCT ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem{additionalColumn},
 				       COALESCE(wd.wallet_id, ws.wallet_id) AS wallet_id,
 				       COALESCE(wd_wallet.metadata->>'type', ws_wallet.metadata->>'type') AS wallet_type
 				FROM unnest(@records) AS r (script),
@@ -509,11 +509,9 @@ namespace NBXplorer.Backends.Postgres
 				if (r.derivation is not null && r.keypath is null)
 					continue;
 				var addr = GetAddress(r);
-				bool isExplicit = r.derivation is null;
-				bool isDescriptor = !isExplicit;
 				var script = Script.FromHex(r.script);
-				var derivationStrategy = isDescriptor ? Network.DerivationStrategyFactory.Parse(r.derivation) : null;
-				var keypath = isDescriptor ? KeyPath.Parse(r.keypath) : null;
+				var derivationStrategy = r.derivation is not null ? Network.DerivationStrategyFactory.Parse(r.derivation) : null;
+				var keypath = r.keypath is not null ? KeyPath.Parse(r.keypath) : null;
 				var redeem = (string)r.redeem;
 				string walletType = r.wallet_type;
 				string walletId = r.wallet_id;
@@ -526,12 +524,12 @@ namespace NBXplorer.Backends.Postgres
 				result.Add(script, new KeyPathInformation()
 				{
 					Address = addr,
-					DerivationStrategy = isDescriptor ? derivationStrategy : null,
-					KeyPath = isDescriptor ? keypath : null,
+					DerivationStrategy = r.derivation is not null ? derivationStrategy : null,
+					KeyPath = keypath,
 					ScriptPubKey = script,
 					TrackedSource = trackedSource,
 					Feature = keypath is null ? DerivationFeature.Deposit : KeyPathTemplates.GetDerivationFeature(keypath),
-					Redeem = redeem is null ? null : Script.FromHex(redeem)
+					Redeem = redeem is null ? null : Script.FromHex(redeem),
 				});
 			}
 			return result;
