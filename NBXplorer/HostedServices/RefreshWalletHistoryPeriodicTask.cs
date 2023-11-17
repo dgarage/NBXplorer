@@ -12,7 +12,12 @@ namespace NBXplorer.HostedServices
 		public RefreshWalletHistoryPeriodicTask(DbConnectionFactory connectionFactory)
 		{
 			ConnectionFactory = connectionFactory;
-			_DS = ConnectionFactory.CreateDataSourceBuilder(b => b.CommandTimeout = Constants.FifteenMinutes).Build();
+			_DS = ConnectionFactory.CreateDataSourceBuilder(b =>
+			{
+				b.CommandTimeout = Constants.FifteenMinutes;
+				// Only running one command every 15min, and it can takes some times
+				b.Pooling = false;
+			}).Build();
 		}
 
 		public DbConnectionFactory ConnectionFactory { get; }
