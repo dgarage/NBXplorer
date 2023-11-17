@@ -484,23 +484,21 @@ namespace NBXplorer.Backends.Postgres
 				return result;
 			string additionalColumn = Network.IsElement ? ", ts.blinded_addr" : "";
 			var rows = await connection.QueryAsync($@"
-			    SELECT DISTINCT ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem{additionalColumn},
-				       COALESCE(wd.wallet_id, ws.wallet_id) AS wallet_id,
-				       COALESCE(wd_wallet.metadata->>'type', ws_wallet.metadata->>'type') AS wallet_type
+			    SELECT ts.code, ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem{additionalColumn},
+				       ws.wallet_id,
+				       w.metadata->>'type' AS wallet_type
 				FROM unnest(@records) AS r (script),
 				LATERAL (
-				    SELECT script, addr, descriptor_metadata->>'derivation' derivation, 
+				    SELECT code, script, addr, descriptor_metadata->>'derivation' derivation, 
 				           keypath, descriptors_scripts_metadata->>'redeem' redeem, 
 				           descriptors_scripts_metadata->>'blindedAddress' blinded_addr, 
 				           descriptor_metadata->>'descriptor' descriptor
 				    FROM nbxv1_keypath_info ki 
 				    WHERE ki.code=@code AND ki.script=r.script
 				) ts
-				LEFT JOIN wallets_descriptors wd ON wd.descriptor = ts.descriptor AND wd.code = @code
-				LEFT JOIN wallets wd_wallet ON wd_wallet.wallet_id = wd.wallet_id
-				LEFT JOIN wallets_scripts ws ON ws.script = ts.script AND ws.code = @code
-				LEFT JOIN wallets ws_wallet ON ws_wallet.wallet_id = ws.wallet_id
-				WHERE COALESCE(wd.wallet_id, ws.wallet_id) IS NOT NULL;",
+				LEFT JOIN wallets_scripts ws USING(code, script)
+				LEFT JOIN wallets w USING(wallet_id)
+				WHERE ws.wallet_id IS NOT NULL;",
 				new { code = Network.CryptoCode, records = scripts.Select(s => s.ToHex()).ToArray() });
 
 			foreach (var r in rows)
