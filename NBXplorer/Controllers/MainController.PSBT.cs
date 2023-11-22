@@ -28,7 +28,7 @@ namespace NBXplorer.Controllers
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
-			CreatePSBTRequest request = ParseJObject<CreatePSBTRequest>(body, trackedSourceContext.Network);
+			CreatePSBTRequest request = trackedSourceContext.Network.ParseJObject<CreatePSBTRequest>(body);
 
 			var repo = RepositoryProvider.GetRepository(trackedSourceContext.Network);
 			var txBuilder = request.Seed is int s ? trackedSourceContext.Network.NBitcoinNetwork.CreateTransactionBuilder(s)
@@ -388,7 +388,7 @@ namespace NBXplorer.Controllers
 			[FromBody]
 			JObject body)
 		{
-			var update = ParseJObject<UpdatePSBTRequest>(body, network);
+			var update = network.ParseJObject<UpdatePSBTRequest>(body);
 			if (update.PSBT == null)
 				throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "'psbt' is missing"));
 			await UpdatePSBTCore(update, network);
@@ -586,11 +586,6 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		protected T ParseJObject<T>(JObject requestObj, NBXplorerNetwork network)
-		{
-			if (requestObj == null)
-				return default;
-			return network.Serializer.ToObject<T>(requestObj);
-		}
+		
 	}
 }

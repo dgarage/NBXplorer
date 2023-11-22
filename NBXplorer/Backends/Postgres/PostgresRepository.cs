@@ -239,6 +239,36 @@ namespace NBXplorer.Backends.Postgres
 				_ => throw new NotSupportedException(source.GetType().ToString())
 			};
 		}
+
+		internal TrackedSource GetTrackedSource(WalletKey walletKey)
+		{
+			var metadata = JObject.Parse(walletKey.metadata);
+			if (metadata.TryGetValue("type", StringComparison.OrdinalIgnoreCase, out JToken typeJToken) &&
+			    typeJToken.Value<string>() is { } type)
+			{
+				if ((metadata.TryGetValue("code", StringComparison.OrdinalIgnoreCase, out JToken codeJToken) &&
+				     codeJToken.Value<string>() is { } code) && !code.Equals(Network.CryptoCode,
+					    StringComparison.InvariantCultureIgnoreCase))
+				{
+					return null;
+				}
+
+				switch (type)
+				{
+					case "NBXv1-Derivation":
+						var derivation = metadata["derivation"].Value<string>();
+						return new DerivationSchemeTrackedSource(Network.DerivationStrategyFactory.Parse(derivation));
+					case "NBXv1-Address":
+						var address = metadata["address"].Value<string>();
+						return new AddressTrackedSource(BitcoinAddress.Create(address, Network.NBitcoinNetwork));
+					case "Wallet":
+						return new WalletTrackedSource(walletKey.wid);
+				}
+			}
+
+			return null;
+		}
+		
 		public async Task AssociateScriptsToWalletExplicitly(TrackedSource trackedSource,
 			Dictionary<IDestination, bool> scripts)
 		{
@@ -1304,8 +1334,9 @@ namespace NBXplorer.Backends.Postgres
 			await EnsureWalletCreated(GetWalletKey(strategy));
 		}
 
-		public async Task EnsureWalletCreated(TrackedSource trackedSource, TrackedSource[] parentTrackedSource = null)
+		public async Task EnsureWalletCreated(TrackedSource trackedSource, params TrackedSource[] parentTrackedSource)
 		{
+			parentTrackedSource = parentTrackedSource.Where(source => source is not null).ToArray();
 			await EnsureWalletCreated(GetWalletKey(trackedSource), parentTrackedSource?.Select(GetWalletKey).ToArray());
 		}
 

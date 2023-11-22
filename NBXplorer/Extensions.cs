@@ -31,11 +31,19 @@ using NBitcoin.Altcoins.Elements;
 using Npgsql;
 using NBitcoin.Altcoins;
 using System.Threading;
+using Newtonsoft.Json.Linq;
 
 namespace NBXplorer
 {
 	public static class Extensions
 	{
+		public static  T ParseJObject<T>(this NBXplorerNetwork network, JObject requestObj)
+		{
+			if (requestObj == null)
+				return default;
+			return network.Serializer.ToObject<T>(requestObj);
+		}
+		
 		public static async Task<NpgsqlConnection> ReliableOpenConnectionAsync(this NpgsqlDataSource ds, CancellationToken cancellationToken = default)
 		{
 			int maxRetries = 10;

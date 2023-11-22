@@ -13,6 +13,7 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 
 namespace NBXplorer.Controllers
 {
@@ -256,5 +257,64 @@ namespace NBXplorer.Controllers
 			}
 			return Json(changes, trackedSourceContext.Network.JsonSerializerSettings);
 		}
+		
+		
+		[HttpGet("children")]
+		public async Task<IActionResult> GetWalletChildren( TrackedSourceContext trackedSourceContext)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			await using var conn = await ConnectionFactory.CreateConnection();
+			var children = await conn.QueryAsync($"SELECT w.wallet_id, w.metadata FROM wallets_wallets ww JOIN wallets w ON ww.wallet_id = w.wallet_id WHERE ww.parent_id=@walletId", new {  walletId = repo.GetWalletKey(trackedSourceContext.TrackedSource).wid });
+			
+			return Json(children.Select(c =>  repo.GetTrackedSource(new PostgresRepository.WalletKey(c.wallet_id, c.metadata)) ).ToArray(), trackedSourceContext.Network.JsonSerializerSettings);
+		}
+		[HttpGet("parents")]
+		public async Task<IActionResult> GetWalletParents( TrackedSourceContext trackedSourceContext)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			await using var conn = await ConnectionFactory.CreateConnection();
+			var children = await conn.QueryAsync($"SELECT w.wallet_id, w.metadata FROM wallets_wallets ww JOIN wallets w ON ww.parent_id = w.wallet_id WHERE ww.wallet_id=@walletId", new {  walletId = repo.GetWalletKey(trackedSourceContext.TrackedSource).wid });
+			
+			return Json(children.Select(c =>  repo.GetTrackedSource(new PostgresRepository.WalletKey(c.wallet_id, c.metadata)) ).ToArray(), trackedSourceContext.Network.JsonSerializerSettings);
+		}
+		[HttpPost("children")]
+		public async Task<IActionResult> AddWalletChild( TrackedSourceContext trackedSourceContext, [FromBody] JObject request)
+		{
+			var trackedSource = trackedSourceContext.Network.ParseJObject<TrackedSourceRequest>(request).TrackedSource;
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			await repo.EnsureWalletCreated(trackedSource, trackedSourceContext.TrackedSource);
+			return Ok();
+		}
+		[HttpPost("parents")]
+		public async Task<IActionResult> AddWalletParent( TrackedSourceContext trackedSourceContext, [FromBody] JObject request)
+		{
+			var trackedSource = trackedSourceContext.Network.ParseJObject<TrackedSourceRequest>(request).TrackedSource;
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			await repo.EnsureWalletCreated(trackedSourceContext.TrackedSource, trackedSource);
+			return Ok();
+		}
+		[HttpDelete("children")]
+		public async Task<IActionResult> RemoveWalletChild( TrackedSourceContext trackedSourceContext, [FromBody] JObject request)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+
+			var trackedSource = repo.GetWalletKey(trackedSourceContext.Network
+				.ParseJObject<TrackedSourceRequest>(request).TrackedSource);
+			var conn = await ConnectionFactory.CreateConnection();
+			await conn.ExecuteAsync($"DELETE FROM wallets_wallets WHERE wallet_id=@walletId AND parent_id=@parentId", new { walletId = trackedSource.wid, parentId = repo.GetWalletKey(trackedSourceContext.TrackedSource).wid });
+			return Ok();
+		}
+		[HttpDelete("parents")]
+		public async Task<IActionResult> RemoveWalletParent( TrackedSourceContext trackedSourceContext, [FromBody] JObject request)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+
+			var trackedSource = repo.GetWalletKey(trackedSourceContext.Network
+				.ParseJObject<TrackedSourceRequest>(request).TrackedSource);
+			var conn = await ConnectionFactory.CreateConnection();
+			await conn.ExecuteAsync($"DELETE FROM wallets_wallets WHERE wallet_id=@walletId AND parent_id=@parentId", new { walletId = repo.GetWalletKey(trackedSourceContext.TrackedSource).wid, parentId = trackedSource.wid });
+			return Ok();
+		}
 	}
+
 }

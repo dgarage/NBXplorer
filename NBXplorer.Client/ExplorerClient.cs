@@ -561,6 +561,53 @@ namespace NBXplorer
 			return GenerateWalletAsync(request, cancellationToken).GetAwaiter().GetResult();
 		}
 
+		public async Task<TrackedSource[]> GetChildWallets(TrackedSource trackedSource,
+			CancellationToken cancellation = default)
+		{
+			return await GetAsync<TrackedSource[]>( $"{GetBasePath(trackedSource)}/children", cancellation);
+		}
+		public async Task<TrackedSource[]> GetParentWallets(TrackedSource trackedSource,
+			CancellationToken cancellation = default)
+		{
+			return await GetAsync<TrackedSource[]>( $"{GetBasePath(trackedSource)}/parents", cancellation);
+		}
+		public async Task AddChildWallet(TrackedSource trackedSource, TrackedSource childWallet, CancellationToken cancellation = default)
+		{
+			var request = new TrackedSourceRequest()
+			{
+				TrackedSource = childWallet
+			};
+			await SendAsync(HttpMethod.Post, request, $"{GetBasePath(trackedSource)}/children", cancellation);
+		}
+
+		public async Task AddParentWallet(TrackedSource trackedSource, TrackedSource parentWallet,
+			CancellationToken cancellation = default)
+		{
+			var request = new TrackedSourceRequest()
+			{
+				TrackedSource = parentWallet
+			};
+			await SendAsync(HttpMethod.Post, request, $"{GetBasePath(trackedSource)}/parents", cancellation);
+		}
+		public async Task RemoveChildWallet(TrackedSource trackedSource, TrackedSource childWallet, CancellationToken cancellation = default)
+		{
+			var request = new TrackedSourceRequest()
+			{
+				TrackedSource = childWallet
+			};
+			await SendAsync(HttpMethod.Delete, request, $"{GetBasePath(trackedSource)}/children", cancellation);
+		}
+
+		public async Task RemoveParentWallet(TrackedSource trackedSource, TrackedSource parentWallet,
+			CancellationToken cancellation = default)
+		{
+			var request = new TrackedSourceRequest()
+			{
+				TrackedSource = parentWallet
+			};
+			await SendAsync(HttpMethod.Delete, request, $"{GetBasePath(trackedSource)}/parents", cancellation);
+		}
+		
 		private static readonly HttpClient SharedClient = new HttpClient();
 		internal HttpClient Client = SharedClient;
 
@@ -738,7 +785,7 @@ namespace NBXplorer
 				DerivationSchemeTrackedSource dsts => $"v1/cryptos/{CryptoCode}/derivations/{dsts.DerivationStrategy}",
 				AddressTrackedSource asts => $"v1/cryptos/{CryptoCode}/addresses/{asts.Address}",
 				WalletTrackedSource wts => $"v1/cryptos/{CryptoCode}/wallets/{wts.WalletId}",
-				_ => throw UnSupported(trackedSource)
+				_ => $"v1/cryptos/{CryptoCode}/tracked-sources/{trackedSource}",
 			};
 		}
 	}

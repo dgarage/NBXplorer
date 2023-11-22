@@ -503,7 +503,6 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-
 		[Route($"{CommonRoutes.DerivationEndpoint}")]
 		[Route($"{CommonRoutes.AddressEndpoint}")]
 		[Route($"{CommonRoutes.WalletEndpoint}")]
@@ -512,7 +511,7 @@ namespace NBXplorer.Controllers
 			TrackedSourceContext trackedSourceContext,
 			[FromBody] JObject rawRequest = null)
 		{
-			var request = ParseJObject<TrackWalletRequest>(rawRequest ?? new JObject(), trackedSourceContext.Network);
+			var request = trackedSourceContext.Network.ParseJObject<TrackWalletRequest>(rawRequest ?? new JObject());
 			
 			var repo = RepositoryProvider.GetRepository(trackedSourceContext.Network);
 			if (repo is PostgresRepository postgresRepository && 
@@ -524,7 +523,7 @@ namespace NBXplorer.Controllers
 					throw new NBXplorerException(new NBXplorerError(400, "parent-wallet-same-as-tracked-source",
 						"Parent wallets cannot be the same as the tracked source"));
 				}
-				await postgresRepository.EnsureWalletCreated(trackedSourceContext.TrackedSource, request?.ParentWallet is null? null: new []{request?.ParentWallet });
+				await postgresRepository.EnsureWalletCreated(trackedSourceContext.TrackedSource, request?.ParentWallet);
 			}
 			if (repo is not PostgresRepository && request.ParentWallet is not null)
 				throw new NBXplorerException(new NBXplorerError(400, "parent-wallet-not-supported",
@@ -586,9 +585,7 @@ namespace NBXplorer.Controllers
 			bool includeTransaction = true)
 		{
 			TransactionInformation fetchedTransactionInfo = null;
-
-			var repo = RepositoryProvider.GetRepository(trackedSourceContext.Network);
-
+			var repo = trackedSourceContext.Repository;
 			var response = new GetTransactionsResponse();
 			int currentHeight = (await repo.GetTip()).Height;
 			response.Height = currentHeight;
@@ -676,7 +673,7 @@ namespace NBXplorer.Controllers
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
-			var rescanRequest = ParseJObject<RescanRequest>(body, trackedSourceContext.Network);
+			var rescanRequest = trackedSourceContext.Network.ParseJObject<RescanRequest>(body);
 			if (rescanRequest == null)
 				throw new ArgumentNullException(nameof(rescanRequest));
 			if (rescanRequest?.Transactions == null)
@@ -1036,7 +1033,7 @@ namespace NBXplorer.Controllers
 		[TrackedSourceContext.TrackedSourceContextRequirement(false, false)]
 		public async Task<IActionResult> GenerateWallet(TrackedSourceContext trackedSourceContext, [FromBody] JObject rawRequest = null)
 		{
-			var request = ParseJObject<GenerateWalletRequest>(rawRequest, trackedSourceContext.Network) ?? new GenerateWalletRequest();
+			var request = trackedSourceContext.Network.ParseJObject<GenerateWalletRequest>(rawRequest ) ?? new GenerateWalletRequest();
 
 			if (request.ImportKeysToRPC && trackedSourceContext.RpcClient is null)
 			{

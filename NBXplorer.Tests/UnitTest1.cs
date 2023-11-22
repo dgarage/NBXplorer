@@ -4678,6 +4678,54 @@ namespace NBXplorer.Tests
 			 var kpi = await tester.Client.GetKeyInformationsAsync(addressA.ScriptPubKey, CancellationToken.None);
 			 var tss = kpi.Select(information => information.TrackedSource);
 			Assert.True(tss.Distinct().Count() == tss.Count(), "The result should only distinct tracked source matches. While this endpoint is marked obsolete, the same logic is used to trigger events, which means there will be duplicated events when the script is matched against");
+
+			var parentsOfC = await tester.Client.GetParentWallets(walletC);
+			Assert.Equal(2, parentsOfC.Length);
+			Assert.Contains(parentsOfC, w => w == walletA);
+			Assert.Contains(parentsOfC, w => w == walletB);
+			
+			var parentsOfB = await tester.Client.GetParentWallets(walletB);
+			Assert.Equal(1, parentsOfB.Length);
+			Assert.Contains(parentsOfB, w => w == walletA);
+			
+			var parentsOfA = await tester.Client.GetParentWallets(walletA);
+			Assert.Empty(parentsOfA);
+			
+			var childrenOfA= await tester.Client.GetChildWallets(walletA);
+			Assert.Equal(2, childrenOfA.Length);
+			
+			Assert.Contains(childrenOfA, w => w == walletB);
+			Assert.Contains(childrenOfA, w => w == walletC);
+			
+			var childrenOfB= await tester.Client.GetChildWallets(walletB);
+			Assert.Equal(1, childrenOfB.Length);
+			Assert.Contains(childrenOfB, w => w == walletC);
+			
+			var childrenOfC = await tester.Client.GetChildWallets(walletC);
+			Assert.Empty(childrenOfC);
+			
+			await tester.Client.RemoveParentWallet(walletB, walletA);
+			await tester.Client.RemoveChildWallet(walletB, walletC);
+
+			parentsOfB = await tester.Client.GetParentWallets(walletB);
+			Assert.Empty(parentsOfB);
+
+			childrenOfB = await tester.Client.GetChildWallets(walletB);
+			Assert.Empty(childrenOfB);
+			
+			
+			await tester.Client.AddParentWallet(walletB, walletA);
+			await tester.Client.AddChildWallet(walletB, walletC);
+
+
+			childrenOfB= await tester.Client.GetChildWallets(walletB);
+			Assert.Equal(1, childrenOfB.Length);
+			Assert.Contains(childrenOfB, w => w == walletC);
+			
+			parentsOfB = await tester.Client.GetParentWallets(walletB);
+			Assert.Equal(1, parentsOfB.Length);
+			Assert.Contains(parentsOfB, w => w == walletA);
+
 		}
 	}
 }
