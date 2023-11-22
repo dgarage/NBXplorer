@@ -28,6 +28,7 @@
     <None Remove="DBScripts\017.FixDoubleSpendDetection.sql" />
     <None Remove="DBScripts\018.FastWalletRecent.sql" />
     <None Remove="DBScripts\020.ReplacingShouldBeIdempotent.sql" />
+    <None Remove="DBScripts\021.KeyPathInfoReturnsWalletId.sql" />
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />

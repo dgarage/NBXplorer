@@ -4537,7 +4537,7 @@ namespace NBXplorer.Tests
 				break;
 				
 				}
-				catch (Exception e)
+				catch (Exception)
 				{
 					await Task.Delay(500);
 				}
@@ -4626,7 +4626,7 @@ namespace NBXplorer.Tests
 			{
 				parentWalletUtxos = await tester.Client.GetUTXOsAsync(parentWalletTS);
 				scriptBagUtxos = await tester.Client.GetUTXOsAsync(wallet1TS);
-				Assert.Equal(1, scriptBagUtxos.GetUnspentUTXOs().Length);
+				Assert.Single(scriptBagUtxos.GetUnspentUTXOs());
 				Assert.Equal(2, parentWalletUtxos.GetUnspentUTXOs().Length);
 				Assert.Equal(derivationUtxos.GetUnspentUTXOs().Count() + scriptBagUtxos.GetUnspentUTXOs().Length,
 					parentWalletUtxos.GetUnspentUTXOs().Count());

@@ -450,13 +450,11 @@ namespace NBXplorer
 			return await SendAsync<KeyPathInformation>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/scripts/{script.ToHex()}", cancellation).ConfigureAwait(false);
 		}
 
-		[Obsolete("Use GetKeyInformationAsync(DerivationStrategyBase strategy, Script script) instead")]
 		public async Task<KeyPathInformation[]> GetKeyInformationsAsync(Script script, CancellationToken cancellation = default)
 		{
 			return await SendAsync<KeyPathInformation[]>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/scripts/{script.ToHex()}", cancellation).ConfigureAwait(false);
 		}
 
-		[Obsolete("Use GetKeyInformation(DerivationStrategyBase strategy, Script script) instead")]
 		public KeyPathInformation[] GetKeyInformations(Script script, CancellationToken cancellation = default)
 		{
 			return GetKeyInformationsAsync(script, cancellation).GetAwaiter().GetResult();

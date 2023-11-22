@@ -485,20 +485,18 @@ namespace NBXplorer.Backends.Postgres
 			string additionalColumn = Network.IsElement ? ", ts.blinded_addr" : "";
 			var rows = await connection.QueryAsync($@"
 			    SELECT ts.code, ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem{additionalColumn},
-				       ws.wallet_id,
+				       ts.wallet_id,
 				       w.metadata->>'type' AS wallet_type
 				FROM unnest(@records) AS r (script),
 				LATERAL (
-				    SELECT code, script, addr, descriptor_metadata->>'derivation' derivation, 
+				    SELECT code, script, wallet_id, addr, descriptor_metadata->>'derivation' derivation, 
 				           keypath, descriptors_scripts_metadata->>'redeem' redeem, 
 				           descriptors_scripts_metadata->>'blindedAddress' blinded_addr, 
 				           descriptor_metadata->>'descriptor' descriptor
 				    FROM nbxv1_keypath_info ki 
 				    WHERE ki.code=@code AND ki.script=r.script
 				) ts
-				LEFT JOIN wallets_scripts ws USING(code, script)
-				LEFT JOIN wallets w USING(wallet_id)
-				WHERE ws.wallet_id IS NOT NULL;",
+				JOIN wallets w USING(wallet_id)",
 				new { code = Network.CryptoCode, records = scripts.Select(s => s.ToHex()).ToArray() });
 
 			foreach (var r in rows)
