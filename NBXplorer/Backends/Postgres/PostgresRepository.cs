@@ -619,7 +619,6 @@ namespace NBXplorer.Backends.Postgres
 					continue;
 				noMatchTransactions?.Add(tx.GetHash());
 			}
-
 			if (!await connection.FetchMatches(transactions.Values, slimBlock, MinUtxoValue))
 				goto end;
 
@@ -627,7 +626,7 @@ namespace NBXplorer.Backends.Postgres
 				"SELECT * FROM matched_outs;" +
 				"SELECT * FROM matched_ins;" +
 				// the query matched_conflicts need to fetch wallet_id as we don't want replacing include transaction that aren't owned by the wallet
-				"SELECT tt.wallet_id, mc.* FROM matched_conflicts mc JOIN nbxv1_tracked_txs tt ON tt.code=mc.code AND tt.tx_id=mc.replaced_tx_id"))
+				"SELECT DISTINCT(tt.wallet_id), mc.* FROM matched_conflicts mc JOIN nbxv1_tracked_txs tt ON tt.code=mc.code AND tt.tx_id=mc.replaced_tx_id"))
 			{
 				var matchedOuts = await result.ReadAsync();
 				var matchedIns = await result.ReadAsync();
@@ -651,6 +650,7 @@ namespace NBXplorer.Backends.Postgres
 					scripts.Add(s);
 					transactionsPerScript.Add(s, transactions[uint256.Parse(r.tx_id)]);
 				}
+
 				if (scripts.Count > 0)
 				{
 					var keyInformations = await GetKeyInformations(connection.Connection, scripts);

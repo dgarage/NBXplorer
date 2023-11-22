@@ -1111,6 +1111,65 @@ namespace NBXplorer.Tests
 			Assert.Equal(psbt.Inputs[0].GetCoin().Outpoint, bobOutpoint);
 		}
 
+		[Fact]
+		public async Task ShowRBFedTransaction4()
+		{
+			// Fix #421: replacement tx not detected as replacement (replacing: [])
+			// Create A.
+			// Mine it
+			// Spend A with B
+			// Mine a block without B.
+			// Double-Spend A with B'
+			// Check that B' is replacing B in events
+			using var tester = ServerTester.Create(Backend.Postgres);
+			var bobW = tester.Client.GenerateWallet();
+			var bob = bobW.DerivationScheme;
+			var bobAddr = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
+			var aId = tester.RPC.SendToAddress(bobAddr.ScriptPubKey, Money.Satoshis(100_000), new SendToAddressParameters() { Replaceable = true });
+			var a = tester.Notifications.WaitForTransaction(bob, aId).TransactionData.Transaction;
+
+			Logs.Tester.LogInformation("a: " + aId.ToString());
+			tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+
+			var anotherAddr = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network);
+			var psbt = (await tester.Client.CreatePSBTAsync(bob, new CreatePSBTRequest()
+			{
+				Destinations =
+				{
+					new CreatePSBTDestination()
+					{
+						Destination = anotherAddr,
+						Amount = Money.Satoshis(50_000)
+					}
+				},
+				FeePreference = new FeePreference() { ExplicitFee = Money.Satoshis(500) },
+				RBF = true
+			})).PSBT;
+			var preSignedPsbt = psbt.Clone();
+			psbt.SignAll(ScriptPubKeyType.Segwit, bobW.AccountHDKey, bobW.AccountKeyPath);
+			psbt.Finalize();
+			var b = psbt.ExtractTransaction();
+			Logs.Tester.LogInformation("b: " + b.GetHash().ToString());
+			await tester.Client.BroadcastAsync(b);
+
+			// Do not mine anything
+			var block = uint256.Parse(JObject.Parse((await tester.RPC.SendCommandAsync("generateblock", anotherAddr.ToString(), new string[0])).ResultString)["hash"].Value<string>());
+			tester.Notifications.WaitForBlocks(block);
+
+			// b' shouldn't have any output belonging to our wallets.
+			var bp = b.Clone();
+			bp.Outputs[0].Value -= Money.Satoshis(5000); // Add some fee to bump the tx
+			var psbt2 = PSBT.FromTransaction(bp, tester.Network);
+			psbt2.UpdateFrom(preSignedPsbt);
+			psbt2.SignAll(ScriptPubKeyType.Segwit, bobW.AccountHDKey, bobW.AccountKeyPath);
+			psbt2.Finalize();
+			bp = psbt2.ExtractTransaction();
+			Logs.Tester.LogInformation("bp: " + bp.GetHash().ToString());
+			Assert.True((await tester.Client.BroadcastAsync(bp)).Success);
+			var bpEvent = tester.Notifications.WaitForTransaction(bob, bp.GetHash());
+			Assert.Contains(bpEvent.Replacing, r => r == b.GetHash());
+		}
+
 		[TheoryWithTimeout]
 		[InlineData(true)]
 		[InlineData(false)]

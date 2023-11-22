@@ -154,7 +154,7 @@ namespace NBXplorer.Backends.Postgres
 					if (item is Transaction tx)
 					{
 						var txs = PullTransactions(_Channel.Reader, tx);
-						await SaveMatches(conn, txs, null, true);
+						await SaveMatches(conn, txs, null);
 					}
 				}
 			}
@@ -393,14 +393,14 @@ namespace NBXplorer.Backends.Postgres
 			private async Task SaveMatches(DbConnectionHelper conn, Block block, SlimChainedBlock slimChainedBlock)
 			{
 				block.Header.PrecomputeHash(false, false);
-				await SaveMatches(conn, block.Transactions, slimChainedBlock, true);
+				await SaveMatches(conn, block.Transactions, slimChainedBlock);
 				EventAggregator.Publish(new RawBlockEvent(block, this.Network), true);
 				lastIndexedBlock = slimChainedBlock;
 			}
 
 			SlimChainedBlock _NodeTip;
 
-			private async Task SaveMatches(DbConnectionHelper conn, List<Transaction> transactions, SlimChainedBlock slimChainedBlock, bool fireEvents)
+			private async Task SaveMatches(DbConnectionHelper conn, List<Transaction> transactions, SlimChainedBlock slimChainedBlock)
 			{
 				foreach (var tx in transactions)
 					tx.PrecomputeHash(false, true);
@@ -430,37 +430,34 @@ namespace NBXplorer.Backends.Postgres
 					await Repository.SaveEvent(conn, blockEvent);
 					EventAggregator.Publish(blockEvent);
 				}
-				if (fireEvents)
+				NewTransactionEvent[] evts = new NewTransactionEvent[matches.Length];
+				for (int i = 0; i < matches.Length; i++)
 				{
-					NewTransactionEvent[] evts = new NewTransactionEvent[matches.Length];
-					for (int i = 0; i < matches.Length; i++)
+					var txEvt = new Models.NewTransactionEvent()
 					{
-						var txEvt = new Models.NewTransactionEvent()
+						TrackedSource = matches[i].TrackedSource,
+						DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
+						CryptoCode = Network.CryptoCode,
+						BlockId = slimChainedBlock?.Hash,
+						TransactionData = new TransactionResult()
 						{
-							TrackedSource = matches[i].TrackedSource,
-							DerivationStrategy = (matches[i].TrackedSource is DerivationSchemeTrackedSource dsts) ? dsts.DerivationStrategy : null,
-							CryptoCode = Network.CryptoCode,
 							BlockId = slimChainedBlock?.Hash,
-							TransactionData = new TransactionResult()
-							{
-								BlockId = slimChainedBlock?.Hash,
-								Height = slimChainedBlock?.Height,
-								Confirmations = confirmations,
-								Timestamp = now,
-								Transaction = matches[i].Transaction,
-								TransactionHash = matches[i].TransactionHash
-							},
-							Outputs = matches[i].GetReceivedOutputs().ToList(),
-							Replacing = matches[i].Replacing.ToList()
-						};
+							Height = slimChainedBlock?.Height,
+							Confirmations = confirmations,
+							Timestamp = now,
+							Transaction = matches[i].Transaction,
+							TransactionHash = matches[i].TransactionHash
+						},
+						Outputs = matches[i].GetReceivedOutputs().ToList(),
+						Replacing = matches[i].Replacing.ToList()
+					};
 
-						evts[i] = txEvt;
-					}
-					await Repository.SaveEvents(conn, evts);
-					foreach (var ev in evts)
-					{
-						EventAggregator.Publish(ev);
-					}
+					evts[i] = txEvt;
+				}
+				await Repository.SaveEvents(conn, evts);
+				foreach (var ev in evts)
+				{
+					EventAggregator.Publish(ev);
 				}
 			}
 
@@ -583,14 +580,10 @@ namespace NBXplorer.Backends.Postgres
 			NBXplorerNetwork network;
 			private int maxinflight = 10;
 
-			public Task SaveMatches(Transaction transaction)
-			{
-				return SaveMatches(transaction, false);
-			}
-			public async Task SaveMatches(Transaction transaction, bool fireEvents)
+			public async Task SaveMatches(Transaction transaction)
 			{
 				await using var conn = await ConnectionFactory.CreateConnectionHelper(Network);
-				await SaveMatches(conn, new List<Transaction>(1) { transaction }, null, fireEvents);
+				await SaveMatches(conn, new List<Transaction>(1) { transaction }, null);
 			}
 
 			public RPCClient GetConnectedClient()
