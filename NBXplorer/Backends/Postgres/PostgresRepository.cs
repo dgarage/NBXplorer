@@ -626,7 +626,9 @@ namespace NBXplorer.Backends.Postgres
 				"SELECT * FROM matched_outs;" +
 				"SELECT * FROM matched_ins;" +
 				// the query matched_conflicts need to fetch wallet_id as we don't want replacing include transaction that aren't owned by the wallet
-				"SELECT DISTINCT(tt.wallet_id), mc.* FROM matched_conflicts mc JOIN nbxv1_tracked_txs tt ON tt.code=mc.code AND tt.tx_id=mc.replaced_tx_id"))
+				// note there might be some dups as one matched_conflicts can match more than one tracked_txs line.
+				// but that's ok.
+				"SELECT tt.wallet_id, mc.* FROM matched_conflicts mc JOIN nbxv1_tracked_txs tt ON tt.code=mc.code AND tt.tx_id=mc.replaced_tx_id"))
 			{
 				var matchedOuts = await result.ReadAsync();
 				var matchedIns = await result.ReadAsync();
