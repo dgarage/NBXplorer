@@ -92,9 +92,11 @@ BEGIN
   END IF;
   -- Remove from spent_outs all outputs whose tx isn't in the mempool anymore
   DELETE FROM spent_outs so
-  WHERE so.code = NEW.code AND NOT so.tx_id=ANY(
-	SELECT tx_id FROM txs
-	WHERE code=NEW.code AND mempool IS TRUE);
+  WHERE so.code = NEW.code
+  AND NOT EXISTS (
+    -- Returns true if any tx referenced by the spent_out is in the mempool
+    SELECT 1 FROM txs
+    WHERE code=so.code AND mempool IS TRUE AND tx_id = ANY(ARRAY[so.tx_id, so.spent_by, so.prev_spent_by]));
   RETURN NEW;
 END
 $$;
@@ -1347,6 +1349,7 @@ INSERT INTO nbxv1_migrations VALUES ('015.AvoidWAL');
 INSERT INTO nbxv1_migrations VALUES ('016.FixTempTableCreation');
 INSERT INTO nbxv1_migrations VALUES ('017.FixDoubleSpendDetection');
 INSERT INTO nbxv1_migrations VALUES ('018.FastWalletRecent');
+INSERT INTO nbxv1_migrations VALUES ('019.FixDoubleSpendDetection2');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);
