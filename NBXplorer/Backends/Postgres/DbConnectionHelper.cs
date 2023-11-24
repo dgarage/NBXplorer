@@ -6,6 +6,7 @@ using Npgsql;
 using Npgsql.TypeMapping;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
@@ -118,7 +119,14 @@ namespace NBXplorer.Backends.Postgres
 			{
 				ins.Add(new NewInRaw(ni.txId.ToString(), ni.idx, ni.spentTxId.ToString(), ni.spentIdx));
 			}
-			return await Connection.ExecuteScalarAsync<bool>("CALL fetch_matches(@code, @outs, @ins, 'f');", new { code = Network.CryptoCode, outs = outs, ins = ins });
+
+			DynamicParameters parameters = new DynamicParameters();
+			parameters.Add("in_code", Network.CryptoCode);
+			parameters.Add("in_outs", outs);
+			parameters.Add("in_ins", ins);
+			parameters.Add("has_match", dbType: System.Data.DbType.Boolean, direction: ParameterDirection.InputOutput);
+			await Connection.QueryAsync<int>("fetch_matches", parameters, commandType: CommandType.StoredProcedure);
+			return parameters.Get<bool>("has_match");
 		}
 		public record SaveTransactionRecord(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset? SeenAt)
 		{
