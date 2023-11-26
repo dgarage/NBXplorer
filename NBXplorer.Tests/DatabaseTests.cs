@@ -18,6 +18,10 @@ using System.IO;
 using System.Diagnostics;
 using NBXplorer.Backends.Postgres;
 using NBXplorer.Client;
+using static NBXplorer.Backends.Postgres.DbConnectionHelper;
+using RabbitMQ.Client.Framing.Impl;
+using System.Data;
+using System.Net;
 
 namespace NBXplorer.Tests
 {
@@ -143,6 +147,9 @@ namespace NBXplorer.Tests
 			await AssertBalance(5.0m);
 
 			// Another double spent, but this time having an output
+			await AssertFetchMatches(conn,
+			new NewOutRaw[] { new ("t2ss", 0, "a1", 51, "") },
+			new NewInRaw[] { new ("t2ss", 0, "t1", 1) }, true);
 			Assert.True(await conn.ExecuteScalarAsync<bool>("CALL fetch_matches ('BTC', " +
 				"ARRAY[" +
 				"('t2ss', 0, 'a1', 51, '')" +
@@ -155,6 +162,7 @@ namespace NBXplorer.Tests
 			Assert.Equal(conflict.spent_idx, 1);
 			Assert.Equal(conflict.replacing_tx_id, "t2ss");
 			Assert.Equal(conflict.replaced_tx_id, "t2s");
+			Assert.True(conflict.is_new);
 			await conn.ExecuteAsync("CALL save_matches('BTC');");
 			await AssertBalance(5.0m + 51m);
 
@@ -163,8 +171,36 @@ namespace NBXplorer.Tests
 			{
 				await conn.QueryFirstAsync($"SELECT * FROM txs WHERE tx_id='{txid}'");
 			}
+			await conn.ExecuteScalarAsync("CALL save_matches('BTC')");
+
+			// Same match, as previously, but this time is_new should be false
+			// as the conflict has been detected earlier.
+			await AssertFetchMatches(conn,
+			new NewOutRaw[] { new("t2ss", 0, "a1", 51, "") },
+			new NewInRaw[] { new("t2ss", 0, "t1", 1) }, true);
+			conflict = await conn.QueryFirstAsync("SELECT * FROM matched_conflicts");
+			Assert.Equal(conflict.spent_tx_id, "t1");
+			Assert.Equal(conflict.spent_idx, 1);
+			Assert.Equal(conflict.replacing_tx_id, "t2ss");
+			Assert.Equal(conflict.replaced_tx_id, "t2s");
+			Assert.False(conflict.is_new);
+
+			// No matches
+			await AssertFetchMatches(conn,
+			new NewOutRaw[] { },
+			new NewInRaw[] { }, false);
 		}
 
+		private async Task AssertFetchMatches(DbConnection conn, NewOutRaw[] outs, NewInRaw[] ins, bool expectedHasMatches)
+		{
+			DynamicParameters parameters = new DynamicParameters();
+			parameters.Add("in_code", "BTC");
+			parameters.Add("in_outs", outs);
+			parameters.Add("in_ins", ins);
+			parameters.Add("has_match", dbType: System.Data.DbType.Boolean, direction: ParameterDirection.InputOutput);
+			await conn.QueryAsync<int>("fetch_matches", parameters, commandType: CommandType.StoredProcedure);
+			Assert.Equal(expectedHasMatches, parameters.Get<bool>("has_match"));
+		}
 
 		[Fact]
 		public async Task CanCalculateHistogram()

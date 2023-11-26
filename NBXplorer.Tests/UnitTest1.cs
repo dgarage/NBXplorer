@@ -27,6 +27,7 @@ using NBitcoin.Tests;
 using System.Globalization;
 using System.Net;
 using NBXplorer.HostedServices;
+using System.Reflection;
 
 namespace NBXplorer.Tests
 {
@@ -1167,7 +1168,19 @@ namespace NBXplorer.Tests
 			Logs.Tester.LogInformation("bp: " + bp.GetHash().ToString());
 			Assert.True((await tester.Client.BroadcastAsync(bp)).Success);
 			var bpEvent = tester.Notifications.WaitForTransaction(bob, bp.GetHash());
+			Assert.Null(bpEvent.BlockId);
 			Assert.Contains(bpEvent.Replacing, r => r == b.GetHash());
+
+			tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+			bpEvent = tester.Notifications.WaitForTransaction(bob, bp.GetHash());
+			Assert.NotNull(bpEvent.BlockId);
+			Assert.Contains(bpEvent.Replacing, r => r == b.GetHash());
+
+			// Make sure there is no dups events on unconf txs
+			await Task.Delay(100);
+			var evts = await tester.Client.CreateLongPollingNotificationSession().GetEventsAsync();
+			Assert.Single(evts.OfType<NewTransactionEvent>()
+				.Where(t => t.BlockId is null && t.TransactionData.TransactionHash == bp.GetHash()));
 		}
 
 		[TheoryWithTimeout]

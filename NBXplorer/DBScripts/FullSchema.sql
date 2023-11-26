@@ -202,7 +202,8 @@ BEGIN
 		spent_tx_id TEXT,
 		spent_idx BIGINT,
 		replacing_tx_id TEXT,
-		replaced_tx_id TEXT);
+		replaced_tx_id TEXT,
+		is_new BOOLEAN);
 	END;
 	has_match := 'f';
 	INSERT INTO matched_outs
@@ -235,12 +236,22 @@ BEGIN
 	INSERT INTO matched_conflicts
 	WITH RECURSIVE cte(code, spent_tx_id, spent_idx, replacing_tx_id, replaced_tx_id) AS
 	(
-	  SELECT in_code code, i.spent_tx_id, i.spent_idx, i.tx_id replacing_tx_id, so.spent_by replaced_tx_id FROM new_ins i
+	  SELECT 
+		in_code code,
+		i.spent_tx_id,
+		i.spent_idx,
+		i.tx_id replacing_tx_id,
+		CASE
+			WHEN so.spent_by != i.tx_id THEN so.spent_by
+			ELSE so.prev_spent_by
+		END replaced_tx_id,
+		so.spent_by != i.tx_id is_new
+	  FROM new_ins i
 	  JOIN spent_outs so ON so.code=in_code AND so.tx_id=i.spent_tx_id AND so.idx=i.spent_idx
 	  JOIN txs rt ON so.code=rt.code AND rt.tx_id=so.spent_by
-	  WHERE so.spent_by != i.tx_id AND rt.code=in_code AND rt.mempool IS TRUE
+	  WHERE rt.code=in_code AND rt.mempool IS TRUE
 	  UNION
-	  SELECT c.code, c.spent_tx_id, c.spent_idx, c.replacing_tx_id, i.tx_id replaced_tx_id FROM cte c
+	  SELECT c.code, c.spent_tx_id, c.spent_idx, c.replacing_tx_id, i.tx_id replaced_tx_id, c.is_new FROM cte c
 	  JOIN outs o ON o.code=c.code AND o.tx_id=c.replaced_tx_id
 	  JOIN ins i ON i.code=c.code AND i.spent_tx_id=o.tx_id AND i.spent_idx=o.idx
 	  WHERE i.code=c.code AND i.mempool IS TRUE
@@ -271,7 +282,7 @@ BEGIN
 	IF FOUND THEN
 	  has_match := 't';
 	END IF;
-	PERFORM 1 FROM matched_conflicts LIMIT 1;
+	PERFORM 1 FROM matched_conflicts WHERE is_new IS TRUE LIMIT 1;
 	IF FOUND THEN
 	  has_match := 't';
 	END IF;
@@ -594,7 +605,7 @@ BEGIN
   SELECT in_code, spent_tx_id, spent_idx, tx_id FROM new_ins
   ON CONFLICT DO NOTHING;
   FOR r IN
-	SELECT * FROM matched_conflicts
+	SELECT * FROM matched_conflicts WHERE is_new IS TRUE
   LOOP
 	UPDATE spent_outs SET spent_by=r.replacing_tx_id, prev_spent_by=r.replaced_tx_id
 	WHERE code=r.code AND tx_id=r.spent_tx_id AND idx=r.spent_idx;
@@ -1350,6 +1361,7 @@ INSERT INTO nbxv1_migrations VALUES ('016.FixTempTableCreation');
 INSERT INTO nbxv1_migrations VALUES ('017.FixDoubleSpendDetection');
 INSERT INTO nbxv1_migrations VALUES ('018.FastWalletRecent');
 INSERT INTO nbxv1_migrations VALUES ('019.FixDoubleSpendDetection2');
+INSERT INTO nbxv1_migrations VALUES ('020.ReplacingShouldBeIdempotent');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);
