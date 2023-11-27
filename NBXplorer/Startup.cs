@@ -70,7 +70,7 @@ namespace NBXplorer
 			app.UseAuthentication();
 			app.UseAuthorization();
 			app.UseWebSockets();
-			//app.UseMiddleware<LogAllRequestsMiddleware>();
+			app.UseMiddleware<LogAllRequestsMiddleware>();
 			app.UseEndpoints(endpoints =>
 			{
 				endpoints.MapHealthChecks("health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions()

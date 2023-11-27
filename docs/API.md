@@ -514,7 +514,7 @@ Result:
   "derivationStrategy": "tpubD6NzVbkrYhZ4XQVi1sSEDBWTcicDqVSCTnYDxpwGwcSZVbPii2b7baRg57YfL64ed36sBRe6GviihHwhy3D1cnBe5uXb27DjrDZCKUA7PQi",
   "currentHeight": 107,
   "unconfirmed": {
-    "utxos": [
+    "utxOs": [
       {
         "feature": "Deposit",
         "outpoint": "10ba4bcadd03130b1bd98b0bc7aea9910f871b25b87ec06e484456e84440c88a01000000",
@@ -532,8 +532,8 @@ Result:
     "hasChanges": true
   },
   "confirmed": {
-    "utxos": [
-      {// when it is a derivation scheme
+    "utxOs": [
+      {
         "feature": "Deposit",
         "outpoint": "29ca6590f3f03a6523ad79975392e74e385bf2b7dafe6c537ffa12f9e124348800000000",
         "index": 0,
@@ -544,8 +544,6 @@ Result:
         "keyPath": "0/3",
         "timestamp": 1540376174,
         "confirmations": 1
-      },
-      {// when it is an address
       }
     ],
     "spentOutpoints": [
