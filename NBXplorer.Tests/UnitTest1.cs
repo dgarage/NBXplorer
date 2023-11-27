@@ -4685,7 +4685,7 @@ namespace NBXplorer.Tests
 			Assert.Contains(parentsOfC, w => w == walletB);
 			
 			var parentsOfB = await tester.Client.GetParentWallets(walletB);
-			Assert.Equal(1, parentsOfB.Length);
+			Assert.Single(parentsOfB);
 			Assert.Contains(parentsOfB, w => w == walletA);
 			
 			var parentsOfA = await tester.Client.GetParentWallets(walletA);
@@ -4698,7 +4698,7 @@ namespace NBXplorer.Tests
 			Assert.Contains(childrenOfA, w => w == walletC);
 			
 			var childrenOfB= await tester.Client.GetChildWallets(walletB);
-			Assert.Equal(1, childrenOfB.Length);
+			Assert.Single(childrenOfB);
 			Assert.Contains(childrenOfB, w => w == walletC);
 			
 			var childrenOfC = await tester.Client.GetChildWallets(walletC);
@@ -4719,11 +4719,11 @@ namespace NBXplorer.Tests
 
 
 			childrenOfB= await tester.Client.GetChildWallets(walletB);
-			Assert.Equal(1, childrenOfB.Length);
+			Assert.Single(childrenOfB);
 			Assert.Contains(childrenOfB, w => w == walletC);
 			
 			parentsOfB = await tester.Client.GetParentWallets(walletB);
-			Assert.Equal(1, parentsOfB.Length);
+			Assert.Single(parentsOfB);
 			Assert.Contains(parentsOfB, w => w == walletA);
 
 		}
