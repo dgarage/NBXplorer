@@ -138,7 +138,7 @@ namespace NBXplorer.Backends.Postgres
 			{
 				stopwatch.Stop();
 				if (stopwatch.ElapsedMilliseconds > 100)
-					Logs.Configuration.LogInformation($"{nameof(FetchMatches)} took {stopwatch.ElapsedMilliseconds}ms");
+					Logs.Configuration.LogInformation($"{nameof(FetchMatches)} took {stopwatch.ElapsedMilliseconds}ms (outs: {outs.Count}, ins: {ins.Count})");
 			}
 		}
 		public record SaveTransactionRecord(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset? SeenAt)
