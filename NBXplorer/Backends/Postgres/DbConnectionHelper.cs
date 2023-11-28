@@ -1,13 +1,16 @@
 ﻿#nullable enable
 using Dapper;
+using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
+using NBXplorer.Logging;
 using Npgsql;
 using Npgsql.TypeMapping;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -119,14 +122,24 @@ namespace NBXplorer.Backends.Postgres
 			{
 				ins.Add(new NewInRaw(ni.txId.ToString(), ni.idx, ni.spentTxId.ToString(), ni.spentIdx));
 			}
-
-			DynamicParameters parameters = new DynamicParameters();
-			parameters.Add("in_code", Network.CryptoCode);
-			parameters.Add("in_outs", outs);
-			parameters.Add("in_ins", ins);
-			parameters.Add("has_match", dbType: System.Data.DbType.Boolean, direction: ParameterDirection.InputOutput);
-			await Connection.QueryAsync<int>("fetch_matches", parameters, commandType: CommandType.StoredProcedure);
-			return parameters.Get<bool>("has_match");
+			Stopwatch stopwatch = new Stopwatch();
+			stopwatch.Start();
+			try
+			{
+				DynamicParameters parameters = new DynamicParameters();
+				parameters.Add("in_code", Network.CryptoCode);
+				parameters.Add("in_outs", outs);
+				parameters.Add("in_ins", ins);
+				parameters.Add("has_match", dbType: System.Data.DbType.Boolean, direction: ParameterDirection.InputOutput);
+				await Connection.QueryAsync<int>("fetch_matches", parameters, commandType: CommandType.StoredProcedure);
+				return parameters.Get<bool>("has_match");
+			}
+			finally
+			{
+				stopwatch.Stop();
+				if (stopwatch.ElapsedMilliseconds > 100)
+					Logs.Configuration.LogInformation($"{nameof(FetchMatches)} took {stopwatch.ElapsedMilliseconds}ms");
+			}
 		}
 		public record SaveTransactionRecord(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset? SeenAt)
 		{
