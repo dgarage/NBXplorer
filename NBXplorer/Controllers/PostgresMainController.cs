@@ -7,6 +7,7 @@ using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NBitcoin;
+using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
 using NBXplorer.Backends.Postgres;
 using NBXplorer.DerivationStrategy;
@@ -97,12 +98,14 @@ namespace NBXplorer.Controllers
 		[TrackedSourceContext.TrackedSourceContextRequirement(true)]
 		public async Task<IActionResult> ImportUTXOs( TrackedSourceContext trackedSourceContext, [FromBody] JArray rawRequest)
 		{
+			
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			await repo.EnsureWalletCreated(trackedSourceContext.TrackedSource);
 			var jsonSerializer = JsonSerializer.Create(trackedSourceContext.Network.JsonSerializerSettings);
 			var coins = rawRequest.ToObject<ImportUTXORequest[]>(jsonSerializer)?.Where(c => c.Coin != null).ToArray();
 			if (coins?.Any() is not true)
 				throw new ArgumentNullException(nameof(coins));
 			
-			var repo = (PostgresRepository)trackedSourceContext.Repository;
 			var rpc = trackedSourceContext.RpcClient;
 
 			var clientBatch = rpc.PrepareBatch();
@@ -123,13 +126,8 @@ namespace NBXplorer.Controllers
 					{
 						if (o.Proof is not null && o.Proof.PartialMerkleTree.Hashes.Contains(o.Coin.Outpoint.Hash))
 						{
-							// var merkleBLockProofBytes = Encoders.Hex.DecodeData(o.TxOutProof);
-							// var mb = new MerkleBlock();
-							// mb.FromBytes(merkleBLockProofBytes);
-							// mb.ReadWrite(merkleBLockProofBytes, network.NBitcoinNetwork);
-
 							var txoutproofResult =
-								await clientBatch.SendCommandAsync("verifytxoutproof", o.Proof);
+								await clientBatch.SendCommandAsync("verifytxoutproof", Encoders.Hex.EncodeData(o.Proof.ToBytes()));
 
 							var txHash = o.Coin.Outpoint.Hash.ToString();
 							if (txoutproofResult.Error is not null && txoutproofResult.Result is JArray prooftxs &&
@@ -145,6 +143,13 @@ namespace NBXplorer.Controllers
 			}).Concat(new[] {clientBatch.SendBatchAsync()}).ToArray());
 
 			DateTimeOffset now = DateTimeOffset.UtcNow;
+
+			var scripts = coinToTxOut
+				.Select(pair =>
+					pair.Key.ScriptPubKey.GetDestinationAddress(trackedSourceContext.Network.NBitcoinNetwork))
+				.Where(address => address is not null).ToDictionary(address => (IDestination)address, _ => true);
+			
+			await repo.AssociateScriptsToWalletExplicitly(trackedSourceContext.TrackedSource,scripts);
 			await repo.SaveMatches(coinToTxOut.Select(pair =>
 			{
 				coinToBlock.TryGetValue(pair.Key, out var blockHeader);
@@ -152,6 +157,7 @@ namespace NBXplorer.Controllers
 					new TrackedTransactionKey(pair.Key.Outpoint.Hash, blockHeader?.GetHash(), true){},
 					new[] {pair.Key}, null);
 				ttx.Inserted = now;
+				ttx.Immature = pair.Value.IsCoinBase && pair.Value.Confirmations <= 100;
 				ttx.FirstSeen = blockHeader?.BlockTime?? NBitcoin.Utils.UnixTimeToDateTime(0);;
 				return ttx;
 			}).ToArray());
