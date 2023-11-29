@@ -180,6 +180,22 @@ namespace NBXplorer.HostedServices
 			{
 				Directory.Delete(LegacyRepositoryProvider.GetDatabasePath(), true);
 				logger.LogInformation($"Old migrated legacy DBTrie database has been deleted");
+				foreach (var file in new[] { "chain-slim.dat", "chain-slim.dat.temp", "chain.dat", "chain-stripped.dat" })
+				{
+					foreach (var network in LegacyRepositoryProvider.GetRepositories().Select(r => r.Network))
+					{
+						var path = $"{network.CryptoCode}{file}";
+						try
+						{
+							if (File.Exists(path))
+							{
+								logger.LogInformation($"Deleted legacy data {path}");
+								File.Delete(path);
+							}
+						}
+						catch { }
+					}
+				}
 			}
 		}
 
