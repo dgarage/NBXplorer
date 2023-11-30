@@ -275,7 +275,6 @@ namespace NBXplorer.Backends.Postgres
 			var walletKey = GetWalletKey(trackedSource);
 			await using var conn = await GetConnection();
 			
-			var importMode = GetImportRPCMode(conn, walletKey);
 			var scriptsRecords = scripts.Select(pair => new ScriptInsert(this.Network.CryptoCode, walletKey.wid,
 				pair.Destination.ScriptPubKey.ToHex(), pair.Destination.ToString(), pair.Used)).ToArray();
 			{
@@ -289,7 +288,8 @@ namespace NBXplorer.Backends.Postgres
 						request.Destination.ScriptPubKey.ToHex(), request.Metadata.ToString(Formatting.None),
 						request.Destination.ToString(), request.Used)).ToList();
 				await InsertDescriptorsScripts(conn.Connection, descriptScriptInsert);
-				if (ImportRPCMode.Legacy == await importMode)
+				
+				if (ImportRPCMode.Legacy ==  await GetImportRPCMode(conn, walletKey))
 				{
 					foreach (var scriptsRecord in scriptsRecords)
 					{
