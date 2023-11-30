@@ -270,28 +270,36 @@ namespace NBXplorer.Backends.Postgres
 		}
 		
 		public async Task AssociateScriptsToWalletExplicitly(TrackedSource trackedSource,
-			Dictionary<IDestination, bool> scripts)
+			AssociateScriptRequest[] scripts)
 		{
 			var walletKey = GetWalletKey(trackedSource);
-
 			await using var conn = await GetConnection();
+			
+			var importMode = GetImportRPCMode(conn, walletKey);
 			var scriptsRecords = scripts.Select(pair => new ScriptInsert(this.Network.CryptoCode, walletKey.wid,
-				pair.Key.ScriptPubKey.ToHex(), pair.Key.ToString(), pair.Value)).ToArray();
+				pair.Destination.ScriptPubKey.ToHex(), pair.Destination.ToString(), pair.Used)).ToArray();
 			{
-
-				await conn.Connection.ExecuteAsync(
-
-					"INSERT INTO wallets VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING", new
-					{
-						walletKey.wid,
-						walletKey.metadata
-					});
+				await conn.Connection.ExecuteAsync(WalletInsertQuery, new {walletKey.wid, walletKey.metadata});
 				await conn.Connection.ExecuteAsync(
 					"INSERT INTO scripts (code, script, addr, used) VALUES(@code, @script, @addr, @used) ON CONFLICT DO NOTHING;" +
-					   "INSERT INTO wallets_scripts (code, wallet_id, script) VALUES(@code, @wallet_id, @script) ON CONFLICT DO NOTHING;"
+					"INSERT INTO wallets_scripts (code, wallet_id, script) VALUES(@code, @wallet_id, @script) ON CONFLICT DO NOTHING;"
 					, scriptsRecords);
+				var descriptScriptInsert = scripts.Where(request => request.Metadata is not null).Select(request =>
+					new DescriptorScriptInsert(request.Destination.ScriptPubKey.ToHex(), 0,
+						request.Destination.ScriptPubKey.ToHex(), request.Metadata.ToString(Formatting.None),
+						request.Destination.ToString(), request.Used)).ToList();
+				await InsertDescriptorsScripts(conn.Connection, descriptScriptInsert);
+				if (ImportRPCMode.Legacy == await importMode)
+				{
+					foreach (var scriptsRecord in scriptsRecords)
+					{
+						await ImportAddressToRPC(null,
+							BitcoinAddress.Create(scriptsRecord.addr, Network.NBitcoinNetwork), null);
+					}
+				}
 			}
 		}
+
 		internal record ScriptInsert(string code, string wallet_id, string script, string addr, bool used);
 		internal record DescriptorScriptInsert(string descriptor, int idx, string script, string metadata, string addr, bool used);
 		public async Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, GenerateAddressQuery query = null)
@@ -1021,10 +1029,14 @@ namespace NBXplorer.Backends.Postgres
 					"INSERT INTO wallets_scripts VALUES (@code, @script, @walletid) ON CONFLICT DO NOTHING;", inserts);
 		}
 
+		private async Task<ImportRPCMode> GetImportRPCMode(DbConnectionHelper connection, WalletKey walletKey)
+		{
+			return ImportRPCMode.Parse((await connection.GetMetadata<string>(walletKey.wid, WellknownMetadataKeys.ImportAddressToRPC)));
+		}
 		private async Task ImportAddressToRPC(DbConnectionHelper connection, TrackedSource trackedSource, BitcoinAddress address, KeyPath keyPath)
 		{
 			var k = GetWalletKey(trackedSource);
-			var shouldImportRPC = ImportRPCMode.Parse((await connection.GetMetadata<string>(k.wid, WellknownMetadataKeys.ImportAddressToRPC)));
+			var shouldImportRPC = await GetImportRPCMode(connection, k);
 			if (shouldImportRPC != ImportRPCMode.Legacy)
 				return;
 			var accountKey = await connection.GetMetadata<BitcoinExtKey>(k.wid, WellknownMetadataKeys.AccountHDKey);
@@ -1243,7 +1255,7 @@ namespace NBXplorer.Backends.Postgres
 			await using var conn = await GetConnection();
 			var walletKey = GetWalletKey(address);
 			await conn.Connection.ExecuteAsync(
-				"INSERT INTO wallets VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING;" +
+				WalletInsertQuery +
 				"INSERT INTO scripts VALUES (@code, @script, @addr) ON CONFLICT DO NOTHING;" +
 				"INSERT INTO wallets_scripts VALUES (@code, @script, @wid) ON CONFLICT DO NOTHING"
 				, new { code = Network.CryptoCode, script = address.ScriptPubKey.ToHex(), addr = address.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork).ToString(), walletKey.wid, walletKey.metadata });
@@ -1349,14 +1361,15 @@ namespace NBXplorer.Backends.Postgres
 			var parentsRecords = parentWallets.Select(key => new WalletHierarchyInsert(walletKey.wid, key.wid)).ToArray();
 
 			
-			await connection.ExecuteAsync(
-				"INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING"
-				, walletRecords);
+			await connection.ExecuteAsync(WalletInsertQuery, walletRecords);
 			await connection.ExecuteAsync(
 				"INSERT INTO wallets_wallets (wallet_id, parent_id) VALUES (@child, @parent)ON CONFLICT DO NOTHING"
 				, parentsRecords);
 		}
+
+		private readonly  string WalletInsertQuery = "INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING;";
 	}
+	
 
 	public class LegacyDescriptorMetadata
 	{

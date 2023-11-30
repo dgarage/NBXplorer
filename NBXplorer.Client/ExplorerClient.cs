@@ -390,7 +390,7 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(trackedSource));
 			return SendAsync<TransactionInformation>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/transactions/{txId}", cancellation);
 		}		
-		public async Task AssociateScriptsAsync(TrackedSource trackedSource, Dictionary<IDestination, bool> scripts, CancellationToken cancellation = default)
+		public async Task AssociateScriptsAsync(TrackedSource trackedSource, AssociateScriptRequest[] scripts, CancellationToken cancellation = default)
 		{
 			if (scripts == null)
 				throw new ArgumentNullException(nameof(scripts));

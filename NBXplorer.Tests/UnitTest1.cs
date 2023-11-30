@@ -4574,7 +4574,7 @@ namespace NBXplorer.Tests
 					ParentWallet = parentWalletTS
 				}));
 				
-				await Assert.ThrowsAsync<HttpRequestException>(async () =>await tester.Client.AssociateScriptsAsync(parentWalletTS, new Dictionary<IDestination, bool>()));
+				await Assert.ThrowsAsync<HttpRequestException>(async () =>await tester.Client.AssociateScriptsAsync(parentWalletTS, Array.Empty<AssociateScriptRequest>()));
 				await Assert.ThrowsAsync<HttpRequestException>(async () =>await tester.Client.ImportUTXOs(parentWalletTS, Array.Empty<ImportUTXORequest>()));
 				return;
 			}
@@ -4609,9 +4609,12 @@ namespace NBXplorer.Tests
 			var udetectedTxId = await tester.RPC.SendToAddressAsync(newAddr, Money.FromUnit(0.1m, MoneyUnit.BTC));
 			await Task.Delay(3000);
 			var utxos = Assert.Single(await tester.RPC.ListUnspentAsync(0, 0, newAddr));
-			await tester.Client.AssociateScriptsAsync(wallet1TS, new Dictionary<IDestination, bool>()
+			await tester.Client.AssociateScriptsAsync(wallet1TS, new[]
 			{
-				{newAddr2, true}
+				new AssociateScriptRequest()
+				{
+					Destination = newAddr2, Used = true
+				}
 			});
 
 
@@ -4632,12 +4635,15 @@ namespace NBXplorer.Tests
 			});
 
 
-			await tester.Client.AssociateScriptsAsync(wallet1TS, new Dictionary<IDestination, bool>()
+			await tester.Client.AssociateScriptsAsync(wallet1TS, new[]
 			{
-				{newAddr, true}
+				new AssociateScriptRequest()
+				{
+					Destination = newAddr, Used = true
+				}
 			});
 
-			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest[]
+			await tester.Client.ImportUTXOs(wallet1TS, new[]
 			{
 				new ImportUTXORequest()
 				{
@@ -4866,12 +4872,6 @@ namespace NBXplorer.Tests
 				Assert.NotEqual( NBitcoin.Utils.UnixTimeToDateTime(0) , importedUtxoWithProof.Timestamp);
 				
 			});
-		
-			
-
-
-
-
 		}
 	}
 }

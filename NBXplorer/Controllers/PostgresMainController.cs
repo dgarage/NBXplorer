@@ -84,13 +84,12 @@ namespace NBXplorer.Controllers
 		
 		[HttpPost("associate")]
 		[PostgresImplementationActionConstraint(true)]
-		public async Task<IActionResult> AssociateScripts( TrackedSourceContext trackedSourceContext,
-			[FromBody] Dictionary<string, bool> scripts)
+		public async Task<IActionResult> AssociateScripts( TrackedSourceContext trackedSourceContext, [FromBody] JArray rawRequest)
 		{
 			var repo = (PostgresRepository)trackedSourceContext.Repository;
-			await repo.AssociateScriptsToWalletExplicitly(trackedSourceContext.TrackedSource,
-				scripts.ToDictionary(pair => (IDestination) BitcoinAddress.Create(pair.Key, trackedSourceContext.Network.NBitcoinNetwork),
-					pair => pair.Value));
+			var jsonSerializer = JsonSerializer.Create(trackedSourceContext.Network.JsonSerializerSettings);
+			var requests = rawRequest.ToObject<AssociateScriptRequest[]>(jsonSerializer);
+			await repo.AssociateScriptsToWalletExplicitly(trackedSourceContext.TrackedSource, requests);
 			return Ok();
 		}
 		
@@ -100,7 +99,6 @@ namespace NBXplorer.Controllers
 		{
 			
 			var repo = (PostgresRepository)trackedSourceContext.Repository;
-			await repo.EnsureWalletCreated(trackedSourceContext.TrackedSource);
 			var jsonSerializer = JsonSerializer.Create(trackedSourceContext.Network.JsonSerializerSettings);
 			var coins = rawRequest.ToObject<ImportUTXORequest[]>(jsonSerializer)?.Where(c => c.Coin != null).ToArray();
 			if (coins?.Any() is not true)
@@ -142,12 +140,17 @@ namespace NBXplorer.Controllers
 				};
 			}).Concat(new[] {clientBatch.SendBatchAsync()}).ToArray());
 
-			DateTimeOffset now = DateTimeOffset.UtcNow;
+			var now = DateTimeOffset.UtcNow;
 
 			var scripts = coinToTxOut
-				.Select(pair =>
-					pair.Key.ScriptPubKey.GetDestinationAddress(trackedSourceContext.Network.NBitcoinNetwork))
-				.Where(address => address is not null).ToDictionary(address => (IDestination)address, _ => true);
+				.Select(pair => (
+					pair.Key.ScriptPubKey.GetDestinationAddress(trackedSourceContext.Network.NBitcoinNetwork), pair))
+				.Where(pair => pair.Item1 is not null).Select(tuple => new AssociateScriptRequest()
+				{
+					Destination = tuple.Item1,
+					Used = tuple.pair.Value is not null,
+					Metadata = null
+				}).ToArray();
 			
 			await repo.AssociateScriptsToWalletExplicitly(trackedSourceContext.TrackedSource,scripts);
 			await repo.SaveMatches(coinToTxOut.Select(pair =>
