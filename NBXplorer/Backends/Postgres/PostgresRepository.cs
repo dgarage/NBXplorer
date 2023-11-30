@@ -530,6 +530,7 @@ namespace NBXplorer.Backends.Postgres
 				    SELECT code, script, wallet_id, addr, descriptor_metadata->>'derivation' derivation, 
 				           keypath, descriptors_scripts_metadata->>'redeem' redeem, 
 				           descriptors_scripts_metadata->>'blindedAddress' blinded_addr, 
+				           descriptors_scripts_metadata->>'blindingKey' blindingKey, 
 				           descriptor_metadata->>'descriptor' descriptor
 				    FROM nbxv1_keypath_info ki 
 				    WHERE ki.code=@code AND ki.script=r.script
@@ -551,22 +552,30 @@ namespace NBXplorer.Backends.Postgres
 				string walletId = r.wallet_id;
 
 				var trackedSource = derivationStrategy is not null
-					?
-					new DerivationSchemeTrackedSource(derivationStrategy)
-					: walletType == "Wallet" ? walletId is null ? (TrackedSource)null : new WalletTrackedSource(walletId) : new AddressTrackedSource(addr);
-				
-				result.Add(script, new KeyPathInformation()
-				{
-					Address = addr,
-					DerivationStrategy = r.derivation is not null ? derivationStrategy : null,
-					KeyPath = keypath,
-					ScriptPubKey = script,
-					TrackedSource = trackedSource,
-					Feature = keypath is null ? DerivationFeature.Deposit : KeyPathTemplates.GetDerivationFeature(keypath),
-					Redeem = redeem is null ? null : Script.FromHex(redeem),
-				});
+					? new DerivationSchemeTrackedSource(derivationStrategy)
+					: walletType == "Wallet"
+						? walletId is null ? (TrackedSource) null : new WalletTrackedSource(walletId)
+						: new AddressTrackedSource(addr);
+				var keyPathInformation = Network.IsElement && r.blindingKey is not null
+					? new LiquidKeyPathInformation()
+					{
+						BlindingKey = Key.Parse(r.blindingKey, Network.NBitcoinNetwork)
+					}
+					: new KeyPathInformation();
+				keyPathInformation.Address = addr;
+				keyPathInformation.DerivationStrategy = r.derivation is not null ? derivationStrategy : null;
+				keyPathInformation.KeyPath = keypath;
+				keyPathInformation.ScriptPubKey = script;
+				keyPathInformation.TrackedSource = trackedSource;
+				keyPathInformation.Feature = keypath is null ? DerivationFeature.Deposit : KeyPathTemplates.GetDerivationFeature(keypath);
+				keyPathInformation.Redeem = redeem is null ? null : Script.FromHex(redeem);
+				result.Add(script, keyPathInformation);
 			}
 			return result;
+		}
+		public class LiquidKeyPathInformation : KeyPathInformation
+		{
+			public Key BlindingKey { get; set; }
 		}
 
 		private BitcoinAddress GetAddress(dynamic r)

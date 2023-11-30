@@ -97,27 +97,47 @@ namespace NBXplorer
 			return default;
 		}
 
-		public static async Task<ElementsTransaction> UnblindTransaction(this RPCClient rpc, TrackedTransaction tx, IEnumerable<KeyPathInformation> keyInfos)
+		public static async Task<ElementsTransaction> UnblindTransaction(this RPCClient rpc, TrackedTransaction tx,
+			IEnumerable<KeyPathInformation> keyInfos)
 		{
-			if (tx.TrackedSource is DerivationSchemeTrackedSource ts &&
-				!ts.DerivationStrategy.Unblinded() &&
-				tx.Transaction is ElementsTransaction elementsTransaction)
-			{
-				var keys = keyInfos
-					.Select(kv => (KeyPath: kv.KeyPath,
-								   Address: kv.Address as BitcoinBlindedAddress,
-								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.KeyPath, kv.ScriptPubKey, rpc.Network)))
-					.Where(o => o.Address != null)
-					.Select(o => new UnblindTransactionBlindingAddressKey()
-					{
-						Address = o.Address,
-						BlindingKey = o.BlindingKey
-					}).ToList();
-				if (keys.Count != 0)
+			var elementsTransaction = tx.Transaction as ElementsTransaction;
+			if (elementsTransaction == null)
+				return null;
+
+			var keys = keyInfos
+				.Select(kv => (KeyPath: kv.KeyPath,
+					Address: kv.Address as BitcoinBlindedAddress,
+					BlindingKey: GetBlindingKey(tx.TrackedSource, kv, rpc.Network)))
+				.Where(o => o.Address != null && o.BlindingKey != null)
+				.Select(o => new UnblindTransactionBlindingAddressKey()
 				{
-					return await rpc.UnblindTransaction(keys, elementsTransaction, rpc.Network);
-				}
+					Address = o.Address,
+					BlindingKey = o.BlindingKey
+				}).ToList();
+			if (keys.Count != 0)
+			{
+				return await rpc.UnblindTransaction(keys, elementsTransaction, rpc.Network);
 			}
+
+			return null;
+		}
+
+		private static Key GetBlindingKey(TrackedSource trackedSource, KeyPathInformation keyPathInformation, Network network)
+		{
+			if(keyPathInformation.Address is not BitcoinBlindedAddress)
+			{
+				return null;
+			}
+			if (keyPathInformation is PostgresRepository.LiquidKeyPathInformation {BlindingKey: not null} liquidKeyPathInformation)
+			{
+				return liquidKeyPathInformation.BlindingKey;
+			}
+			if(trackedSource is DerivationSchemeTrackedSource derivationSchemeTrackedSource && !derivationSchemeTrackedSource.DerivationStrategy.Unblinded())
+			{
+				return NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(
+					derivationSchemeTrackedSource.DerivationStrategy, keyPathInformation.KeyPath, keyPathInformation.ScriptPubKey, network);
+			}
+
 			return null;
 		}
 		public static async Task<DateTimeOffset?> GetBlockTimeAsync(this RPCClient client, uint256 blockId, bool throwIfNotFound = true)

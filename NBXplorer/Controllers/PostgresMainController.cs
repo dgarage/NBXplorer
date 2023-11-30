@@ -98,15 +98,15 @@ namespace NBXplorer.Controllers
 			
 			var repo = (PostgresRepository)trackedSourceContext.Repository;
 			var jsonSerializer = JsonSerializer.Create(trackedSourceContext.Network.JsonSerializerSettings);
-			var coins = rawRequest.ToObject<ImportUTXORequest[]>(jsonSerializer)?.Where(c => c.Coin != null).ToArray();
+			var coins = rawRequest.ToObject<ImportUTXORequest[]>(jsonSerializer)?.Where(c => c.Utxo != null).ToArray();
 			if (coins?.Any() is not true)
 				throw new ArgumentNullException(nameof(coins));
 			
 			var rpc = trackedSourceContext.RpcClient;
 
 			var clientBatch = rpc.PrepareBatch();
-			var coinToTxOut = new ConcurrentDictionary<Coin, GetTxOutResponse>();
-			var coinToBlock = new ConcurrentDictionary<Coin, BlockHeader>();
+			var coinToTxOut = new ConcurrentDictionary<OutPoint, GetTxOutResponse>();
+			var coinToBlock = new ConcurrentDictionary<OutPoint, BlockHeader>();
 			await Task.WhenAll(coins.SelectMany(o =>
 			{
 				return new[]
@@ -114,24 +114,24 @@ namespace NBXplorer.Controllers
 					Task.Run(async () =>
 					{
 						var txOutResponse =
-							await clientBatch.GetTxOutAsync(o.Coin.Outpoint.Hash, (int) o.Coin.Outpoint.N);
+							await clientBatch.GetTxOutAsync(o.Utxo.Hash, (int) o.Utxo.N);
 						if (txOutResponse is not null)
-							coinToTxOut.TryAdd(o.Coin, txOutResponse);
+							coinToTxOut.TryAdd(o.Utxo, txOutResponse);
 					}),
 					Task.Run(async () =>
 					{
-						if (o.Proof is not null && o.Proof.PartialMerkleTree.Hashes.Contains(o.Coin.Outpoint.Hash))
+						if (o.Proof is not null && o.Proof.PartialMerkleTree.Hashes.Contains(o.Utxo.Hash))
 						{
 							var txoutproofResult =
 								await clientBatch.SendCommandAsync("verifytxoutproof", Encoders.Hex.EncodeData(o.Proof.ToBytes()));
 
-							var txHash = o.Coin.Outpoint.Hash.ToString();
+							var txHash = o.Utxo.Hash.ToString();
 							if (txoutproofResult.Error is not null && txoutproofResult.Result is JArray prooftxs &&
 							    prooftxs.Any(token =>
 								    token.Value<string>()
 									    ?.Equals(txHash, StringComparison.InvariantCultureIgnoreCase) is true))
 							{
-								coinToBlock.TryAdd(o.Coin, o.Proof.Header);
+								coinToBlock.TryAdd(o.Utxo, o.Proof.Header);
 							}
 						}
 					})
@@ -142,7 +142,7 @@ namespace NBXplorer.Controllers
 
 			var scripts = coinToTxOut
 				.Select(pair => (
-					pair.Key.ScriptPubKey.GetDestinationAddress(trackedSourceContext.Network.NBitcoinNetwork), pair))
+					pair.Value.TxOut.ScriptPubKey.GetDestinationAddress(repo.Network.NBitcoinNetwork), pair))
 				.Where(pair => pair.Item1 is not null).Select(tuple => new AssociateScriptRequest()
 				{
 					Destination = tuple.Item1,
@@ -154,9 +154,11 @@ namespace NBXplorer.Controllers
 			await repo.SaveMatches(coinToTxOut.Select(pair =>
 			{
 				coinToBlock.TryGetValue(pair.Key, out var blockHeader);
+				
+				var coin = new Coin(pair.Key, pair.Value.TxOut);
 				var ttx = repo.CreateTrackedTransaction(trackedSourceContext.TrackedSource,
-					new TrackedTransactionKey(pair.Key.Outpoint.Hash, blockHeader?.GetHash(), true){},
-					new[] {pair.Key}, null);
+					new TrackedTransactionKey(pair.Key.Hash, blockHeader?.GetHash(), true){},
+					new[] {coin}, null);
 				ttx.Inserted = now;
 				ttx.Immature = pair.Value.IsCoinBase && pair.Value.Confirmations <= 100;
 				ttx.FirstSeen = blockHeader?.BlockTime?? NBitcoin.Utils.UnixTimeToDateTime(0);;

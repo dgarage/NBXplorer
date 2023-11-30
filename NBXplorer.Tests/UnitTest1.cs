@@ -4647,7 +4647,7 @@ namespace NBXplorer.Tests
 			{
 				new ImportUTXORequest()
 				{
-					Coin = utxos.AsCoin(),
+					Utxo = utxos.OutPoint,
 					Proof = null
 				}
 			});
@@ -4763,7 +4763,7 @@ namespace NBXplorer.Tests
 			{
 				new()
 				{
-					Coin = new Coin(utxo),
+					Utxo = utxo.ToCoin().Outpoint,
 					Proof = null
 				}
 			});
@@ -4784,7 +4784,7 @@ namespace NBXplorer.Tests
 			{
 				new()
 				{
-					Coin = new Coin(utxo2),
+					Utxo = utxo2.ToCoin().Outpoint,
 					Proof = null
 				}
 			});
@@ -4821,15 +4821,15 @@ namespace NBXplorer.Tests
 			{
 				new()
 				{
-					Coin = fakeUtxo,
+					Utxo = fakeUtxo.Outpoint
 				},
 				new()
 				{
-					Coin = new Coin(tospendutxo)
+					Utxo = new Coin(tospendutxo).Outpoint
 				},
 				new()
 				{
-					Coin = new Coin(validScriptUtxo)
+					Utxo = new Coin(validScriptUtxo).Outpoint
 				}
 			});
 			
@@ -4859,7 +4859,7 @@ namespace NBXplorer.Tests
 			{
 				new()
 				{
-					Coin = new Coin(yoUtxo),
+					Utxo = new Coin(yoUtxo).Outpoint,
 					Proof = mb
 				}
 			});

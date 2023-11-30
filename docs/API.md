@@ -1301,10 +1301,68 @@ Response:
 
 NOTE: Batch commands are also supported by sending the JSON-RPC requests in an array. The result is also returned in an array.
 
+## <a name="associate-scripts"></a>Associate scripts to wallet
+
+Note: This API is only available for Postgres.
+
+`HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/associate`<br/>
+`HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}/associate`<br/>
+`HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}/associate`<br/>
+`HTTP POST v1/cryptos/{cryptoCode}/wallets/{wallet}/associate`<br/>
+`HTTP POST v1/cryptos/{cryptoCode}/tracked-sources/{trackedSource}/associate`
+
+Request:
+
+
+* `destinatiom`: Mandatory, the address to add to the wallet
+* `used`: Optional, indicate that the address was used already (default: `false`)
+* `metadata`: Optional, a json object that will be attached to the script as part of the descriptor (default: null) (note: for liquid, you will want to use the properties `blinded_address` and `blindingKey` to handle confidential addresses)
+
+```json
+[
+  {
+    "destinatiom": "bc1q...",
+    "used": true,
+    "metadata": { ...}
+  }
+]
+```
+
+
+## <a name="import-utxos"></a>Import UTXOs to wallet
+
+Note: This API is only available for Postgres.
+
+In the case where you start tracking a wallet that already has UTXOs, you can import them to NBXplorer so that it can be aware of them. NBXplorer will validate against the bitcoin node's utxoset that the UTXOs are valid.
+
+`HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/import-utxos`<br/>
+`HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}/import-utxos`<br/>
+`HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}/import-utxos`<br/>
+`HTTP POST v1/cryptos/{cryptoCode}/wallets/{wallet}/import-utxos`<br/>
+`HTTP POST v1/cryptos/{cryptoCode}/tracked-sources/{trackedSource}/import-utxos`
+
+Request:
+
+
+* `utxo`: Mandatory, the utxo to import, in the format `txid-vout`, where `txid` is the transaction id and `vout` is the output index
+* `proof`: Optional, a merkle proof that the utxo being imported was included in a block (as provided by Bitcoin Core's gettxoutproof)
+
+```json
+[
+  {
+    "utxo": "txid-vout",
+    "proof": {}
+  }
+]
+```
+
+No response body
+
 
 ## <a name="hierarchy"></a>Hierarchy APIs
 
 Note: These APIs are only available for Postgres.
+
 ### View wallet parents
 
 `HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/parents`<br/>
