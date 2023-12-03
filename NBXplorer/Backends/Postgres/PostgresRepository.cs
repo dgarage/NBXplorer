@@ -22,6 +22,8 @@ using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
 using static NBXplorer.Backends.Postgres.DbConnectionHelper;
 using RabbitMQ.Client;
+using Npgsql;
+using System.Net.Http.Headers;
 
 namespace NBXplorer.Backends.Postgres
 {
@@ -711,7 +713,17 @@ namespace NBXplorer.Backends.Postgres
 				await connection.SaveTransactions(txRecords);
 				if (elementContext is not null)
 					await elementContext.UpdateMatchedOuts(connection.Connection);
-				await connection.Connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
+				retry:
+				try
+				{
+					await connection.Connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
+				}
+				// Broadcast call this method, and it may be called at same time as the indexer, resulting in a Deadlock
+				// I believe we can safely retry in that case.
+				catch (NpgsqlException ex) when (ex.SqlState == PostgresErrorCodes.DeadlockDetected)
+				{
+					goto retry;
+				}
 			}
 			if (noMatchTransactions != null)
 			{

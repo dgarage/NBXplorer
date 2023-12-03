@@ -36,7 +36,7 @@ namespace NBXplorer.HostedServices
 				using var conn = await ds.ReliableOpenConnectionAsync();
 				await RunScripts(conn);
 			}
-			catch (Npgsql.NpgsqlException pgex) when (pgex.SqlState == "3D000")
+			catch (Npgsql.NpgsqlException pgex) when (pgex.SqlState == PostgresErrorCodes.InvalidCatalogName)
 			{
 				string dbname = string.Empty;
 				await using var ds = ConnectionFactory.CreateDataSourceBuilder(b =>
@@ -63,7 +63,7 @@ namespace NBXplorer.HostedServices
 				{
 					executed = (await conn.QueryAsync<string>("SELECT script_name FROM nbxv1_migrations")).ToHashSet();
 				}
-				catch (Npgsql.NpgsqlException ex) when (ex.SqlState == "42P01")
+				catch (Npgsql.NpgsqlException ex) when (ex.SqlState == PostgresErrorCodes.UndefinedTable)
 				{
 					executed = new HashSet<string>();
 				}
