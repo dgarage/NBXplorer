@@ -4575,7 +4575,7 @@ namespace NBXplorer.Tests
 				}));
 				
 				await Assert.ThrowsAsync<HttpRequestException>(async () =>await tester.Client.AssociateScriptsAsync(parentWalletTS, Array.Empty<AssociateScriptRequest>()));
-				await Assert.ThrowsAsync<HttpRequestException>(async () =>await tester.Client.ImportUTXOs(parentWalletTS, Array.Empty<ImportUTXORequest>()));
+				await Assert.ThrowsAsync<HttpRequestException>(async () =>await tester.Client.ImportUTXOs(parentWalletTS, new ImportUTXORequest()));
 				return;
 			}
 #endif
@@ -4643,12 +4643,11 @@ namespace NBXplorer.Tests
 				}
 			});
 
-			await tester.Client.ImportUTXOs(wallet1TS, new[]
+			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest()
 			{
-				new ImportUTXORequest()
+				Utxos = new[]
 				{
-					Utxo = utxos.OutPoint,
-					Proof = null
+					utxos.OutPoint,
 				}
 			});
 
@@ -4759,12 +4758,11 @@ namespace NBXplorer.Tests
 			var utxo = rawTx.Outputs.AsIndexedOutputs().First(o => o.TxOut.ScriptPubKey == kScript);
 			var utxo2 = rawTx2.Outputs.AsIndexedOutputs().First(o => o.TxOut.ScriptPubKey == kScript);
 
-			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest[]
+			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest()
 			{
-				new()
+				Utxos = new[]
 				{
-					Utxo = utxo.ToCoin().Outpoint,
-					Proof = null
+					utxo.ToCoin().Outpoint,
 				}
 			});
 			
@@ -4780,12 +4778,11 @@ namespace NBXplorer.Tests
 				 Assert.Single(utxos.Confirmed.UTXOs);
 			});
 	
-			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest[]
+			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest()
 			{
-				new()
+				Utxos = new[]
 				{
-					Utxo = utxo2.ToCoin().Outpoint,
-					Proof = null
+					utxo2.ToCoin().Outpoint,
 				}
 			});
 			
@@ -4816,20 +4813,14 @@ namespace NBXplorer.Tests
 			await tester.RPC.SendRawTransactionAsync(spendingtx);
 			
 			var validScriptUtxo = spendingtx.Outputs.AsIndexedOutputs().First(o => o.TxOut.ScriptPubKey == validScript);
-			
-			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest[]
+
+			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest()
 			{
-				new()
+				Utxos = new[]
 				{
-					Utxo = fakeUtxo.Outpoint
-				},
-				new()
-				{
-					Utxo = new Coin(tospendutxo).Outpoint
-				},
-				new()
-				{
-					Utxo = new Coin(validScriptUtxo).Outpoint
+					fakeUtxo.Outpoint,
+					new Coin(tospendutxo).Outpoint,
+					new Coin(validScriptUtxo).Outpoint
 				}
 			});
 			
@@ -4855,12 +4846,11 @@ namespace NBXplorer.Tests
 			var mb = new MerkleBlock();
 			mb.FromBytes(merkleBLockProofBytes);
 
-			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest[]
+			await tester.Client.ImportUTXOs(wallet1TS, new ImportUTXORequest()
 			{
-				new()
+				Utxos = new[]
 				{
-					Utxo = new Coin(yoUtxo).Outpoint,
-					Proof = mb
+					new Coin(yoUtxo).Outpoint
 				}
 			});
 			

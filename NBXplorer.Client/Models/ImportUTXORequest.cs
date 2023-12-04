@@ -5,10 +5,9 @@ namespace NBXplorer.Models;
 
 public class ImportUTXORequest
 {
-	public OutPoint Utxo { get; set; }
-	
-	public MerkleBlock Proof { get; set; }
-	
+	public OutPoint[] Utxos { get; set; }
+
+	public MerkleBlock[] Proofs { get; set; }
 }
 
 public class AssociateScriptRequest

@@ -1333,7 +1333,7 @@ Request:
 
 Note: This API is only available for Postgres.
 
-In the case where you start tracking a wallet that already has UTXOs, you can import them to NBXplorer so that it can be aware of them. NBXplorer will validate against the bitcoin node's utxoset that the UTXOs are valid.
+In the case where you start tracking a wallet that already has UTXOs, you can import them to NBXplorer so that it can be aware of them. NBXplorer will validate against the bitcoin node's utxoset that the UTXOs are valid. Additionally, you can also provide merkle proofs that the UTXOs were included in a block.
 
 `HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/import-utxos`<br/>
 `HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}/import-utxos`<br/>
@@ -1348,12 +1348,10 @@ Request:
 * `proof`: Optional, a merkle proof that the utxo being imported was included in a block (as provided by Bitcoin Core's gettxoutproof)
 
 ```json
-[
   {
-    "utxo": "txid-vout",
-    "proof": {}
+    "utxos": ["txid-vout"],
+    "proofs": []
   }
-]
 ```
 
 No response body

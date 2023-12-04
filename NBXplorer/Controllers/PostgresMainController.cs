@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Dapper;
@@ -93,56 +94,151 @@ namespace NBXplorer.Controllers
 		
 		[HttpPost("import-utxos")]
 		[TrackedSourceContext.TrackedSourceContextRequirement(true)]
-		public async Task<IActionResult> ImportUTXOs( TrackedSourceContext trackedSourceContext, [FromBody] JArray rawRequest)
+		public async Task<IActionResult> ImportUTXOs( TrackedSourceContext trackedSourceContext, [FromBody] JObject rawRequest)
 		{
 			
 			var repo = (PostgresRepository)trackedSourceContext.Repository;
 			var jsonSerializer = JsonSerializer.Create(trackedSourceContext.Network.JsonSerializerSettings);
-			var coins = rawRequest.ToObject<ImportUTXORequest[]>(jsonSerializer)?.Where(c => c.Utxo != null).ToArray();
-			if (coins?.Any() is not true)
-				throw new ArgumentNullException(nameof(coins));
+			var request = rawRequest.ToObject<ImportUTXORequest>(jsonSerializer);
+
+			if (request.Utxos?.Any() is not true)
+				return Ok();
 			
 			var rpc = trackedSourceContext.RpcClient;
 
 			var clientBatch = rpc.PrepareBatch();
-			var coinToTxOut = new ConcurrentDictionary<OutPoint, GetTxOutResponse>();
-			var coinToBlock = new ConcurrentDictionary<OutPoint, BlockHeader>();
-			await Task.WhenAll(coins.SelectMany(o =>
+			var coinToTxOut = new Dictionary<OutPoint, Task<GetTxOutResponse>>();
+			var txsToBlockHash = new ConcurrentDictionary<uint256, uint256>();
+			var blockHeaders = new ConcurrentDictionary<uint256, Task<(uint256 hash, DateTimeOffset time)>>();
+			var allUtxoTransactionHashes  = request.Utxos.Select(u => u.Hash).Distinct().ToArray();
+			foreach (var importUtxoRequest in request.Utxos)
 			{
-				return new[]
+				coinToTxOut.TryAdd(importUtxoRequest, clientBatch.GetTxOutAsync(importUtxoRequest.Hash, (int)importUtxoRequest.N));
+			}
+			request.Proofs ??= Array.Empty<MerkleBlock>();
+			var verifyTasks = request.Proofs
+				.Where(p => p is not null && p.PartialMerkleTree.Hashes.Any(uint256 => allUtxoTransactionHashes.Contains(uint256)))
+				.Select(async proof =>
 				{
-					Task.Run(async () =>
+					var txoutproofResult = await clientBatch.SendCommandAsync("verifytxoutproof",
+						Encoders.Hex.EncodeData(proof.ToBytes()));
+					if (txoutproofResult.Error is not null && txoutproofResult.Result is JArray prooftxs)
 					{
-						var txOutResponse =
-							await clientBatch.GetTxOutAsync(o.Utxo.Hash, (int) o.Utxo.N);
-						if (txOutResponse is not null)
-							coinToTxOut.TryAdd(o.Utxo, txOutResponse);
-					}),
-					Task.Run(async () =>
-					{
-						if (o.Proof is not null && o.Proof.PartialMerkleTree.Hashes.Contains(o.Utxo.Hash))
+						foreach (var txProof in prooftxs)
 						{
-							var txoutproofResult =
-								await clientBatch.SendCommandAsync("verifytxoutproof", Encoders.Hex.EncodeData(o.Proof.ToBytes()));
-
-							var txHash = o.Utxo.Hash.ToString();
-							if (txoutproofResult.Error is not null && txoutproofResult.Result is JArray prooftxs &&
-							    prooftxs.Any(token =>
-								    token.Value<string>()
-									    ?.Equals(txHash, StringComparison.InvariantCultureIgnoreCase) is true))
-							{
-								coinToBlock.TryAdd(o.Utxo, o.Proof.Header);
-							}
+							var txId = uint256.Parse(txProof.Value<string>());
+							blockHeaders.TryAdd(proof.Header.GetHash(), Task.FromResult((proof.Header.GetHash(), proof.Header.BlockTime)));
+							txsToBlockHash.TryAdd(txId, proof.Header.GetHash());
 						}
-					})
-				};
-			}).Concat(new[] {clientBatch.SendBatchAsync()}).ToArray());
+					}
+				});
+
+			await clientBatch.SendBatchAsync();
+			await Task.WhenAll(verifyTasks.Concat(coinToTxOut.Values));
+			
+			
+			coinToTxOut =  coinToTxOut.Where(c => c.Value.Result is not null).ToDictionary(pair => pair.Key, pair => pair.Value);
+
+			await using var conn = await repo.ConnectionFactory.CreateConnection();
+		
+			 var blockTasks = new ConcurrentDictionary<uint256, Task<int>>();
+			 var blocksToRequest = new HashSet<uint256>();
+			foreach (var cTxOut in coinToTxOut)
+			{
+				var result = await cTxOut.Value;
+				if (result.Confirmations == 1)
+				{
+					txsToBlockHash.TryAdd(cTxOut.Key.Hash, result.BestBlock);
+					continue;
+				}
+				blocksToRequest.Add(result.BestBlock);
+			}
+
+			var res = await conn.QueryAsync(
+				$"SELECT blk_id, height FROM blks WHERE code=@code AND blk_id IN (SELECT unnest(@blkIds)) ",
+				new
+				{
+					code = trackedSourceContext.Network.CryptoCode,
+					blkIds = blocksToRequest.Select(uint256 => uint256.ToString()).ToArray()
+				});
+
+			foreach (var r in res)
+			{
+				var blockHash = uint256.Parse((string)r.blk_id);
+				var height = (int)r.height;
+				blockTasks.TryAdd(blockHash, Task.FromResult(height));
+				blocksToRequest.Remove(blockHash);
+			}
+
+			clientBatch = rpc.PrepareBatch();
+			foreach (var bh in blocksToRequest)
+			{
+				blockTasks.TryAdd(bh,  clientBatch.GetBlockAsync(bh, GetBlockVerbosity.WithOnlyTxId).ContinueWith(task => task.Result.Height));
+			}
+			await clientBatch.SendBatchAsync();
+			await Task.WhenAll(blockTasks.Values);
+			var heightToBlockHash = new ConcurrentDictionary<int, Task<(uint256 hash, DateTimeOffset time)>>();
+			var heightsToFetch = new HashSet<int>();
+			foreach (var cTxOut in coinToTxOut)	
+			{
+				var result = await cTxOut.Value;
+				
+				if (result.Confirmations <= 1)
+					continue;
+
+				blockTasks.TryGetValue(result.BestBlock, out var blockTask);
+				var b = await blockTask;
+
+				var heightToFetch = b - result.Confirmations - 1;
+				heightsToFetch.Add(heightToFetch);
+			}
+			
+			res = await conn.QueryAsync(
+				$"SELECT blk_id, height, indexed_at FROM blks WHERE code=@code AND height IN (SELECT unnest(@heights)) ",
+				new
+				{
+					code = trackedSourceContext.Network.CryptoCode,
+					heights = heightsToFetch.ToArray()
+				});
+
+			foreach (var r in res)
+			{
+				var blockHash = uint256.Parse((string)r.blk_id);
+				var height = (int)r.height;
+				var blockTime = (DateTimeOffset)r.indexed_at;
+				blockTasks.TryAdd(blockHash, Task.FromResult(height));
+				heightToBlockHash.TryAdd(height, Task.FromResult((blockHash, blockTime)));
+				heightsToFetch.Remove((int)r.height);
+			}
+
+			foreach (var heightToFetch in heightsToFetch)
+			{
+				heightToBlockHash.TryAdd(heightToFetch, clientBatch.GetBlockHeaderAsync(heightToFetch).ContinueWith(task => (task.Result.GetHash(), task.Result.BlockTime)));
+			}
+			
+			clientBatch = rpc.PrepareBatch();
+			
+			await clientBatch.SendBatchAsync();
+			foreach (var htbh in heightToBlockHash.Values)
+			{
+				var result = await htbh;
+				blockHeaders.TryAdd(result.hash, Task.FromResult(result));
+
+				foreach (var cto in coinToTxOut)
+				{
+					var result2 = await cto.Value;
+					if (result2.Confirmations <= 1)
+						continue;
+					
+					txsToBlockHash.TryAdd(cto.Key.Hash, result.hash);
+				}
+			}
 
 			var now = DateTimeOffset.UtcNow;
 
 			var scripts = coinToTxOut
 				.Select(pair => (
-					pair.Value.TxOut.ScriptPubKey.GetDestinationAddress(repo.Network.NBitcoinNetwork), pair))
+					pair.Value.Result.TxOut.ScriptPubKey.GetDestinationAddress(repo.Network.NBitcoinNetwork), pair))
 				.Where(pair => pair.Item1 is not null).Select(tuple => new AssociateScriptRequest()
 				{
 					Destination = tuple.Item1,
@@ -151,19 +247,30 @@ namespace NBXplorer.Controllers
 				}).ToArray();
 			
 			await repo.AssociateScriptsToWalletExplicitly(trackedSourceContext.TrackedSource,scripts);
-			await repo.SaveMatches(coinToTxOut.Select(pair =>
+
+
+			var trackedTransactions = coinToTxOut.Select(async pair =>
 			{
-				coinToBlock.TryGetValue(pair.Key, out var blockHeader);
+				var txOutResult = await pair.Value;
+				txsToBlockHash.TryGetValue(pair.Key.Hash, out var blockHash);
+				(uint256 hash, DateTimeOffset time)? blockHeader = null;
+				if (blockHash is not null && blockHeaders.TryGetValue(blockHash, out var blockHeaderT))
+				{
+					blockHeader = await blockHeaderT;
+				};
+					
+				var coin = new Coin(pair.Key, txOutResult.TxOut);
 				
-				var coin = new Coin(pair.Key, pair.Value.TxOut);
 				var ttx = repo.CreateTrackedTransaction(trackedSourceContext.TrackedSource,
-					new TrackedTransactionKey(pair.Key.Hash, blockHeader?.GetHash(), true){},
+					new TrackedTransactionKey(pair.Key.Hash, blockHash, true){},
 					new[] {coin}, null);
 				ttx.Inserted = now;
-				ttx.Immature = pair.Value.IsCoinBase && pair.Value.Confirmations <= 100;
-				ttx.FirstSeen = blockHeader?.BlockTime?? NBitcoin.Utils.UnixTimeToDateTime(0);;
+				ttx.Immature =txOutResult.IsCoinBase && txOutResult.Confirmations <= 100;
+				ttx.FirstSeen = blockHeader?.time?? NBitcoin.Utils.UnixTimeToDateTime(0);;
 				return ttx;
-			}).ToArray());
+			});
+			
+			await repo.SaveMatches(await Task.WhenAll(trackedTransactions));
 			
 			return Ok();
 		}

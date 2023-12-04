@@ -398,13 +398,13 @@ namespace NBXplorer
 				throw new ArgumentNullException(nameof(trackedSource));
 			await SendAsync(HttpMethod.Post, scripts, $"{GetBasePath(trackedSource)}/associate", cancellation);
 		}
-		public async Task ImportUTXOs(TrackedSource trackedSource, ImportUTXORequest[] utxos, CancellationToken cancellation = default)
+		public async Task ImportUTXOs(TrackedSource trackedSource, ImportUTXORequest request, CancellationToken cancellation = default)
 		{
-			if (utxos == null)
-				throw new ArgumentNullException(nameof(utxos));
+			if (request == null)
+				throw new ArgumentNullException(nameof(request));
 			if (trackedSource == null)
 				throw new ArgumentNullException(nameof(trackedSource));
-			await SendAsync(HttpMethod.Post, utxos, $"{GetBasePath(trackedSource)}/import-utxos", cancellation);
+			await SendAsync(HttpMethod.Post, request, $"{GetBasePath(trackedSource)}/import-utxos", cancellation);
 		}
 
 		public Task RescanAsync(RescanRequest rescanRequest, CancellationToken cancellation = default)
