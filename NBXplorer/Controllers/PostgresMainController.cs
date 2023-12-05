@@ -173,7 +173,7 @@ namespace NBXplorer.Controllers
 			clientBatch = rpc.PrepareBatch();
 			foreach (var bh in blocksToRequest)
 			{
-				blockTasks.TryAdd(bh,  clientBatch.GetBlockAsync(bh, GetBlockVerbosity.WithOnlyTxId).ContinueWith(task => task.Result.Height));
+				blockTasks.TryAdd(bh,  clientBatch.GetBlockHeaderAsyncEx(bh).ContinueWith(task => task.Result.Height));
 			}
 			await clientBatch.SendBatchAsync();
 			await Task.WhenAll(blockTasks.Values);

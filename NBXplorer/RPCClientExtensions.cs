@@ -263,6 +263,12 @@ namespace NBXplorer
 			return new SlimChainedBlock(blk, prev is null ? null : new uint256(prev), response["height"].Value<int>());
 		}
 
+		public static async Task<SlimChainedBlock> GetBlockHeaderAsyncEx(this NBitcoin.RPC.RPCClient rpc, int height)
+		{
+			var hash = await rpc.GetBlockHashAsync(height);
+			return await rpc.GetBlockHeaderAsyncEx(hash);
+		}
+
 		public static async Task<SavedTransaction> TryGetRawTransaction(this RPCClient client, uint256 txId)
 		{
 			var request = new RPCRequest(RPCOperations.getrawtransaction, new object[] { txId, true }) { ThrowIfRPCError = false };
