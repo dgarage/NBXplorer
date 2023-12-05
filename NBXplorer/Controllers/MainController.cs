@@ -83,7 +83,7 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/rpc")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/rpc")]
 		[Consumes("application/json", "application/json-rpc")]
 		public async Task<IActionResult> RPCProxy(string cryptoCode)
 		{
@@ -122,7 +122,7 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/fees/{blockCount}")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/fees/{{blockCount}}")]
 		public async Task<GetFeeRateResult> GetFeeRate(int blockCount, string cryptoCode)
 		{
 			var network = GetNetwork(cryptoCode, true);
@@ -141,16 +141,14 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/unused")]
+		[Route($"{CommonRoutes.DerivationEndpoint}/addresses/unused")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
 		public async Task<IActionResult> GetUnusedAddress(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase strategy, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false, bool autoTrack = false)
+			TrackedSourceContext trackedSourceContext, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false, bool autoTrack = false)
 		{
-			if (strategy == null)
-				throw new ArgumentNullException(nameof(strategy));
-			var network = GetNetwork(cryptoCode, false);
-			var repository = RepositoryProvider.GetRepository(network);
+			var strategy = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
+			var network = trackedSourceContext.Network;
+			var repository = trackedSourceContext.Repository;
 			if (skip >= repository.MinPoolSize)
 				throw new NBXplorerError(404, "strategy-not-found", $"This strategy is not tracked, or you tried to skip too much unused addresses").AsException();
 			try
@@ -175,19 +173,18 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/derivations/{strategy}/addresses/cancelreservation")]
-		public async Task<IActionResult> CancelReservation(string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase strategy, [FromBody] KeyPath[] keyPaths)
+		[Route($"{CommonRoutes.DerivationEndpoint}/addresses/cancelreservation")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
+		public async Task<IActionResult> CancelReservation(TrackedSourceContext trackedSourceContext, [FromBody] KeyPath[] keyPaths)
 		{
-			var network = GetNetwork(cryptoCode, false);
-			var repo = RepositoryProvider.GetRepository(network);
+			var repo = trackedSourceContext.Repository;
+			var strategy = ((DerivationSchemeTrackedSource )trackedSourceContext.TrackedSource).DerivationStrategy;
 			await repo.CancelReservation(strategy, keyPaths);
 			return Ok();
 		}
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/scripts/{script}")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/scripts/{{script}}")]
 		public async Task<IActionResult> GetKeyInformations(string cryptoCode,
 			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
 		{
@@ -200,25 +197,23 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{strategy}/scripts/{script}")]
-		public async Task<IActionResult> GetKeyInformations(string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase strategy,
-			[ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
+		[Route($"{CommonRoutes.DerivationEndpoint}/scripts/{{script}}")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
+		public async Task<IActionResult> GetKeyInformations(TrackedSourceContext trackedSourceContext, [ModelBinder(BinderType = typeof(ScriptModelBinder))] Script script)
 		{
-			var network = GetNetwork(cryptoCode, false);
-			var repo = RepositoryProvider.GetRepository(network);
+			var network = trackedSourceContext.Network;
+			var repo = trackedSourceContext.Repository;
+			var strategy = ((DerivationSchemeTrackedSource )trackedSourceContext.TrackedSource).DerivationStrategy;
 			var result = (await repo.GetKeyInformations(new[] { script }))
-						   .SelectMany(k => k.Value)
-						   .Where(k => k.DerivationStrategy == strategy)
-						   .FirstOrDefault();
+				.SelectMany(k => k.Value)
+				.FirstOrDefault(k => k.DerivationStrategy == strategy);
 			if (result == null)
 				throw new NBXplorerError(404, "script-not-found", "The script does not seem to be tracked").AsException();
 			return Json(result, network.Serializer.Settings);
 		}
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/status")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/status")]
 		public async Task<IActionResult> GetStatus(string cryptoCode)
 		{
 			var network = GetNetwork(cryptoCode, false);
@@ -296,7 +291,7 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/connect")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/connect")]
 		public async Task<IActionResult> ConnectWebSocket(
 			string cryptoCode,
 			bool includeTransaction = true,
@@ -416,7 +411,7 @@ namespace NBXplorer.Controllers
 			return this.GetNetwork(cryptoCode, false).JsonSerializerSettings;
 		}
 
-		[Route("cryptos/{cryptoCode}/events")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/events")]
 		public async Task<JArray> GetEvents(string cryptoCode, int lastEventId = 0, int? limit = null, bool longPolling = false, CancellationToken cancellationToken = default)
 		{
 			if (limit != null && limit.Value < 1)
@@ -452,7 +447,7 @@ namespace NBXplorer.Controllers
 		}
 
 
-		[Route("cryptos/{cryptoCode}/events/latest")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/events/latest")]
 		public async Task<JArray> GetLatestEvents(string cryptoCode, int limit = 10)
 		{
 			if (limit < 1)
@@ -465,7 +460,7 @@ namespace NBXplorer.Controllers
 
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/transactions/{txId}")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/transactions/{{txId}}")]
 		public async Task<IActionResult> GetTransaction(
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId,
@@ -507,20 +502,17 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}")]
-		[Route("cryptos/{cryptoCode}/addresses/{address}")]
+		[Route($"{CommonRoutes.DerivationEndpoint}")]
+		[Route($"{CommonRoutes.AddressEndpoint}")]
+		[Route($"{CommonRoutes.WalletEndpoint}")]
+		[Route($"{CommonRoutes.TrackedSourceEndpoint}")]
 		public async Task<IActionResult> TrackWallet(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme,
-			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address, [FromBody] TrackWalletRequest request = null)
+			TrackedSourceContext trackedSourceContext,
+			[FromBody] JObject rawRequest = null)
 		{
-			request = request ?? new TrackWalletRequest();
-			TrackedSource trackedSource = GetTrackedSource(derivationScheme, address);
-			if (trackedSource == null)
-				return NotFound();
-			var network = GetNetwork(cryptoCode, false);
+			var network = trackedSourceContext.Network;
+			var trackedSource = trackedSourceContext.TrackedSource;
+			var request = ParseJObject<TrackWalletRequest>(rawRequest ?? new JObject(), network);
 			if (trackedSource is DerivationSchemeTrackedSource dts)
 			{
 				if (request.Wait)
@@ -562,27 +554,21 @@ namespace NBXplorer.Controllers
 			}
 			return null;
 		}
-
-		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId?}")]
-		[Route("cryptos/{cryptoCode}/addresses/{address}/transactions/{txId?}")]
+		
+		[Route($"{CommonRoutes.DerivationEndpoint}/{CommonRoutes.TransactionsPath}")]
+		[Route($"{CommonRoutes.AddressEndpoint}/{CommonRoutes.TransactionsPath}")]
+		[Route($"{CommonRoutes.WalletEndpoint}/{CommonRoutes.TransactionsPath}")]
+		[Route($"{CommonRoutes.TrackedSourceEndpoint}/{CommonRoutes.TransactionsPath}")]
 		public async Task<IActionResult> GetTransactions(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme,
-			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address,
+			TrackedSourceContext trackedSourceContext,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId = null,
 			bool includeTransaction = true)
 		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
-			if (trackedSource == null)
-				throw new ArgumentNullException(nameof(trackedSource));
 			TransactionInformation fetchedTransactionInfo = null;
-
-			var network = GetNetwork(cryptoCode, false);
-			var repo = RepositoryProvider.GetRepository(network);
+			var network = trackedSourceContext.Network;
+			var repo = RepositoryProvider.GetRepository(trackedSourceContext.Network);
+			var trackedSource = trackedSourceContext.TrackedSource;
 
 			var response = new GetTransactionsResponse();
 			int currentHeight = (await repo.GetTip()).Height;
@@ -665,23 +651,27 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/rescan")]
-		public async Task<IActionResult> Rescan(string cryptoCode, [FromBody] JObject body)
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/rescan")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(false, false, true)]
+		public async Task<IActionResult> Rescan(TrackedSourceContext trackedSourceContext, [FromBody] JObject body)
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
-			var rescanRequest = ParseJObject<RescanRequest>(body, GetNetwork(cryptoCode, false));
+			var network = trackedSourceContext.Network;
+			var rescanRequest = ParseJObject<RescanRequest>(body, network);
 			if (rescanRequest == null)
 				throw new ArgumentNullException(nameof(rescanRequest));
 			if (rescanRequest?.Transactions == null)
 				throw new NBXplorerException(new NBXplorerError(400, "transactions-missing", "You must specify 'transactions'"));
 
 			bool willFetchTransactions = rescanRequest.Transactions.Any(t => t.Transaction == null);
-			bool needTxIndex = rescanRequest.Transactions.Any(t => t.Transaction == null && t.BlockId == null);
-			var network = GetNetwork(cryptoCode, willFetchTransactions);
+			if (willFetchTransactions && trackedSourceContext.RpcClient is null)
+			{
+				TrackedSourceContext.TrackedSourceContextModelBinder.ThrowRpcUnavailableException();
+			}
 
-			var rpc = RPCClients.Get(network).PrepareBatch();
-			var repo = RepositoryProvider.GetRepository(network);
+			var repo = trackedSourceContext.Repository;
+			var rpc = trackedSourceContext.RpcClient!.PrepareBatch();
 			var fetchingTransactions = rescanRequest
 				.Transactions
 				.Select(t => FetchTransaction(rpc, HasTxIndex(network), t))
@@ -768,58 +758,41 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}")]
-		public async Task<IActionResult> SetMetadata(string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme, string key,
-			[FromBody]
-			JToken value = null)
+		[Route($"{CommonRoutes.DerivationEndpoint}/metadata/{{key}}")]
+		public async Task<IActionResult> SetMetadata(TrackedSourceContext trackedSourceContext, string key, [FromBody] JToken value = null)
 		{
-			var network = this.GetNetwork(cryptoCode, true);
-			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
-			var repo = this.RepositoryProvider.GetRepository(network);
-			await repo.SaveMetadata(trackedSource, key, value);
+			await trackedSourceContext.Repository.SaveMetadata(trackedSourceContext.TrackedSource, key, value);
 			return Ok();
 		}
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}")]
-		public async Task<IActionResult> GetMetadata(string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme, string key)
+		[Route($"{CommonRoutes.DerivationEndpoint}/metadata/{{key}}")]
+		public async Task<IActionResult> GetMetadata(TrackedSourceContext trackedSourceContext, string key)
 		{
-			var network = this.GetNetwork(cryptoCode, false);
-			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
-			var repo = this.RepositoryProvider.GetRepository(network);
-			var result = await repo.GetMetadata<JToken>(trackedSource, key);
-			return result == null ? (IActionResult)NotFound() : Json(result, repo.Serializer.Settings);
+			var result = await trackedSourceContext.Repository.GetMetadata<JToken>(trackedSourceContext.TrackedSource, key);
+			return result == null ? NotFound() : Json(result, trackedSourceContext.Repository.Serializer.Settings);
 		}
 
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/wipe")]
-		public async Task<IActionResult> Wipe(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme)
+		[Route($"{CommonRoutes.DerivationEndpoint}/utxos/wipe")]
+		public async Task<IActionResult> Wipe(TrackedSourceContext trackedSourceContext)
 		{
-			var network = this.GetNetwork(cryptoCode, true);
-			var repo = RepositoryProvider.GetRepository(network);
-			var ts = new DerivationSchemeTrackedSource(derivationScheme);
-			var txs = await repo.GetTransactions(ts);
+			var repo = trackedSourceContext.Repository;
+			var ts = trackedSourceContext.TrackedSource;
+			var txs = await repo.GetTransactions(trackedSourceContext.TrackedSource);
 			await repo.Prune(ts, txs);
 			return Ok();
 		}
 
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan")]
-		public IActionResult ScanUTXOSet(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme, int? batchSize = null, int? gapLimit = null, int? from = null)
+		[Route($"{CommonRoutes.DerivationEndpoint}/utxos/scan")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(requireRPC: true, allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
+		public IActionResult ScanUTXOSet(TrackedSourceContext trackedSourceContext, int? batchSize = null, int? gapLimit = null, int? from = null)
 		{
-			var network = this.GetNetwork(cryptoCode, true);
-			var rpc = GetAvailableRPC(network);
+			var network = trackedSourceContext.Network;
+			var rpc = trackedSourceContext.RpcClient;
+			var derivationScheme = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
 			if (!rpc.Capabilities.SupportScanUTXOSet)
 				throw new NBXplorerError(405, "scanutxoset-not-suported", "ScanUTXOSet is not supported for this currency").AsException();
 
@@ -836,13 +809,12 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan")]
-		public IActionResult GetScanUTXOSetInfromation(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme)
+		[Route($"{CommonRoutes.DerivationEndpoint}/utxos/scan")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
+		public IActionResult GetScanUTXOSetInfromation(TrackedSourceContext trackedSourceContext)
 		{
-			var network = this.GetNetwork(cryptoCode, false);
+			var network = trackedSourceContext.Network;
+			var derivationScheme = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
 			var info = ScanUTXOSetService.GetInformation(network, derivationScheme);
 			if (info == null)
 				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
@@ -850,27 +822,23 @@ namespace NBXplorer.Controllers
 		}
 #if SUPPORT_DBTRIE
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/balance")]
-		[Route("cryptos/{cryptoCode}/addresses/{address}/balance")]
+		[Route($"{CommonRoutes.DerivationEndpoint}/balance")]
+		[Route($"{CommonRoutes.AddressEndpoint}/balance")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: [typeof(DerivationSchemeTrackedSource),typeof(AddressTrackedSource)])]
 		[PostgresImplementationActionConstraint(false)]
-		public async Task<IActionResult> GetBalance(string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme,
-			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
+		public async Task<IActionResult> GetBalance(TrackedSourceContext trackedSourceContext)
 		{
-			var getTransactionsResult = await GetTransactions(cryptoCode, derivationScheme, address, includeTransaction: false);
+			var getTransactionsResult = await GetTransactions(trackedSourceContext, includeTransaction: false);
 			var jsonResult = getTransactionsResult as JsonResult;
 			var transactions = jsonResult?.Value as GetTransactionsResponse;
 			if (transactions == null)
 				return getTransactionsResult;
 
-			var network = this.GetNetwork(cryptoCode, false);
 			var balance = new GetBalanceResponse()
 			{
-				Confirmed = CalculateBalance(network, transactions.ConfirmedTransactions),
-				Unconfirmed = CalculateBalance(network, transactions.UnconfirmedTransactions),
-				Immature = CalculateBalance(network, transactions.ImmatureTransactions)
+				Confirmed = CalculateBalance(trackedSourceContext.Network, transactions.ConfirmedTransactions),
+				Unconfirmed = CalculateBalance(trackedSourceContext.Network, transactions.UnconfirmedTransactions),
+				Immature = CalculateBalance(trackedSourceContext.Network, transactions.ImmatureTransactions)
 			};
 			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
 			balance.Available = balance.Total.Sub(balance.Immature);
@@ -890,28 +858,17 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpGet]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos")]
-		[Route("cryptos/{cryptoCode}/addresses/{address}/utxos")]
+		[Route($"{CommonRoutes.DerivationEndpoint}/utxos")]
+		[Route($"{CommonRoutes.AddressEndpoint}/utxos")]
 		[PostgresImplementationActionConstraint(false)]
-		public async Task<IActionResult> GetUTXOs(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme,
-			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address)
+		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: [typeof(DerivationSchemeTrackedSource),typeof(AddressTrackedSource)])]
+		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
 		{
-			var trackedSource = GetTrackedSource(derivationScheme, address);
-			UTXOChanges changes = null;
-			if (trackedSource == null)
-				throw new ArgumentNullException(nameof(trackedSource));
+			var repo = RepositoryProvider.GetRepository(trackedSourceContext.Network);
 
-
-			var network = GetNetwork(cryptoCode, false);
-			var repo = RepositoryProvider.GetRepository(network);
-
-			changes = new UTXOChanges();
+			UTXOChanges changes = new UTXOChanges();
 			changes.CurrentHeight = (await repo.GetTip()).Height;
-			var transactions = await GetAnnotatedTransactions(repo, trackedSource, false);
+			var transactions = await GetAnnotatedTransactions(repo, trackedSourceContext.TrackedSource, false);
 
 			changes.Confirmed = ToUTXOChange(transactions.ConfirmedState);
 			changes.Confirmed.SpentOutpoints.Clear();
@@ -920,8 +877,8 @@ namespace NBXplorer.Controllers
 			FillUTXOsInformation(changes.Confirmed.UTXOs, transactions, changes.CurrentHeight);
 			FillUTXOsInformation(changes.Unconfirmed.UTXOs, transactions, changes.CurrentHeight);
 
-			changes.TrackedSource = trackedSource;
-			changes.DerivationStrategy = (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
+			changes.TrackedSource = trackedSourceContext.TrackedSource;
+			changes.DerivationStrategy = (trackedSourceContext.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
 
 			return Json(changes, repo.Serializer.Settings);
 		}
@@ -972,35 +929,28 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/transactions")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/transactions")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(true, false)]
 		public async Task<BroadcastResult> Broadcast(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase extPubKey, // For back compat
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme,
-			[ModelBinder(BinderType = typeof(BitcoinAddressModelBinder))]
-			BitcoinAddress address, bool testMempoolAccept = false)
+			TrackedSourceContext trackedSourceContext,
+			bool testMempoolAccept = false)
 		{
-			var network = GetNetwork(cryptoCode, true);
-			var trackedSource = GetTrackedSource(derivationScheme ?? extPubKey, address);
+			var network = trackedSourceContext.Network;
 			var tx = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
 			var buffer = new MemoryStream();
 			await Request.Body.CopyToAsync(buffer);
 			buffer.Position = 0;
 			tx.FromBytes(buffer.ToArrayEfficient());
 
-			var rpc = GetAvailableRPC(network);
-			if (testMempoolAccept && !rpc.Capabilities.SupportTestMempoolAccept)
+			if (testMempoolAccept && !trackedSourceContext.RpcClient.Capabilities.SupportTestMempoolAccept)
 				throw new NBXplorerException(new NBXplorerError(400, "not-supported", "This feature is not supported for this crypto currency"));
 			var repo = RepositoryProvider.GetRepository(network);
-			var indexer = Indexers.GetIndexer(network);
 			RPCException rpcEx = null;
 			try
 			{
 				if (testMempoolAccept)
 				{
-					var mempoolAccept = await rpc.TestMempoolAcceptAsync(tx, default);
+					var mempoolAccept = await trackedSourceContext.RpcClient.TestMempoolAcceptAsync(tx, default);
 					if (mempoolAccept.IsAllowed)
 						return new BroadcastResult(true);
 					var rpcCode = GetRPCCodeFromReason(mempoolAccept.RejectReason);
@@ -1011,18 +961,18 @@ namespace NBXplorer.Controllers
 						RPCCodeMessage = mempoolAccept.RejectReason,
 					};
 				}
-				await rpc.SendRawTransactionAsync(tx);
-				await indexer.SaveMatches(tx);
+				await trackedSourceContext.RpcClient.SendRawTransactionAsync(tx);
+				await trackedSourceContext.Indexer.SaveMatches(tx);
 				return new BroadcastResult(true);
 			}
 			catch (RPCException ex) when (!testMempoolAccept)
 			{
 				rpcEx = ex;
 				Logs.Explorer.LogInformation($"{network.CryptoCode}: Transaction {tx.GetHash()} failed to broadcast (Code: {ex.RPCCode}, Message: {ex.RPCCodeMessage}, Details: {ex.Message} )");
-				if (trackedSource != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
+				if (trackedSourceContext.TrackedSource != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
 				{
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Trying to broadcast unconfirmed of the wallet");
-					var transactions = await GetAnnotatedTransactions(repo, trackedSource, true);
+					var transactions = await GetAnnotatedTransactions(repo, trackedSourceContext.TrackedSource, true);
 					foreach (var existing in transactions.UnconfirmedTransactions)
 					{
 						var t = existing.Record.Transaction ?? (await repo.GetSavedTransactions(existing.Record.TransactionHash)).Select(c => c.Transaction).FirstOrDefault();
@@ -1030,16 +980,16 @@ namespace NBXplorer.Controllers
 							continue;
 						try
 						{
-							await rpc.SendRawTransactionAsync(t);
+							await trackedSourceContext.RpcClient.SendRawTransactionAsync(t);
 						}
 						catch { }
 					}
 
 					try
 					{
-						await rpc.SendRawTransactionAsync(tx);
+						await trackedSourceContext.RpcClient.SendRawTransactionAsync(tx);
 						Logs.Explorer.LogInformation($"{network.CryptoCode}: Broadcast success");
-						await indexer.SaveMatches(tx);
+						await trackedSourceContext.Indexer.SaveMatches(tx);
 						return new BroadcastResult(true);
 					}
 					catch (RPCException)
@@ -1069,12 +1019,17 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/derivations")]
-		public async Task<IActionResult> GenerateWallet(string cryptoCode, [FromBody] GenerateWalletRequest request)
+		[Route($"{CommonRoutes.BaseDerivationEndpoint}")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(false, false)]
+		public async Task<IActionResult> GenerateWallet(TrackedSourceContext trackedSourceContext, [FromBody] JObject rawRequest = null)
 		{
-			if (request == null)
-				request = new GenerateWalletRequest();
-			var network = GetNetwork(cryptoCode, request.ImportKeysToRPC);
+			var network = trackedSourceContext.Network;
+			var request = ParseJObject<GenerateWalletRequest>(rawRequest, network) ?? new GenerateWalletRequest();
+
+			if (request.ImportKeysToRPC && trackedSourceContext.RpcClient is null)
+			{
+				TrackedSourceContext.TrackedSourceContextModelBinder.ThrowRpcUnavailableException();
+			}
 			if (network.CoinType == null)
 				// Don't document, only shitcoins nobody use goes into this
 				throw new NBXplorerException(new NBXplorerError(400, "not-supported", "This feature is not supported for this coin because we don't have CoinType information"));
@@ -1087,7 +1042,6 @@ namespace NBXplorer.Controllers
 			}
 			if (!network.NBitcoinNetwork.Consensus.SupportSegwit && request.ScriptPubKeyType != ScriptPubKeyType.Legacy)
 				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
-
 			var repo = RepositoryProvider.GetRepository(network);
 			Mnemonic mnemonic = null;
 			if (request.ExistingMnemonic != null)
@@ -1135,7 +1089,13 @@ namespace NBXplorer.Controllers
 			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.AccountDescriptor, descriptor));
 			await Task.WhenAll(saveMetadata.ToArray());
 
-			await TrackWallet(cryptoCode, derivation, null);
+			await TrackWallet(new TrackedSourceContext()
+			{
+				Indexer = trackedSourceContext.Indexer,
+				Network = network,
+				RpcClient = trackedSourceContext.RpcClient,
+				TrackedSource =  new DerivationSchemeTrackedSource(derivation)
+			});
 			return Json(new GenerateWalletResponse()
 			{
 				MasterHDKey = masterKey,
@@ -1223,17 +1183,16 @@ namespace NBXplorer.Controllers
 		}
 
 		[HttpPost]
-		[Route("cryptos/{cryptoCode}/derivations/{derivationScheme}/prune")]
-		public async Task<PruneResponse> Prune(
-			string cryptoCode,
-			[ModelBinder(BinderType = typeof(DerivationStrategyModelBinder))]
-			DerivationStrategyBase derivationScheme, [FromBody] PruneRequest request)
+		[Route($"{CommonRoutes.DerivationEndpoint}/prune")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: [typeof(DerivationSchemeTrackedSource)])]
+		public async Task<PruneResponse> Prune(TrackedSourceContext trackedSourceContext ,[FromBody] PruneRequest request)
 		{
 			request ??= new PruneRequest();
 			request.DaysToKeep ??= 1.0;
-			var trackedSource = new DerivationSchemeTrackedSource(derivationScheme);
-			var network = GetNetwork(cryptoCode, false);
-			var repo = RepositoryProvider.GetRepository(network);
+			var trackedSource = trackedSourceContext.TrackedSource;
+			var network = trackedSourceContext.Network;
+			var repo = trackedSourceContext.Repository;
+
 			var transactions = await GetAnnotatedTransactions(repo, trackedSource, false);
 			var state = transactions.ConfirmedState;
 			var prunableIds = new HashSet<uint256>();
@@ -1286,13 +1245,9 @@ namespace NBXplorer.Controllers
 			}
 			return new PruneResponse() { TotalPruned = prunableIds.Count };
 		}
-#if SUPPORT_DBTRIE
-		public Task<IActionResult> GetUTXOs(string cryptoCode, DerivationStrategyBase derivationStrategy)
-		{
-			return this.GetUTXOs(cryptoCode, derivationStrategy, null);
-		}
-#else
-		public Task<IActionResult> GetUTXOs(string cryptoCode, DerivationStrategyBase derivationStrategy)
+
+#if !SUPPORT_DBTRIE
+		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
 		{
 			throw new NotSupportedException("This should never be called");
 		}
