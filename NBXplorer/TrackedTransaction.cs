@@ -151,7 +151,7 @@ namespace NBXplorer
 												   Output: o,
 												   KeyPath: KnownKeyPathMapping.TryGet(o.TxOut.ScriptPubKey),
 												   Address: KnownKeyPathInformation.TryGet(o.TxOut.ScriptPubKey)?.Address))
-							.Where(o => o.KeyPath != null || o.Output.TxOut.ScriptPubKey == (TrackedSource as IDestination)?.ScriptPubKey)
+							.Where(o => o.KeyPath != null || o.Output.TxOut.ScriptPubKey == (TrackedSource as IDestination)?.ScriptPubKey || TrackedSource is WalletTrackedSource)
 							.Select(o => new MatchedOutput()
 							{
 								Index = o.Index,

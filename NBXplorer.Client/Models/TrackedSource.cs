@@ -26,6 +26,12 @@ namespace NBXplorer.Models
 					return false;
 				trackedSource = addressTrackedSource;
 			}
+			else if (strSpan.StartsWith("WALLET:".AsSpan(), StringComparison.Ordinal))
+			{
+				if (!WalletTrackedSource.TryParse(strSpan, out var walletTrackedSource))
+					return false;
+				trackedSource = walletTrackedSource;
+			}
 			else
 			{
 				return false;
@@ -94,6 +100,40 @@ namespace NBXplorer.Models
 			if (!TryParse(str, out var trackedSource, network))
 				throw new FormatException("Invalid TrackedSource");
 			return trackedSource;
+		}
+	}
+
+	public class WalletTrackedSource : TrackedSource
+	{
+		public string WalletId { get; }
+
+		public WalletTrackedSource(string walletId)
+		{
+			WalletId = walletId;
+		}
+
+		public static bool TryParse(ReadOnlySpan<char> strSpan, out WalletTrackedSource walletTrackedSource)
+		{
+			if (strSpan == null)
+				throw new ArgumentNullException(nameof(strSpan));
+			walletTrackedSource = null;
+			if (!strSpan.StartsWith("WALLET:".AsSpan(), StringComparison.Ordinal))
+				return false;
+			try
+			{
+				walletTrackedSource = new WalletTrackedSource(strSpan.Slice("WALLET:".Length).ToString());
+				return true;
+			}
+			catch { return false; }
+		}
+
+		public override string ToString()
+		{
+			return "WALLET:" + WalletId;
+		}
+		public override string ToPrettyString()
+		{
+			return WalletId;
 		}
 	}
 

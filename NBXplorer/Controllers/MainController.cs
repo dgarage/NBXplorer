@@ -25,6 +25,7 @@ using NBXplorer.Analytics;
 using NBXplorer.Backends;
 using NBitcoin.Scripting;
 using System.Globalization;
+using NBXplorer.Backends.Postgres;
 
 namespace NBXplorer.Controllers
 {
@@ -512,7 +513,8 @@ namespace NBXplorer.Controllers
 		{
 			var network = trackedSourceContext.Network;
 			var trackedSource = trackedSourceContext.TrackedSource;
-			var request = ParseJObject<TrackWalletRequest>(rawRequest ?? new JObject(), network);
+			var request = network.ParseJObject<TrackWalletRequest>(rawRequest ?? new JObject());
+
 			if (trackedSource is DerivationSchemeTrackedSource dts)
 			{
 				if (request.Wait)
@@ -554,7 +556,8 @@ namespace NBXplorer.Controllers
 			}
 			return null;
 		}
-		
+
+		[HttpGet]
 		[Route($"{CommonRoutes.DerivationEndpoint}/{CommonRoutes.TransactionsPath}")]
 		[Route($"{CommonRoutes.AddressEndpoint}/{CommonRoutes.TransactionsPath}")]
 		[Route($"{CommonRoutes.WalletEndpoint}/{CommonRoutes.TransactionsPath}")]
@@ -658,7 +661,7 @@ namespace NBXplorer.Controllers
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
 			var network = trackedSourceContext.Network;
-			var rescanRequest = ParseJObject<RescanRequest>(body, network);
+			var rescanRequest = network.ParseJObject<RescanRequest>(body);
 			if (rescanRequest == null)
 				throw new ArgumentNullException(nameof(rescanRequest));
 			if (rescanRequest?.Transactions == null)
@@ -1024,7 +1027,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> GenerateWallet(TrackedSourceContext trackedSourceContext, [FromBody] JObject rawRequest = null)
 		{
 			var network = trackedSourceContext.Network;
-			var request = ParseJObject<GenerateWalletRequest>(rawRequest, network) ?? new GenerateWalletRequest();
+			var request = network.ParseJObject<GenerateWalletRequest>(rawRequest) ?? new GenerateWalletRequest();
 
 			if (request.ImportKeysToRPC && trackedSourceContext.RpcClient is null)
 			{

@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace NBXplorer;
 
-public record RPCBlockHeader(uint256 Hash, uint256? Previous, int Height, DateTimeOffset Time)
+public record RPCBlockHeader(uint256 Hash, uint256? Previous, int Height, DateTimeOffset Time, uint256 MerkleRoot)
 {
 	public SlimChainedBlock ToSlimChainedBlock() => new(Hash, Previous, Height);
 }
