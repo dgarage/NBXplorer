@@ -100,7 +100,7 @@ namespace NBXplorer.Backends.Postgres
 								if (lastIndexedBlock is null || block.Header.HashPrevBlock == lastIndexedBlock.Hash)
 								{
 									SlimChainedBlock slimChainedBlock = lastIndexedBlock is null ?
-										await RPCClient.GetBlockHeaderAsyncEx(block.Header.GetHash()) :
+										(await RPCClient.GetBlockHeaderAsyncEx(block.Header.GetHash()))?.ToSlimChainedBlock() :
 										new SlimChainedBlock(block.Header.GetHash(), lastIndexedBlock.Hash, lastIndexedBlock.Height + 1);
 									await SaveMatches(conn, block, slimChainedBlock);
 								}
@@ -115,7 +115,7 @@ namespace NBXplorer.Backends.Postgres
 									//   2. Node decides to send headers without asking.
 									if (unorderedBlocks.Count > 0)
 									{
-										Task<SlimChainedBlock>[] slimChainedBlocks = new Task<SlimChainedBlock>[unorderedBlocks.Count];
+										Task<RPCBlockHeader>[] slimChainedBlocks = new Task<RPCBlockHeader>[unorderedBlocks.Count];
 										var rpcBatch = RPCClient.PrepareBatch();
 										for (int i = 0; i < unorderedBlocks.Count; i++)
 										{
@@ -136,7 +136,7 @@ namespace NBXplorer.Backends.Postgres
 												await conn.MakeOrphanFrom(slimBlock.Height);
 												unconfedBlocks = true;
 											}
-											await SaveMatches(conn, b.First, slimBlock);
+											await SaveMatches(conn, b.First, slimBlock.ToSlimChainedBlock());
 										}
 									}
 									break;
@@ -296,7 +296,7 @@ namespace NBXplorer.Backends.Postgres
 						if (await RPCClient.WarmupBlockchain(Logger))
 							BlockchainInfo = await RPCClient.GetBlockchainInfoAsyncEx();
 					}
-					_NodeTip = await RPCClient.GetBlockHeaderAsyncEx(BlockchainInfo.BestBlockHash);
+					_NodeTip = (await RPCClient.GetBlockHeaderAsyncEx(BlockchainInfo.BestBlockHash))?.ToSlimChainedBlock();
 					State = BitcoinDWaiterState.NBXplorerSynching;
 					// Refresh the NetworkInfo that may have become different while it was synching.
 					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
@@ -311,7 +311,7 @@ namespace NBXplorer.Backends.Postgres
 					if (lastIndexedBlock is null)
 					{
 						var locatorTip = await RPCClient.GetBlockHeaderAsyncEx(locator.Blocks[0]);
-						lastIndexedBlock = locatorTip;
+						lastIndexedBlock = locatorTip?.ToSlimChainedBlock();
 					}
 					await UpdateState();
 				}
