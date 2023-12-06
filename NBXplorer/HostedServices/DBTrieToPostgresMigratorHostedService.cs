@@ -978,7 +978,7 @@ namespace NBXplorer.HostedServices
 			public async Task<IList<UpdateBlock>> GetUpdateBlocks(IList<uint256> blockHashes)
 			{
 				var rpc = Rpc.PrepareBatch();
-				List<Task<SlimChainedBlock>> gettingHeaders = new List<Task<SlimChainedBlock>>(blockHashes.Count);
+				List<Task<RPCBlockHeader>> gettingHeaders = new List<Task<RPCBlockHeader>>(blockHashes.Count);
 				foreach (var blk in blockHashes)
 				{
 					var b = rpc.GetBlockHeaderAsyncEx(blk);

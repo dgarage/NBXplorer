@@ -13,6 +13,7 @@ using System.Text.RegularExpressions;
 using System.Net.Http;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Collections.Generic;
 
 namespace NBXplorer
 {
@@ -246,7 +247,20 @@ namespace NBXplorer
 			throw new Exception("This should never happen");
 		}
 
-		public static async Task<SlimChainedBlock> GetBlockHeaderAsyncEx(this NBitcoin.RPC.RPCClient rpc, uint256 blk)
+		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<int> blockHeights)
+		{
+			var batch = rpc.PrepareBatch();
+			var hashes = blockHeights.Select(h => batch.GetBlockHashAsync(h)).ToArray();
+			await batch.SendBatchAsync();
+
+			batch = rpc.PrepareBatch();
+			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(await h)).ToArray();
+			await batch.SendBatchAsync();
+
+			return new BlockHeaders(headers.Select(h => h.GetAwaiter().GetResult()).Where(h => h is not null).ToList());
+		}
+
+		public static async Task<RPCBlockHeader> GetBlockHeaderAsyncEx(this RPCClient rpc, uint256 blk)
 		{
 			var header = await rpc.SendCommandAsync(new NBitcoin.RPC.RPCRequest("getblockheader", new[] { blk.ToString() })
 			{
@@ -260,7 +274,11 @@ namespace NBXplorer
 				return null;
 
 			var prev = response["previousblockhash"]?.Value<string>();
-			return new SlimChainedBlock(blk, prev is null ? null : new uint256(prev), response["height"].Value<int>());
+			return new RPCBlockHeader(
+				blk,
+				prev is null ? null : new uint256(prev),
+				response["height"].Value<int>(),
+				NBitcoin.Utils.UnixTimeToDateTime(response["time"].Value<long>()));
 		}
 
 		public static async Task<SavedTransaction> TryGetRawTransaction(this RPCClient client, uint256 txId)

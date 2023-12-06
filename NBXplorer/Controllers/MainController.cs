@@ -684,7 +684,7 @@ namespace NBXplorer.Controllers
 												   .Where(tx => tx.Transaction != null)
 												   .ToArray();
 
-			var blocks = new Dictionary<uint256, Task<SlimChainedBlock>>();
+			var blocks = new Dictionary<uint256, Task<RPCBlockHeader>>();
 			var batch = rpc.PrepareBatch();
 			foreach (var tx in transactions)
 			{
@@ -694,15 +694,15 @@ namespace NBXplorer.Controllers
 				}
 			}
 			await batch.SendBatchAsync();
-			await repo.SaveBlocks(blocks.Select(b => b.Value.Result).ToList());
+			await repo.SaveBlocks(blocks.Select(b => b.Value.Result.ToSlimChainedBlock()).ToList());
 			foreach (var txs in transactions.GroupBy(t => t.BlockId, t => (t.Transaction, t.BlockTime))
 											.OrderBy(t => t.First().BlockTime))
 			{
 				blocks.TryGetValue(txs.Key, out var slimBlock);
-				await repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), slimBlock.Result);
+				await repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), slimBlock.Result.ToSlimChainedBlock());
 				foreach (var tx in txs)
 				{
-					var matches = await repo.GetMatches(tx.Transaction, slimBlock.Result, tx.BlockTime, false);
+					var matches = await repo.GetMatches(tx.Transaction, slimBlock.Result.ToSlimChainedBlock(), tx.BlockTime, false);
 					await repo.SaveMatches(matches);
 					_ = AddressPoolService.GenerateAddresses(network, matches);
 				}
