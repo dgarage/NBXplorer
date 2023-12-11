@@ -45,9 +45,55 @@ namespace NBXplorer.Backends.Postgres
 			}
 			CancellationTokenSource cts;
 			Task _indexerLoop;
+			Task _watchdogLoop;
 			Node _Node;
-			Channel<object> _Channel = Channel.CreateUnbounded<object>();
-			Channel<Block> _DownloadedBlocks = Channel.CreateUnbounded<Block>();
+			Channel<object> _Channel;
+			Channel<Block> _DownloadedBlocks;
+
+			// This one will check if the indexer is "stuck" and disconnect the node if it is the case
+			async Task WatchdogLoop()
+			{
+				var cancellationToken = cts.Token;
+				wait:
+				try
+				{
+					await Task.Delay(TimeSpan.FromMinutes(5.0), cancellationToken);
+					var height = await SeemsStuck(cancellationToken);
+					if (height is null)
+						goto wait;
+					await Task.Delay(TimeSpan.FromMinutes(2.0), cancellationToken);
+					var height2 = await SeemsStuck(cancellationToken);
+					if (height != height2)
+						goto wait;
+					_Node?.DisconnectAsync($"Sync seems stuck at height {height.Value}, restarting the connection.");
+					goto wait;
+				}
+				catch when (cts.Token.IsCancellationRequested)
+				{
+					goto end;
+				}
+				catch (Exception ex)
+				{
+					Logger.LogError(ex, "Unhandled exception in the indexer watchdog");
+					goto wait;
+				}
+				end:;
+			}
+
+			async Task<long?> SeemsStuck(CancellationToken cancellationToken)
+			{
+				if (State is not (BitcoinDWaiterState.NBXplorerSynching or BitcoinDWaiterState.Ready) ||
+							SyncHeight is not long syncHeight ||
+							GetConnectedClient() is not RPCClient rpc)
+				{
+					return null;
+				}
+				var blockchainInfo = await rpc.GetBlockchainInfoAsyncEx(cancellationToken);
+				if (Math.Min(blockchainInfo.Headers, blockchainInfo.Blocks) > syncHeight)
+					return syncHeight;
+				return null;
+			}
+
 			async Task IndexerLoop()
 			{
 				TimeSpan retryDelay = TimeSpan.FromSeconds(0);
@@ -82,8 +128,6 @@ namespace NBXplorer.Backends.Postgres
 					if (item is PullBlocks pb)
 					{
 						var headers = ConsolidatePullBlocks(_Channel.Reader, pb);
-						using var pullBlockTimeout = CancellationTokenSource.CreateLinkedTokenSource(token);
-						pullBlockTimeout.CancelAfter(PullBlockTimeout);
 						foreach (var batch in headers.Batch(maxinflight))
 						{
 							_ = _Node.SendMessageAsync(
@@ -92,9 +136,8 @@ namespace NBXplorer.Backends.Postgres
 									).ToArray()));
 							var remaining = batch.Select(b => b.GetHash()).ToHashSet();
 							List<Block> unorderedBlocks = new List<Block>();
-							await foreach (var block in _DownloadedBlocks.Reader.ReadAllAsync(pullBlockTimeout.Token))
+							await foreach (var block in _DownloadedBlocks.Reader.ReadAllAsync(token))
 							{
-								pullBlockTimeout.CancelAfter(PullBlockTimeout);
 								if (!remaining.Remove(block.Header.GetHash()))
 									continue;
 								if (lastIndexedBlock is null || block.Header.HashPrevBlock == lastIndexedBlock.Hash)
@@ -209,7 +252,6 @@ namespace NBXplorer.Backends.Postgres
 				return result;
 			}
 
-			private static TimeSpan PullBlockTimeout = TimeSpan.FromMinutes(1.0);
 
 			private async Task ConnectNode(CancellationToken token, bool forceRestart)
 			{
@@ -301,8 +343,8 @@ namespace NBXplorer.Backends.Postgres
 					// Refresh the NetworkInfo that may have become different while it was synching.
 					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
 					_Node = node;
-					EmptyChannel(_Channel);
-					EmptyChannel(_DownloadedBlocks);
+					_Channel = Channel.CreateUnbounded<object>();
+					_DownloadedBlocks = Channel.CreateUnbounded<Block>();
 					node.MessageReceived += Node_MessageReceived;
 					node.Disconnected += Node_Disconnected;
 
@@ -317,10 +359,6 @@ namespace NBXplorer.Backends.Postgres
 				}
 			}
 
-			private void EmptyChannel<T>(Channel<T> channel)
-			{
-				while (channel.Reader.TryRead(out _)) { }
-			}
 
 			bool firstConnect = true;
 			private async Task<BlockLocator> AskNextHeaders()
@@ -469,13 +507,15 @@ namespace NBXplorer.Backends.Postgres
 			record NodeDisconnected();
 			private void Node_MessageReceived(Node node, IncomingMessage message)
 			{
+				var channel = _Channel;
+				var downloadedBlocks = _DownloadedBlocks;
 				if (message.Message.Payload is HeadersPayload h && h.Headers.Count != 0)
 				{
-					_Channel.Writer.TryWrite(new PullBlocks(h.Headers));
+					channel.Writer.TryWrite(new PullBlocks(h.Headers));
 				}
 				else if (message.Message.Payload is BlockPayload b)
 				{
-					_DownloadedBlocks.Writer.TryWrite(b.Object);
+					downloadedBlocks.Writer.TryWrite(b.Object);
 				}
 				else if (message.Message.Payload is InvPayload invs)
 				{
@@ -502,12 +542,13 @@ namespace NBXplorer.Backends.Postgres
 				}
 				else if (message.Message.Payload is TxPayload tx)
 				{
-					_Channel.Writer.TryWrite(tx.Object);
+					channel.Writer.TryWrite(tx.Object);
 				}
 			}
 
 			private void Node_Disconnected(Node node)
 			{
+				var channel = _Channel;
 				if (node.DisconnectReason.Reason != "Restarting")
 				{
 					if (!cts.IsCancellationRequested)
@@ -519,7 +560,7 @@ namespace NBXplorer.Backends.Postgres
 							exception = String.Empty;
 						Logger.LogWarning($"Node disconnected for reason: {node.DisconnectReason.Reason}{exception}");
 					}
-					_Channel.Writer.TryWrite(new NodeDisconnected());
+					channel.Writer.TryWrite(new NodeDisconnected());
 				}
 				else
 				{
@@ -537,14 +578,18 @@ namespace NBXplorer.Backends.Postgres
 					return Task.CompletedTask;
 				cts = new CancellationTokenSource();
 				_indexerLoop = IndexerLoop();
+				_watchdogLoop = WatchdogLoop();
 				return Task.CompletedTask;
 			}
+
 			public async Task StopAsync(CancellationToken cancellationToken)
 			{
 				cts?.Cancel();
 				_Channel.Writer.Complete();
 				if (_indexerLoop is not null)
 					await _indexerLoop;
+				if (_watchdogLoop is not null)
+					await _watchdogLoop;
 				_Node?.DisconnectAsync();
 			}
 			public NBXplorerNetwork Network => network;
