@@ -15,6 +15,7 @@ using System.Net.WebSockets;
 using NBitcoin.RPC;
 using System.Runtime.CompilerServices;
 using System.Linq;
+using System.Diagnostics;
 
 namespace NBXplorer
 {
@@ -394,6 +395,24 @@ namespace NBXplorer
 			return SendAsync<TransactionInformation>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/transactions/{txId}", cancellation);
 		}
 
+		public async Task AssociateScriptsAsync(TrackedSource trackedSource, AssociateScriptRequest[] scripts, CancellationToken cancellation = default)
+		{
+			if (scripts == null)
+				throw new ArgumentNullException(nameof(scripts));
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			await SendAsync(HttpMethod.Post, scripts, $"{GetBasePath(trackedSource)}/associate", cancellation);
+		}
+
+		public async Task ImportUTXOs(TrackedSource trackedSource, ImportUTXORequest request, CancellationToken cancellation = default)
+		{
+			if (request == null)
+				throw new ArgumentNullException(nameof(request));
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			await SendAsync(HttpMethod.Post, request, $"{GetBasePath(trackedSource)}/import-utxos", cancellation);
+		}
+
 		public Task RescanAsync(RescanRequest rescanRequest, CancellationToken cancellation = default)
 		{
 			if (rescanRequest == null)
@@ -545,6 +564,53 @@ namespace NBXplorer
 		{
 			request ??= new GenerateWalletRequest();
 			return GenerateWalletAsync(request, cancellationToken).GetAwaiter().GetResult();
+		}
+
+		public async Task<TrackedSource[]> GetChildWallets(TrackedSource trackedSource,
+				CancellationToken cancellation = default)
+		{
+			return await GetAsync<TrackedSource[]>($"{GetBasePath(trackedSource)}/children", cancellation);
+		}
+		public async Task<TrackedSource[]> GetParentWallets(TrackedSource trackedSource,
+			CancellationToken cancellation = default)
+		{
+			return await GetAsync<TrackedSource[]>($"{GetBasePath(trackedSource)}/parents", cancellation);
+		}
+		public async Task AddChildWallet(TrackedSource trackedSource, TrackedSource childWallet, CancellationToken cancellation = default)
+		{
+			var request = new TrackedSourceRequest()
+			{
+				TrackedSource = childWallet
+			};
+			await SendAsync(HttpMethod.Post, request, $"{GetBasePath(trackedSource)}/children", cancellation);
+		}
+
+		public async Task AddParentWallet(TrackedSource trackedSource, TrackedSource parentWallet,
+			CancellationToken cancellation = default)
+		{
+			var request = new TrackedSourceRequest()
+			{
+				TrackedSource = parentWallet
+			};
+			await SendAsync(HttpMethod.Post, request, $"{GetBasePath(trackedSource)}/parents", cancellation);
+		}
+		public async Task RemoveChildWallet(TrackedSource trackedSource, TrackedSource childWallet, CancellationToken cancellation = default)
+		{
+			var request = new TrackedSourceRequest()
+			{
+				TrackedSource = childWallet
+			};
+			await SendAsync(HttpMethod.Delete, request, $"{GetBasePath(trackedSource)}/children", cancellation);
+		}
+
+		public async Task RemoveParentWallet(TrackedSource trackedSource, TrackedSource parentWallet,
+			CancellationToken cancellation = default)
+		{
+			var request = new TrackedSourceRequest()
+			{
+				TrackedSource = parentWallet
+			};
+			await SendAsync(HttpMethod.Delete, request, $"{GetBasePath(trackedSource)}/parents", cancellation);
 		}
 
 		private static readonly HttpClient SharedClient = new HttpClient();

@@ -17,5 +17,7 @@ namespace NBXplorer.Models
 		public bool ImportKeysToRPC { get; set; }
 		public bool SavePrivateKeys { get; set; }
 		public Dictionary<string, string> AdditionalOptions { get; set; }
+
+		public TrackedSource ParentWallet { get; set; }
 	}
 }

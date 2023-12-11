@@ -248,6 +248,13 @@ namespace NBXplorer
 
 			throw new Exception("This should never happen");
 		}
+		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<uint256> hashes)
+		{
+			var batch = rpc.PrepareBatch();
+			var headers = hashes.Select(h => batch.GetBlockHeaderAsyncEx(h)).ToArray();
+			await batch.SendBatchAsync();
+			return new BlockHeaders(headers.Select(h => h.GetAwaiter().GetResult()).Where(h => h is not null).ToList());
+		}
 		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<int> blockHeights)
 		{
 			var batch = rpc.PrepareBatch();
@@ -260,7 +267,23 @@ namespace NBXplorer
 
 			return new BlockHeaders(headers.Select(h => h.GetAwaiter().GetResult()).Where(h => h is not null).ToList());
 		}
-
+		public static async Task<Dictionary<OutPoint, GetTxOutResponse>> GetTxOuts(this RPCClient rpc, IList<OutPoint> outpoints)
+		{
+			var batch = rpc.PrepareBatch();
+			var txOuts = outpoints.Select(o => batch.GetTxOutAsync(o.Hash, (int)o.N, true)).ToArray();
+			await batch.SendBatchAsync();
+			var result = new Dictionary<OutPoint, GetTxOutResponse>();
+			int i = 0;
+			foreach (var txOut in txOuts)
+			{
+				var outpoint = outpoints[i];
+				var r = await txOut;
+				if (r != null)
+					result.TryAdd(outpoint, r);
+				i++;
+			}
+			return result;
+		}
 		public static async Task<RPCBlockHeader> GetBlockHeaderAsyncEx(this RPCClient rpc, uint256 blk)
 		{
 			var header = await rpc.SendCommandAsync(new NBitcoin.RPC.RPCRequest("getblockheader", new[] { blk.ToString() })

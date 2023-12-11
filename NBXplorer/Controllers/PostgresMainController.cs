@@ -85,6 +85,88 @@ namespace NBXplorer.Controllers
 			return Json(balance, network.JsonSerializerSettings);
 		}
 
+		[HttpPost("associate")]
+		[PostgresImplementationActionConstraint(true)]
+		public async Task<IActionResult> AssociateScripts(TrackedSourceContext trackedSourceContext, [FromBody] JArray rawRequest)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			var jsonSerializer = JsonSerializer.Create(trackedSourceContext.Network.JsonSerializerSettings);
+			var requests = rawRequest.ToObject<AssociateScriptRequest[]>(jsonSerializer);
+			await repo.AssociateScriptsToWalletExplicitly(trackedSourceContext.TrackedSource, requests);
+			return Ok();
+		}
+
+		[HttpPost("import-utxos")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(true)]
+		public async Task<IActionResult> ImportUTXOs(TrackedSourceContext trackedSourceContext, [FromBody] JObject rawRequest)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			var jsonSerializer = JsonSerializer.Create(trackedSourceContext.Network.JsonSerializerSettings);
+			var request = rawRequest.ToObject<ImportUTXORequest>(jsonSerializer);
+
+			if (request.Utxos?.Any() is not true)
+				return Ok();
+
+			var rpc = trackedSourceContext.RpcClient;
+
+			var coinToTxOut = await rpc.GetTxOuts(request.Utxos);
+			var bestBlocks = await rpc.GetBlockHeadersAsync(coinToTxOut.Select(c => c.Value.BestBlock).ToHashSet().ToList());
+			var coinsWithHeights = coinToTxOut
+				.Select(c => new
+				{
+					BestBlock = bestBlocks.ByHashes.TryGet(c.Value.BestBlock),
+					Outpoint = c.Key,
+					RPCTxOut = c.Value
+				})
+				.Where(c => c.BestBlock is not null)
+				.Select(c => new
+				{
+					Height = c.BestBlock.Height - c.RPCTxOut.Confirmations + 1,
+					c.Outpoint,
+					c.RPCTxOut
+				})
+				.ToList();
+			var blockHeaders = await rpc.GetBlockHeadersAsync(coinsWithHeights.Where(c => c.RPCTxOut.Confirmations != 0).Select(c => c.Height).Distinct().ToList());
+
+			var scripts = coinToTxOut
+				.Select(pair => new AssociateScriptRequest()
+				{
+					ScriptPubKey = pair.Value.TxOut.ScriptPubKey
+				})
+				.ToArray();
+
+			var now = DateTimeOffset.UtcNow;
+			var trackedTransactions =
+				coinsWithHeights
+				.Select(c => new
+				{
+					Block = blockHeaders.ByHeight.TryGet(c.Height),
+					c.Height,
+					c.RPCTxOut,
+					c.Outpoint
+				})
+				.Where(c => c.Block is not null || c.RPCTxOut.Confirmations == 0)
+				.GroupBy(c => c.Outpoint.Hash)
+				.Select(g =>
+				{
+					var coins = g.Select(c => new Coin(c.Outpoint, c.RPCTxOut.TxOut)).ToArray();
+					var txInfo = g.First().RPCTxOut;
+					var block = g.First().Block;
+					var ttx = repo.CreateTrackedTransaction(trackedSourceContext.TrackedSource,
+						new TrackedTransactionKey(g.Key, block?.Hash, true) { }, coins, null);
+					ttx.Inserted = now;
+					ttx.Immature = txInfo.IsCoinBase && txInfo.Confirmations <= repo.Network.NBitcoinNetwork.Consensus.CoinbaseMaturity;
+					ttx.FirstSeen = block?.Time ?? now;
+					return ttx;
+				}).ToArray();
+
+			await repo.AssociateScriptsToWalletExplicitly(trackedSourceContext.TrackedSource, scripts);
+			await repo.SaveBlocks(blockHeaders.Select(b => b.ToSlimChainedBlock()).ToList());
+			await repo.SaveMatches(trackedTransactions);
+
+			return Ok();
+		}
+
 		private IMoney Format(NBXplorerNetwork network, MoneyBag bag)
 		{
 			if (network.IsElement)
@@ -184,6 +266,63 @@ namespace NBXplorer.Controllers
 					changes.SpentUnconfirmed.Add(u);
 			}
 			return Json(changes, network.JsonSerializerSettings);
+		}
+
+		[HttpGet("children")]
+		public async Task<IActionResult> GetWalletChildren(TrackedSourceContext trackedSourceContext)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			await using var conn = await ConnectionFactory.CreateConnection();
+			var children = await conn.QueryAsync($"SELECT w.wallet_id, w.metadata FROM wallets_wallets ww JOIN wallets w ON ww.wallet_id = w.wallet_id WHERE ww.parent_id=@walletId", new { walletId = repo.GetWalletKey(trackedSourceContext.TrackedSource).wid });
+
+			return Json(children.Select(c => repo.GetTrackedSource(new PostgresRepository.WalletKey(c.wallet_id, c.metadata))).ToArray(), trackedSourceContext.Network.JsonSerializerSettings);
+		}
+		[HttpGet("parents")]
+		public async Task<IActionResult> GetWalletParents(TrackedSourceContext trackedSourceContext)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			await using var conn = await ConnectionFactory.CreateConnection();
+			var children = await conn.QueryAsync($"SELECT w.wallet_id, w.metadata FROM wallets_wallets ww JOIN wallets w ON ww.parent_id = w.wallet_id WHERE ww.wallet_id=@walletId", new { walletId = repo.GetWalletKey(trackedSourceContext.TrackedSource).wid });
+
+			return Json(children.Select(c => repo.GetTrackedSource(new PostgresRepository.WalletKey(c.wallet_id, c.metadata))).ToArray(), trackedSourceContext.Network.JsonSerializerSettings);
+		}
+		[HttpPost("children")]
+		public async Task<IActionResult> AddWalletChild(TrackedSourceContext trackedSourceContext, [FromBody] JObject request)
+		{
+			var trackedSource = trackedSourceContext.Network.ParseJObject<TrackedSourceRequest>(request).TrackedSource;
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			await repo.EnsureWalletCreated(trackedSource, trackedSourceContext.TrackedSource);
+			return Ok();
+		}
+		[HttpPost("parents")]
+		public async Task<IActionResult> AddWalletParent(TrackedSourceContext trackedSourceContext, [FromBody] JObject request)
+		{
+			var trackedSource = trackedSourceContext.Network.ParseJObject<TrackedSourceRequest>(request).TrackedSource;
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			await repo.EnsureWalletCreated(trackedSourceContext.TrackedSource, trackedSource);
+			return Ok();
+		}
+		[HttpDelete("children")]
+		public async Task<IActionResult> RemoveWalletChild(TrackedSourceContext trackedSourceContext, [FromBody] JObject request)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+
+			var trackedSource = repo.GetWalletKey(trackedSourceContext.Network
+				.ParseJObject<TrackedSourceRequest>(request).TrackedSource);
+			var conn = await ConnectionFactory.CreateConnection();
+			await conn.ExecuteAsync($"DELETE FROM wallets_wallets WHERE wallet_id=@walletId AND parent_id=@parentId", new { walletId = trackedSource.wid, parentId = repo.GetWalletKey(trackedSourceContext.TrackedSource).wid });
+			return Ok();
+		}
+		[HttpDelete("parents")]
+		public async Task<IActionResult> RemoveWalletParent(TrackedSourceContext trackedSourceContext, [FromBody] JObject request)
+		{
+			var repo = (PostgresRepository)trackedSourceContext.Repository;
+
+			var trackedSource = repo.GetWalletKey(trackedSourceContext.Network
+				.ParseJObject<TrackedSourceRequest>(request).TrackedSource);
+			var conn = await ConnectionFactory.CreateConnection();
+			await conn.ExecuteAsync($"DELETE FROM wallets_wallets WHERE wallet_id=@walletId AND parent_id=@parentId", new { walletId = repo.GetWalletKey(trackedSourceContext.TrackedSource).wid, parentId = trackedSource.wid });
+			return Ok();
 		}
 	}
 }

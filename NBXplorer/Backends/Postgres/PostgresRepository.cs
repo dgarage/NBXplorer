@@ -265,6 +265,31 @@ namespace NBXplorer.Backends.Postgres
 			return null;
 		}
 
+		public async Task AssociateScriptsToWalletExplicitly(TrackedSource trackedSource,
+			AssociateScriptRequest[] scripts)
+		{
+			var walletKey = GetWalletKey(trackedSource);
+			await using var conn = await GetConnection();
+
+			var scriptsRecords = scripts.Select(pair => new ScriptInsert(this.Network.CryptoCode, walletKey.wid,
+				pair.GetScriptPubKey().ToHex(), pair.GetAddress(Network.NBitcoinNetwork)?.ToString() ?? string.Empty, true)).ToArray();
+			{
+				await conn.Connection.ExecuteAsync(WalletInsertQuery, new { walletKey.wid, walletKey.metadata });
+				await conn.Connection.ExecuteAsync(
+					"INSERT INTO scripts (code, script, addr, used) VALUES(@code, @script, @addr, @used) ON CONFLICT DO NOTHING;" +
+					"INSERT INTO wallets_scripts (code, wallet_id, script) VALUES(@code, @wallet_id, @script) ON CONFLICT DO NOTHING;", scriptsRecords);
+
+				if (ImportRPCMode.Legacy == await GetImportRPCMode(conn, walletKey))
+				{
+					foreach (var s in scripts)
+					{
+						if (s.GetAddress(Network.NBitcoinNetwork) is { } addr)
+							await ImportAddressToRPC(null, addr, null);
+					}
+				}
+			}
+		}
+
 		internal record ScriptInsert(string code, string wallet_id, string script, string addr, bool used);
 		internal record DescriptorScriptInsert(string descriptor, int idx, string script, string metadata, string addr, bool used);
 		public async Task<int> GenerateAddresses(DerivationStrategyBase strategy, DerivationFeature derivationFeature, GenerateAddressQuery query = null)
@@ -1334,14 +1359,24 @@ namespace NBXplorer.Backends.Postgres
 		public async Task EnsureWalletCreated(TrackedSource trackedSource, params TrackedSource[] parentTrackedSource)
 		{
 			parentTrackedSource = parentTrackedSource.Where(source => source is not null).ToArray();
-			await EnsureWalletCreated(GetWalletKey(trackedSource));
+			await EnsureWalletCreated(GetWalletKey(trackedSource), parentTrackedSource?.Select(GetWalletKey).ToArray());
 		}
 
 		record WalletHierarchyInsert(string child, string parent);
-		public async Task EnsureWalletCreated(WalletKey walletKey)
+		public async Task EnsureWalletCreated(WalletKey walletKey, WalletKey[] parentWallets = null)
 		{
 			await using var connection = await ConnectionFactory.CreateConnection();
-			await connection.ExecuteAsync(WalletInsertQuery, walletKey);
+			parentWallets ??= Array.Empty<WalletKey>();
+			parentWallets = parentWallets.Where(p => p is not null).ToArray();
+			var walletRecords = new[] { walletKey }.Concat(parentWallets).ToArray();
+			var parentsRecords = parentWallets.Select(key => new WalletHierarchyInsert(walletKey.wid, key.wid)).ToArray();
+
+
+			await connection.ExecuteAsync(WalletInsertQuery, walletRecords);
+			if (parentsRecords.Any())
+				await connection.ExecuteAsync(
+					"INSERT INTO wallets_wallets (wallet_id, parent_id) VALUES (@child, @parent)ON CONFLICT DO NOTHING"
+					, parentsRecords);
 		}
 
 		private readonly string WalletInsertQuery = "INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING;";

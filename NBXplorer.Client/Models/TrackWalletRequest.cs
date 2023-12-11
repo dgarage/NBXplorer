@@ -7,6 +7,7 @@ namespace NBXplorer.Models
 	{
 		public TrackDerivationOption[] DerivationOptions { get; set; }
 		public bool Wait { get; set; } = false;
+		public TrackedSource ParentWallet { get; set; }
 	}
 
 	public class TrackDerivationOption

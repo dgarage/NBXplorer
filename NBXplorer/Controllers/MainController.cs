@@ -76,7 +76,9 @@ namespace NBXplorer.Controllers
 			"getrawtransaction",
 			"gettxout",
 			"estimatesmartfee",
-			"getmempoolinfo"
+			"getmempoolinfo",
+			"gettxoutproof",
+			"verifytxoutproof"
 		};
 		private Exception JsonRPCNotExposed()
 		{
@@ -514,6 +516,19 @@ namespace NBXplorer.Controllers
 			var network = trackedSourceContext.Network;
 			var trackedSource = trackedSourceContext.TrackedSource;
 			var request = network.ParseJObject<TrackWalletRequest>(rawRequest ?? new JObject());
+
+			var repo = trackedSourceContext.Repository;
+			if (repo is PostgresRepository postgresRepository &&
+				(trackedSourceContext.TrackedSource is WalletTrackedSource ||
+				 request?.ParentWallet is not null))
+			{
+				if (request?.ParentWallet == trackedSourceContext.TrackedSource)
+				{
+					throw new NBXplorerException(new NBXplorerError(400, "parent-wallet-same-as-tracked-source",
+						"Parent wallets cannot be the same as the tracked source"));
+				}
+				await postgresRepository.EnsureWalletCreated(trackedSourceContext.TrackedSource, request?.ParentWallet);
+			}
 
 			if (trackedSource is DerivationSchemeTrackedSource dts)
 			{
@@ -1071,7 +1086,7 @@ namespace NBXplorer.Controllers
 				AdditionalOptions = request.AdditionalOptions is not null ? new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(request.AdditionalOptions) : null
 			});
 
-			await RepositoryProvider.GetRepository(network).EnsureWalletCreated(derivation);
+			await ((PostgresRepository)RepositoryProvider.GetRepository(network)).EnsureWalletCreated(new DerivationSchemeTrackedSource(derivation), new[] { request.ParentWallet });
 			var derivationTrackedSource = new DerivationSchemeTrackedSource(derivation);
 			List<Task> saveMetadata = new List<Task>();
 			if (request.SavePrivateKeys)
