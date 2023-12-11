@@ -14,6 +14,8 @@ using System.Net.Http;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using NBitcoin.Crypto;
 
 namespace NBXplorer
 {
@@ -246,7 +248,6 @@ namespace NBXplorer
 
 			throw new Exception("This should never happen");
 		}
-
 		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<int> blockHeights)
 		{
 			var batch = rpc.PrepareBatch();
@@ -278,7 +279,8 @@ namespace NBXplorer
 				blk,
 				prev is null ? null : new uint256(prev),
 				response["height"].Value<int>(),
-				NBitcoin.Utils.UnixTimeToDateTime(response["time"].Value<long>()));
+				NBitcoin.Utils.UnixTimeToDateTime(response["time"].Value<long>()),
+				new uint256(response["merkleroot"]?.Value<string>()));
 		}
 
 		public static async Task<SavedTransaction> TryGetRawTransaction(this RPCClient client, uint256 txId)

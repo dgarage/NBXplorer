@@ -8,6 +8,8 @@ using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NBitcoin;
+using NBitcoin.Altcoins.HashX11;
+using NBitcoin.DataEncoders;
 using NBitcoin.RPC;
 using NBXplorer.Backends.Postgres;
 using NBXplorer.DerivationStrategy;
@@ -23,11 +25,11 @@ namespace NBXplorer.Controllers
 	[Route($"v1/{CommonRoutes.WalletEndpoint}")]
 	[Route($"v1/{CommonRoutes.TrackedSourceEndpoint}")]
 	[Authorize]
-	public class PostgresMainController :Controller, IUTXOService
+	public class PostgresMainController : Controller, IUTXOService
 	{
 		public PostgresMainController(
 			DbConnectionFactory connectionFactory,
-			KeyPathTemplates keyPathTemplates) 
+			KeyPathTemplates keyPathTemplates)
 		{
 			ConnectionFactory = connectionFactory;
 			KeyPathTemplates = keyPathTemplates;
@@ -103,7 +105,7 @@ namespace NBXplorer.Controllers
 
 
 		[HttpGet("utxos")]
-		public async Task<IActionResult> GetUTXOs( TrackedSourceContext trackedSourceContext)
+		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
 		{
 			var trackedSource = trackedSourceContext.TrackedSource;
 			var repo = (PostgresRepository)trackedSourceContext.Repository;

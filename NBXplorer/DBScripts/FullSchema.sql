@@ -958,7 +958,8 @@ CREATE VIEW nbxv1_keypath_info AS
     s.addr,
     d.metadata AS descriptor_metadata,
     nbxv1_get_keypath(d.metadata, ds.idx) AS keypath,
-    ds.metadata AS descriptors_scripts_metadata
+    ds.metadata AS descriptors_scripts_metadata,
+    ws.wallet_id
    FROM ((wallets_scripts ws
      JOIN scripts s ON (((s.code = ws.code) AND (s.script = ws.script))))
      LEFT JOIN ((wallets_descriptors wd
@@ -1362,6 +1363,7 @@ INSERT INTO nbxv1_migrations VALUES ('017.FixDoubleSpendDetection');
 INSERT INTO nbxv1_migrations VALUES ('018.FastWalletRecent');
 INSERT INTO nbxv1_migrations VALUES ('019.FixDoubleSpendDetection2');
 INSERT INTO nbxv1_migrations VALUES ('020.ReplacingShouldBeIdempotent');
+INSERT INTO nbxv1_migrations VALUES ('021.KeyPathInfoReturnsWalletId');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);

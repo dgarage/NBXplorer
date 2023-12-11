@@ -27,7 +27,6 @@ using NBitcoin.Tests;
 using System.Globalization;
 using System.Net;
 using NBXplorer.HostedServices;
-using System.Reflection;
 
 namespace NBXplorer.Tests
 {
