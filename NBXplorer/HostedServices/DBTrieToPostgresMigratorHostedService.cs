@@ -225,11 +225,17 @@ namespace NBXplorer.HostedServices
 			{
 				using var ds = dsBuilder.Build();
 				using var pconn = ds.CreateConnection();
+				await pconn.OpenAsync();
 				await pconn.ExecuteAsync(
 					"DROP TYPE m_txs;" +
 					"DROP TYPE m_blks_txs;" +
 					"DROP TYPE m_evt;");
-				await pconn.ReloadTypesAsync();
+				try
+				{
+					await pconn.ReloadTypesAsync();
+				}
+				// Somehow it blows up... Unhandled exception. System.InvalidOperationException: Connection is not open
+				catch { }
 			}
 		}
 
