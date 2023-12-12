@@ -184,7 +184,7 @@ namespace NBXplorer.HostedServices
 				{
 					foreach (var network in LegacyRepositoryProvider.GetRepositories().Select(r => r.Network))
 					{
-						var path = $"{network.CryptoCode}{file}";
+						var path = Path.Combine(ExplorerConfiguration.DataDir, $"{network.CryptoCode}{file}");
 						try
 						{
 							if (File.Exists(path))
