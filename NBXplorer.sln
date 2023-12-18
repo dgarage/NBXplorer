@@ -15,9 +15,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionFiles", "SolutionFi
 		docs\API.md = docs\API.md
 		.circleci\config.yml = .circleci\config.yml
 		docker-compose.regtest.yml = docker-compose.regtest.yml
-		Dockerfile.linuxamd64 = Dockerfile.linuxamd64
-		Dockerfile.linuxarm32v7 = Dockerfile.linuxarm32v7
-		Dockerfile.linuxarm64v8 = Dockerfile.linuxarm64v8
+		Dockerfile = Dockerfile
 		global.json = global.json
 		.circleci\run-tests.sh = .circleci\run-tests.sh
 	EndProjectSection
