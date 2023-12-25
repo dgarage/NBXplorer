@@ -649,14 +649,17 @@ namespace NBXplorer.Backends.Postgres
 				blockIndexes?.TryGetValue(tx.GetHash(), out var bi) is true ? bi : null,
 				now);
 			int i = 0;
-			var unconfTxs = await connection.GetUnconfirmedTxs();
+			var unconfTxs = slimBlock is null ? null : await connection.GetUnconfirmedTxs();
 			List<SaveTransactionRecord> txRecords = new();
 			foreach (var tx in txs)
 			{
 				tx.PrecomputeHash(false, true);
 				blockIndexes?.Add(tx.GetHash(), i);
 				i++;
-				if (unconfTxs.Contains(tx.GetHash()))
+				if (unconfTxs?.Contains(tx.GetHash()) is true)
+					// If a block has been found, and we have some unconf transactions
+					// then we want to add an entry in blks_txs, even if the unconf tx isn't matching
+					// any wallet. So we add record.
 					txRecords.Add(CreateTransactionRecord(tx));
 			}
 
