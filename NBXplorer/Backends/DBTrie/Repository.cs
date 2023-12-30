@@ -776,7 +776,7 @@ namespace NBXplorer.Backends.DBTrie
 			var result = new Dictionary<OutPoint, TxOut>();
 			if (outPoints.Count == 0)
 				return result;
-			foreach (var batch in outPoints.Batch(BatchSize))
+			foreach (var batch in outPoints.Chunk(BatchSize))
 			{
 				using var tx = await engine.OpenTransaction();
 				foreach (var outPoint in batch)
@@ -871,7 +871,7 @@ namespace NBXplorer.Backends.DBTrie
 			transactions = transactions.Distinct().ToArray();
 			if (transactions.Length == 0)
 				return result;
-			foreach (var batch in transactions.Batch(BatchSize))
+			foreach (var batch in transactions.Chunk(BatchSize))
 			{
 				using var tx = await engine.OpenTransaction();
 				var date = NBitcoin.Utils.DateTimeToUnixTime(now);
@@ -929,7 +929,7 @@ namespace NBXplorer.Backends.DBTrie
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
 			if (scripts.Count == 0)
 				return result;
-			foreach (var batch in scripts.Batch(BatchSize))
+			foreach (var batch in scripts.Chunk(BatchSize))
 			{
 				using var tx = await engine.OpenTransaction();
 				foreach (var script in batch)

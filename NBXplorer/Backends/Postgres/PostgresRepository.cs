@@ -333,7 +333,7 @@ namespace NBXplorer.Backends.Postgres
 
 				// We do not dispose on purpose.
 				await ImportDescriptorToRPCIfNeeded(connection, walletKey, nextIndex, toGenerate, keyTemplate);
-				foreach (var batch in linesScriptpubkeys.Batch(10_000))
+				foreach (var batch in linesScriptpubkeys.Chunk(10_000))
 				{
 					await InsertDescriptorsScripts(connection, batch);
 				}

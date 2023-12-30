@@ -128,7 +128,7 @@ namespace NBXplorer.Backends.Postgres
 					if (item is PullBlocks pb)
 					{
 						var headers = ConsolidatePullBlocks(_Channel.Reader, pb);
-						foreach (var batch in headers.Batch(maxinflight))
+						foreach (var batch in headers.Chunk(maxinflight))
 						{
 							_ = _Node.SendMessageAsync(
 								new GetDataPayload(

@@ -45,10 +45,10 @@ namespace NBXplorer.Backends.DBTrie
 		const int maxinflight = 5;
 		internal async IAsyncEnumerable<Block> DownloadBlocks(BlockLocator fork, [EnumeratorCancellation] CancellationToken cancellationToken)
 		{
-			foreach (var hashes in EnumerateToTip(fork, chain).Select(c => c.Hash).Batch(maxinflight))
+			foreach (var hashes in EnumerateToTip(fork, chain).Select(c => c.Hash).Chunk(maxinflight))
 			{
 				Dictionary<uint256, Block> outoforder = new Dictionary<uint256, Block>();
-				var hashesEnum = hashes.GetEnumerator();
+				var hashesEnum = hashes.AsEnumerable().GetEnumerator();
 				if (!hashesEnum.MoveNext())
 					yield break;
 				await node.SendMessageAsync(new GetDataPayload(hashes.Select(h => new InventoryVector(node.AddSupportedOptions(InventoryType.MSG_BLOCK), h)).ToArray()));

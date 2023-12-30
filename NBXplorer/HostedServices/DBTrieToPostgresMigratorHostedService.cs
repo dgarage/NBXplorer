@@ -584,7 +584,7 @@ namespace NBXplorer.HostedServices
 				}
 				logger.LogInformation($"Blocks to import: " + blocksToFetch.Count);
 				IGetBlockHeaders getBlocks = await GetBlockProvider(network, logger);
-				foreach (var batch in blocksToFetch.Batch(500))
+				foreach (var batch in blocksToFetch.Chunk(500))
 				{
 					cancellationToken.ThrowIfCancellationRequested();
 					var rpc = RpcClients.Get(network);
