@@ -101,6 +101,8 @@ namespace NBXplorer.Backends.Postgres
 				try
 				{
 					await IndexerLoopCore(cts.Token);
+					if (!cts.Token.IsCancellationRequested)
+						goto retry;
 				}
 				catch when (cts.Token.IsCancellationRequested)
 				{
@@ -343,7 +345,9 @@ namespace NBXplorer.Backends.Postgres
 					// Refresh the NetworkInfo that may have become different while it was synching.
 					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
 					_Node = node;
+					_Channel?.Writer.Complete();
 					_Channel = Channel.CreateUnbounded<object>();
+					_DownloadedBlocks?.Writer.Complete();
 					_DownloadedBlocks = Channel.CreateUnbounded<Block>();
 					node.MessageReceived += Node_MessageReceived;
 					node.Disconnected += Node_Disconnected;
