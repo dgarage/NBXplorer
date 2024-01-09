@@ -69,19 +69,23 @@ namespace NBXplorer
 			Transaction = transaction;
 			transaction.PrecomputeHash(false, true);
 			KnownKeyPathMapping = knownScriptMapping;
-
-			KnownKeyPathMappingUpdated();
+			if ((TrackedSource as IDestination)?.ScriptPubKey is Script s)
+				OwnedScripts.Add(s);
+			foreach (var ss in knownScriptMapping.Keys)
+				OwnedScripts.Add(ss);
+			OwnedScriptsUpdated();
 		}
 
-		internal void KnownKeyPathMappingUpdated()
+		internal void OwnedScriptsUpdated()
 		{
 			if (Transaction == null)
 				return;
-			var scriptPubKey = (TrackedSource as IDestination)?.ScriptPubKey;
+			ReceivedCoins.Clear();
+			SpentOutpoints.Clear();
 			for (int i = 0; i < Transaction.Outputs.Count; i++)
 			{
 				var output = Transaction.Outputs[i];
-				if (KnownKeyPathMapping.ContainsKey(output.ScriptPubKey) || scriptPubKey == output.ScriptPubKey)
+				if (OwnedScripts.Contains(output.ScriptPubKey))
 					ReceivedCoins.Add(new Coin(new OutPoint(Key.TxId, i), output));
 			}
 
@@ -89,8 +93,9 @@ namespace NBXplorer
 				SpentOutpoints.AddInputs(Transaction);
 		}
 
+		public HashSet<Script> OwnedScripts { get; } = new HashSet<Script>();
 		public Dictionary<Script, KeyPath> KnownKeyPathMapping { get; } = new Dictionary<Script, KeyPath>();
-		public Dictionary<Script, KeyPathInformation> KnownKeyPathInformation { get; } = new Dictionary<Script, KeyPathInformation>();
+		public Dictionary<Script, BitcoinAddress> KnownAddresses { get; } = new Dictionary<Script, BitcoinAddress>();
 		public HashSet<ICoin> ReceivedCoins { get; protected set; } = new HashSet<ICoin>(CoinOutpointEqualityComparer.Instance);
 
 		public class SpentOutpointsSet : HashSet<(OutPoint Outpoint, int InputIndex)>
@@ -150,7 +155,7 @@ namespace NBXplorer
 							.Select(o => (Index: (int)o.Outpoint.N,
 												   Output: o,
 												   KeyPath: KnownKeyPathMapping.TryGet(o.TxOut.ScriptPubKey),
-												   Address: KnownKeyPathInformation.TryGet(o.TxOut.ScriptPubKey)?.Address))
+												   Address: KnownAddresses.TryGet(o.TxOut.ScriptPubKey)))
 							.Where(o => o.KeyPath != null || o.Output.TxOut.ScriptPubKey == (TrackedSource as IDestination)?.ScriptPubKey || TrackedSource is GroupTrackedSource)
 							.Select(o => new MatchedOutput()
 							{
@@ -171,7 +176,9 @@ namespace NBXplorer
 		{
 			if (keyInfo.KeyPath != null)
 				this.KnownKeyPathMapping.TryAdd(keyInfo.ScriptPubKey, keyInfo.KeyPath);
-			this.KnownKeyPathInformation.TryAdd(keyInfo.ScriptPubKey, keyInfo);
+			if (keyInfo.Address != null)
+				this.KnownAddresses.TryAdd(keyInfo.ScriptPubKey, keyInfo.Address);
+			this.OwnedScripts.Add(keyInfo.ScriptPubKey);
 		}
 	}
 

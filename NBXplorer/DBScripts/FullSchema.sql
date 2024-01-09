@@ -1229,6 +1229,8 @@ CREATE INDEX wallets_history_by_seen_at ON wallets_history USING btree (seen_at)
 
 CREATE UNIQUE INDEX wallets_history_pk ON wallets_history USING btree (wallet_id, code, asset_id, tx_id);
 
+CREATE INDEX wallets_wallets_parent_id ON wallets_wallets USING btree (parent_id);
+
 CREATE TRIGGER blks_confirmed_trigger AFTER UPDATE ON blks FOR EACH ROW EXECUTE FUNCTION public.blks_confirmed_update_txs();
 
 CREATE TRIGGER blks_txs_insert_trigger AFTER INSERT ON blks_txs FOR EACH ROW EXECUTE FUNCTION public.blks_txs_denormalize();
@@ -1364,6 +1366,7 @@ INSERT INTO nbxv1_migrations VALUES ('018.FastWalletRecent');
 INSERT INTO nbxv1_migrations VALUES ('019.FixDoubleSpendDetection2');
 INSERT INTO nbxv1_migrations VALUES ('020.ReplacingShouldBeIdempotent');
 INSERT INTO nbxv1_migrations VALUES ('021.KeyPathInfoReturnsWalletId');
+INSERT INTO nbxv1_migrations VALUES ('022.WalletsWalletsParentIdIndex');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);

@@ -1,0 +1,1 @@
+﻿CREATE INDEX IF NOT EXISTS wallets_wallets_parent_id   ON wallets_wallets (parent_id);

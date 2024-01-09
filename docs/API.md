@@ -7,20 +7,20 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 ## Table of content
 
 * [Configuration](#configuration)
+* [Tracked Sources](#tracked-sources)
+  * [Derivation schemes](#derivationScheme)
+  * [Groups](#groups)
+  * [Addresses](#addresses)
 * [Authentication](#authentication)
-* [Derivation Scheme Format](#derivationScheme)
-* [Tracking a Derivation Scheme](#track)
-* [Track a specific address](#address)
-* [Query transactions associated to a Derivation Scheme](#transactions)
-* [Query transactions associated to a specific address](#address-transactions)
-* [Query a single transaction associated to a address or derivation scheme](#singletransaction)
-* [Get current balance](#balance)
+* [Tracking derivation scheme or address](#track)
+* [Query transactions of tracked sources](#transactions)
+* [Query specifc transactions of tracked sources](#singletransaction)
+* [Get balance of tracked sources](#balance)
 * [Get a transaction](#gettransaction)
 * [Get connection status to the chain](#status)
 * [Get a new unused address](#unused)
 * [Get scriptPubKey information of a Derivation Scheme](#scriptPubKey)
-* [Get available Unspent Transaction Outputs (UTXOs)](#utxos)
-* [Get available Unspent Transaction Outputs of a specific address](#address-utxos)
+* [Get available Unspent Transaction Outputs (UTXOs) of tracked sources](#utxos)
 * [Notifications via websocket](#websocket)
 * [Broadcast a transaction](#broadcast)
 * [Rescan a transaction](#rescan)
@@ -39,6 +39,10 @@ NBXplorer does not index the whole blockchain, rather, it listens transactions a
 * [Node RPC Proxy](#rpc-proxy)
 * [Health check](#health)
 * [Liquid integration](#liquid)
+* [Create group](#create-group)
+* [Get group](#get-group)
+* [Add group children](#add-group-children)
+* [Add address to group](#delete-group-children)
 
 ## Configuration
 
@@ -70,29 +74,13 @@ dotnet run --no-launch-profile --no-build -c Release -p .\NBXplorer\NBXplorer.cs
 
 Else, launch profiles, which are settings meant to be used only for debugging time, might be taken into account.
 
-## Authentication
+## <a name="tracked-source"></a>Tracked Sources
 
-By default a cookie file is generated when NBXplorer is starting, for windows in:
+A tracked source is a generic way to track a set of scripts (addresses) and its UTXOs, transactions, and balances.
 
-```pwsh
-C:\Users\<user>\AppData\Roaming\NBXplorer\<network>\.cookie
-```
+### <a name="derivationScheme"></a>Derivation scheme
 
-On linux or mac:
-
-```bash
-~/.nbxplorer/<network>/.cookie
-```
-
-The content of this cookie must be used is used as HTTP BASIC authentication to use the API.
-
-This can be disabled with `--noauth`.
-
-Also, NBXPlorer listen by default on `127.0.0.1`, if you want to access it from another machine, run `--bind "0.0.0.0"`.
-
-## <a name="derivationScheme"></a>Derivation Scheme Format
-
-A derivation scheme, also called derivationStrategy in the code, is a flexible way to define how to generate address of a wallet.
+A derivation scheme, also called `derivationStrategy` in the code, is a flexible way to define how to generate deterministic addresses for a wallet.
 NBXplorer will track any addresses on the `0/x`, `1/x` and `x` path.
 
 Here a documentation of the different derivation scheme supported:
@@ -115,11 +103,57 @@ Most of routes asks for a `cryptoCode`. This identify the crypto currency to req
 
 Note: Taproot is incompatible with all other options.
 
-## <a name="track"></a>Track a derivation scheme
+You can create one by calling [Tracking derivation scheme or address](#track).
 
-After this call, the specified `derivation scheme` will be tracked by NBXplorer
+### <a name="groups"></a>Groups
+
+A group is a tracked source which serves as a logical method for grouping several tracked sources into a single entity. You can add or remove tracked sources to and from a group.
+
+Additionally, specific addresses can be tracked through the group.
+
+Every address attached by a child tracked source will be added to the group, including all related UTXOs and transactions. 
+
+A group can have any number of children, and a group can also be a child of another group.
+Please note that all the children are returned by [Get a group](#get-group). As such, it is advised not to add too many children to avoid slowing down this call.
+
+A group tracked source's format is `GROUP:groupid`.
+
+You can create a new group by calling [Create a group](#create-group).
+
+### <a name="addresses"></a>Addresses
+
+This refers to a tracked source that monitors a single address. It functions similarly to a group, but with only one specific address to it.
+
+The address tracked source's format is `ADDRESS:bc1...`.
+
+You can create one by calling [Tracking derivation scheme or address](#track).
+
+## Authentication
+
+By default a cookie file is generated when NBXplorer is starting, for windows in:
+
+```pwsh
+C:\Users\<user>\AppData\Roaming\NBXplorer\<network>\.cookie
+```
+
+On linux or mac:
+
+```bash
+~/.nbxplorer/<network>/.cookie
+```
+
+The content of this cookie must be used is used as HTTP BASIC authentication to use the API.
+
+This can be disabled with `--noauth`.
+
+Also, NBXPlorer listen by default on `127.0.0.1`, if you want to access it from another machine, run `--bind "0.0.0.0"`.
+
+## <a name="track"></a>Tracking derivation scheme or address
+
+This call add a derivation scheme tracked source, or a address tracked source.
 
 `HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}`
+`HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}`
 
 Returns nothing.
 
@@ -144,23 +178,13 @@ Optionally, you can attach a json body:
 * `derivationOptions.minAddresses`: Optional. The minimum addresses that need to be generated with this call. (default: null, make sure the number of address in the pool is between MinGap and MaxGap)
 * `derivationOptions.maxAddresses`: Optional. The maximum addresses that need to be generated with this call. (default: null, make sure the number of address in the pool is between MinGap and MaxGap)
 
-## <a name="address"></a>Track a specific address
+## <a name="transactions"></a>Query transactions of tracked sources
 
-After this call, the specified address will be tracked by NBXplorer
-
-`HTTP POST v1/cryptos/{cryptoCode}/addresses/{address}`
-
-Returns nothing.
-
-## <a name="transactions"></a>Query transactions associated to a derivationScheme
-
-To query all transactions of a `derivation scheme`:
+To query all transactions of a tracked source:
 
 `HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions`
-
-To query a specific transaction:
-
-`HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}`
+`HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions`
+`HTTP GET v1/cryptos/{cryptoCode}/groups/{groupId}/transactions`
 
 Optional Parameters:
 
@@ -262,73 +286,12 @@ Returns:
 Note for liquid, `balanceChange` is an array of [AssetMoney](#liquid).
 Note that the list of confirmed transaction also include immature transactions.
 
-## <a name="address-transactions"></a>Query transactions associated to a specific address
 
-Query all transactions of a tracked address. (Only work if you called the Track operation on this specific address)
-
-`HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions`
-
-Optional Parameters:
-
-* `includeTransaction` includes the hex of the transaction, not only information (default: true)
-
-Returns:
-
-```json
-{
-  "height": 104,
-  "confirmedTransactions": {
-    "transactions": [
-      {
-        "blockHash": "3e7bcca309f92ab78a47c1cdd1166de9190fa49e97165c93e2b10ae1a14b99eb",
-        "confirmations": 1,
-        "height": 104,
-        "transactionId": "cc33dfaf2ed794b11af83dc6e29303e2d8ff9e5e29303153dad1a1d3d8b43e40",
-        "transaction": "020000000166d6befa387fd646f77a10e4b0f0e66b3569f18a83f77104a0c440e4156f80890000000048473044022064b1398653171440d3e79924cb6593633e7b2c3d80b60a2e21d6c6e287ee785a02203899009df443d0a0a1b06cb970aee0158d35166fd3e26d4e3e85570738e706d101feffffff028c02102401000000160014ee0a1889783da2e1f9bba47be4184b6610efd00400e1f5050000000016001452f88af314ef3b6d03d40a5fd1f2c906188a477567000000",
-        "outputs": [
-          {
-            "scriptPubKey": "001452f88af314ef3b6d03d40a5fd1f2c906188a4775",
-            "index": 1,
-            "value": 100000000
-          }
-        ],
-        "inputs": [],
-        "timestamp": 1540381888,
-        "balanceChange": 100000000
-      }
-    ]
-  },
-  "unconfirmedTransactions": {
-    "transactions": [
-      {
-        "blockHash": null,
-        "confirmations": 0,
-        "height": null,
-        "transactionId": "7ec0bcbd3b7685b6bbdb4287a250b64bfcb799dbbbcffa78c00e6cc11185e5f1",
-        "transaction": null,
-        "outputs": [
-          {
-            "scriptPubKey": "0014b39fc4eb5c6dd238d39449b70a2e30d575426d99",
-            "index": 1,
-            "value": 100000000
-          }
-        ],
-        "inputs": [],
-        "timestamp": 1540381889,
-        "balanceChange": 100000000
-      }
-    ]
-  },
-  "replacedTransactions": {
-    "transactions": []
-  }
-}
-```
-
-## <a name="singletransaction"></a>Query a single transaction associated to a address or derivation scheme
+## <a name="singletransaction"></a>Query specifc transactions of tracked sources
 
 `HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}`
 `HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/transactions/{txId}`
+`HTTP GET v1/cryptos/{cryptoCode}/groups/{groupId}/transactions/{txId}`
 
 Error codes:
 
@@ -360,9 +323,11 @@ Returns:
 }
 ```
 
-## <a name="balance"></a>Get current balance
+## <a name="balance"></a>Get balance of tracked sources
 
 `HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balance`
+`HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/balance`
+`HTTP GET v1/cryptos/{cryptoCode}/groups/{groupId}/balance`
 
 Returns:
 
@@ -504,9 +469,11 @@ Returns:
 }
 ```
 
-## <a name="utxos"></a>Get available Unspent Transaction Outputs (UTXOs)
+## <a name="utxos"></a>Get available Unspent Transaction Outputs (UTXOs) of tracked sources
 
 `HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos`
+`HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/utxos`
+`HTTP GET v1/cryptos/{cryptoCode}/groups/{groupId}/utxos`
 
 Error:
 
@@ -584,66 +551,6 @@ Response:
 
 This call does not returns conflicted unconfirmed UTXOs.
 Note that confirmed utxo, do not include immature UTXOs. (ie. UTXOs belonging to a coinbase transaction with less than 100 confirmations)
-
-## <a name="address-utxos"></a>Get available Unspent Transaction Outputs of a specific address
-
-Assuming you use Track on this specific address:
-
-`HTTP GET v1/cryptos/{cryptoCode}/addresses/{address}/utxos`
-
-Error:
-
-* HTTP 404: `cryptoCode-not-supported`
-
-Result:
-
-```json
-{
-  "trackedSource": "ADDRESS:moD8QpWufPMFP9y7gC8m5ih9rmejavbf3K",
-  "currentHeight": 105,
-  "unconfirmed": {
-    "utxOs": [],
-    "spentOutpoints": [],
-    "hasChanges": true
-  },
-  "confirmed": {
-    "utxOs": [
-      {
-        "outpoint": "f532022bebe8d90c72853a2663c26ca9d42fad5d9cde21d35bad38135a5dfd0701000000",
-        "index": 1,
-        "transactionHash": "07fd5d5a1338ad5bd321de9c5dad2fd4a96cc263263a85720cd9e8eb2b0232f5",
-        "scriptPubKey": "76a9145461f6c342451142e07d95dd2a42b48af9114cea88ac",
-        "value": 100000000,
-        "timestamp": 1540390664,
-        "confirmations": 2
-      },
-      {
-        "outpoint": "a470a71144d4cdaef2b9bd8d24f20ebc8d6548bae523869f8cceb2cef5b4538a01000000",
-        "index": 1,
-        "transactionHash": "8a53b4f5ceb2ce8c9f8623e5ba48658dbc0ef2248dbdb9f2aecdd44411a770a4",
-        "scriptPubKey": "76a9145461f6c342451142e07d95dd2a42b48af9114cea88ac",
-        "value": 100000000,
-        "timestamp": 1540390666,
-        "confirmations": 1
-      },
-      {
-        "outpoint": "1710a1b61cb1f988182347be52a16502bae5a78fa9740a68107f9ddc6e30896a00000000",
-        "index": 0,
-        "transactionHash": "6a89306edc9d7f10680a74a98fa7e5ba0265a152be47231888f9b11cb6a11017",
-        "scriptPubKey": "76a9145461f6c342451142e07d95dd2a42b48af9114cea88ac",
-        "value": 60000000,
-        "timestamp": 1540390666,
-        "confirmations": 1
-      }
-    ],
-    "spentOutpoints": [],
-    "hasChanges": true
-  },
-  "hasChanges": true
-}
-```
-
-This call does not returns conflicted unconfirmed UTXOs.
 
 ## <a name="websocket"></a>Notifications via websocket
 
@@ -1158,6 +1065,8 @@ Body:
 ## <a name="detachmetadata"></a>Detach metadata from a derivation scheme
 
 `HTTP POST v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}`
+`HTTP POST v1/cryptos/{cryptoCode}/addresses/{derivationScheme}/metadata/{key}`
+`HTTP POST v1/groups/{derivationScheme}/metadata/{key}`
 
 Call without body and without content type.
 
@@ -1166,6 +1075,8 @@ Call without body and without content type.
 You retrieve the JSON metadata of a derivation scheme:
 
 `HTTP GET v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}`
+`HTTP GET v1/cryptos/{cryptoCode}/addresses/{derivationScheme}/metadata/{key}`
+`HTTP GET v1/groups/{derivationScheme}/metadata/{key}`
 
 Error codes:
 
@@ -1366,3 +1277,150 @@ In order to send in and out of liquid, we advise you to rely on the RPC command 
 For doing this you need to [Generate a wallet](#wallet) with `importAddressToRPC` and `savePrivateKeys` set to `true`.
 
 Be careful to not expose your NBXplorer server on internet, your private keys can be [retrieved trivially](#getmetadata).
+
+## Groups
+### <a name="create-group"></a>Create group
+
+Create a new empty group.
+
+`HTTP POST v1/groups`
+
+No body required
+
+Response
+
+```json
+{
+  "trackedSource": "GROUP:6N23bHztah546P6xQT",
+  "groupId": "6N23bHztah546P6xQT",
+  "children": []
+}
+```
+
+### <a name="get-group"></a>Get group
+
+`HTTP GET v1/groups/{groupId}`
+
+Get the group
+
+```json
+{
+  "trackedSource": "GROUP:6N23bHztah546P6xQT",
+  "groupId": "6N23bHztah546P6xQT",
+  "children": [
+    {
+      "trackedSource": "GROUP:Es26NSg5xTqbpRz3FY"
+    },
+    {
+      "cryptoCode": "BTC",
+      "trackedSource": "DERIVATIONSCHEME:tpubDC6xFicnheK85vUNGjegu4HuJGg8nPiRk26jhW7n8GTCnb2aqizTFzyG1Jw42ZUs19nKU8V3Xi38WyVqem5ytbjFsREMWUH8QMYpzgmNdus"
+    },
+    {
+      "cryptoCode": "BTC",
+      "trackedSource": "DERIVATIONSCHEME:tpubDC45vUDsFAAqwYKz5hSLi5yJLNduJzpmTw6QTMRPrwdXURoyL81H8oZAaL8EiwEgg92qgMa9h1bB4Y1BZpy9CTNPfjfxvFcWxeiKBHCqSdc"
+    }
+  ]
+}
+```
+
+### <a name="add-group-children"></a>Add group children
+
+Add children to a group.
+
+`HTTP POST v1/groups/{groupId}/children`
+
+Request:
+```json
+[
+    {
+      "trackedSource": "GROUP:Es26NSg5xTqbpRz3FY"
+    },
+    {
+      "cryptoCode": "BTC",
+      "trackedSource": "DERIVATIONSCHEME:tpubDC6xFicnheK85vUNGjegu4HuJGg8nPiRk26jhW7n8GTCnb2aqizTFzyG1Jw42ZUs19nKU8V3Xi38WyVqem5ytbjFsREMWUH8QMYpzgmNdus"
+    },
+    {
+      "cryptoCode": "BTC",
+      "trackedSource": "DERIVATIONSCHEME:tpubDC45vUDsFAAqwYKz5hSLi5yJLNduJzpmTw6QTMRPrwdXURoyL81H8oZAaL8EiwEgg92qgMa9h1bB4Y1BZpy9CTNPfjfxvFcWxeiKBHCqSdc"
+    }
+]
+```
+
+Response:
+```json
+{
+  "trackedSource": "GROUP:6N23bHztah546P6xQT",
+  "groupId": "6N23bHztah546P6xQT",
+  "children": [
+    {
+      "trackedSource": "GROUP:Es26NSg5xTqbpRz3FY"
+    },
+    {
+      "cryptoCode": "BTC",
+      "trackedSource": "DERIVATIONSCHEME:tpubDC6xFicnheK85vUNGjegu4HuJGg8nPiRk26jhW7n8GTCnb2aqizTFzyG1Jw42ZUs19nKU8V3Xi38WyVqem5ytbjFsREMWUH8QMYpzgmNdus"
+    },
+    {
+      "cryptoCode": "BTC",
+      "trackedSource": "DERIVATIONSCHEME:tpubDC45vUDsFAAqwYKz5hSLi5yJLNduJzpmTw6QTMRPrwdXURoyL81H8oZAaL8EiwEgg92qgMa9h1bB4Y1BZpy9CTNPfjfxvFcWxeiKBHCqSdc"
+    }
+  ]
+}
+```
+
+### <a name="delete-group-children"></a>Delete group children
+
+Remove children from a group.
+
+`HTTP DELETE v1/groups/{groupId}/children`
+
+Request:
+```json
+[
+    {
+      "trackedSource": "GROUP:Es26NSg5xTqbpRz3FY"
+    },
+    {
+      "cryptoCode": "BTC",
+      "trackedSource": "DERIVATIONSCHEME:tpubDC6xFicnheK85vUNGjegu4HuJGg8nPiRk26jhW7n8GTCnb2aqizTFzyG1Jw42ZUs19nKU8V3Xi38WyVqem5ytbjFsREMWUH8QMYpzgmNdus"
+    },
+    {
+      "cryptoCode": "BTC",
+      "trackedSource": "DERIVATIONSCHEME:tpubDC45vUDsFAAqwYKz5hSLi5yJLNduJzpmTw6QTMRPrwdXURoyL81H8oZAaL8EiwEgg92qgMa9h1bB4Y1BZpy9CTNPfjfxvFcWxeiKBHCqSdc"
+    }
+]
+```
+
+Response:
+```json
+{
+  "trackedSource": "GROUP:6N23bHztah546P6xQT",
+  "groupId": "6N23bHztah546P6xQT",
+  "children": []
+}
+```
+
+### <a name="add-group-address"></a>Add address to group
+
+You can add addresses manually inside the group.
+
+`HTTP POST v1/cryptos/BTC/groups/{groupId}/addresses`
+
+Request:
+
+```json
+[
+  "n3XyBWEKWLxm5EzrrvLCJyCQrRhVWQ8YGa",
+  "n4FBNYjZny7sC4pzAVaTtnGTtiwMHV5nkY",
+  "mxrkNvovmmatB2vHVkNtVZ7dLLuDkPe5nr",
+  "mh43vYeeJAzzSXBPaQ3D9qXzLFwWhmZEGw",
+  "mkNfpqBrKyHs5wTsreLLhWAwnZPPH6seqe",
+  "n4nzmHnKsByo5pgdjVDuvbXMMY7gKAcZJy",
+  "mrxCU6b7RmyNXz1WJ4uJRZfdKSnwzagRov",
+  "msy6dEmKav8CpDX6TR8wsLPVFUoy4HDk2t",
+  "mw84oRAoojVPxHm9J514KTqpr6ozVFcWtH",
+  "muNtSq7tG3gBwh2L1ZHEKQRYuNuHPm5YZC"
+]
+```
+
+Response:
+HTTP 200.

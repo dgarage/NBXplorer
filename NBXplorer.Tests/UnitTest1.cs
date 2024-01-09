@@ -30,7 +30,7 @@ using NBXplorer.HostedServices;
 
 namespace NBXplorer.Tests
 {
-	public class UnitTest1
+	public partial class UnitTest1
 	{
 		public UnitTest1(ITestOutputHelper helper)
 		{

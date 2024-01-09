@@ -1,6 +1,8 @@
 ﻿using NBitcoin;
+using NBitcoin.DataEncoders;
 using NBXplorer.DerivationStrategy;
 using System;
+using System.Security.Cryptography;
 
 namespace NBXplorer.Models
 {
@@ -10,18 +12,20 @@ namespace NBXplorer.Models
 		{
 			if (str == null)
 				throw new ArgumentNullException(nameof(str));
-			if (network == null)
-				throw new ArgumentNullException(nameof(network));
 			trackedSource = null;
 			var strSpan = str.AsSpan();
 			if (strSpan.StartsWith("DERIVATIONSCHEME:".AsSpan(), StringComparison.Ordinal))
 			{
+				if (network is null)
+					return false;
 				if (!DerivationSchemeTrackedSource.TryParse(strSpan, out var derivationSchemeTrackedSource, network))
 					return false;
 				trackedSource = derivationSchemeTrackedSource;
 			}
 			else if (strSpan.StartsWith("ADDRESS:".AsSpan(), StringComparison.Ordinal))
 			{
+				if (network is null)
+					return false;
 				if (!AddressTrackedSource.TryParse(strSpan, out var addressTrackedSource, network.NBitcoinNetwork))
 					return false;
 				trackedSource = addressTrackedSource;
@@ -107,6 +111,14 @@ namespace NBXplorer.Models
 	{
 		public string GroupId { get; }
 
+		public static GroupTrackedSource Generate()
+		{
+			Span<byte> r = stackalloc byte[13];
+			// 13 is most consistent on number of chars and more than we need to avoid generating twice same id
+			RandomNumberGenerator.Fill(r);
+			return new GroupTrackedSource(Encoders.Base58.EncodeData(r));
+		}
+
 		public GroupTrackedSource(string groupId)
 		{
 			GroupId = groupId;
@@ -133,7 +145,7 @@ namespace NBXplorer.Models
 		}
 		public override string ToPrettyString()
 		{
-			return GroupId;
+			return "G:" + GroupId;
 		}
 
 		public static GroupTrackedSource Parse(string trackedSource)
