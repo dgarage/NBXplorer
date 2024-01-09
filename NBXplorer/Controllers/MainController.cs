@@ -505,7 +505,7 @@ namespace NBXplorer.Controllers
 		[HttpPost]
 		[Route($"{CommonRoutes.DerivationEndpoint}")]
 		[Route($"{CommonRoutes.AddressEndpoint}")]
-		[Route($"{CommonRoutes.WalletEndpoint}")]
+		[Route($"{CommonRoutes.GroupEndpoint}")]
 		[Route($"{CommonRoutes.TrackedSourceEndpoint}")]
 		public async Task<IActionResult> TrackWallet(
 			TrackedSourceContext trackedSourceContext,
@@ -560,7 +560,7 @@ namespace NBXplorer.Controllers
 		[HttpGet]
 		[Route($"{CommonRoutes.DerivationEndpoint}/{CommonRoutes.TransactionsPath}")]
 		[Route($"{CommonRoutes.AddressEndpoint}/{CommonRoutes.TransactionsPath}")]
-		[Route($"{CommonRoutes.WalletEndpoint}/{CommonRoutes.TransactionsPath}")]
+		[Route($"{CommonRoutes.GroupEndpoint}/{CommonRoutes.TransactionsPath}")]
 		[Route($"{CommonRoutes.TrackedSourceEndpoint}/{CommonRoutes.TransactionsPath}")]
 		public async Task<IActionResult> GetTransactions(
 			TrackedSourceContext trackedSourceContext,

@@ -51,7 +51,7 @@ public class TrackedSourceContext
 			var addressValue = bindingContext.ValueProvider.GetValue("address").FirstValue;
 			var derivationSchemeValue = bindingContext.ValueProvider.GetValue("derivationScheme").FirstValue;
 			derivationSchemeValue ??= bindingContext.ValueProvider.GetValue("extPubKey").FirstValue;
-			var walletIdValue = bindingContext.ValueProvider.GetValue("walletId").FirstValue;
+			var groupIdValue = bindingContext.ValueProvider.GetValue("groupId").FirstValue;
 			var trackedSourceValue = bindingContext.ValueProvider.GetValue("trackedSource").FirstValue;
 
 			var networkProvider = bindingContext.HttpContext.RequestServices.GetService<NBXplorerNetworkProvider>();
@@ -82,7 +82,7 @@ public class TrackedSourceContext
 				ThrowRpcUnavailableException();
 			}
 
-			var ts = GetTrackedSource(derivationSchemeValue, addressValue, walletIdValue,
+			var ts = GetTrackedSource(derivationSchemeValue, addressValue, groupIdValue,
 				trackedSourceValue,
 				network);
 			if (ts is null && requirements?.RequireTrackedSource is true)
@@ -117,7 +117,7 @@ public class TrackedSourceContext
 			throw new NBXplorerError(400, "rpc-unavailable", $"The RPC interface is currently not available.").AsException();
 		}
 
-		public static TrackedSource GetTrackedSource(string derivationScheme, string address, string walletId,
+		public static TrackedSource GetTrackedSource(string derivationScheme, string address, string groupId,
 			string trackedSource, NBXplorerNetwork network)
 		{
 			if (trackedSource != null)
@@ -126,8 +126,8 @@ public class TrackedSourceContext
 				return new AddressTrackedSource(BitcoinAddress.Create(address, network.NBitcoinNetwork));
 			if (derivationScheme != null)
 				return new DerivationSchemeTrackedSource(network.DerivationStrategyFactory.Parse(derivationScheme));
-			if (walletId != null)
-				return new WalletTrackedSource(walletId);
+			if (groupId != null)
+				return new GroupTrackedSource(groupId);
 			return null;
 		}
 	}

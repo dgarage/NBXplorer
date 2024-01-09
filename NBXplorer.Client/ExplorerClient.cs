@@ -726,7 +726,7 @@ namespace NBXplorer
 			{
 				DerivationSchemeTrackedSource dsts => $"v1/cryptos/{CryptoCode}/derivations/{dsts.DerivationStrategy}",
 				AddressTrackedSource asts => $"v1/cryptos/{CryptoCode}/addresses/{asts.Address}",
-				WalletTrackedSource wts => $"v1/cryptos/{CryptoCode}/wallets/{wts.WalletId}",
+				GroupTrackedSource wts => $"v1/cryptos/{CryptoCode}/groups/{wts.GroupId}",
 				_ => $"v1/cryptos/{CryptoCode}/tracked-sources/{trackedSource}"
 			};
 		}

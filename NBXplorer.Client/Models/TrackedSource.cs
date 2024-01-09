@@ -26,9 +26,9 @@ namespace NBXplorer.Models
 					return false;
 				trackedSource = addressTrackedSource;
 			}
-			else if (strSpan.StartsWith("WALLET:".AsSpan(), StringComparison.Ordinal))
+			else if (strSpan.StartsWith("GROUP:".AsSpan(), StringComparison.Ordinal))
 			{
-				if (!WalletTrackedSource.TryParse(strSpan, out var walletTrackedSource))
+				if (!GroupTrackedSource.TryParse(strSpan, out var walletTrackedSource))
 					return false;
 				trackedSource = walletTrackedSource;
 			}
@@ -103,25 +103,25 @@ namespace NBXplorer.Models
 		}
 	}
 
-	public class WalletTrackedSource : TrackedSource
+	public class GroupTrackedSource : TrackedSource
 	{
-		public string WalletId { get; }
+		public string GroupId { get; }
 
-		public WalletTrackedSource(string walletId)
+		public GroupTrackedSource(string groupId)
 		{
-			WalletId = walletId;
+			GroupId = groupId;
 		}
 
-		public static bool TryParse(ReadOnlySpan<char> strSpan, out WalletTrackedSource walletTrackedSource)
+		public static bool TryParse(ReadOnlySpan<char> trackedSource, out GroupTrackedSource walletTrackedSource)
 		{
-			if (strSpan == null)
-				throw new ArgumentNullException(nameof(strSpan));
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
 			walletTrackedSource = null;
-			if (!strSpan.StartsWith("WALLET:".AsSpan(), StringComparison.Ordinal))
+			if (!trackedSource.StartsWith("GROUP:".AsSpan(), StringComparison.Ordinal))
 				return false;
 			try
 			{
-				walletTrackedSource = new WalletTrackedSource(strSpan.Slice("WALLET:".Length).ToString());
+				walletTrackedSource = new GroupTrackedSource(trackedSource.Slice("GROUP:".Length).ToString());
 				return true;
 			}
 			catch { return false; }
@@ -129,11 +129,16 @@ namespace NBXplorer.Models
 
 		public override string ToString()
 		{
-			return "WALLET:" + WalletId;
+			return "GROUP:" + GroupId;
 		}
 		public override string ToPrettyString()
 		{
-			return WalletId;
+			return GroupId;
+		}
+
+		public static GroupTrackedSource Parse(string trackedSource)
+		{
+			return TryParse(trackedSource, out var g) ? g : throw new FormatException("Invalid group tracked source format");
 		}
 	}
 

@@ -22,7 +22,7 @@ namespace NBXplorer.Controllers
 	[PostgresImplementationActionConstraint(true)]
 	[Route($"v1/{CommonRoutes.DerivationEndpoint}")]
 	[Route($"v1/{CommonRoutes.AddressEndpoint}")]
-	[Route($"v1/{CommonRoutes.WalletEndpoint}")]
+	[Route($"v1/{CommonRoutes.GroupEndpoint}")]
 	[Route($"v1/{CommonRoutes.TrackedSourceEndpoint}")]
 	[Authorize]
 	public class PostgresMainController : Controller, IUTXOService

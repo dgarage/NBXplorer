@@ -207,10 +207,10 @@ namespace NBXplorer.Backends.Postgres
 			m.Add(new JProperty("derivation", new JValue(strategy.ToString())));
 			return new WalletKey(hash, m.ToString(Formatting.None));
 		}
-		WalletKey GetWalletKey(WalletTrackedSource walletTrackedSource)
+		WalletKey GetWalletKey(GroupTrackedSource groupTrackedSource)
 		{
-			var m = new JObject { new JProperty("type", new JValue("Wallet")) };
-			var res = new WalletKey(walletTrackedSource.WalletId, m.ToString(Formatting.None));
+			var m = new JObject { new JProperty("type", new JValue("NBXv1-Group")) };
+			var res = new WalletKey($"G:" + groupTrackedSource.GroupId, m.ToString(Formatting.None));
 			return res;
 		}
 		WalletKey GetWalletKey(IDestination destination)
@@ -231,12 +231,12 @@ namespace NBXplorer.Backends.Postgres
 			{
 				DerivationSchemeTrackedSource derivation => GetWalletKey(derivation.DerivationStrategy),
 				AddressTrackedSource addr => GetWalletKey(addr.Address),
-				WalletTrackedSource wallet => GetWalletKey(wallet),
+				GroupTrackedSource group => GetWalletKey(group),
 				_ => throw new NotSupportedException(source.GetType().ToString())
 			};
 		}
 
-		internal TrackedSource GetTrackedSource(WalletKey walletKey)
+		internal TrackedSource TryGetTrackedSource(WalletKey walletKey)
 		{
 			var metadata = JObject.Parse(walletKey.metadata);
 			if (metadata.TryGetValue("type", StringComparison.OrdinalIgnoreCase, out JToken typeJToken) &&
@@ -257,8 +257,8 @@ namespace NBXplorer.Backends.Postgres
 					case "NBXv1-Address":
 						var address = metadata["address"].Value<string>();
 						return new AddressTrackedSource(BitcoinAddress.Create(address, Network.NBitcoinNetwork));
-					case "Wallet":
-						return new WalletTrackedSource(walletKey.wid);
+					case "NBXv1-Group":
+						return new GroupTrackedSource(walletKey.wid[2..]); // Skip "G:"
 				}
 			}
 
@@ -489,7 +489,7 @@ namespace NBXplorer.Backends.Postgres
 			var rows = await connection.QueryAsync($@"
 			    SELECT ts.code, ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem{additionalColumn},
 				       ts.wallet_id,
-				       w.metadata->>'type' AS wallet_type
+				       w.metadata->>'type' AS wallet_metadata
 				FROM unnest(@records) AS r (script),
 				LATERAL (
 				    SELECT code, script, wallet_id, addr, descriptor_metadata->>'derivation' derivation, 
@@ -507,21 +507,21 @@ namespace NBXplorer.Backends.Postgres
 				// This might be the case for a derivation added by a different indexer
 				if (r.derivation is not null && r.keypath is null)
 					continue;
-				var addr = GetAddress(r);
+				BitcoinAddress addr = GetAddress(r);
 				bool isExplicit = r.derivation is null;
 				bool isDescriptor = !isExplicit;
 				var script = Script.FromHex(r.script);
-				var derivationStrategy = r.derivation is not null ? Network.DerivationStrategyFactory.Parse(r.derivation) : null;
+				DerivationStrategyBase derivationStrategy = r.derivation is not null ? Network.DerivationStrategyFactory.Parse(r.derivation) : null;
 				var keypath = r.keypath is not null ? KeyPath.Parse(r.keypath) : null;
 				var redeem = (string)r.redeem;
-				string walletType = r.wallet_type;
-				string walletId = r.wallet_id;
-
-				var trackedSource = derivationStrategy is not null
-					? new DerivationSchemeTrackedSource(derivationStrategy)
-					: walletType == "Wallet"
-						? walletId is null ? (TrackedSource)null : new WalletTrackedSource(walletId)
-						: new AddressTrackedSource(addr);
+				string walletMetadata = r.wallet_metadata;
+				string wid = r.wallet_id;
+				if (wid is null || walletMetadata is null)
+					continue;
+				var walletKey = new WalletKey(wid, walletMetadata);
+				var trackedSource = TryGetTrackedSource(walletKey);
+				if (trackedSource is null)
+					continue;
 				var ki = Network.IsElement && r.blindingKey is not null
 					? new LiquidKeyPathInformation()
 					{
