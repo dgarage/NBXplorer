@@ -1411,7 +1411,7 @@ namespace NBXplorer.Backends.DBTrie
 			}
 			foreach (var m in matches.Values)
 			{
-				m.KnownKeyPathMappingUpdated();
+				m.OwnedScriptsUpdated();
 				await AfterMatch(m, keyPathInformationsByTrackedTransaction[m]);
 			}
 

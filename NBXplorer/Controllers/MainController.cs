@@ -25,7 +25,6 @@ using NBXplorer.Analytics;
 using NBXplorer.Backends;
 using NBitcoin.Scripting;
 using System.Globalization;
-using NBXplorer.Backends.Postgres;
 
 namespace NBXplorer.Controllers
 {
@@ -505,8 +504,6 @@ namespace NBXplorer.Controllers
 		[HttpPost]
 		[Route($"{CommonRoutes.DerivationEndpoint}")]
 		[Route($"{CommonRoutes.AddressEndpoint}")]
-		[Route($"{CommonRoutes.WalletEndpoint}")]
-		[Route($"{CommonRoutes.TrackedSourceEndpoint}")]
 		public async Task<IActionResult> TrackWallet(
 			TrackedSourceContext trackedSourceContext,
 			[FromBody] JObject rawRequest = null)
@@ -560,8 +557,7 @@ namespace NBXplorer.Controllers
 		[HttpGet]
 		[Route($"{CommonRoutes.DerivationEndpoint}/{CommonRoutes.TransactionsPath}")]
 		[Route($"{CommonRoutes.AddressEndpoint}/{CommonRoutes.TransactionsPath}")]
-		[Route($"{CommonRoutes.WalletEndpoint}/{CommonRoutes.TransactionsPath}")]
-		[Route($"{CommonRoutes.TrackedSourceEndpoint}/{CommonRoutes.TransactionsPath}")]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/{CommonRoutes.GroupEndpoint}/{CommonRoutes.TransactionsPath}")]
 		public async Task<IActionResult> GetTransactions(
 			TrackedSourceContext trackedSourceContext,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
@@ -760,15 +756,18 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		[HttpPost]
-		[Route($"{CommonRoutes.DerivationEndpoint}/metadata/{{key}}")]
+		[HttpPost($"{CommonRoutes.DerivationEndpoint}/metadata/{{key}}")]
+		[HttpPost($"{CommonRoutes.AddressEndpoint}/metadata/{{key}}")]
+		[HttpPost($"{CommonRoutes.GroupEndpoint}/metadata/{{key}}")]
 		public async Task<IActionResult> SetMetadata(TrackedSourceContext trackedSourceContext, string key, [FromBody] JToken value = null)
 		{
 			await trackedSourceContext.Repository.SaveMetadata(trackedSourceContext.TrackedSource, key, value);
 			return Ok();
 		}
-		[HttpGet]
-		[Route($"{CommonRoutes.DerivationEndpoint}/metadata/{{key}}")]
+
+		[HttpGet($"{CommonRoutes.DerivationEndpoint}/metadata/{{key}}")]
+		[HttpGet($"{CommonRoutes.AddressEndpoint}/metadata/{{key}}")]
+		[HttpGet($"{CommonRoutes.GroupEndpoint}/metadata/{{key}}")]
 		public async Task<IActionResult> GetMetadata(TrackedSourceContext trackedSourceContext, string key)
 		{
 			var result = await trackedSourceContext.Repository.GetMetadata<JToken>(trackedSourceContext.TrackedSource, key);
@@ -1101,6 +1100,7 @@ namespace NBXplorer.Controllers
 			});
 			return Json(new GenerateWalletResponse()
 			{
+				TrackedSource = new DerivationSchemeTrackedSource(derivation).ToString(),
 				MasterHDKey = masterKey,
 				AccountHDKey = accountKey,
 				AccountKeyPath = accountKeyPath,

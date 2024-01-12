@@ -6,6 +6,7 @@ namespace NBXplorer.Models
 {
 	public class GenerateWalletResponse
 	{
+		public string TrackedSource { get; set; }
 		public string Mnemonic { get; set; }
 		public string Passphrase { get; set; }
 		[JsonConverter(typeof(NBXplorer.JsonConverters.WordlistJsonConverter))]

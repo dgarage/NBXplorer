@@ -547,6 +547,28 @@ namespace NBXplorer
 			return GenerateWalletAsync(request, cancellationToken).GetAwaiter().GetResult();
 		}
 
+		public Task<GroupInformation> CreateGroupAsync(CancellationToken cancellationToken = default)
+		{
+			return SendAsync<GroupInformation>(HttpMethod.Post, null, $"v1/groups", cancellationToken);
+		}
+		public Task<GroupInformation> GetGroupAsync(string groupId, CancellationToken cancellationToken = default)
+		{
+			return SendAsync<GroupInformation>(HttpMethod.Get, null, $"v1/groups/{groupId}", cancellationToken);
+		}
+		public Task<GroupInformation> AddGroupChildrenAsync(string groupId, GroupChild[] children, CancellationToken cancellationToken = default)
+		{
+			return SendAsync<GroupInformation>(HttpMethod.Post, children, $"v1/groups/{groupId}/children", cancellationToken);
+		}
+		public Task<GroupInformation> RemoveGroupChildrenAsync(string groupId, GroupChild[] children, CancellationToken cancellationToken = default)
+		{
+			return SendAsync<GroupInformation>(HttpMethod.Delete, children, $"v1/groups/{groupId}/children", cancellationToken);
+		}
+
+		public Task AddGroupAddressAsync(string cryptoCode, string groupId, string[] addresses, CancellationToken cancellationToken = default)
+		{
+			return SendAsync<GroupInformation>(HttpMethod.Post, addresses, $"v1/cryptos/{cryptoCode}/groups/{groupId}/addresses", cancellationToken);
+		}
+
 		private static readonly HttpClient SharedClient = new HttpClient();
 		internal HttpClient Client = SharedClient;
 
@@ -726,7 +748,7 @@ namespace NBXplorer
 			{
 				DerivationSchemeTrackedSource dsts => $"v1/cryptos/{CryptoCode}/derivations/{dsts.DerivationStrategy}",
 				AddressTrackedSource asts => $"v1/cryptos/{CryptoCode}/addresses/{asts.Address}",
-				WalletTrackedSource wts => $"v1/cryptos/{CryptoCode}/wallets/{wts.WalletId}",
+				GroupTrackedSource wts => $"v1/cryptos/{CryptoCode}/groups/{wts.GroupId}",
 				_ => $"v1/cryptos/{CryptoCode}/tracked-sources/{trackedSource}"
 			};
 		}

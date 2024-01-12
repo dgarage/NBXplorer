@@ -1,6 +1,8 @@
 ﻿using NBitcoin;
+using NBitcoin.DataEncoders;
 using NBXplorer.DerivationStrategy;
 using System;
+using System.Security.Cryptography;
 
 namespace NBXplorer.Models
 {
@@ -10,25 +12,27 @@ namespace NBXplorer.Models
 		{
 			if (str == null)
 				throw new ArgumentNullException(nameof(str));
-			if (network == null)
-				throw new ArgumentNullException(nameof(network));
 			trackedSource = null;
 			var strSpan = str.AsSpan();
 			if (strSpan.StartsWith("DERIVATIONSCHEME:".AsSpan(), StringComparison.Ordinal))
 			{
+				if (network is null)
+					return false;
 				if (!DerivationSchemeTrackedSource.TryParse(strSpan, out var derivationSchemeTrackedSource, network))
 					return false;
 				trackedSource = derivationSchemeTrackedSource;
 			}
 			else if (strSpan.StartsWith("ADDRESS:".AsSpan(), StringComparison.Ordinal))
 			{
+				if (network is null)
+					return false;
 				if (!AddressTrackedSource.TryParse(strSpan, out var addressTrackedSource, network.NBitcoinNetwork))
 					return false;
 				trackedSource = addressTrackedSource;
 			}
-			else if (strSpan.StartsWith("WALLET:".AsSpan(), StringComparison.Ordinal))
+			else if (strSpan.StartsWith("GROUP:".AsSpan(), StringComparison.Ordinal))
 			{
-				if (!WalletTrackedSource.TryParse(strSpan, out var walletTrackedSource))
+				if (!GroupTrackedSource.TryParse(strSpan, out var walletTrackedSource))
 					return false;
 				trackedSource = walletTrackedSource;
 			}
@@ -103,25 +107,33 @@ namespace NBXplorer.Models
 		}
 	}
 
-	public class WalletTrackedSource : TrackedSource
+	public class GroupTrackedSource : TrackedSource
 	{
-		public string WalletId { get; }
+		public string GroupId { get; }
 
-		public WalletTrackedSource(string walletId)
+		public static GroupTrackedSource Generate()
 		{
-			WalletId = walletId;
+			Span<byte> r = stackalloc byte[13];
+			// 13 is most consistent on number of chars and more than we need to avoid generating twice same id
+			RandomNumberGenerator.Fill(r);
+			return new GroupTrackedSource(Encoders.Base58.EncodeData(r));
 		}
 
-		public static bool TryParse(ReadOnlySpan<char> strSpan, out WalletTrackedSource walletTrackedSource)
+		public GroupTrackedSource(string groupId)
 		{
-			if (strSpan == null)
-				throw new ArgumentNullException(nameof(strSpan));
+			GroupId = groupId;
+		}
+
+		public static bool TryParse(ReadOnlySpan<char> trackedSource, out GroupTrackedSource walletTrackedSource)
+		{
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
 			walletTrackedSource = null;
-			if (!strSpan.StartsWith("WALLET:".AsSpan(), StringComparison.Ordinal))
+			if (!trackedSource.StartsWith("GROUP:".AsSpan(), StringComparison.Ordinal))
 				return false;
 			try
 			{
-				walletTrackedSource = new WalletTrackedSource(strSpan.Slice("WALLET:".Length).ToString());
+				walletTrackedSource = new GroupTrackedSource(trackedSource.Slice("GROUP:".Length).ToString());
 				return true;
 			}
 			catch { return false; }
@@ -129,11 +141,16 @@ namespace NBXplorer.Models
 
 		public override string ToString()
 		{
-			return "WALLET:" + WalletId;
+			return "GROUP:" + GroupId;
 		}
 		public override string ToPrettyString()
 		{
-			return WalletId;
+			return "G:" + GroupId;
+		}
+
+		public static GroupTrackedSource Parse(string trackedSource)
+		{
+			return TryParse(trackedSource, out var g) ? g : throw new FormatException("Invalid group tracked source format");
 		}
 	}
 

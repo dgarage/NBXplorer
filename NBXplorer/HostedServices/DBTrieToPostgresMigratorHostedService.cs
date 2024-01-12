@@ -351,7 +351,7 @@ namespace NBXplorer.HostedServices
 										KeyPathTemplate = keyTemplate,
 										Type = LegacyDescriptorMetadata.TypeName
 									}),
-									postgresRepo.GetWalletKey(ts.DerivationStrategy).wid));
+									PostgresRepository.GetWalletKey(ts.DerivationStrategy, network).wid));
 							}
 							var wk = postgresRepo.GetWalletKey(keyInfo.TrackedSource);
 							if (processedWalletKeys.Add(wk.wid))

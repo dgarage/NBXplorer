@@ -198,52 +198,58 @@ namespace NBXplorer.Backends.Postgres
 		}
 		// metadata isn't really part of the key, but it's handy to have it here when we do INSERT INTO wallets.
 		public record WalletKey(string wid, string metadata);
-		internal WalletKey GetWalletKey(DerivationStrategyBase strategy)
+		internal static WalletKey GetWalletKey(DerivationStrategyBase strategy, NBXplorerNetwork network)
 		{
-			var hash = DBUtils.nbxv1_get_wallet_id(Network.CryptoCode, strategy.ToString());
+			var hash = DBUtils.nbxv1_get_wallet_id(network.CryptoCode, strategy.ToString());
 			JObject m = new JObject();
 			m.Add(new JProperty("type", new JValue("NBXv1-Derivation")));
-			m.Add(new JProperty("code", new JValue(Network.CryptoCode)));
+			m.Add(new JProperty("code", new JValue(network.CryptoCode)));
 			m.Add(new JProperty("derivation", new JValue(strategy.ToString())));
 			return new WalletKey(hash, m.ToString(Formatting.None));
 		}
-		WalletKey GetWalletKey(WalletTrackedSource walletTrackedSource)
+		internal static WalletKey GetWalletKey(GroupTrackedSource groupTrackedSource)
 		{
-			var m = new JObject { new JProperty("type", new JValue("Wallet")) };
-			var res = new WalletKey(walletTrackedSource.WalletId, m.ToString(Formatting.None));
+			var m = new JObject { new JProperty("type", new JValue("NBXv1-Group")) };
+			var res = new WalletKey($"G:" + groupTrackedSource.GroupId, m.ToString(Formatting.None));
 			return res;
 		}
-		WalletKey GetWalletKey(IDestination destination)
+		internal static WalletKey GetWalletKey(IDestination destination, NBXplorerNetwork network)
 		{
-			var address = destination.ScriptPubKey.GetDestinationAddress(Network.NBitcoinNetwork);
-			var hash = DBUtils.nbxv1_get_wallet_id(Network.CryptoCode, address.ToString());
+			var address = destination.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork);
+			var hash = DBUtils.nbxv1_get_wallet_id(network.CryptoCode, address.ToString());
 			JObject m = new JObject();
 			m.Add(new JProperty("type", new JValue("NBXv1-Address")));
-			m.Add(new JProperty("code", new JValue(Network.CryptoCode)));
+			m.Add(new JProperty("code", new JValue(network.CryptoCode)));
 			m.Add(new JProperty("address", new JValue(address.ToString())));
 			return new WalletKey(hash, m.ToString(Formatting.None));
 		}
-		internal WalletKey GetWalletKey(TrackedSource source)
+
+		internal WalletKey GetWalletKey(TrackedSource source) => GetWalletKey(source, Network);
+		internal static WalletKey GetWalletKey(TrackedSource source, NBXplorerNetwork network)
 		{
 			if (source is null)
 				throw new ArgumentNullException(nameof(source));
 			return source switch
 			{
-				DerivationSchemeTrackedSource derivation => GetWalletKey(derivation.DerivationStrategy),
-				AddressTrackedSource addr => GetWalletKey(addr.Address),
-				WalletTrackedSource wallet => GetWalletKey(wallet),
+				DerivationSchemeTrackedSource derivation => GetWalletKey(derivation.DerivationStrategy, network),
+				AddressTrackedSource addr => GetWalletKey(addr.Address, network),
+				GroupTrackedSource group => GetWalletKey(group),
 				_ => throw new NotSupportedException(source.GetType().ToString())
 			};
 		}
 
-		internal TrackedSource GetTrackedSource(WalletKey walletKey)
+		internal TrackedSource TryGetTrackedSource(WalletKey walletKey)
+		{
+			return TryGetTrackedSource(walletKey, Network);
+		}
+		internal static TrackedSource TryGetTrackedSource(WalletKey walletKey, NBXplorerNetwork network)
 		{
 			var metadata = JObject.Parse(walletKey.metadata);
 			if (metadata.TryGetValue("type", StringComparison.OrdinalIgnoreCase, out JToken typeJToken) &&
 				typeJToken.Value<string>() is { } type)
 			{
 				if ((metadata.TryGetValue("code", StringComparison.OrdinalIgnoreCase, out JToken codeJToken) &&
-					 codeJToken.Value<string>() is { } code) && !code.Equals(Network.CryptoCode,
+					 codeJToken.Value<string>() is { } code) && !code.Equals(network.CryptoCode,
 						StringComparison.InvariantCultureIgnoreCase))
 				{
 					return null;
@@ -253,12 +259,12 @@ namespace NBXplorer.Backends.Postgres
 				{
 					case "NBXv1-Derivation":
 						var derivation = metadata["derivation"].Value<string>();
-						return new DerivationSchemeTrackedSource(Network.DerivationStrategyFactory.Parse(derivation));
+						return new DerivationSchemeTrackedSource(network.DerivationStrategyFactory.Parse(derivation));
 					case "NBXv1-Address":
 						var address = metadata["address"].Value<string>();
-						return new AddressTrackedSource(BitcoinAddress.Create(address, Network.NBitcoinNetwork));
-					case "Wallet":
-						return new WalletTrackedSource(walletKey.wid);
+						return new AddressTrackedSource(BitcoinAddress.Create(address, network.NBitcoinNetwork));
+					case "NBXv1-Group":
+						return new GroupTrackedSource(walletKey.wid[2..]); // Skip "G:"
 				}
 			}
 
@@ -277,7 +283,7 @@ namespace NBXplorer.Backends.Postgres
 		internal async Task<int> GenerateAddressesCore(DbConnection connection, DerivationStrategyBase strategy, DerivationFeature derivationFeature, GenerateAddressQuery query)
 		{
 			var descriptorKey = GetDescriptorKey(strategy, derivationFeature);
-			var walletKey = GetWalletKey(strategy);
+			var walletKey = GetWalletKey(strategy, Network);
 			var gapNextIndex = await GetGapAndNextIdx(connection, descriptorKey);
 			long toGenerate = ToGenerateCount(query, gapNextIndex?.gap);
 			if (gapNextIndex is not null && toGenerate == 0)
@@ -399,10 +405,11 @@ namespace NBXplorer.Backends.Postgres
 							"WHERE code=@code AND descriptor=@descriptor", descriptorKey);
 		}
 
+		internal const string InsertScriptsScript = "INSERT INTO scripts (code, script, addr, used) SELECT @code code, script, addr, used FROM unnest(@records) ON CONFLICT DO NOTHING;";
 		private async Task InsertDescriptorsScripts(DbConnection connection, IList<DescriptorScriptInsert> batch)
 		{
 			await connection.ExecuteAsync(
-								"INSERT INTO scripts (code, script, addr, used) SELECT @code code, script, addr, used FROM unnest(@records) ON CONFLICT DO NOTHING;" +
+								InsertScriptsScript +
 								"INSERT INTO descriptors_scripts (code, descriptor, idx, script, metadata, used) SELECT @code code, descriptor, idx, script, metadata, used FROM unnest(@records) ON CONFLICT DO NOTHING;"
 								, new
 								{
@@ -489,7 +496,7 @@ namespace NBXplorer.Backends.Postgres
 			var rows = await connection.QueryAsync($@"
 			    SELECT ts.code, ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem{additionalColumn},
 				       ts.wallet_id,
-				       w.metadata->>'type' AS wallet_type
+				       w.metadata AS wallet_metadata
 				FROM unnest(@records) AS r (script),
 				LATERAL (
 				    SELECT code, script, wallet_id, addr, descriptor_metadata->>'derivation' derivation, 
@@ -507,21 +514,21 @@ namespace NBXplorer.Backends.Postgres
 				// This might be the case for a derivation added by a different indexer
 				if (r.derivation is not null && r.keypath is null)
 					continue;
-				var addr = GetAddress(r);
+				BitcoinAddress addr = GetAddress(r);
 				bool isExplicit = r.derivation is null;
 				bool isDescriptor = !isExplicit;
 				var script = Script.FromHex(r.script);
-				var derivationStrategy = r.derivation is not null ? Network.DerivationStrategyFactory.Parse(r.derivation) : null;
+				DerivationStrategyBase derivationStrategy = r.derivation is not null ? Network.DerivationStrategyFactory.Parse(r.derivation) : null;
 				var keypath = r.keypath is not null ? KeyPath.Parse(r.keypath) : null;
 				var redeem = (string)r.redeem;
-				string walletType = r.wallet_type;
-				string walletId = r.wallet_id;
-
-				var trackedSource = derivationStrategy is not null
-					? new DerivationSchemeTrackedSource(derivationStrategy)
-					: walletType == "Wallet"
-						? walletId is null ? (TrackedSource)null : new WalletTrackedSource(walletId)
-						: new AddressTrackedSource(addr);
+				string walletMetadata = r.wallet_metadata;
+				string wid = r.wallet_id;
+				if (wid is null || walletMetadata is null)
+					continue;
+				var walletKey = new WalletKey(wid, walletMetadata);
+				var trackedSource = TryGetTrackedSource(walletKey);
+				if (trackedSource is null)
+					continue;
 				var ki = Network.IsElement && r.blindingKey is not null
 					? new LiquidKeyPathInformation()
 					{
@@ -766,7 +773,7 @@ namespace NBXplorer.Backends.Postgres
 					}
 					foreach (var m in matches.Values)
 					{
-						m.KnownKeyPathMappingUpdated();
+						m.OwnedScriptsUpdated();
 						if (elementContext is not null)
 							await elementContext.Unblind(rpc, m);
 					}
@@ -834,9 +841,9 @@ namespace NBXplorer.Backends.Postgres
 			var tip = await connection.GetTip();
 			var txIdCond = txId is null ? string.Empty : " AND tx_id=@tx_id";
 			var utxos = await
-				connection.Connection.QueryAsync<(string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, long value, string asset_id, bool immature, string keypath, DateTime seen_at)>(
-				"SELECT tx_id, idx, blk_id, blk_height, blk_idx, is_out, spent_tx_id, spent_idx, script, value, asset_id, immature, keypath, seen_at " +
-				"FROM nbxv1_tracked_txs " +
+				connection.Connection.QueryAsync<(string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, DateTime seen_at)>(
+				"SELECT tx_id, idx, blk_id, blk_height, blk_idx, is_out, spent_tx_id, spent_idx, script, s.addr, value, asset_id, immature, keypath, seen_at " +
+				"FROM nbxv1_tracked_txs LEFT JOIN scripts s USING (code, script) " +
 				$"WHERE code=@code AND wallet_id=@walletId{txIdCond}", new { code = Network.CryptoCode, walletId = GetWalletKey(trackedSource).wid, tx_id = txId?.ToString() });
 			utxos.TryGetNonEnumeratedCount(out int c);
 			var trackedById = new Dictionary<string, TrackedTransaction>(c);
@@ -847,6 +854,7 @@ namespace NBXplorer.Backends.Postgres
 				{
 					var txout = Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
 					txout.ScriptPubKey = Script.FromHex(utxo.script);
+					tracked.KnownAddresses.TryAdd(txout.ScriptPubKey, BitcoinAddress.Create(utxo.addr, this.Network.NBitcoinNetwork));
 					txout.Value = Money.Satoshis(utxo.value);
 					var coin = new Coin(new OutPoint(tracked.Key.TxId, (uint)utxo.idx), txout);
 					if (Network.IsElement)
@@ -857,11 +865,13 @@ namespace NBXplorer.Backends.Postgres
 					{
 						tracked.ReceivedCoins.Add(coin);
 					}
+
 					// TODO: IsCoinBase is actually not used anywhere.
 					tracked.IsCoinBase = utxo.immature;
 					tracked.Immature = utxo.immature;
 					if (utxo.keypath is string)
 						tracked.KnownKeyPathMapping.TryAdd(txout.ScriptPubKey, KeyPath.Parse(utxo.keypath));
+					tracked.OwnedScripts.Add(txout.ScriptPubKey);
 				}
 				else
 				{
@@ -889,7 +899,7 @@ namespace NBXplorer.Backends.Postgres
 
 			return trackedById.Values.Select(c =>
 			{
-				c.KnownKeyPathMappingUpdated();
+				c.OwnedScriptsUpdated();
 				return c;
 			}).ToArray();
 		}
@@ -1241,7 +1251,7 @@ namespace NBXplorer.Backends.Postgres
 		public async Task Track(IDestination address)
 		{
 			await using var conn = await GetConnection();
-			var walletKey = GetWalletKey(address);
+			var walletKey = GetWalletKey(address, Network);
 			await conn.Connection.ExecuteAsync(
 				WalletInsertQuery +
 				"INSERT INTO scripts VALUES (@code, @script, @addr) ON CONFLICT DO NOTHING;" +
@@ -1331,12 +1341,11 @@ namespace NBXplorer.Backends.Postgres
 
 		public async Task EnsureWalletCreated(DerivationStrategyBase strategy)
 		{
-			await EnsureWalletCreated(GetWalletKey(strategy));
+			await EnsureWalletCreated(GetWalletKey(strategy, Network));
 		}
 
-		public async Task EnsureWalletCreated(TrackedSource trackedSource, params TrackedSource[] parentTrackedSource)
+		public async Task EnsureWalletCreated(TrackedSource trackedSource)
 		{
-			parentTrackedSource = parentTrackedSource.Where(source => source is not null).ToArray();
 			await EnsureWalletCreated(GetWalletKey(trackedSource));
 		}
 
@@ -1347,7 +1356,7 @@ namespace NBXplorer.Backends.Postgres
 			await connection.ExecuteAsync(WalletInsertQuery, walletKey);
 		}
 
-		private readonly string WalletInsertQuery = "INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING;";
+		internal static readonly string WalletInsertQuery = "INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING;";
 	}
 
 	public class LegacyDescriptorMetadata
