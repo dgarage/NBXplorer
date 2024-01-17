@@ -27,8 +27,8 @@
 		  <NoWarn>$(NoWarn);1591;1573;1572;1584;1570;3021</NoWarn>
         </PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="7.0.33" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.22" />
+		<PackageReference Include="NBitcoin" Version="7.0.34" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.23" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>
   <ItemGroup>
