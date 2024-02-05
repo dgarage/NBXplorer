@@ -576,14 +576,14 @@ namespace NBXplorer.Backends.Postgres
 			}
 
 
-			public Task StartAsync(CancellationToken cancellationToken)
+			public async Task StartAsync(CancellationToken cancellationToken)
 			{
 				if (cancellationToken.IsCancellationRequested)
-					return Task.CompletedTask;
+					return;
+				await Task.Yield(); // So it doesn't crash the calling Task.WhenAll
 				cts = new CancellationTokenSource();
 				_indexerLoop = IndexerLoop();
 				_watchdogLoop = WatchdogLoop();
-				return Task.CompletedTask;
 			}
 
 			public async Task StopAsync(CancellationToken cancellationToken)
