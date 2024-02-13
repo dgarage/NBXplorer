@@ -20,6 +20,9 @@ namespace NBXplorer.Tests
 		public async Task CanCRUDGroups()
 		{
 			using var tester = ServerTester.Create(Backend.Postgres);
+			var guid = Guid.NewGuid().ToString();
+			var g222 = await tester.Client.CreateGroupAsync(new CreateGroupRequest() { GroupId = guid });
+			Assert.Equal(g222.GroupId, guid);
 			var g1 = await tester.Client.CreateGroupAsync();
 			void AssertG1Empty()
 			{

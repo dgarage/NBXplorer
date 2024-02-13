@@ -1285,7 +1285,12 @@ Create a new empty group.
 
 `HTTP POST v1/groups`
 
-No body required
+Optional request body:
+```json
+{
+  "groupId": "yourGroupId"
+}
+```
 
 Response
 
