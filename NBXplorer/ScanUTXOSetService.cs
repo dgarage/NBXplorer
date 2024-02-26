@@ -240,7 +240,7 @@ namespace NBXplorer
 
 		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, IRepository repo, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
 		{
-			var blockHeaders = await client.GetBlockHeadersAsync(outputs.Select(o => o.Height).Distinct().ToList());
+			var blockHeaders = await client.GetBlockHeadersAsync(outputs.Select(o => o.Height).Distinct().ToList(), _Cts.Token);
 
 			var data = outputs
 				.GroupBy(o => o.Coin.Outpoint.Hash)

@@ -588,7 +588,7 @@ namespace NBXplorer.HostedServices
 				{
 					cancellationToken.ThrowIfCancellationRequested();
 					var rpc = RpcClients.Get(network);
-					var update = await getBlocks.GetUpdateBlocks(batch);
+					var update = await getBlocks.GetUpdateBlocks(batch, cancellationToken);
 					await conn.ExecuteAsync("INSERT INTO blks VALUES (@code, @blk_id, @height, @prev_id, 't')", update);
 				}
 
@@ -596,7 +596,7 @@ namespace NBXplorer.HostedServices
 				// differences may happen if loading from slim-chain when the node crashed.
 				if (indexProgress?.Blocks is not null)
 				{
-					var confirmedBlocks = await getBlocks.GetUpdateBlocks(indexProgress.Blocks);
+					var confirmedBlocks = await getBlocks.GetUpdateBlocks(indexProgress.Blocks, cancellationToken);
 					var locator = new BlockLocator();
 					foreach (var b in confirmedBlocks)
 					{
@@ -945,7 +945,7 @@ namespace NBXplorer.HostedServices
 
 		interface IGetBlockHeaders
 		{
-			Task<IList<UpdateBlock>> GetUpdateBlocks(IList<uint256> blockHashes);
+			Task<IList<UpdateBlock>> GetUpdateBlocks(IList<uint256> blockHashes, CancellationToken cancellationToken);
 		}
 		class SlimChainGetBlockHeaders : IGetBlockHeaders
 		{
@@ -958,7 +958,7 @@ namespace NBXplorer.HostedServices
 			public NBXplorerNetwork Network { get; }
 			public SlimChain SlimChain { get; }
 
-			public Task<IList<UpdateBlock>> GetUpdateBlocks(IList<uint256> blockHashes)
+			public Task<IList<UpdateBlock>> GetUpdateBlocks(IList<uint256> blockHashes, CancellationToken cancellationToken)
 			{
 				List<UpdateBlock> update = new List<UpdateBlock>(blockHashes.Count);
 				foreach (var hash in blockHashes)
@@ -981,16 +981,16 @@ namespace NBXplorer.HostedServices
 
 			public RPCClient Rpc { get; }
 
-			public async Task<IList<UpdateBlock>> GetUpdateBlocks(IList<uint256> blockHashes)
+			public async Task<IList<UpdateBlock>> GetUpdateBlocks(IList<uint256> blockHashes, CancellationToken cancellationToken)
 			{
 				var rpc = Rpc.PrepareBatch();
 				List<Task<RPCBlockHeader>> gettingHeaders = new List<Task<RPCBlockHeader>>(blockHashes.Count);
 				foreach (var blk in blockHashes)
 				{
-					var b = rpc.GetBlockHeaderAsyncEx(blk);
+					var b = rpc.GetBlockHeaderAsyncEx(blk, cancellationToken);
 					gettingHeaders.Add(b);
 				}
-				await rpc.SendBatchAsync();
+				await rpc.SendBatchAsync(cancellationToken);
 
 				List<UpdateBlock> update = new List<UpdateBlock>(blockHashes.Count);
 				foreach (var gh in gettingHeaders)

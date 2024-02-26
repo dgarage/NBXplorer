@@ -145,7 +145,7 @@ namespace NBXplorer.Backends.Postgres
 								if (lastIndexedBlock is null || block.Header.HashPrevBlock == lastIndexedBlock.Hash)
 								{
 									SlimChainedBlock slimChainedBlock = lastIndexedBlock is null ?
-										(await RPCClient.GetBlockHeaderAsyncEx(block.Header.GetHash()))?.ToSlimChainedBlock() :
+										(await RPCClient.GetBlockHeaderAsyncEx(block.Header.GetHash(), token))?.ToSlimChainedBlock() :
 										new SlimChainedBlock(block.Header.GetHash(), lastIndexedBlock.Hash, lastIndexedBlock.Height + 1);
 									await SaveMatches(conn, block, slimChainedBlock);
 								}
@@ -164,12 +164,12 @@ namespace NBXplorer.Backends.Postgres
 										var rpcBatch = RPCClient.PrepareBatch();
 										for (int i = 0; i < unorderedBlocks.Count; i++)
 										{
-											slimChainedBlocks[i] = rpcBatch.GetBlockHeaderAsyncEx(unorderedBlocks[i].GetHash());
+											slimChainedBlocks[i] = rpcBatch.GetBlockHeaderAsyncEx(unorderedBlocks[i].GetHash(), token);
 										}
 										await rpcBatch.SendBatchAsync();
 										// If there is a fork, we should index the unordered blocks
 										bool unconfedBlocks = false;
-										bool fork = await RPCClient.GetBlockHeaderAsyncEx(lastIndexedBlock.Hash) == null;
+										bool fork = await RPCClient.GetBlockHeaderAsyncEx(lastIndexedBlock.Hash, token) == null;
 										foreach (var b in Enumerable.Zip(unorderedBlocks, slimChainedBlocks)
 														.Where(b => fork || b.Second.Result.Height > lastIndexedBlock.Height)
 														.OrderBy(b => b.Second.Result.Height)
@@ -190,7 +190,7 @@ namespace NBXplorer.Backends.Postgres
 							await SaveProgress(conn);
 							await UpdateState();
 						}
-						await AskNextHeaders();
+						await AskNextHeaders(token);
 					}
 					if (item is NodeDisconnected)
 					{
@@ -340,7 +340,7 @@ namespace NBXplorer.Backends.Postgres
 						if (await RPCClient.WarmupBlockchain(Logger))
 							BlockchainInfo = await RPCClient.GetBlockchainInfoAsyncEx();
 					}
-					_NodeTip = (await RPCClient.GetBlockHeaderAsyncEx(BlockchainInfo.BestBlockHash))?.ToSlimChainedBlock();
+					_NodeTip = (await RPCClient.GetBlockHeaderAsyncEx(BlockchainInfo.BestBlockHash, token))?.ToSlimChainedBlock();
 					State = BitcoinDWaiterState.NBXplorerSynching;
 					// Refresh the NetworkInfo that may have become different while it was synching.
 					NetworkInfo = await RPCClient.GetNetworkInfoAsync();
@@ -352,11 +352,11 @@ namespace NBXplorer.Backends.Postgres
 					node.MessageReceived += Node_MessageReceived;
 					node.Disconnected += Node_Disconnected;
 
-					var locator = await AskNextHeaders();
+					var locator = await AskNextHeaders(token);
 					lastIndexedBlock = await Repository.GetLastIndexedSlimChainedBlock(locator);
 					if (lastIndexedBlock is null)
 					{
-						var locatorTip = await RPCClient.GetBlockHeaderAsyncEx(locator.Blocks[0]);
+						var locatorTip = await RPCClient.GetBlockHeaderAsyncEx(locator.Blocks[0], token);
 						lastIndexedBlock = locatorTip?.ToSlimChainedBlock();
 					}
 					await UpdateState();
@@ -365,12 +365,12 @@ namespace NBXplorer.Backends.Postgres
 
 
 			bool firstConnect = true;
-			private async Task<BlockLocator> AskNextHeaders()
+			private async Task<BlockLocator> AskNextHeaders(CancellationToken token)
 			{
 				var indexProgress = await Repository.GetIndexProgress();
 				if (indexProgress is null)
 				{
-					indexProgress = await GetDefaultCurrentLocation();
+					indexProgress = await GetDefaultCurrentLocation(token);
 				}
 				await _Node.SendMessageAsync(new GetHeadersPayload(indexProgress));
 				return indexProgress;
@@ -408,23 +408,23 @@ namespace NBXplorer.Backends.Postgres
 				}
 			}
 
-			private async Task<BlockLocator> GetDefaultCurrentLocation()
+			private async Task<BlockLocator> GetDefaultCurrentLocation(CancellationToken token)
 			{
 				if (ChainConfiguration.StartHeight > BlockchainInfo.Headers)
 					throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight should not be above the current tip");
 				BlockLocator blockLocator = null;
 				if (ChainConfiguration.StartHeight == -1)
 				{
-					var bestBlock = await RPCClient.GetBestBlockHashAsync();
-					var bh = await RPCClient.GetBlockHeaderAsyncEx(bestBlock);
+					var bestBlock = await RPCClient.GetBestBlockHashAsync(token);
+					var bh = await RPCClient.GetBlockHeaderAsyncEx(bestBlock, token);
 					blockLocator = new BlockLocator();
 					blockLocator.Blocks.Add(bh.Previous ?? bh.Hash);
 					Logger.LogInformation($"Current Index Progress not found, start syncing from the header's chain tip (At height: {BlockchainInfo.Headers})");
 				}
 				else
 				{
-					var header = await RPCClient.GetBlockHeaderAsync(ChainConfiguration.StartHeight);
-					var header2 = await RPCClient.GetBlockHeaderAsyncEx(header.GetHash());
+					var header = await RPCClient.GetBlockHeaderAsync(ChainConfiguration.StartHeight, token);
+					var header2 = await RPCClient.GetBlockHeaderAsyncEx(header.GetHash(), token);
 					blockLocator = new BlockLocator();
 					blockLocator.Blocks.Add(header2.Previous ?? header2.Hash);
 					Logger.LogInformation($"Current Index Progress not found, start syncing at height {ChainConfiguration.StartHeight}");

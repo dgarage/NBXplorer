@@ -465,7 +465,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId,
 			bool includeTransaction = true,
-			string cryptoCode = null)
+			string cryptoCode = null, CancellationToken cancellationToken = default)
 		{
 			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
@@ -475,7 +475,7 @@ namespace NBXplorer.Controllers
 				var rpc = GetAvailableRPC(network);
 				if (rpc is not null &&
 					HasTxIndex(cryptoCode) &&
-					await rpc.TryGetRawTransaction(txId) is SavedTransaction savedTransaction)
+					await rpc.TryGetRawTransaction(txId, cancellationToken) is SavedTransaction savedTransaction)
 				{
 					result = new[] { savedTransaction };
 				}
@@ -652,7 +652,7 @@ namespace NBXplorer.Controllers
 		[HttpPost]
 		[Route($"{CommonRoutes.BaseCryptoEndpoint}/rescan")]
 		[TrackedSourceContext.TrackedSourceContextRequirement(false, false, true)]
-		public async Task<IActionResult> Rescan(TrackedSourceContext trackedSourceContext, [FromBody] JObject body)
+		public async Task<IActionResult> Rescan(TrackedSourceContext trackedSourceContext, [FromBody] JObject body, CancellationToken cancellationToken = default)
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
@@ -689,10 +689,10 @@ namespace NBXplorer.Controllers
 			{
 				if (tx.BlockId != null && !blocks.ContainsKey(tx.BlockId))
 				{
-					blocks.Add(tx.BlockId, rpc.GetBlockHeaderAsyncEx(tx.BlockId));
+					blocks.Add(tx.BlockId, rpc.GetBlockHeaderAsyncEx(tx.BlockId, cancellationToken));
 				}
 			}
-			await batch.SendBatchAsync();
+			await batch.SendBatchAsync(cancellationToken);
 			await repo.SaveBlocks(blocks.Select(b => b.Value.Result.ToSlimChainedBlock()).ToList());
 			foreach (var txs in transactions.GroupBy(t => t.BlockId, t => (t.Transaction, t.BlockTime))
 											.OrderBy(t => t.First().BlockTime))

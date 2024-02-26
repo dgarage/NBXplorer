@@ -205,7 +205,7 @@ namespace NBXplorer
 						}
 						else
 						{
-							var header = await rpc.GetBlockHeaderAsyncEx(savedTx.BlockHash);
+							var header = await rpc.GetBlockHeaderAsyncEx(savedTx.BlockHash, _Cts.Token);
 							if (header is null)
 							{
 								cleaned.Add(savedTx);
