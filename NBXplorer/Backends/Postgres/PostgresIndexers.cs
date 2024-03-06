@@ -383,10 +383,6 @@ namespace NBXplorer.Backends.Postgres
 				{
 					indexProgress = await GetDefaultCurrentLocation(token);
 				}
-				foreach (var block in indexProgress.Blocks)
-				{
-					Logger.LogInformation($"Asking for block {block}");
-				}
 				await node.SendMessageAsync(new GetHeadersPayload(indexProgress));
 				return indexProgress;
 			}
