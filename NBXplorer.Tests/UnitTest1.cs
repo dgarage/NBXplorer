@@ -4501,5 +4501,35 @@ namespace NBXplorer.Tests
 				await tester.Client.RPCClient.GetTxOutAsync(uint256.One, 0);
 			}
 		}
+
+
+		[Fact]
+		public async Task DoNotHangDuringReorg()
+		{
+			using var tester = ServerTester.Create(Backend.Postgres);
+			var wallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest());
+			var addr = await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
+			var txId = tester.SendToAddress(addr.Address, Money.Coins(1.0m));
+			tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txId);
+			var blocks = await tester.RPC.GenerateAsync(4);
+			for (int i = 0; i < blocks.Length; i++)
+			{
+				Logs.Tester.LogInformation($"Chain1: [{i}]: {blocks[i]}");
+			}
+			tester.Notifications.WaitForBlocks(blocks[^1]);
+			Logs.Tester.LogInformation("Invalidate the first block which confirmed the transaction " + blocks[0]);
+			tester.RPC.InvalidateBlock(blocks[0]);
+			var blocks2 = await tester.RPC.GenerateAsync(3);
+			for (int i = 0; i < blocks2.Length; i++)
+			{
+				Logs.Tester.LogInformation($"Chain2: [{i}]: {blocks2[i]}");
+			}
+			tester.Notifications.WaitForBlocks(blocks2[^1]);
+			Logs.Tester.LogInformation("Reconsider the block " + blocks[0]);
+			tester.RPC.SendCommand("reconsiderblock", blocks[0]);
+
+			Logs.Tester.LogInformation($"Waiting for the first chain to be processed again");
+			tester.Notifications.WaitForBlocks(blocks[^1]);
+		}
 	}
 }
