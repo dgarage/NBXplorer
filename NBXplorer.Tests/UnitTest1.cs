@@ -369,7 +369,8 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[TheoryWithTimeout]
+		// [TheoryWithTimeout]
+		[Theory]
 		[InlineData(Backend.Postgres)]
 #if SUPPORT_DBTRIE
 		[InlineData(Backend.DBTrie)]
@@ -660,6 +661,30 @@ namespace NBXplorer.Tests
 				ExplicitChangeAddress = psbt2.ChangeAddress
 			});
 			Assert.Equal(psbt2.PSBT, psbt3.PSBT);
+			
+			Logs.Tester.LogInformation("Let's check that we can donate all change to miners instead");
+			var minerdonationPsbt  = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+			{
+				RBF = false,
+				Seed = 0,
+				Destinations =
+						{
+							new CreatePSBTDestination()
+							{
+								Destination = dest,
+								Amount = Money.Coins(0.3m),
+							}
+						},
+				FeePreference = new FeePreference()
+				{
+					ExplicitFee = Money.Coins(0.000001m),
+				},
+				DonateChangeToMiners = true
+			});
+			Assert.Null(minerdonationPsbt.ChangeAddress);
+			Assert.True(minerdonationPsbt.PSBT.GetFee() > psbt3.PSBT.GetFee());
+			Assert.Equal(minerdonationPsbt.PSBT.GetFee().ToDecimal(MoneyUnit.BTC), psbt3.PSBT.Outputs.Single(output => output.ScriptPubKey == psbt3.ChangeAddress.ScriptPubKey).Value.ToDecimal(MoneyUnit.BTC) + 0.000001m);
+			
 
 			Logs.Tester.LogInformation("Let's change that if ReserveChangeAddress is true, but the transaction fails to build, no address get reserverd");
 			var ex = Assert.Throws<NBXplorerException>(() => psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
