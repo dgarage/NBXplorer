@@ -1,7 +1,7 @@
 ﻿using Dapper;
 using NBitcoin;
 using NBXplorer.Backends;
-using NBXplorer.Backends.Postgres;
+
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,7 +12,7 @@ namespace NBXplorer.HostedServices
 	{
 		public CheckMempoolTransactionsPeriodicTask(
 			DbConnectionFactory dbConnectionFactory,
-			IIndexers indexers,
+			Indexers indexers,
 			Broadcaster broadcaster)
 		{
 			DbConnectionFactory = dbConnectionFactory;
@@ -21,7 +21,7 @@ namespace NBXplorer.HostedServices
 		}
 
 		public DbConnectionFactory DbConnectionFactory { get; }
-		public IIndexers Indexers { get; }
+		public Indexers Indexers { get; }
 		public Broadcaster Broadcaster { get; }
 
 		public async Task Do(CancellationToken cancellationToken)

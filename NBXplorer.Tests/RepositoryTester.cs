@@ -2,7 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using NBitcoin;
 using NBXplorer.Backends;
-using NBXplorer.Backends.Postgres;
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -17,7 +17,7 @@ namespace NBXplorer.Tests
 		}
 
 		string _Name;
-		private IRepositoryProvider _Provider;
+		private RepositoryProvider _Provider;
 
 		RepositoryTester(string name, bool caching)
 		{
@@ -45,11 +45,11 @@ namespace NBXplorer.Tests
 			ConfigurationBuilder builder = new ConfigurationBuilder();
 			builder.AddInMemoryCollection(new[] { new KeyValuePair<string, string>("POSTGRES", ServerTester.GetTestPostgres(null, name)) });
 			services.AddSingleton<IConfiguration>(builder.Build());
-			services.AddSingleton<IRepositoryProvider, PostgresRepositoryProvider>();
+			services.AddSingleton<RepositoryProvider, RepositoryProvider>();
 			services.AddSingleton<HostedServices.DatabaseSetupHostedService>();
 
 			var provider = services.BuildServiceProvider();
-			_Provider = provider.GetService<IRepositoryProvider>();
+			_Provider = provider.GetService<RepositoryProvider>();
 			provider.GetRequiredService<HostedServices.DatabaseSetupHostedService>().StartAsync(default).GetAwaiter().GetResult();
 			_Provider.StartAsync(default).GetAwaiter().GetResult();
 			_Repository = _Provider.GetRepository(new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode("BTC"));
@@ -61,8 +61,8 @@ namespace NBXplorer.Tests
 			ServerTester.DeleteFolderRecursive(_Name);
 		}
 
-		private IRepository _Repository;
-		public IRepository Repository
+		private Repository _Repository;
+		public Repository Repository
 		{
 			get
 			{

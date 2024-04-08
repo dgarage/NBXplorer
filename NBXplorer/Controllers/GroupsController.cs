@@ -1,26 +1,17 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using NBitcoin;
-using NBXplorer.DerivationStrategy;
-using NBXplorer.ModelBinders;
 using NBXplorer.Models;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using NBitcoin.RPC;
-using NBXplorer.Analytics;
 using NBXplorer.Backends;
-using NBXplorer.Backends.Postgres;
 using Dapper;
 using Microsoft.AspNetCore.Http;
-using static NBXplorer.Backends.Postgres.PostgresRepository;
 using Microsoft.AspNetCore.Authorization;
-using RabbitMQ.Client;
 using Npgsql;
-using NBitcoin.Crypto;
-using static NBitcoin.Scripting.OutputDescriptor;
-using NBitcoin.Protocol;
+using static NBXplorer.Backends.Repository;
 
 namespace NBXplorer.Controllers
 {
@@ -44,7 +35,7 @@ namespace NBXplorer.Controllers
 		{
 			var group = GroupTrackedSource.Generate();
 			await using var conn = await ConnectionFactory.CreateConnection();
-			await conn.ExecuteAsync(PostgresRepository.WalletInsertQuery, PostgresRepository.GetWalletKey(group));
+			await conn.ExecuteAsync(Repository.WalletInsertQuery, Repository.GetWalletKey(group));
 			return base.Ok(ToGroupInfo(group));
 		}
 
@@ -52,7 +43,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> GetGroup(string groupId)
 		{
 			var group = new GroupTrackedSource(groupId);
-			var w = PostgresRepository.GetWalletKey(new GroupTrackedSource(groupId));
+			var w = Repository.GetWalletKey(new GroupTrackedSource(groupId));
 			await using var conn = await ConnectionFactory.CreateConnection();
 			var children = (await conn.QueryAsync<WalletKey>(
 				"SELECT wc.wallet_id wid, wc.metadata FROM wallets w " +
@@ -86,7 +77,7 @@ namespace NBXplorer.Controllers
 				if (net is null)
 					return null;
 			}
-			var trackedSource = PostgresRepository.TryGetTrackedSource(walletKey, net);
+			var trackedSource = Repository.TryGetTrackedSource(walletKey, net);
 			return new GroupChild() { CryptoCode = net?.CryptoCode, TrackedSource = trackedSource.ToString() };
 		}
 
@@ -94,7 +85,7 @@ namespace NBXplorer.Controllers
 		[HttpDelete($"{CommonRoutes.GroupEndpoint}/children")]
 		public async Task<IActionResult> AddDeleteGroupChildren(string groupId, [FromBody] GroupChild[] children)
 		{
-			var w = PostgresRepository.GetWalletKey(new GroupTrackedSource(groupId));
+			var w = Repository.GetWalletKey(new GroupTrackedSource(groupId));
 			await using (var conn = await ConnectionFactory.CreateConnection())
 			{
 				var rows = children
@@ -140,12 +131,12 @@ namespace NBXplorer.Controllers
 			}
 			await using (var conn = await ConnectionFactory.CreateConnection())
 			{
-				await conn.ExecuteAsync(PostgresRepository.InsertScriptsScript +
+				await conn.ExecuteAsync(Repository.InsertScriptsScript +
 					"INSERT INTO wallets_scripts (code, script, wallet_id) SELECT @code code, script, @wid FROM unnest(@records) ON CONFLICT DO NOTHING;",
 					new
 					{
 						code = trackedSourceContext.Network.CryptoCode,
-						wid = PostgresRepository.GetWalletKey(group).wid,
+						wid = Repository.GetWalletKey(group).wid,
 						records = rows
 					});
 			}
@@ -161,7 +152,7 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-group-child", "ADDRESS: and DERIVATIONSCHEME: tracked sources must also include a cryptoCode parameter"));
 			if (!TrackedSource.TryParse(c.TrackedSource, out var ts, net))
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-group-child", "Invalid tracked source format"));
-			return PostgresRepository.GetWalletKey(ts, net)?.wid;
+			return Repository.GetWalletKey(ts, net)?.wid;
 		}
 
 		private static GroupInformation ToGroupInfo(GroupTrackedSource group)

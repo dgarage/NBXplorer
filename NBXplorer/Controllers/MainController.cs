@@ -25,7 +25,7 @@ using NBXplorer.Analytics;
 using NBXplorer.Backends;
 using NBitcoin.Scripting;
 using System.Globalization;
-using NBXplorer.Backends.Postgres;
+
 using Dapper;
 
 namespace NBXplorer.Controllers
@@ -36,14 +36,14 @@ namespace NBXplorer.Controllers
 	{
 		public NBXplorerNetworkProvider NetworkProvider { get; }
 		public IRPCClients RPCClients { get; }
-		public IRepositoryProvider RepositoryProvider { get; }
-		public IIndexers Indexers { get; }
+		public RepositoryProvider RepositoryProvider { get; }
+		public Indexers Indexers { get; }
 		public CommonRoutesController CommonRoutesController { get; }
 
 		JsonSerializerSettings _SerializerSettings;
 		public MainController(
 			ExplorerConfiguration explorerConfiguration,
-			IRepositoryProvider repositoryProvider,
+			RepositoryProvider repositoryProvider,
 			EventAggregator eventAggregator,
 			IRPCClients rpcClients,
 			AddressPoolService addressPoolService,
@@ -53,7 +53,7 @@ namespace NBXplorer.Controllers
 			MvcNewtonsoftJsonOptions jsonOptions,
 			NBXplorerNetworkProvider networkProvider,
 			Analytics.FingerprintHostedService fingerprintService,
-			IIndexers indexers,
+			Indexers indexers,
 			CommonRoutesController commonRoutesController
 			)
 		{
@@ -857,7 +857,7 @@ namespace NBXplorer.Controllers
 			return Json(info, network.Serializer.Settings);
 		}
 
-		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(IRepository repo, TrackedSource trackedSource, bool includeTransaction, uint256 txId = null)
+		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, TrackedSource trackedSource, bool includeTransaction, uint256 txId = null)
 		{
 			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, this.HttpContext?.RequestAborted ?? default);
 

@@ -22,7 +22,7 @@ using NBXplorer.Authentication;
 using NBXplorer.MessageBrokers;
 using NBXplorer.HostedServices;
 using NBXplorer.Controllers;
-using NBXplorer.Backends.Postgres;
+
 using NBXplorer.Backends;
 using NBitcoin.Altcoins.Elements;
 using Npgsql;
@@ -193,12 +193,12 @@ namespace NBXplorer
 			if (configuration.IsPostgres())
 			{
 				services.AddHostedService<HostedServices.DatabaseSetupHostedService>();
-				services.AddSingleton<IHostedService, IRepositoryProvider>(o => o.GetRequiredService<IRepositoryProvider>());
-				services.TryAddSingleton<IRepositoryProvider, PostgresRepositoryProvider>();
+				services.AddSingleton<IHostedService, RepositoryProvider>(o => o.GetRequiredService<RepositoryProvider>());
+				services.TryAddSingleton<RepositoryProvider, RepositoryProvider>();
 				services.AddSingleton<DbConnectionFactory>();
-				services.TryAddSingleton<PostgresIndexers>();
-				services.TryAddSingleton<IIndexers>(o => o.GetRequiredService<PostgresIndexers>());
-				services.AddSingleton<IHostedService, PostgresIndexers>(o => o.GetRequiredService<PostgresIndexers>());
+				services.TryAddSingleton<Indexers>();
+				services.TryAddSingleton<Indexers>(o => o.GetRequiredService<Indexers>());
+				services.AddSingleton<IHostedService, Indexers>(o => o.GetRequiredService<Indexers>());
 
 				services.AddSingleton<CheckMempoolTransactionsPeriodicTask>();
 				services.AddSingleton<RefreshWalletHistoryPeriodicTask>();

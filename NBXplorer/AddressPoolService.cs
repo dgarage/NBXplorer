@@ -23,12 +23,12 @@ namespace NBXplorer
 		}
 		class AddressPool
 		{
-			IRepository _Repository;
+			Repository _Repository;
 			Task _Task;
 			CancellationTokenSource _Cts;
 			internal Channel<RefillPoolRequest> _Channel = Channel.CreateUnbounded<RefillPoolRequest>();
 
-			public AddressPool(IRepository repository)
+			public AddressPool(Repository repository)
 			{
 				_Repository = repository;
 			}
@@ -68,7 +68,7 @@ namespace NBXplorer
 			}
 		}
 
-		public AddressPoolService(NBXplorerNetworkProvider networks, IRepositoryProvider repositoryProvider, KeyPathTemplates keyPathTemplates)
+		public AddressPoolService(NBXplorerNetworkProvider networks, RepositoryProvider repositoryProvider, KeyPathTemplates keyPathTemplates)
 		{
 			this.networks = networks;
 			this.repositoryProvider = repositoryProvider;
@@ -76,7 +76,7 @@ namespace NBXplorer
 		}
 		Dictionary<NBXplorerNetwork, AddressPool> _AddressPoolByNetwork;
 		private readonly NBXplorerNetworkProvider networks;
-		private readonly IRepositoryProvider repositoryProvider;
+		private readonly RepositoryProvider repositoryProvider;
 		private readonly KeyPathTemplates keyPathTemplates;
 
 		public async Task StartAsync(CancellationToken cancellationToken)

@@ -1,14 +1,9 @@
 ﻿using Dapper;
-using Microsoft.AspNetCore.Mvc.ViewFeatures.Infrastructure;
 using NBitcoin;
-using NBXplorer.Backends.Postgres;
-using NBXplorer.Controllers;
+using NBXplorer.Backends;
 using NBXplorer.Models;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -88,7 +83,7 @@ namespace NBXplorer.Tests
 			return (await conn.QueryAsync<string>("SELECT s.addr FROM wallets_scripts JOIN scripts s USING (code, script) WHERE code=@code AND wallet_id=@wid", new
 			{
 				code = code,
-				wid = PostgresRepository.GetWalletKey(new GroupTrackedSource(groupId)).wid
+				wid = Repository.GetWalletKey(new GroupTrackedSource(groupId)).wid
 			})).ToArray();
 		}
 

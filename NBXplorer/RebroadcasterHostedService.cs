@@ -85,14 +85,14 @@ namespace NBXplorer
 			}
 		}
 
-		IRepositoryProvider _Repositories;
-		private IIndexers _Indexers;
+		RepositoryProvider _Repositories;
+		private Indexers _Indexers;
 		Dictionary<NBXplorerNetwork, RebroadcastedTransactions> _BroadcastedTransactionsByCryptoCode;
 		public RebroadcasterHostedService(
 			NBXplorerNetworkProvider networkProvider,
 			ExplorerConfiguration configuration, 
 			Broadcaster broadcaster,
-			IRepositoryProvider repositories, IIndexers indexers, EventAggregator eventAggregator)
+			RepositoryProvider repositories, Indexers indexers, EventAggregator eventAggregator)
 		{
 			Broadcaster = broadcaster;
 			_Repositories = repositories;

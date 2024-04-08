@@ -445,7 +445,7 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		private static async Task UpdateHDKeyPathsWitnessAndRedeem(UpdatePSBTRequest update, IRepository repo)
+		private static async Task UpdateHDKeyPathsWitnessAndRedeem(UpdatePSBTRequest update, Repository repo)
 		{
 			var strategy = update.DerivationScheme;
 			var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
@@ -511,7 +511,7 @@ namespace NBXplorer.Controllers
 												!((input.GetSignableCoin() ?? input.GetCoin())?.IsMalleable is false));
 		}
 
-		private async Task UpdateUTXO(UpdatePSBTRequest update, IRepository repo, RPCClient rpc)
+		private async Task UpdateUTXO(UpdatePSBTRequest update, Repository repo, RPCClient rpc)
 		{
 			if (rpc is not null)
 			{

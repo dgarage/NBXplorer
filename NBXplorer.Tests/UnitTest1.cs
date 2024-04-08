@@ -22,7 +22,7 @@ using System.IO;
 using Dapper;
 using NBXplorer.Configuration;
 using NBXplorer.Backends;
-using NBXplorer.Backends.Postgres;
+
 using NBitcoin.Tests;
 using System.Globalization;
 using System.Net;
@@ -267,27 +267,11 @@ namespace NBXplorer.Tests
 			Assert.Null(keyInfo);
 		}
 
-		private static void MarkAsUsed(IRepository repository, DerivationStrategyBase strat, KeyPath keyPath)
+		private static void MarkAsUsed(Repository repository, DerivationStrategyBase strat, KeyPath keyPath)
 		{
-			if (repository is PostgresRepository l)
-			{
-				var script = strat.GetDerivation(keyPath).ScriptPubKey.ToHex();
-				using var conn = l.ConnectionFactory.CreateConnection().GetAwaiter().GetResult();
-				conn.Execute("UPDATE descriptors_scripts SET used='t' WHERE code=@code AND script=@script", new { code = repository.Network.CryptoCode, script });
-			}
-			else
-			{
-				var tx = repository.Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
-				repository.SaveMatches(new[] {
-				new TrackedTransaction(
-					new TrackedTransactionKey(tx.GetHash(), null, false),
-					new DerivationSchemeTrackedSource(strat),
-					tx,
-					new Dictionary<Script, KeyPath>()
-					{
-						{ strat.GetDerivation(keyPath).ScriptPubKey, keyPath }
-					})}).GetAwaiter().GetResult();
-			}
+			var script = strat.GetDerivation(keyPath).ScriptPubKey.ToHex();
+			using var conn = repository.ConnectionFactory.CreateConnection().GetAwaiter().GetResult();
+			conn.Execute("UPDATE descriptors_scripts SET used='t' WHERE code=@code AND script=@script", new { code = repository.Network.CryptoCode, script });
 		}
 
 		[FactWithTimeout]
@@ -2154,7 +2138,7 @@ namespace NBXplorer.Tests
 				tester.Client.Track(bobPubKey);
 				var id = tester.SendToAddress(tester.AddressOf(bob, "0/1"), Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(bobPubKey, id);
-				var repo = tester.GetService<IRepositoryProvider>().GetRepository(tester.Network.NetworkSet.CryptoCode);
+				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Network.NetworkSet.CryptoCode);
 				var transactions = await repo.GetTransactions(new DerivationSchemeTrackedSource(bobPubKey), id);
 				var tx = Assert.Single(transactions);
 				var timestamp = tx.FirstSeen;
@@ -3693,7 +3677,7 @@ namespace NBXplorer.Tests
 
 				// Let's try to invalidate the blocks we indexed
 				tester.Client.Wipe(pubkey);
-				using var conn = await tester.GetService<Backends.Postgres.DbConnectionFactory>().CreateConnection();
+				using var conn = await tester.GetService<Backends.DbConnectionFactory>().CreateConnection();
 				await conn.ExecuteAsync("UPDATE blks SET confirmed='f';DELETE FROM blks;DELETE FROM txs;");
 
 				// We should find the tx again
@@ -4040,7 +4024,7 @@ namespace NBXplorer.Tests
 				Assert.Equal(masterKey.GetWif(tester.Network), wallet.MasterHDKey);
 				Assert.Equal(masterKey.Derive(wallet.AccountKeyPath).Neuter().GetWif(tester.Network).ToString() + "-[p2sh]",
 					wallet.DerivationScheme.ToString());
-				var repo = tester.GetService<IRepositoryProvider>().GetRepository(tester.Client.Network);
+				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Client.Network);
 				Assert.Equal(wallet.DerivationScheme.GetExtPubKeys().Single().PubKey, wallet.AccountHDKey.GetPublicKey());
 				Logs.Tester.LogInformation("Let's assert it is tracked");
 				var firstKeyInfo = repo.GetKeyInformation(wallet.DerivationScheme.GetChild(new KeyPath("0/0")).GetDerivation().ScriptPubKey);

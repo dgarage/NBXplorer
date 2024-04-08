@@ -19,8 +19,8 @@ public class TrackedSourceContext
 	public TrackedSource TrackedSource { get; set; }
 	public NBXplorerNetwork Network { get; set; }
 	public RPCClient RpcClient { get; set; }
-	public IIndexer Indexer { get; set; }
-	public IRepository Repository { get; set; }
+	public Indexer Indexer { get; set; }
+	public Repository Repository { get; set; }
 
 	public class TrackedSourceContextRequirementAttribute : Attribute
 	{
@@ -55,8 +55,8 @@ public class TrackedSourceContext
 			var trackedSourceValue = bindingContext.ValueProvider.GetValue("trackedSource").FirstValue;
 
 			var networkProvider = bindingContext.HttpContext.RequestServices.GetService<NBXplorerNetworkProvider>();
-			var indexers = bindingContext.HttpContext.RequestServices.GetService<IIndexers>();
-			var repositoryProvider = bindingContext.HttpContext.RequestServices.GetService<IRepositoryProvider>();
+			var indexers = bindingContext.HttpContext.RequestServices.GetService<Indexers>();
+			var repositoryProvider = bindingContext.HttpContext.RequestServices.GetService<RepositoryProvider>();
 
 			var network = networkProvider.GetFromCryptoCode(cryptoCode);
 

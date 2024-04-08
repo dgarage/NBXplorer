@@ -9,127 +9,27 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Data.Common;
-using NBXplorer.Logging;
-using Microsoft.Extensions.Logging;
 using NBitcoin.RPC;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using NBitcoin.Altcoins.Elements;
 using NBXplorer.Altcoins.Liquid;
 using NBXplorer.Client;
 using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
-using static NBXplorer.Backends.Postgres.DbConnectionHelper;
-using RabbitMQ.Client;
 using Npgsql;
-using System.Net.Http.Headers;
+using static NBXplorer.Backends.DbConnectionHelper;
 
-namespace NBXplorer.Backends.Postgres
+
+namespace NBXplorer.Backends
 {
-	public class PostgresRepositoryProvider : IRepositoryProvider
-	{
-		Dictionary<string, PostgresRepository> _Repositories = new Dictionary<string, PostgresRepository>();
-		ExplorerConfiguration _Configuration;
-
-		public Task StartCompletion => Task.CompletedTask;
-
-		public NBXplorerNetworkProvider Networks { get; }
-		public DbConnectionFactory ConnectionFactory { get; }
-		public KeyPathTemplates KeyPathTemplates { get; }
-
-		public PostgresRepositoryProvider(NBXplorerNetworkProvider networks,
-			ExplorerConfiguration configuration,
-			DbConnectionFactory connectionFactory,
-			KeyPathTemplates keyPathTemplates)
-		{
-			Networks = networks;
-			_Configuration = configuration;
-			ConnectionFactory = connectionFactory;
-			KeyPathTemplates = keyPathTemplates;
-		}
-
-		public IRepository GetRepository(string cryptoCode)
-		{
-			_Repositories.TryGetValue(cryptoCode.ToUpperInvariant(), out PostgresRepository repository);
-			return repository;
-		}
-		public IRepository GetRepository(NBXplorerNetwork network)
-		{
-			return GetRepository(network.CryptoCode);
-		}
-
-		public async Task StartAsync(CancellationToken cancellationToken)
-		{
-			foreach (var net in Networks.GetAll())
-			{
-				var settings = GetChainSetting(net);
-				if (settings != null)
-				{
-					var repo = new PostgresRepository(ConnectionFactory, net, KeyPathTemplates, settings.RPC, _Configuration);
-					repo.MaxPoolSize = _Configuration.MaxGapSize;
-					repo.MinPoolSize = _Configuration.MinGapSize;
-					repo.MinUtxoValue = settings.MinUtxoValue;
-					_Repositories.Add(net.CryptoCode, repo);
-				}
-			}
-			foreach (var repo in _Repositories.Select(kv => kv.Value))
-			{
-				if (GetChainSetting(repo.Network) is ChainConfiguration chainConf &&
-				chainConf.Rescan &&
-				(chainConf.RescanIfTimeBefore is null || chainConf.RescanIfTimeBefore.Value >= DateTimeOffset.UtcNow))
-				{
-					Logs.Configuration.LogInformation($"{repo.Network.CryptoCode}: Rescanning the chain...");
-					await repo.SetIndexProgress(null);
-				}
-			}
-			if (_Configuration.TrimEvents > 0)
-			{
-				Logs.Explorer.LogInformation("Trimming the event table if needed...");
-				int trimmed = 0;
-				foreach (var repo in _Repositories.Select(kv => kv.Value))
-				{
-					if (GetChainSetting(repo.Network) is ChainConfiguration chainConf)
-					{
-						trimmed += await repo.TrimmingEvents(_Configuration.TrimEvents, cancellationToken);
-					}
-				}
-				if (trimmed != 0)
-					Logs.Explorer.LogInformation($"Trimmed {trimmed} events in total...");
-			}
-		}
-
-		public async Task<string> GetMigrationId()
-		{
-			await using var conn = await ConnectionFactory.CreateConnection();
-			var v = await conn.ExecuteScalarAsync<string>("SELECT data_json FROM nbxv1_settings WHERE code='' AND key='MigrationId'");
-			return v is null ? null : v[1..^1];
-		}
-		public async Task SetMigrationId(uint256 newId)
-		{
-			await using var conn = await ConnectionFactory.CreateConnection();
-			await conn.ExecuteScalarAsync<string>(
-				"INSERT INTO nbxv1_settings AS ns (code, key, data_json) VALUES ('', 'MigrationId', @data::JSONB) " +
-				"RETURNING data_json", new { data = $"\"{newId}\"" });
-		}
-
-		private ChainConfiguration GetChainSetting(NBXplorerNetwork net)
-		{
-			return _Configuration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode == net.CryptoCode);
-		}
-
-		public Task StopAsync(CancellationToken cancellationToken)
-		{
-			return Task.CompletedTask;
-		}
-	}
-	public class PostgresRepository : IRepository
+	public class Repository
 	{
 		private DbConnectionFactory connectionFactory;
 		private readonly RPCClient rpc;
 
 		public DbConnectionFactory ConnectionFactory => connectionFactory;
-		public PostgresRepository(DbConnectionFactory connectionFactory, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc, ExplorerConfiguration conf)
+		public Repository(DbConnectionFactory connectionFactory, NBXplorerNetwork network, KeyPathTemplates keyPathTemplates, RPCClient rpc, ExplorerConfiguration conf)
 		{
 			this.connectionFactory = connectionFactory;
 			Network = network;
@@ -875,7 +775,7 @@ namespace NBXplorer.Backends.Postgres
 				}
 				else
 				{
-					tracked.SpentOutpoints.Add(new OutPoint(uint256.Parse(utxo.spent_tx_id), (uint)utxo.spent_idx), (int) utxo.idx);
+					tracked.SpentOutpoints.Add(new OutPoint(uint256.Parse(utxo.spent_tx_id), (uint)utxo.spent_idx), (int)utxo.idx);
 				}
 			}
 
@@ -994,7 +894,7 @@ namespace NBXplorer.Backends.Postgres
 								ki.KeyPath,
 								derivation,
 								addr);
-				}				
+				}
 
 				var wid = GetWalletKey(ki.TrackedSource).wid;
 				if (descriptorKey is not null)
@@ -1346,18 +1246,5 @@ namespace NBXplorer.Backends.Postgres
 		}
 
 		internal static readonly string WalletInsertQuery = "INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING;";
-	}
-
-	public class LegacyDescriptorMetadata
-	{
-		public const string TypeName = "NBXv1-Derivation";
-		[JsonProperty]
-		public string Type { get; set; }
-		[JsonProperty]
-		public DerivationStrategyBase Derivation { get; set; }
-		[JsonProperty]
-		public KeyPathTemplate KeyPathTemplate { get; set; }
-		[JsonConverter(typeof(StringEnumConverter))]
-		public DerivationFeature Feature { get; set; }
 	}
 }

@@ -16,18 +16,18 @@ namespace NBXplorer.Analytics
 		const int BlockWindow = 5;
 		class NetworkFingerprintData
 		{
-			internal IIndexer indexer;
+			internal Indexer indexer;
 			internal FingerprintDistribution Distribution;
 			internal FingerprintDistribution DefaultDistribution;
 			internal Queue<FingerprintDistribution> BlockDistributions = new Queue<FingerprintDistribution>();
 		}
 
 		private readonly EventAggregator eventAggregator;
-		private readonly IIndexers indexers;
+		private readonly Indexers indexers;
 		private readonly Dictionary<NBXplorerNetwork, NetworkFingerprintData> data = new Dictionary<NBXplorerNetwork, NetworkFingerprintData>();
 		IDisposable subscription;
 		public FingerprintHostedService(EventAggregator eventAggregator,
-										IIndexers indexers)
+										Indexers indexers)
 		{
 			this.eventAggregator = eventAggregator;
 			this.indexers = indexers;

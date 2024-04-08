@@ -1,9 +1,8 @@
 ﻿using Dapper;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using NBXplorer.Backends.Postgres;
+using NBXplorer.Backends;
 using Npgsql;
-using RabbitMQ.Client;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;

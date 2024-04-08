@@ -1,14 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NBitcoin;
-using NBXplorer.Backends.Postgres;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
-using RabbitMQ.Client;
 using System.Threading.Tasks;
 using System;
 using System.Linq;
 using Dapper;
+using NBXplorer.Backends;
 
 namespace NBXplorer.Controllers
 {
@@ -28,7 +27,7 @@ namespace NBXplorer.Controllers
 		{
 			var trackedSource = trackedSourceContext.TrackedSource;
 			var network = trackedSourceContext.Network;
-			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			var repo = trackedSourceContext.Repository;
 			await using var conn = await ConnectionFactory.CreateConnection();
 			var b = await conn.QueryAsync("SELECT * FROM wallets_balances WHERE code=@code AND wallet_id=@walletId", new { code = network.CryptoCode, walletId = repo.GetWalletKey(trackedSource).wid });
 			MoneyBag
@@ -90,7 +89,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
 		{
 			var trackedSource = trackedSourceContext.TrackedSource;
-			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			var repo = trackedSourceContext.Repository;
 			var network = trackedSourceContext.Network;
 			await using var conn = await ConnectionFactory.CreateConnection();
 			var height = await conn.ExecuteScalarAsync<long>("SELECT height FROM get_tip(@code)", new { code = network.CryptoCode });

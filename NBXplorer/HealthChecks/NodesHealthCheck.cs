@@ -10,14 +10,14 @@ namespace NBXplorer.HealthChecks
 	{
 		public NodesHealthCheck(
 			NBXplorerNetworkProvider networkProvider,
-			IIndexers indexers)
+			Indexers indexers)
 		{
 			NetworkProvider = networkProvider;
 			Indexers = indexers;
 		}
 
 		public NBXplorerNetworkProvider NetworkProvider { get; }
-		public IIndexers Indexers { get; }
+		public Indexers Indexers { get; }
 
 		public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
 		{
