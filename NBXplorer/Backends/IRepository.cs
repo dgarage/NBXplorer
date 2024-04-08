@@ -36,10 +36,6 @@ namespace NBXplorer.Backends
 		Task<SavedTransaction[]> GetSavedTransactions(uint256 txid);
 		Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, bool needTx = true, CancellationToken cancellation = default);
 		Task<KeyPathInformation> GetUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, bool reserve);
-#if SUPPORT_DBTRIE
-		ValueTask<bool> MigrateOutPoints(string directory, CancellationToken cancellationToken = default);
-		ValueTask<int> MigrateSavedTransactions(CancellationToken cancellationToken = default);
-#endif
 		Task Ping();
 		Task<long> SaveEvent(NewEventBase evt);
 		Task SaveKeyInformations(KeyPathInformation[] keyPathInformations);

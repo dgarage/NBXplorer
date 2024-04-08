@@ -22,9 +22,6 @@ using NBXplorer.Authentication;
 using NBXplorer.MessageBrokers;
 using NBXplorer.HostedServices;
 using NBXplorer.Controllers;
-#if SUPPORT_DBTRIE
-using NBXplorer.Backends.DBTrie;
-#endif
 using NBXplorer.Backends.Postgres;
 using NBXplorer.Backends;
 using NBitcoin.Altcoins.Elements;
@@ -199,14 +196,6 @@ namespace NBXplorer
 				services.AddSingleton<IHostedService, IRepositoryProvider>(o => o.GetRequiredService<IRepositoryProvider>());
 				services.TryAddSingleton<IRepositoryProvider, PostgresRepositoryProvider>();
 				services.AddSingleton<DbConnectionFactory>();
-#if SUPPORT_DBTRIE
-				if (configuration.GetOrDefault("AUTOMIGRATE", false))
-				{
-					services.AddHostedService<HostedServices.DBTrieToPostgresMigratorHostedService>();
-					services.TryAddSingleton<ChainProvider>();
-					services.TryAddSingleton<RepositoryProvider>();
-				}
-#endif
 				services.TryAddTransient<IUTXOService, PostgresMainController>();
 				services.TryAddSingleton<PostgresIndexers>();
 				services.TryAddSingleton<IIndexers>(o => o.GetRequiredService<PostgresIndexers>());
@@ -218,19 +207,6 @@ namespace NBXplorer
 				services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(CheckMempoolTransactionsPeriodicTask), TimeSpan.FromMinutes(5.0)));
 				services.AddHostedService<PeriodicTaskLauncherHostedService>();
 			}
-#if SUPPORT_DBTRIE
-			else
-			{
-				services.TryAddTransient<IUTXOService, MainController>();
-				services.TryAddSingleton<ChainProvider>();
-				services.AddSingleton<IHostedService, IRepositoryProvider>(o => o.GetRequiredService<IRepositoryProvider>());
-				services.TryAddSingleton<IRepositoryProvider, RepositoryProvider>();
-				services.TryAddSingleton<BitcoinDWaiters>();
-				services.TryAddSingleton<IIndexers>(o => o.GetRequiredService<BitcoinDWaiters>());
-				services.AddSingleton<IHostedService, BitcoinDWaiters>(o => o.GetRequiredService<BitcoinDWaiters>());
-				services.AddSingleton<IHostedService, RebroadcasterHostedService>(o => o.GetRequiredService<RebroadcasterHostedService>());
-			}
-#endif
 
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<AddressPoolService>();

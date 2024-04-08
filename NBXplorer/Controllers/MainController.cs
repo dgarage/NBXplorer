@@ -238,7 +238,6 @@ namespace NBXplorer.Controllers
 			var status = new StatusResult()
 			{
 				NetworkType = network.NBitcoinNetwork.ChainName,
-				Backend = ExplorerConfiguration.IsPostgres ? "Postgres" : "DBTrie",
 				CryptoCode = network.CryptoCode,
 				Version = typeof(MainController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version,
 				SupportedCryptoCodes = Indexers.All().Select(w => w.Network.CryptoCode).ToArray(),
@@ -822,94 +821,7 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
 			return Json(info, network.Serializer.Settings);
 		}
-#if SUPPORT_DBTRIE
-		[HttpGet]
-		[Route($"{CommonRoutes.DerivationEndpoint}/balance")]
-		[Route($"{CommonRoutes.AddressEndpoint}/balance")]
-		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: [typeof(DerivationSchemeTrackedSource),typeof(AddressTrackedSource)])]
-		[PostgresImplementationActionConstraint(false)]
-		public async Task<IActionResult> GetBalance(TrackedSourceContext trackedSourceContext)
-		{
-			var getTransactionsResult = await GetTransactions(trackedSourceContext, includeTransaction: false);
-			var jsonResult = getTransactionsResult as JsonResult;
-			var transactions = jsonResult?.Value as GetTransactionsResponse;
-			if (transactions == null)
-				return getTransactionsResult;
 
-			var balance = new GetBalanceResponse()
-			{
-				Confirmed = CalculateBalance(trackedSourceContext.Network, transactions.ConfirmedTransactions),
-				Unconfirmed = CalculateBalance(trackedSourceContext.Network, transactions.UnconfirmedTransactions),
-				Immature = CalculateBalance(trackedSourceContext.Network, transactions.ImmatureTransactions)
-			};
-			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
-			balance.Available = balance.Total.Sub(balance.Immature);
-			return Json(balance, jsonResult.SerializerSettings);
-		}
-
-		private IMoney CalculateBalance(NBXplorerNetwork network, TransactionInformationSet transactions)
-		{
-			if (network.NBitcoinNetwork.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
-			{
-				return new MoneyBag(transactions.Transactions.Select(t => t.BalanceChange).ToArray());
-			}
-			else
-			{
-				return transactions.Transactions.Select(t => t.BalanceChange).OfType<Money>().Sum();
-			}
-		}
-
-		[HttpGet]
-		[Route($"{CommonRoutes.DerivationEndpoint}/utxos")]
-		[Route($"{CommonRoutes.AddressEndpoint}/utxos")]
-		[PostgresImplementationActionConstraint(false)]
-		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: [typeof(DerivationSchemeTrackedSource),typeof(AddressTrackedSource)])]
-		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
-		{
-			var repo = RepositoryProvider.GetRepository(trackedSourceContext.Network);
-
-			UTXOChanges changes = new UTXOChanges();
-			changes.CurrentHeight = (await repo.GetTip()).Height;
-			var transactions = await GetAnnotatedTransactions(repo, trackedSourceContext.TrackedSource, false);
-
-			changes.Confirmed = ToUTXOChange(transactions.ConfirmedState);
-			changes.Confirmed.SpentOutpoints.Clear();
-			changes.Unconfirmed = ToUTXOChange(transactions.UnconfirmedState - transactions.ConfirmedState);
-
-			FillUTXOsInformation(changes.Confirmed.UTXOs, transactions, changes.CurrentHeight);
-			FillUTXOsInformation(changes.Unconfirmed.UTXOs, transactions, changes.CurrentHeight);
-
-			changes.TrackedSource = trackedSourceContext.TrackedSource;
-			changes.DerivationStrategy = (trackedSourceContext.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-
-			return Json(changes, repo.Serializer.Settings);
-		}
-
-		private UTXOChange ToUTXOChange(UTXOState state)
-		{
-			UTXOChange change = new UTXOChange();
-			change.SpentOutpoints.AddRange(state.SpentUTXOs);
-			change.UTXOs.AddRange(state.UTXOByOutpoint.Select(u => new UTXO(u.Value)));
-			return change;
-		}
-
-		int MaxHeight = int.MaxValue;
-
-		private void FillUTXOsInformation(List<UTXO> utxos, AnnotatedTransactionCollection transactions, int currentHeight)
-		{
-			for (int i = 0; i < utxos.Count; i++)
-			{
-				var utxo = utxos[i];
-				utxo.KeyPath = transactions.GetKeyPath(utxo.ScriptPubKey);
-				if (utxo.KeyPath != null)
-					utxo.Feature = keyPathTemplates.GetDerivationFeature(utxo.KeyPath);
-				var txHeight = transactions.GetByTxId(utxo.Outpoint.Hash).Height is long h ? h : MaxHeight;
-				var isUnconf = txHeight == MaxHeight;
-				utxo.Confirmations = isUnconf ? 0 : currentHeight - txHeight + 1;
-				utxo.Timestamp = transactions.GetByTxId(utxo.Outpoint.Hash).Record.FirstSeen;
-			}
-		}
-#endif
 		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(IRepository repo, TrackedSource trackedSource, bool includeTransaction, uint256 txId = null)
 		{
 			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, this.HttpContext?.RequestAborted ?? default);
@@ -1249,11 +1161,9 @@ namespace NBXplorer.Controllers
 			return new PruneResponse() { TotalPruned = prunableIds.Count };
 		}
 
-#if !SUPPORT_DBTRIE
-		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
+		public Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
 		{
-			throw new NotSupportedException("This should never be called");
+			throw new NotImplementedException();
 		}
-#endif
 	}
 }

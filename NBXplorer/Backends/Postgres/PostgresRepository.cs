@@ -1057,17 +1057,6 @@ namespace NBXplorer.Backends.Postgres
 				}
 			}
 		}
-#if SUPPORT_DBTRIE
-		public ValueTask<bool> MigrateOutPoints(string directory, CancellationToken cancellationToken = default)
-		{
-			return default;
-		}
-
-		public ValueTask<int> MigrateSavedTransactions(CancellationToken cancellationToken = default)
-		{
-			return default;
-		}
-#endif
 		public Task Ping()
 		{
 			return Task.CompletedTask;
