@@ -25,13 +25,21 @@ using NBXplorer.Analytics;
 using NBXplorer.Backends;
 using NBitcoin.Scripting;
 using System.Globalization;
+using NBXplorer.Backends.Postgres;
+using Dapper;
 
 namespace NBXplorer.Controllers
 {
 	[Route("v1")]
 	[Authorize]
-	public partial class MainController : ControllerBase, IUTXOService
+	public partial class MainController : Controller
 	{
+		public NBXplorerNetworkProvider NetworkProvider { get; }
+		public IRPCClients RPCClients { get; }
+		public IRepositoryProvider RepositoryProvider { get; }
+		public IIndexers Indexers { get; }
+		public CommonRoutesController CommonRoutesController { get; }
+
 		JsonSerializerSettings _SerializerSettings;
 		public MainController(
 			ExplorerConfiguration explorerConfiguration,
@@ -45,8 +53,9 @@ namespace NBXplorer.Controllers
 			MvcNewtonsoftJsonOptions jsonOptions,
 			NBXplorerNetworkProvider networkProvider,
 			Analytics.FingerprintHostedService fingerprintService,
-			IIndexers indexers
-			) : base(networkProvider, rpcClients, repositoryProvider, indexers)
+			IIndexers indexers,
+			CommonRoutesController commonRoutesController
+			)
 		{
 			ExplorerConfiguration = explorerConfiguration;
 			_SerializerSettings = jsonOptions.SerializerSettings;
@@ -56,6 +65,11 @@ namespace NBXplorer.Controllers
 			this.keyPathTemplates = keyPathTemplates;
 			this.fingerprintService = fingerprintService;
 			AddressPoolService = addressPoolService;
+			NetworkProvider = networkProvider;
+			RPCClients = rpcClients;
+			RepositoryProvider = repositoryProvider;
+			Indexers = indexers;
+			CommonRoutesController = commonRoutesController;
 		}
 		EventAggregator _EventAggregator;
 		private readonly KeyPathTemplates keyPathTemplates;
@@ -77,6 +91,27 @@ namespace NBXplorer.Controllers
 			"estimatesmartfee",
 			"getmempoolinfo"
 		};
+		internal NBXplorerNetwork GetNetwork(string cryptoCode, bool checkRPC)
+		{
+			if (cryptoCode == null)
+				throw new ArgumentNullException(nameof(cryptoCode));
+			cryptoCode = cryptoCode.ToUpperInvariant();
+			var network = NetworkProvider.GetFromCryptoCode(cryptoCode);
+			if (network == null || Indexers.GetIndexer(network) is null)
+				throw new NBXplorerException(new NBXplorerError(404, "cryptoCode-not-supported", $"{cryptoCode} is not supported"));
+
+			if (checkRPC)
+			{
+				var rpc = GetAvailableRPC(network);
+				if (rpc is null || rpc.Capabilities == null)
+					throw new NBXplorerError(400, "rpc-unavailable", $"The RPC interface is currently not available.").AsException();
+			}
+			return network;
+		}
+		protected RPCClient GetAvailableRPC(NBXplorerNetwork network)
+		{
+			return Indexers.GetIndexer(network)?.GetConnectedClient();
+		}
 		private Exception JsonRPCNotExposed()
 		{
 			return new NBXplorerError(401, "json-rpc-not-exposed", $"JSON-RPC is not configured to be exposed. Only the following methods are available: {string.Join(", ", WhitelistedRPCMethods)}").AsException();
@@ -1159,11 +1194,6 @@ namespace NBXplorer.Controllers
 				Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunableIds.Count} transactions");
 			}
 			return new PruneResponse() { TotalPruned = prunableIds.Count };
-		}
-
-		public Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
-		{
-			throw new NotImplementedException();
 		}
 	}
 }

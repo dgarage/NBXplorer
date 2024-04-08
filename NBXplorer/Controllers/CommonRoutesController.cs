@@ -1,42 +1,28 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
-using Dapper;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NBitcoin;
-using NBitcoin.Altcoins.HashX11;
-using NBitcoin.DataEncoders;
-using NBitcoin.RPC;
 using NBXplorer.Backends.Postgres;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using RabbitMQ.Client;
+using System.Threading.Tasks;
+using System;
+using System.Linq;
+using Dapper;
 
 namespace NBXplorer.Controllers
 {
-	[PostgresImplementationActionConstraint(true)]
 	[Route($"v1/{CommonRoutes.DerivationEndpoint}")]
 	[Route($"v1/{CommonRoutes.AddressEndpoint}")]
 	[Route($"v1/{CommonRoutes.BaseCryptoEndpoint}/{CommonRoutes.GroupEndpoint}")]
 	[Authorize]
-	public class PostgresMainController : Controller, IUTXOService
+	public class CommonRoutesController : Controller
 	{
-		public PostgresMainController(
-			DbConnectionFactory connectionFactory,
-			KeyPathTemplates keyPathTemplates)
+		public DbConnectionFactory ConnectionFactory { get; }
+		public CommonRoutesController(DbConnectionFactory connectionFactory)
 		{
 			ConnectionFactory = connectionFactory;
-			KeyPathTemplates = keyPathTemplates;
 		}
-
-		public DbConnectionFactory ConnectionFactory { get; }
-		public KeyPathTemplates KeyPathTemplates { get; }
-
 		[HttpGet("balance")]
 		public async Task<IActionResult> GetBalance(TrackedSourceContext trackedSourceContext)
 		{
@@ -83,7 +69,6 @@ namespace NBXplorer.Controllers
 			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
 			return Json(balance, network.JsonSerializerSettings);
 		}
-
 		private IMoney Format(NBXplorerNetwork network, MoneyBag bag)
 		{
 			if (network.IsElement)
@@ -95,13 +80,11 @@ namespace NBXplorer.Controllers
 				return m;
 			return RemoveZeros(bag);
 		}
-
 		private static MoneyBag RemoveZeros(MoneyBag bag)
 		{
 			// Super hack to know if we deal with zero
 			return new MoneyBag(bag.Where(a => !a.Negate().Equals(a)).ToArray());
 		}
-
 
 		[HttpGet("utxos")]
 		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)

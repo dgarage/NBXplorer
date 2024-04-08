@@ -22,9 +22,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> CreatePSBT(
 			TrackedSourceContext trackedSourceContext,
 			[FromBody]
-			JObject body,
-			[FromServices]
-			IUTXOService utxoService)
+			JObject body)
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
@@ -150,7 +148,7 @@ namespace NBXplorer.Controllers
 					txBuilder.SetLockTime(new LockTime(0));
 				}
 			}
-			var utxoChanges = (await utxoService.GetUTXOs(trackedSourceContext)).As<UTXOChanges>();
+			var utxoChanges = (await CommonRoutesController.GetUTXOs(trackedSourceContext)).As<UTXOChanges>();
 			var utxos = utxoChanges.GetUnspentUTXOs(request.MinConfirmations);
 			var availableCoinsByOutpoint = utxos.ToDictionary(o => o.Outpoint);
 			if (request.IncludeOnlyOutpoints != null)

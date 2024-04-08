@@ -196,7 +196,6 @@ namespace NBXplorer
 				services.AddSingleton<IHostedService, IRepositoryProvider>(o => o.GetRequiredService<IRepositoryProvider>());
 				services.TryAddSingleton<IRepositoryProvider, PostgresRepositoryProvider>();
 				services.AddSingleton<DbConnectionFactory>();
-				services.TryAddTransient<IUTXOService, PostgresMainController>();
 				services.TryAddSingleton<PostgresIndexers>();
 				services.TryAddSingleton<IIndexers>(o => o.GetRequiredService<PostgresIndexers>());
 				services.AddSingleton<IHostedService, PostgresIndexers>(o => o.GetRequiredService<PostgresIndexers>());
