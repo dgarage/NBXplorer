@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using NBitcoin.DataEncoders;
 using System.Threading;
 using Microsoft.Extensions.Logging;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using System.Text.RegularExpressions;
 using System.Net.Http;
 using System.Net;

@@ -7,8 +7,6 @@
 	  <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\NBXplorer.xml</DocumentationFile>
 	  <NoWarn>1701;1702;1705;1591;CS1591</NoWarn>
 	  <LangVersion>12</LangVersion>
-	<SupportDBTrie Condition="'$(SupportDBTrie)' == ''">true</SupportDBTrie>
-	<DefineConstants Condition="'$(SupportDBTrie)' == 'true'">$(DefineConstants);SUPPORT_DBTRIE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <None Remove="DBScripts\003.Legacy.sql" />
@@ -36,9 +34,6 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.28" />
-	<PackageReference Include="DBTrie" Version="1.0.39" Condition="'$(SupportDBTrie)' == 'true'">
-	  <Aliases>DBTrieLib</Aliases>
-	</PackageReference>
     <PackageReference Include="Microsoft.Azure.ServiceBus" Version="4.2.1" />
     <PackageReference Include="Npgsql" Version="8.0.2" />
     <PackageReference Include="RabbitMQ.Client" Version="5.1.2" />

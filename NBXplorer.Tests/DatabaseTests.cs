@@ -16,12 +16,10 @@ using Microsoft.Extensions.Configuration;
 using System.Runtime.CompilerServices;
 using System.IO;
 using System.Diagnostics;
-using NBXplorer.Backends.Postgres;
 using NBXplorer.Client;
-using static NBXplorer.Backends.Postgres.DbConnectionHelper;
-using RabbitMQ.Client.Framing.Impl;
 using System.Data;
-using System.Net;
+using static NBXplorer.Backend.DbConnectionHelper;
+using NBXplorer.Backend;
 
 namespace NBXplorer.Tests
 {

@@ -57,12 +57,7 @@ Read our [API Specification](./docs/API.md).
 * Bitcoin Core instance synched and running (at least 24.0).
 * PostgresSQL v13+
 
-There are two backend available:
-
-* DBTrie (with the `--dbtrie` flag)
-* [Postgres](./docs/Postgres-Schema.md) (with the `--postgres` flags)
-
-However, `DBTrie` is now deprecated. We will continue to support it to give more time for our users [to migrate](./docs/Postgres-Migration.md).
+Use `--postgres` flag to setup the connection string. See [schema documentation](./docs/Postgres-Schema.md).
 
 ## API Specification
 

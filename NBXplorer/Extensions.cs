@@ -22,11 +22,8 @@ using NBXplorer.Authentication;
 using NBXplorer.MessageBrokers;
 using NBXplorer.HostedServices;
 using NBXplorer.Controllers;
-#if SUPPORT_DBTRIE
-using NBXplorer.Backends.DBTrie;
-#endif
-using NBXplorer.Backends.Postgres;
-using NBXplorer.Backends;
+
+using NBXplorer.Backend;
 using NBitcoin.Altcoins.Elements;
 using Npgsql;
 using NBitcoin.Altcoins;
@@ -191,46 +188,19 @@ namespace NBXplorer
 			services.TryAddSingleton<CookieRepository>();
 			services.TryAddSingleton<Broadcaster>();
 
-			// MainController wants to resolve this, even if unused by postgres backend
-			services.TryAddSingleton<RebroadcasterHostedService>();
-			if (configuration.IsPostgres())
-			{
-				services.AddHostedService<HostedServices.DatabaseSetupHostedService>();
-				services.AddSingleton<IHostedService, IRepositoryProvider>(o => o.GetRequiredService<IRepositoryProvider>());
-				services.TryAddSingleton<IRepositoryProvider, PostgresRepositoryProvider>();
-				services.AddSingleton<DbConnectionFactory>();
-#if SUPPORT_DBTRIE
-				if (configuration.GetOrDefault("AUTOMIGRATE", false))
-				{
-					services.AddHostedService<HostedServices.DBTrieToPostgresMigratorHostedService>();
-					services.TryAddSingleton<ChainProvider>();
-					services.TryAddSingleton<RepositoryProvider>();
-				}
-#endif
-				services.TryAddTransient<IUTXOService, PostgresMainController>();
-				services.TryAddSingleton<PostgresIndexers>();
-				services.TryAddSingleton<IIndexers>(o => o.GetRequiredService<PostgresIndexers>());
-				services.AddSingleton<IHostedService, PostgresIndexers>(o => o.GetRequiredService<PostgresIndexers>());
+			services.AddHostedService<HostedServices.DatabaseSetupHostedService>();
+			services.AddSingleton<IHostedService, RepositoryProvider>(o => o.GetRequiredService<RepositoryProvider>());
+			services.TryAddSingleton<RepositoryProvider, RepositoryProvider>();
+			services.AddSingleton<DbConnectionFactory>();
+			services.TryAddSingleton<Indexers>();
+			services.TryAddSingleton<Indexers>(o => o.GetRequiredService<Indexers>());
+			services.AddSingleton<IHostedService, Indexers>(o => o.GetRequiredService<Indexers>());
 
-				services.AddSingleton<CheckMempoolTransactionsPeriodicTask>();
-				services.AddSingleton<RefreshWalletHistoryPeriodicTask>();
-				services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(RefreshWalletHistoryPeriodicTask), TimeSpan.FromMinutes(30.0)));
-				services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(CheckMempoolTransactionsPeriodicTask), TimeSpan.FromMinutes(5.0)));
-				services.AddHostedService<PeriodicTaskLauncherHostedService>();
-			}
-#if SUPPORT_DBTRIE
-			else
-			{
-				services.TryAddTransient<IUTXOService, MainController>();
-				services.TryAddSingleton<ChainProvider>();
-				services.AddSingleton<IHostedService, IRepositoryProvider>(o => o.GetRequiredService<IRepositoryProvider>());
-				services.TryAddSingleton<IRepositoryProvider, RepositoryProvider>();
-				services.TryAddSingleton<BitcoinDWaiters>();
-				services.TryAddSingleton<IIndexers>(o => o.GetRequiredService<BitcoinDWaiters>());
-				services.AddSingleton<IHostedService, BitcoinDWaiters>(o => o.GetRequiredService<BitcoinDWaiters>());
-				services.AddSingleton<IHostedService, RebroadcasterHostedService>(o => o.GetRequiredService<RebroadcasterHostedService>());
-			}
-#endif
+			services.AddSingleton<CheckMempoolTransactionsPeriodicTask>();
+			services.AddSingleton<RefreshWalletHistoryPeriodicTask>();
+			services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(RefreshWalletHistoryPeriodicTask), TimeSpan.FromMinutes(30.0)));
+			services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(CheckMempoolTransactionsPeriodicTask), TimeSpan.FromMinutes(5.0)));
+			services.AddHostedService<PeriodicTaskLauncherHostedService>();
 
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<AddressPoolService>();

@@ -3,7 +3,6 @@ using Dapper;
 using NBitcoin;
 using NBXplorer.DerivationStrategy;
 using Npgsql;
-using Npgsql.TypeMapping;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -11,7 +10,7 @@ using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace NBXplorer.Backends.Postgres
+namespace NBXplorer.Backend
 {
 	public class DbConnectionHelper : IDisposable, IAsyncDisposable
 	{
@@ -53,7 +52,7 @@ namespace NBXplorer.Backends.Postgres
 			dsBuilder.MapComposite<NewOutRaw>("new_out");
 			dsBuilder.MapComposite<NewInRaw>("new_in");
 			dsBuilder.MapComposite<OutpointRaw>("outpoint");
-			dsBuilder.MapComposite<PostgresRepository.DescriptorScriptInsert>("nbxv1_ds");
+			dsBuilder.MapComposite<Repository.DescriptorScriptInsert>("nbxv1_ds");
 		}
 
 		public Task<bool> FetchMatches(IEnumerable<Transaction> txs, SlimChainedBlock slimBlock, Money? minUtxoValue)

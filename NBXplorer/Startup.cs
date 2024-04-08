@@ -32,7 +32,7 @@ namespace NBXplorer
 			});
 			services.AddNBXplorer(Configuration);
 			services.ConfigureNBxplorer(Configuration);
-			var builder = services.AddMvcCore();
+			var builder = services.AddMvcCore().AddControllersAsServices();
 			services.AddHealthChecks().AddCheck<HealthChecks.NodesHealthCheck>("NodesHealthCheck");
 			builder.AddNewtonsoftJson(options =>
 			{
