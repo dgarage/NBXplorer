@@ -47,7 +47,6 @@ namespace NBXplorer.Controllers
 			EventAggregator eventAggregator,
 			IRPCClients rpcClients,
 			AddressPoolService addressPoolService,
-			RebroadcasterHostedService rebroadcaster,
 			MvcNewtonsoftJsonOptions jsonOptions,
 			NBXplorerNetworkProvider networkProvider,
 			Analytics.FingerprintHostedService fingerprintService,
@@ -58,7 +57,6 @@ namespace NBXplorer.Controllers
 			ExplorerConfiguration = explorerConfiguration;
 			_SerializerSettings = jsonOptions.SerializerSettings;
 			_EventAggregator = eventAggregator;
-			Rebroadcaster = rebroadcaster;
 			this.fingerprintService = fingerprintService;
 			AddressPoolService = addressPoolService;
 			NetworkProvider = networkProvider;
@@ -70,7 +68,6 @@ namespace NBXplorer.Controllers
 		EventAggregator _EventAggregator;
 		private readonly FingerprintHostedService fingerprintService;
 
-		public RebroadcasterHostedService Rebroadcaster { get; }
 		public AddressPoolService AddressPoolService
 		{
 			get;
@@ -304,18 +301,6 @@ namespace NBXplorer.Controllers
 									&& indexer.State == BitcoinDWaiterState.Ready
 									&& status.SyncHeight.HasValue
 									&& blockchainInfo.Headers - status.SyncHeight.Value < 3;
-			if (status.IsFullySynched)
-			{
-				var now = DateTimeOffset.UtcNow;
-				var repo = RepositoryProvider.GetRepository(network);
-				await repo.Ping();
-				var pingAfter = DateTimeOffset.UtcNow;
-				status.RepositoryPingTime = (pingAfter - now).TotalSeconds;
-				if (status.RepositoryPingTime > 30)
-				{
-					Logs.Explorer.LogWarning($"Repository ping exceeded 30 seconds ({(int)status.RepositoryPingTime}), please report the issue to NBXplorer developers");
-				}
-			}
 			return Json(status, network.Serializer.Settings);
 		}
 
@@ -745,11 +730,7 @@ namespace NBXplorer.Controllers
 				transactions = gettingParents.SelectMany(p => p.GetAwaiter().GetResult()).Concat(transactions).ToArray();
 			}
 
-			var annotatedTransactions = new AnnotatedTransactionCollection(transactions, trackedSource, repo.Network.NBitcoinNetwork);
-
-			Rebroadcaster.RebroadcastPeriodically(repo.Network, trackedSource, annotatedTransactions.UnconfirmedTransactions
-																				.Concat(annotatedTransactions.CleanupTransactions).Select(c => c.Record.Key).ToArray());
-			return annotatedTransactions;
+			return new AnnotatedTransactionCollection(transactions, trackedSource, repo.Network.NBitcoinNetwork);
 		}
 
 		[HttpPost]

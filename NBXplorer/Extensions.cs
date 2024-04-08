@@ -188,24 +188,19 @@ namespace NBXplorer
 			services.TryAddSingleton<CookieRepository>();
 			services.TryAddSingleton<Broadcaster>();
 
-			// MainController wants to resolve this, even if unused by postgres backend
-			services.TryAddSingleton<RebroadcasterHostedService>();
-			if (configuration.IsPostgres())
-			{
-				services.AddHostedService<HostedServices.DatabaseSetupHostedService>();
-				services.AddSingleton<IHostedService, RepositoryProvider>(o => o.GetRequiredService<RepositoryProvider>());
-				services.TryAddSingleton<RepositoryProvider, RepositoryProvider>();
-				services.AddSingleton<DbConnectionFactory>();
-				services.TryAddSingleton<Indexers>();
-				services.TryAddSingleton<Indexers>(o => o.GetRequiredService<Indexers>());
-				services.AddSingleton<IHostedService, Indexers>(o => o.GetRequiredService<Indexers>());
+			services.AddHostedService<HostedServices.DatabaseSetupHostedService>();
+			services.AddSingleton<IHostedService, RepositoryProvider>(o => o.GetRequiredService<RepositoryProvider>());
+			services.TryAddSingleton<RepositoryProvider, RepositoryProvider>();
+			services.AddSingleton<DbConnectionFactory>();
+			services.TryAddSingleton<Indexers>();
+			services.TryAddSingleton<Indexers>(o => o.GetRequiredService<Indexers>());
+			services.AddSingleton<IHostedService, Indexers>(o => o.GetRequiredService<Indexers>());
 
-				services.AddSingleton<CheckMempoolTransactionsPeriodicTask>();
-				services.AddSingleton<RefreshWalletHistoryPeriodicTask>();
-				services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(RefreshWalletHistoryPeriodicTask), TimeSpan.FromMinutes(30.0)));
-				services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(CheckMempoolTransactionsPeriodicTask), TimeSpan.FromMinutes(5.0)));
-				services.AddHostedService<PeriodicTaskLauncherHostedService>();
-			}
+			services.AddSingleton<CheckMempoolTransactionsPeriodicTask>();
+			services.AddSingleton<RefreshWalletHistoryPeriodicTask>();
+			services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(RefreshWalletHistoryPeriodicTask), TimeSpan.FromMinutes(30.0)));
+			services.AddTransient<ScheduledTask>(o => new ScheduledTask(typeof(CheckMempoolTransactionsPeriodicTask), TimeSpan.FromMinutes(5.0)));
+			services.AddHostedService<PeriodicTaskLauncherHostedService>();
 
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<AddressPoolService>();

@@ -85,11 +85,6 @@ namespace NBXplorer.Backend
 			return new TrackedTransaction(transactionKey, trackedSource, tx, knownScriptMapping);
 		}
 
-		public ValueTask<int> DefragmentTables(CancellationToken cancellationToken = default)
-		{
-			return default;
-		}
-
 		public record DescriptorKey(string code, string descriptor);
 		internal DescriptorKey GetDescriptorKey(DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
@@ -712,12 +707,6 @@ namespace NBXplorer.Backend
 			return GetMatches(new[] { tx }, slimBlock, now, useCache);
 		}
 
-		public async Task<Dictionary<OutPoint, TxOut>> GetOutPointToTxOut(IList<OutPoint> outPoints)
-		{
-			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
-			return await connection.GetOutputs(outPoints);
-		}
-
 		record SavedTransactionRow(byte[] raw, string blk_id, long? blk_height, string replaced_by, DateTime seen_at);
 		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
 		{
@@ -957,11 +946,7 @@ namespace NBXplorer.Backend
 				}
 			}
 		}
-		public Task Ping()
-		{
-			return Task.CompletedTask;
-		}
-		public async Task Prune(TrackedSource trackedSource, IEnumerable<TrackedTransaction> prunable)
+		public async Task Prune(IEnumerable<TrackedTransaction> prunable)
 		{
 			if (prunable.TryGetNonEnumeratedCount(out var c) && c == 0)
 				return;

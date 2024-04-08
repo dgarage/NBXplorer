@@ -5,8 +5,6 @@ services:
     build:
       context: ..
       dockerfile: NBXplorer.Tests/Dockerfile
-      args:
-        - SupportDBTrie=false
     environment:
           TESTS_POSTGRES: User ID=postgres;Include Error Detail=true;Host=postgres;Port=5432
     depends_on:

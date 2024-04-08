@@ -99,7 +99,7 @@ namespace NBXplorer.Controllers
 			var repo = trackedSourceContext.Repository;
 			var ts = trackedSourceContext.TrackedSource;
 			var txs = await repo.GetTransactions(trackedSourceContext.TrackedSource);
-			await repo.Prune(ts, txs);
+			await repo.Prune(txs);
 			return Ok();
 		}
 
@@ -193,9 +193,9 @@ namespace NBXplorer.Controllers
 
 			if (prunableIds.Count != 0)
 			{
-				await repo.Prune(trackedSource, prunableIds
-												.Select(id => transactions.GetByTxId(id).Record)
-												.ToList());
+				await repo.Prune(prunableIds
+								.Select(id => transactions.GetByTxId(id).Record)
+								.ToList());
 				Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunableIds.Count} transactions");
 			}
 			return new PruneResponse() { TotalPruned = prunableIds.Count };

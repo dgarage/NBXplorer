@@ -16,7 +16,6 @@ using static NBXplorer.Backend.Repository;
 namespace NBXplorer.Controllers
 {
 	[Route($"v1")]
-	[PostgresImplementationActionConstraint(true)]
 	[Authorize]
 	public class GroupsController : Controller
 	{
