@@ -8,6 +8,7 @@ using System;
 using System.Linq;
 using Dapper;
 using NBXplorer.Backend;
+using Newtonsoft.Json.Linq;
 
 namespace NBXplorer.Controllers
 {
@@ -165,6 +166,23 @@ namespace NBXplorer.Controllers
 					changes.SpentUnconfirmed.Add(u);
 			}
 			return Json(changes, network.JsonSerializerSettings);
+		}
+
+
+		[HttpPost("metadata/{key}")]
+		[HttpPost($"~/v1/{CommonRoutes.GroupEndpoint}/metadata/{{key}}")]
+		public async Task<IActionResult> SetMetadata(TrackedSourceContext trackedSourceContext, string key, [FromBody] JToken value = null)
+		{
+			await trackedSourceContext.Repository.SaveMetadata(trackedSourceContext.TrackedSource, key, value);
+			return Ok();
+		}
+
+		[HttpGet("metadata/{key}")]
+		[HttpGet($"~/v1/{CommonRoutes.GroupEndpoint}/metadata/{{key}}")]
+		public async Task<IActionResult> GetMetadata(TrackedSourceContext trackedSourceContext, string key)
+		{
+			var result = await trackedSourceContext.Repository.GetMetadata<JToken>(trackedSourceContext.TrackedSource, key);
+			return result == null ? NotFound() : Json(result, trackedSourceContext.Repository.Serializer.Settings);
 		}
 	}
 }
