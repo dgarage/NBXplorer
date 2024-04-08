@@ -1,5 +1,5 @@
 ﻿using Dapper;
-using NBXplorer.Backends.Postgres;
+using NBXplorer.Backend;
 using Npgsql;
 using System;
 using System.Threading;

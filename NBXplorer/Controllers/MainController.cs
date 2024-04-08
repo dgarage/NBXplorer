@@ -22,52 +22,58 @@ using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
 using NBXplorer.Analytics;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using NBitcoin.Scripting;
 using System.Globalization;
+
+using Dapper;
 
 namespace NBXplorer.Controllers
 {
 	[Route("v1")]
 	[Authorize]
-	public partial class MainController : ControllerBase, IUTXOService
+	public partial class MainController : Controller
 	{
+		public NBXplorerNetworkProvider NetworkProvider { get; }
+		public IRPCClients RPCClients { get; }
+		public RepositoryProvider RepositoryProvider { get; }
+		public Indexers Indexers { get; }
+		public CommonRoutesController CommonRoutesController { get; }
+
 		JsonSerializerSettings _SerializerSettings;
 		public MainController(
 			ExplorerConfiguration explorerConfiguration,
-			IRepositoryProvider repositoryProvider,
+			RepositoryProvider repositoryProvider,
 			EventAggregator eventAggregator,
 			IRPCClients rpcClients,
 			AddressPoolService addressPoolService,
-			ScanUTXOSetServiceAccessor scanUTXOSetService,
-			RebroadcasterHostedService rebroadcaster,
-			KeyPathTemplates keyPathTemplates,
 			MvcNewtonsoftJsonOptions jsonOptions,
 			NBXplorerNetworkProvider networkProvider,
 			Analytics.FingerprintHostedService fingerprintService,
-			IIndexers indexers
-			) : base(networkProvider, rpcClients, repositoryProvider, indexers)
+			Indexers indexers,
+			CommonRoutesController commonRoutesController
+			)
 		{
 			ExplorerConfiguration = explorerConfiguration;
 			_SerializerSettings = jsonOptions.SerializerSettings;
 			_EventAggregator = eventAggregator;
-			ScanUTXOSetService = scanUTXOSetService.Instance;
-			Rebroadcaster = rebroadcaster;
-			this.keyPathTemplates = keyPathTemplates;
 			this.fingerprintService = fingerprintService;
 			AddressPoolService = addressPoolService;
+			NetworkProvider = networkProvider;
+			RPCClients = rpcClients;
+			RepositoryProvider = repositoryProvider;
+			Indexers = indexers;
+			CommonRoutesController = commonRoutesController;
 		}
 		EventAggregator _EventAggregator;
-		private readonly KeyPathTemplates keyPathTemplates;
 		private readonly FingerprintHostedService fingerprintService;
 
-		public RebroadcasterHostedService Rebroadcaster { get; }
 		public AddressPoolService AddressPoolService
 		{
 			get;
 		}
 		public ExplorerConfiguration ExplorerConfiguration { get; }
-		public ScanUTXOSetService ScanUTXOSetService { get; }
+		
 
 		static HashSet<string> WhitelistedRPCMethods = new HashSet<string>()
 		{
@@ -77,6 +83,27 @@ namespace NBXplorer.Controllers
 			"estimatesmartfee",
 			"getmempoolinfo"
 		};
+		internal NBXplorerNetwork GetNetwork(string cryptoCode, bool checkRPC)
+		{
+			if (cryptoCode == null)
+				throw new ArgumentNullException(nameof(cryptoCode));
+			cryptoCode = cryptoCode.ToUpperInvariant();
+			var network = NetworkProvider.GetFromCryptoCode(cryptoCode);
+			if (network == null || Indexers.GetIndexer(network) is null)
+				throw new NBXplorerException(new NBXplorerError(404, "cryptoCode-not-supported", $"{cryptoCode} is not supported"));
+
+			if (checkRPC)
+			{
+				var rpc = GetAvailableRPC(network);
+				if (rpc is null || rpc.Capabilities == null)
+					throw new NBXplorerError(400, "rpc-unavailable", $"The RPC interface is currently not available.").AsException();
+			}
+			return network;
+		}
+		protected RPCClient GetAvailableRPC(NBXplorerNetwork network)
+		{
+			return Indexers.GetIndexer(network)?.GetConnectedClient();
+		}
 		private Exception JsonRPCNotExposed()
 		{
 			return new NBXplorerError(401, "json-rpc-not-exposed", $"JSON-RPC is not configured to be exposed. Only the following methods are available: {string.Join(", ", WhitelistedRPCMethods)}").AsException();
@@ -238,7 +265,6 @@ namespace NBXplorer.Controllers
 			var status = new StatusResult()
 			{
 				NetworkType = network.NBitcoinNetwork.ChainName,
-				Backend = ExplorerConfiguration.IsPostgres ? "Postgres" : "DBTrie",
 				CryptoCode = network.CryptoCode,
 				Version = typeof(MainController).GetTypeInfo().Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version,
 				SupportedCryptoCodes = Indexers.All().Select(w => w.Network.CryptoCode).ToArray(),
@@ -275,18 +301,6 @@ namespace NBXplorer.Controllers
 									&& indexer.State == BitcoinDWaiterState.Ready
 									&& status.SyncHeight.HasValue
 									&& blockchainInfo.Headers - status.SyncHeight.Value < 3;
-			if (status.IsFullySynched)
-			{
-				var now = DateTimeOffset.UtcNow;
-				var repo = RepositoryProvider.GetRepository(network);
-				await repo.Ping();
-				var pingAfter = DateTimeOffset.UtcNow;
-				status.RepositoryPingTime = (pingAfter - now).TotalSeconds;
-				if (status.RepositoryPingTime > 30)
-				{
-					Logs.Explorer.LogWarning($"Repository ping exceeded 30 seconds ({(int)status.RepositoryPingTime}), please report the issue to NBXplorer developers");
-				}
-			}
 			return Json(status, network.Serializer.Settings);
 		}
 
@@ -465,7 +479,7 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId,
 			bool includeTransaction = true,
-			string cryptoCode = null)
+			string cryptoCode = null, CancellationToken cancellationToken = default)
 		{
 			var network = GetNetwork(cryptoCode, false);
 			var repo = RepositoryProvider.GetRepository(network);
@@ -475,7 +489,7 @@ namespace NBXplorer.Controllers
 				var rpc = GetAvailableRPC(network);
 				if (rpc is not null &&
 					HasTxIndex(cryptoCode) &&
-					await rpc.TryGetRawTransaction(txId) is SavedTransaction savedTransaction)
+					await rpc.TryGetRawTransaction(txId, cancellationToken) is SavedTransaction savedTransaction)
 				{
 					result = new[] { savedTransaction };
 				}
@@ -499,59 +513,6 @@ namespace NBXplorer.Controllers
 		{
 			var chainConfig = this.ExplorerConfiguration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode.Equals(cryptoCode.Trim(), StringComparison.OrdinalIgnoreCase));
 			return chainConfig?.HasTxIndex is true;
-		}
-
-		[HttpPost]
-		[Route($"{CommonRoutes.DerivationEndpoint}")]
-		[Route($"{CommonRoutes.AddressEndpoint}")]
-		public async Task<IActionResult> TrackWallet(
-			TrackedSourceContext trackedSourceContext,
-			[FromBody] JObject rawRequest = null)
-		{
-			var network = trackedSourceContext.Network;
-			var trackedSource = trackedSourceContext.TrackedSource;
-			var request = network.ParseJObject<TrackWalletRequest>(rawRequest ?? new JObject());
-
-			if (trackedSource is DerivationSchemeTrackedSource dts)
-			{
-				if (request.Wait)
-				{
-					foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
-					{
-						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
-					}
-				}
-				else
-				{
-					foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
-					{
-						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, new GenerateAddressQuery(minAddresses: 3, null));
-					}
-					foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
-					{
-						_ = AddressPoolService.GenerateAddresses(network, dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
-					}
-				}
-			}
-			else if (trackedSource is IDestination ats)
-			{
-				await RepositoryProvider.GetRepository(network).Track(ats);
-			}
-			return Ok();
-		}
-
-		private GenerateAddressQuery GenerateAddressQuery(TrackWalletRequest request, DerivationFeature feature)
-		{
-			if (request?.DerivationOptions == null)
-				return null;
-			foreach (var derivationOption in request.DerivationOptions)
-			{
-				if ((derivationOption.Feature is DerivationFeature f && f == feature) || derivationOption.Feature is null)
-				{
-					return new GenerateAddressQuery(derivationOption.MinAddresses, derivationOption.MaxAddresses);
-				}
-			}
-			return null;
 		}
 
 		[HttpGet]
@@ -652,7 +613,7 @@ namespace NBXplorer.Controllers
 		[HttpPost]
 		[Route($"{CommonRoutes.BaseCryptoEndpoint}/rescan")]
 		[TrackedSourceContext.TrackedSourceContextRequirement(false, false, true)]
-		public async Task<IActionResult> Rescan(TrackedSourceContext trackedSourceContext, [FromBody] JObject body)
+		public async Task<IActionResult> Rescan(TrackedSourceContext trackedSourceContext, [FromBody] JObject body, CancellationToken cancellationToken = default)
 		{
 			if (body == null)
 				throw new ArgumentNullException(nameof(body));
@@ -689,10 +650,10 @@ namespace NBXplorer.Controllers
 			{
 				if (tx.BlockId != null && !blocks.ContainsKey(tx.BlockId))
 				{
-					blocks.Add(tx.BlockId, rpc.GetBlockHeaderAsyncEx(tx.BlockId));
+					blocks.Add(tx.BlockId, rpc.GetBlockHeaderAsyncEx(tx.BlockId, cancellationToken));
 				}
 			}
-			await batch.SendBatchAsync();
+			await batch.SendBatchAsync(cancellationToken);
 			await repo.SaveBlocks(blocks.Select(b => b.Value.Result.ToSlimChainedBlock()).ToList());
 			foreach (var txs in transactions.GroupBy(t => t.BlockId, t => (t.Transaction, t.BlockTime))
 											.OrderBy(t => t.First().BlockTime))
@@ -756,161 +717,7 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		[HttpPost($"{CommonRoutes.DerivationEndpoint}/metadata/{{key}}")]
-		[HttpPost($"{CommonRoutes.AddressEndpoint}/metadata/{{key}}")]
-		[HttpPost($"{CommonRoutes.GroupEndpoint}/metadata/{{key}}")]
-		public async Task<IActionResult> SetMetadata(TrackedSourceContext trackedSourceContext, string key, [FromBody] JToken value = null)
-		{
-			await trackedSourceContext.Repository.SaveMetadata(trackedSourceContext.TrackedSource, key, value);
-			return Ok();
-		}
-
-		[HttpGet($"{CommonRoutes.DerivationEndpoint}/metadata/{{key}}")]
-		[HttpGet($"{CommonRoutes.AddressEndpoint}/metadata/{{key}}")]
-		[HttpGet($"{CommonRoutes.GroupEndpoint}/metadata/{{key}}")]
-		public async Task<IActionResult> GetMetadata(TrackedSourceContext trackedSourceContext, string key)
-		{
-			var result = await trackedSourceContext.Repository.GetMetadata<JToken>(trackedSourceContext.TrackedSource, key);
-			return result == null ? NotFound() : Json(result, trackedSourceContext.Repository.Serializer.Settings);
-		}
-
-
-		[HttpPost]
-		[Route($"{CommonRoutes.DerivationEndpoint}/utxos/wipe")]
-		public async Task<IActionResult> Wipe(TrackedSourceContext trackedSourceContext)
-		{
-			var repo = trackedSourceContext.Repository;
-			var ts = trackedSourceContext.TrackedSource;
-			var txs = await repo.GetTransactions(trackedSourceContext.TrackedSource);
-			await repo.Prune(ts, txs);
-			return Ok();
-		}
-
-
-		[HttpPost]
-		[Route($"{CommonRoutes.DerivationEndpoint}/utxos/scan")]
-		[TrackedSourceContext.TrackedSourceContextRequirement(requireRPC: true, allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
-		public IActionResult ScanUTXOSet(TrackedSourceContext trackedSourceContext, int? batchSize = null, int? gapLimit = null, int? from = null)
-		{
-			var network = trackedSourceContext.Network;
-			var rpc = trackedSourceContext.RpcClient;
-			var derivationScheme = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
-			if (!rpc.Capabilities.SupportScanUTXOSet)
-				throw new NBXplorerError(405, "scanutxoset-not-suported", "ScanUTXOSet is not supported for this currency").AsException();
-
-			ScanUTXOSetOptions options = new ScanUTXOSetOptions();
-			if (batchSize != null)
-				options.BatchSize = batchSize.Value;
-			if (gapLimit != null)
-				options.GapLimit = gapLimit.Value;
-			if (from != null)
-				options.From = from.Value;
-			if (!ScanUTXOSetService.EnqueueScan(network, derivationScheme, options))
-				throw new NBXplorerError(409, "scanutxoset-in-progress", "ScanUTXOSet has already been called for this derivationScheme").AsException();
-			return Ok();
-		}
-
-		[HttpGet]
-		[Route($"{CommonRoutes.DerivationEndpoint}/utxos/scan")]
-		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
-		public IActionResult GetScanUTXOSetInfromation(TrackedSourceContext trackedSourceContext)
-		{
-			var network = trackedSourceContext.Network;
-			var derivationScheme = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
-			var info = ScanUTXOSetService.GetInformation(network, derivationScheme);
-			if (info == null)
-				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
-			return Json(info, network.Serializer.Settings);
-		}
-#if SUPPORT_DBTRIE
-		[HttpGet]
-		[Route($"{CommonRoutes.DerivationEndpoint}/balance")]
-		[Route($"{CommonRoutes.AddressEndpoint}/balance")]
-		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: [typeof(DerivationSchemeTrackedSource),typeof(AddressTrackedSource)])]
-		[PostgresImplementationActionConstraint(false)]
-		public async Task<IActionResult> GetBalance(TrackedSourceContext trackedSourceContext)
-		{
-			var getTransactionsResult = await GetTransactions(trackedSourceContext, includeTransaction: false);
-			var jsonResult = getTransactionsResult as JsonResult;
-			var transactions = jsonResult?.Value as GetTransactionsResponse;
-			if (transactions == null)
-				return getTransactionsResult;
-
-			var balance = new GetBalanceResponse()
-			{
-				Confirmed = CalculateBalance(trackedSourceContext.Network, transactions.ConfirmedTransactions),
-				Unconfirmed = CalculateBalance(trackedSourceContext.Network, transactions.UnconfirmedTransactions),
-				Immature = CalculateBalance(trackedSourceContext.Network, transactions.ImmatureTransactions)
-			};
-			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
-			balance.Available = balance.Total.Sub(balance.Immature);
-			return Json(balance, jsonResult.SerializerSettings);
-		}
-
-		private IMoney CalculateBalance(NBXplorerNetwork network, TransactionInformationSet transactions)
-		{
-			if (network.NBitcoinNetwork.NetworkSet == NBitcoin.Altcoins.Liquid.Instance)
-			{
-				return new MoneyBag(transactions.Transactions.Select(t => t.BalanceChange).ToArray());
-			}
-			else
-			{
-				return transactions.Transactions.Select(t => t.BalanceChange).OfType<Money>().Sum();
-			}
-		}
-
-		[HttpGet]
-		[Route($"{CommonRoutes.DerivationEndpoint}/utxos")]
-		[Route($"{CommonRoutes.AddressEndpoint}/utxos")]
-		[PostgresImplementationActionConstraint(false)]
-		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: [typeof(DerivationSchemeTrackedSource),typeof(AddressTrackedSource)])]
-		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
-		{
-			var repo = RepositoryProvider.GetRepository(trackedSourceContext.Network);
-
-			UTXOChanges changes = new UTXOChanges();
-			changes.CurrentHeight = (await repo.GetTip()).Height;
-			var transactions = await GetAnnotatedTransactions(repo, trackedSourceContext.TrackedSource, false);
-
-			changes.Confirmed = ToUTXOChange(transactions.ConfirmedState);
-			changes.Confirmed.SpentOutpoints.Clear();
-			changes.Unconfirmed = ToUTXOChange(transactions.UnconfirmedState - transactions.ConfirmedState);
-
-			FillUTXOsInformation(changes.Confirmed.UTXOs, transactions, changes.CurrentHeight);
-			FillUTXOsInformation(changes.Unconfirmed.UTXOs, transactions, changes.CurrentHeight);
-
-			changes.TrackedSource = trackedSourceContext.TrackedSource;
-			changes.DerivationStrategy = (trackedSourceContext.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-
-			return Json(changes, repo.Serializer.Settings);
-		}
-
-		private UTXOChange ToUTXOChange(UTXOState state)
-		{
-			UTXOChange change = new UTXOChange();
-			change.SpentOutpoints.AddRange(state.SpentUTXOs);
-			change.UTXOs.AddRange(state.UTXOByOutpoint.Select(u => new UTXO(u.Value)));
-			return change;
-		}
-
-		int MaxHeight = int.MaxValue;
-
-		private void FillUTXOsInformation(List<UTXO> utxos, AnnotatedTransactionCollection transactions, int currentHeight)
-		{
-			for (int i = 0; i < utxos.Count; i++)
-			{
-				var utxo = utxos[i];
-				utxo.KeyPath = transactions.GetKeyPath(utxo.ScriptPubKey);
-				if (utxo.KeyPath != null)
-					utxo.Feature = keyPathTemplates.GetDerivationFeature(utxo.KeyPath);
-				var txHeight = transactions.GetByTxId(utxo.Outpoint.Hash).Height is long h ? h : MaxHeight;
-				var isUnconf = txHeight == MaxHeight;
-				utxo.Confirmations = isUnconf ? 0 : currentHeight - txHeight + 1;
-				utxo.Timestamp = transactions.GetByTxId(utxo.Outpoint.Hash).Record.FirstSeen;
-			}
-		}
-#endif
-		private async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(IRepository repo, TrackedSource trackedSource, bool includeTransaction, uint256 txId = null)
+		internal async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, TrackedSource trackedSource, bool includeTransaction, uint256 txId = null)
 		{
 			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, this.HttpContext?.RequestAborted ?? default);
 
@@ -923,11 +730,7 @@ namespace NBXplorer.Controllers
 				transactions = gettingParents.SelectMany(p => p.GetAwaiter().GetResult()).Concat(transactions).ToArray();
 			}
 
-			var annotatedTransactions = new AnnotatedTransactionCollection(transactions, trackedSource, repo.Network.NBitcoinNetwork);
-
-			Rebroadcaster.RebroadcastPeriodically(repo.Network, trackedSource, annotatedTransactions.UnconfirmedTransactions
-																				.Concat(annotatedTransactions.CleanupTransactions).Select(c => c.Record.Key).ToArray());
-			return annotatedTransactions;
+			return new AnnotatedTransactionCollection(transactions, trackedSource, repo.Network.NBitcoinNetwork);
 		}
 
 		[HttpPost]
@@ -1019,241 +822,5 @@ namespace NBXplorer.Controllers
 				_ => RPCErrorCode.RPC_TRANSACTION_ERROR
 			};
 		}
-
-		[HttpPost]
-		[Route($"{CommonRoutes.BaseDerivationEndpoint}")]
-		[TrackedSourceContext.TrackedSourceContextRequirement(false, false)]
-		public async Task<IActionResult> GenerateWallet(TrackedSourceContext trackedSourceContext, [FromBody] JObject rawRequest = null)
-		{
-			var network = trackedSourceContext.Network;
-			var request = network.ParseJObject<GenerateWalletRequest>(rawRequest) ?? new GenerateWalletRequest();
-
-			if (request.ImportKeysToRPC && trackedSourceContext.RpcClient is null)
-			{
-				TrackedSourceContext.TrackedSourceContextModelBinder.ThrowRpcUnavailableException();
-			}
-			if (network.CoinType == null)
-				// Don't document, only shitcoins nobody use goes into this
-				throw new NBXplorerException(new NBXplorerError(400, "not-supported", "This feature is not supported for this coin because we don't have CoinType information"));
-			request.WordList ??= Wordlist.English;
-			request.WordCount ??= WordCount.Twelve;
-			request.ScriptPubKeyType ??= ScriptPubKeyType.Segwit;
-			if (request.ScriptPubKeyType is null)
-			{
-				request.ScriptPubKeyType = network.NBitcoinNetwork.Consensus.SupportSegwit ? ScriptPubKeyType.Segwit : ScriptPubKeyType.Legacy;
-			}
-			if (!network.NBitcoinNetwork.Consensus.SupportSegwit && request.ScriptPubKeyType != ScriptPubKeyType.Legacy)
-				throw new NBXplorerException(new NBXplorerError(400, "segwit-not-supported", "Segwit is not supported, please explicitely set scriptPubKeyType to Legacy"));
-			var repo = RepositoryProvider.GetRepository(network);
-			Mnemonic mnemonic = null;
-			if (request.ExistingMnemonic != null)
-			{
-				try
-				{
-					mnemonic = new Mnemonic(request.ExistingMnemonic, request.WordList);
-				}
-				catch
-				{
-					throw new NBXplorerException(new NBXplorerError(400, "invalid-mnemonic", "Invalid mnemonic words"));
-				}
-			}
-			else
-			{
-				mnemonic = new Mnemonic(request.WordList, request.WordCount.Value);
-			}
-			var masterKey = mnemonic.DeriveExtKey(request.Passphrase).GetWif(network.NBitcoinNetwork);
-			var keyPath = GetDerivationKeyPath(request.ScriptPubKeyType.Value, request.AccountNumber, network);
-			var accountKey = masterKey.Derive(keyPath);
-			DerivationStrategyBase derivation = network.DerivationStrategyFactory.CreateDirectDerivationStrategy(accountKey.Neuter(), new DerivationStrategyOptions()
-			{
-				ScriptPubKeyType = request.ScriptPubKeyType.Value,
-				AdditionalOptions = request.AdditionalOptions is not null ? new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(request.AdditionalOptions) : null
-			});
-
-			await RepositoryProvider.GetRepository(network).EnsureWalletCreated(derivation);
-			var derivationTrackedSource = new DerivationSchemeTrackedSource(derivation);
-			List<Task> saveMetadata = new List<Task>();
-			if (request.SavePrivateKeys)
-			{
-				saveMetadata.AddRange(
-				new[] {
-					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Mnemonic, mnemonic.ToString()),
-					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.MasterHDKey, masterKey),
-					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountHDKey, accountKey),
-					repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.Birthdate, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture))
-				});
-			}
-			var accountKeyPath = new RootedKeyPath(masterKey.GetPublicKey().GetHDFingerPrint(), keyPath);
-			saveMetadata.Add(repo.SaveMetadata(derivationTrackedSource, WellknownMetadataKeys.AccountKeyPath, accountKeyPath));
-			var importAddressToRPC = await GetImportAddressToRPC(request, network);
-			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.ImportAddressToRPC, (importAddressToRPC?.ToString() ?? "False")));
-			var descriptor = GetDescriptor(accountKeyPath, accountKey.Neuter(), request.ScriptPubKeyType.Value);
-			saveMetadata.Add(repo.SaveMetadata<string>(derivationTrackedSource, WellknownMetadataKeys.AccountDescriptor, descriptor));
-			await Task.WhenAll(saveMetadata.ToArray());
-
-			await TrackWallet(new TrackedSourceContext()
-			{
-				Indexer = trackedSourceContext.Indexer,
-				Network = network,
-				RpcClient = trackedSourceContext.RpcClient,
-				TrackedSource =  new DerivationSchemeTrackedSource(derivation)
-			});
-			return Json(new GenerateWalletResponse()
-			{
-				TrackedSource = new DerivationSchemeTrackedSource(derivation).ToString(),
-				MasterHDKey = masterKey,
-				AccountHDKey = accountKey,
-				AccountKeyPath = accountKeyPath,
-				AccountDescriptor = descriptor,
-				DerivationScheme = derivation,
-				Mnemonic = mnemonic.ToString(),
-				Passphrase = request.Passphrase ?? string.Empty,
-				WordCount = request.WordCount.Value,
-				WordList = request.WordList
-			}, network.Serializer.Settings);
-		}
-
-		private async Task<ImportRPCMode> GetImportAddressToRPC(GenerateWalletRequest request, NBXplorerNetwork network)
-		{
-			ImportRPCMode importAddressToRPC = null;
-			if (request.ImportKeysToRPC is true)
-			{
-				var rpc = this.GetAvailableRPC(network);
-				try
-				{
-					var walletInfo = await rpc.SendCommandAsync("getwalletinfo");
-					if (walletInfo.Result["descriptors"]?.Value<bool>() is true)
-					{
-						var readOnly = walletInfo.Result["private_keys_enabled"]?.Value<bool>() is false;
-						importAddressToRPC = readOnly ? ImportRPCMode.DescriptorsReadOnly : ImportRPCMode.Descriptors;
-						if (!readOnly && request.SavePrivateKeys is false)
-							throw new NBXplorerError(400, "wallet-unavailable", $"Your RPC wallet must include private keys, but savePrivateKeys is false").AsException();
-					}
-					else
-					{
-						importAddressToRPC = ImportRPCMode.Legacy;
-					}
-				}
-				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
-				{
-				}
-				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_NOT_FOUND)
-				{
-					throw new NBXplorerError(400, "wallet-unavailable", $"No wallet is loaded. Load a wallet using loadwallet or create a new one with createwallet. (Note: A default wallet is no longer automatically created)").AsException();
-				}
-			}
-
-			return importAddressToRPC;
-		}
-
-		private string GetDescriptor(RootedKeyPath accountKeyPath, BitcoinExtPubKey accountKey, ScriptPubKeyType scriptPubKeyType)
-		{
-			var imported = $"[{accountKeyPath}]{accountKey}";
-			var descriptor = scriptPubKeyType switch
-			{
-				ScriptPubKeyType.Legacy => $"pkh({imported})",
-				ScriptPubKeyType.Segwit => $"wpkh({imported})",
-				ScriptPubKeyType.SegwitP2SH => $"sh(wpkh({imported}))",
-				ScriptPubKeyType.TaprootBIP86 => $"tr({imported})",
-				_ => throw new NotSupportedException($"Bug of NBXplorer (ERR 3082), please notify the developers ({scriptPubKeyType})")
-			};
-			return OutputDescriptor.AddChecksum(descriptor);
-		}
-
-		private KeyPath GetDerivationKeyPath(ScriptPubKeyType scriptPubKeyType, int accountNumber, NBXplorerNetwork network)
-		{
-			var path = "";
-			switch (scriptPubKeyType)
-			{
-				case ScriptPubKeyType.Legacy:
-					path = "44'";
-					break;
-				case ScriptPubKeyType.Segwit:
-					path = "84'";
-					break;
-				case ScriptPubKeyType.SegwitP2SH:
-					path = "49'";
-					break;
-				case ScriptPubKeyType.TaprootBIP86:
-					path = "86'";
-					break;
-				default:
-					throw new NotSupportedException(scriptPubKeyType.ToString()); // Should never happen
-			}
-			var keyPath = new KeyPath(path);
-			return keyPath.Derive(network.CoinType)
-				   .Derive(accountNumber, true);
-		}
-
-		[HttpPost]
-		[Route($"{CommonRoutes.DerivationEndpoint}/prune")]
-		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: [typeof(DerivationSchemeTrackedSource)])]
-		public async Task<PruneResponse> Prune(TrackedSourceContext trackedSourceContext ,[FromBody] PruneRequest request)
-		{
-			request ??= new PruneRequest();
-			request.DaysToKeep ??= 1.0;
-			var trackedSource = trackedSourceContext.TrackedSource;
-			var network = trackedSourceContext.Network;
-			var repo = trackedSourceContext.Repository;
-
-			var transactions = await GetAnnotatedTransactions(repo, trackedSource, false);
-			var state = transactions.ConfirmedState;
-			var prunableIds = new HashSet<uint256>();
-
-			var keepConfMax = network.NBitcoinNetwork.Consensus.GetExpectedBlocksFor(TimeSpan.FromDays(request.DaysToKeep.Value));
-			var tip = (await repo.GetTip()).Height;
-			// Step 1. We can prune if all UTXOs are spent
-			foreach (var tx in transactions.ConfirmedTransactions)
-			{
-				if (tx.Height is long h && tip - h + 1 > keepConfMax)
-				{
-					if (tx.Record.ReceivedCoins.All(c => state.SpentUTXOs.Contains(c.Outpoint)))
-					{
-						prunableIds.Add(tx.Record.Key.TxId);
-					}
-				}
-			}
-
-			// Step2. However, we need to remove those who are spending a UTXO from a transaction that is not pruned
-			retry:
-			bool removedPrunables = false;
-			if (prunableIds.Count != 0)
-			{
-				foreach (var tx in transactions.ConfirmedTransactions)
-				{
-					if (prunableIds.Count == 0)
-						break;
-					if (!prunableIds.Contains(tx.Record.TransactionHash))
-						continue;
-					foreach (var parent in tx.Record.SpentOutpoints
-													.Select(spent => transactions.GetByTxId(spent.Outpoint.Hash))
-													.Where(parent => parent != null)
-													.Where(parent => !prunableIds.Contains(parent.Record.TransactionHash)))
-					{
-						prunableIds.Remove(tx.Record.TransactionHash);
-						removedPrunables = true;
-					}
-				}
-			}
-			// If we removed some prunable, it may have made other transactions unprunable.
-			if (removedPrunables)
-				goto retry;
-
-			if (prunableIds.Count != 0)
-			{
-				await repo.Prune(trackedSource, prunableIds
-												.Select(id => transactions.GetByTxId(id).Record)
-												.ToList());
-				Logs.Explorer.LogInformation($"{network.CryptoCode}: Pruned {prunableIds.Count} transactions");
-			}
-			return new PruneResponse() { TotalPruned = prunableIds.Count };
-		}
-
-#if !SUPPORT_DBTRIE
-		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
-		{
-			throw new NotSupportedException("This should never be called");
-		}
-#endif
 	}
 }

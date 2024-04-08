@@ -401,7 +401,6 @@ Returns:
       "canSupportTransactionCheck": true
     }
   },
-  "repositoryPingTime": 0.0087891999999999987,
   "isFullySynched": true,
   "chainHeight": 103,
   "syncHeight": 103,

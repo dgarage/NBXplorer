@@ -1,14 +1,9 @@
 ﻿using Dapper;
-using Microsoft.AspNetCore.Mvc.ViewFeatures.Infrastructure;
 using NBitcoin;
-using NBXplorer.Backends.Postgres;
-using NBXplorer.Controllers;
+using NBXplorer.Backend;
 using NBXplorer.Models;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -19,11 +14,12 @@ namespace NBXplorer.Tests
 		[Fact]
 		public async Task CanCRUDGroups()
 		{
-			using var tester = ServerTester.Create(Backend.Postgres);
+			using var tester = ServerTester.Create();
 			var guid = Guid.NewGuid().ToString();
 			var g222 = await tester.Client.CreateGroupAsync(new CreateGroupRequest() { GroupId = guid });
 			Assert.Equal(g222.GroupId, guid);
 			var g1 = await tester.Client.CreateGroupAsync();
+      
 			void AssertG1Empty()
 			{
 				Assert.NotNull(g1.GroupId);
@@ -91,14 +87,14 @@ namespace NBXplorer.Tests
 			return (await conn.QueryAsync<string>("SELECT s.addr FROM wallets_scripts JOIN scripts s USING (code, script) WHERE code=@code AND wallet_id=@wid", new
 			{
 				code = code,
-				wid = PostgresRepository.GetWalletKey(new GroupTrackedSource(groupId)).wid
+				wid = Repository.GetWalletKey(new GroupTrackedSource(groupId)).wid
 			})).ToArray();
 		}
 
 		[Fact]
 		public async Task CanAliceAndBobShareWallet()
 		{
-			using var tester = ServerTester.Create(Backend.Postgres);
+			using var tester = ServerTester.Create();
 			var bobW = tester.Client.GenerateWallet(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Segwit });
 			var aliceW = tester.Client.GenerateWallet(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Segwit });
 

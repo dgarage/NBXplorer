@@ -13,7 +13,7 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using NBXplorer.Logging;
 using NBitcoin.Scripting;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 
 namespace NBXplorer
 {
@@ -64,7 +64,7 @@ namespace NBXplorer
 		public ScanUTXOSetService(ScanUTXOSetServiceAccessor accessor,
 								  IRPCClients rpcClients,
 								  KeyPathTemplates keyPathTemplates,
-								  IRepositoryProvider repositories)
+								  RepositoryProvider repositories)
 		{
 			accessor.Instance = this;
 			RpcClients = rpcClients;
@@ -116,7 +116,7 @@ namespace NBXplorer
 		private readonly KeyPathTemplates keyPathTemplates;
 
 		public IRPCClients RpcClients { get; }
-		public IRepositoryProvider Repositories { get; }
+		public RepositoryProvider Repositories { get; }
 
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
@@ -238,9 +238,9 @@ namespace NBXplorer
 			}
 		}
 
-		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, IRepository repo, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
+		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, Repository repo, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
 		{
-			var blockHeaders = await client.GetBlockHeadersAsync(outputs.Select(o => o.Height).Distinct().ToList());
+			var blockHeaders = await client.GetBlockHeadersAsync(outputs.Select(o => o.Height).Distinct().ToList(), _Cts.Token);
 
 			var data = outputs
 				.GroupBy(o => o.Coin.Outpoint.Hash)

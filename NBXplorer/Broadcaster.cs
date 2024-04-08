@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.RPC;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using System;
 using System.Threading.Tasks;
 
@@ -18,13 +18,13 @@ namespace NBXplorer
 	}
 	public class Broadcaster
 	{
-		public Broadcaster(IIndexers indexers, ILoggerFactory loggerFactory)
+		public Broadcaster(Indexers indexers, ILoggerFactory loggerFactory)
 		{
 			Indexers = indexers;
 			LoggerFactory = loggerFactory;
 		}
 
-		public IIndexers Indexers { get; }
+		public Indexers Indexers { get; }
 		public ILoggerFactory LoggerFactory { get; }
 		record Reject
 		{

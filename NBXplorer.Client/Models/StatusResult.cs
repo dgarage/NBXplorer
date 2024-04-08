@@ -48,7 +48,6 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
-		public string Backend { get; set; }
 		public double RepositoryPingTime
 		{
 			get;

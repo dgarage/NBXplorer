@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using NBitcoin.DataEncoders;
 using System.Threading;
 using Microsoft.Extensions.Logging;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using System.Text.RegularExpressions;
 using System.Net.Http;
 using System.Net;
@@ -248,25 +248,25 @@ namespace NBXplorer
 
 			throw new Exception("This should never happen");
 		}
-		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<int> blockHeights)
+		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<int> blockHeights, CancellationToken cancellationToken)
 		{
 			var batch = rpc.PrepareBatch();
 			var hashes = blockHeights.Select(h => batch.GetBlockHashAsync(h)).ToArray();
 			await batch.SendBatchAsync();
 
 			batch = rpc.PrepareBatch();
-			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(await h)).ToArray();
+			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(await h, cancellationToken)).ToArray();
 			await batch.SendBatchAsync();
 
 			return new BlockHeaders(headers.Select(h => h.GetAwaiter().GetResult()).Where(h => h is not null).ToList());
 		}
 
-		public static async Task<RPCBlockHeader> GetBlockHeaderAsyncEx(this RPCClient rpc, uint256 blk)
+		public static async Task<RPCBlockHeader> GetBlockHeaderAsyncEx(this RPCClient rpc, uint256 blk, CancellationToken cancellationToken)
 		{
 			var header = await rpc.SendCommandAsync(new NBitcoin.RPC.RPCRequest("getblockheader", new[] { blk.ToString() })
 			{
 				ThrowIfRPCError = false
-			});
+			}, cancellationToken);
 			if (header.Result is null || header.Error is not null)
 				return null;
 			var response = header.Result;
@@ -283,7 +283,7 @@ namespace NBXplorer
 				new uint256(response["merkleroot"]?.Value<string>()));
 		}
 
-		public static async Task<SavedTransaction> TryGetRawTransaction(this RPCClient client, uint256 txId)
+		public static async Task<SavedTransaction> TryGetRawTransaction(this RPCClient client, uint256 txId, CancellationToken cancellationToken)
 		{
 			var request = new RPCRequest(RPCOperations.getrawtransaction, new object[] { txId, true }) { ThrowIfRPCError = false };
 			var response = await client.SendCommandAsync(request);
@@ -294,7 +294,7 @@ namespace NBXplorer
 				if (rpcResult["blockhash"] != null)
 				{
 					blockHash = uint256.Parse(rpcResult.Value<string>("blockhash"));
-					var blockHeader = await client.GetBlockHeaderAsyncEx(blockHash);
+					var blockHeader = await client.GetBlockHeaderAsyncEx(blockHash, cancellationToken);
 					if (blockHeader is not null)
 						blockHeight = blockHeader.Height;
 					else

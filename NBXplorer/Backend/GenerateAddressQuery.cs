@@ -1,4 +1,4 @@
-﻿namespace NBXplorer.Backends
+﻿namespace NBXplorer.Backend
 {
 	public class GenerateAddressQuery
 	{

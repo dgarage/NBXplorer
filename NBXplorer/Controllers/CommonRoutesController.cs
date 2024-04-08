@@ -1,48 +1,34 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
-using Dapper;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NBitcoin;
-using NBitcoin.Altcoins.HashX11;
-using NBitcoin.DataEncoders;
-using NBitcoin.RPC;
-using NBXplorer.Backends.Postgres;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
-using Newtonsoft.Json;
+using System.Threading.Tasks;
+using System;
+using System.Linq;
+using Dapper;
+using NBXplorer.Backend;
 using Newtonsoft.Json.Linq;
 
 namespace NBXplorer.Controllers
 {
-	[PostgresImplementationActionConstraint(true)]
 	[Route($"v1/{CommonRoutes.DerivationEndpoint}")]
 	[Route($"v1/{CommonRoutes.AddressEndpoint}")]
 	[Route($"v1/{CommonRoutes.BaseCryptoEndpoint}/{CommonRoutes.GroupEndpoint}")]
 	[Authorize]
-	public class PostgresMainController : Controller, IUTXOService
+	public class CommonRoutesController : Controller
 	{
-		public PostgresMainController(
-			DbConnectionFactory connectionFactory,
-			KeyPathTemplates keyPathTemplates)
+		public DbConnectionFactory ConnectionFactory { get; }
+		public CommonRoutesController(DbConnectionFactory connectionFactory)
 		{
 			ConnectionFactory = connectionFactory;
-			KeyPathTemplates = keyPathTemplates;
 		}
-
-		public DbConnectionFactory ConnectionFactory { get; }
-		public KeyPathTemplates KeyPathTemplates { get; }
-
 		[HttpGet("balance")]
 		public async Task<IActionResult> GetBalance(TrackedSourceContext trackedSourceContext)
 		{
 			var trackedSource = trackedSourceContext.TrackedSource;
 			var network = trackedSourceContext.Network;
-			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			var repo = trackedSourceContext.Repository;
 			await using var conn = await ConnectionFactory.CreateConnection();
 			var b = await conn.QueryAsync("SELECT * FROM wallets_balances WHERE code=@code AND wallet_id=@walletId", new { code = network.CryptoCode, walletId = repo.GetWalletKey(trackedSource).wid });
 			MoneyBag
@@ -83,7 +69,6 @@ namespace NBXplorer.Controllers
 			balance.Total = balance.Confirmed.Add(balance.Unconfirmed);
 			return Json(balance, network.JsonSerializerSettings);
 		}
-
 		private IMoney Format(NBXplorerNetwork network, MoneyBag bag)
 		{
 			if (network.IsElement)
@@ -95,19 +80,17 @@ namespace NBXplorer.Controllers
 				return m;
 			return RemoveZeros(bag);
 		}
-
 		private static MoneyBag RemoveZeros(MoneyBag bag)
 		{
 			// Super hack to know if we deal with zero
 			return new MoneyBag(bag.Where(a => !a.Negate().Equals(a)).ToArray());
 		}
 
-
 		[HttpGet("utxos")]
 		public async Task<IActionResult> GetUTXOs(TrackedSourceContext trackedSourceContext)
 		{
 			var trackedSource = trackedSourceContext.TrackedSource;
-			var repo = (PostgresRepository)trackedSourceContext.Repository;
+			var repo = trackedSourceContext.Repository;
 			var network = trackedSourceContext.Network;
 			await using var conn = await ConnectionFactory.CreateConnection();
 			var height = await conn.ExecuteScalarAsync<long>("SELECT height FROM get_tip(@code)", new { code = network.CryptoCode });
@@ -183,6 +166,23 @@ namespace NBXplorer.Controllers
 					changes.SpentUnconfirmed.Add(u);
 			}
 			return Json(changes, network.JsonSerializerSettings);
+		}
+
+
+		[HttpPost("metadata/{key}")]
+		[HttpPost($"~/v1/{CommonRoutes.GroupEndpoint}/metadata/{{key}}")]
+		public async Task<IActionResult> SetMetadata(TrackedSourceContext trackedSourceContext, string key, [FromBody] JToken value = null)
+		{
+			await trackedSourceContext.Repository.SaveMetadata(trackedSourceContext.TrackedSource, key, value);
+			return Ok();
+		}
+
+		[HttpGet("metadata/{key}")]
+		[HttpGet($"~/v1/{CommonRoutes.GroupEndpoint}/metadata/{{key}}")]
+		public async Task<IActionResult> GetMetadata(TrackedSourceContext trackedSourceContext, string key)
+		{
+			var result = await trackedSourceContext.Repository.GetMetadata<JToken>(trackedSourceContext.TrackedSource, key);
+			return result == null ? NotFound() : Json(result, trackedSourceContext.Repository.Serializer.Settings);
 		}
 	}
 }
