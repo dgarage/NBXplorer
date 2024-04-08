@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.DependencyInjection;
 using NBitcoin;
 using NBitcoin.RPC;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using NBXplorer.Models;
 
 namespace NBXplorer.Controllers;

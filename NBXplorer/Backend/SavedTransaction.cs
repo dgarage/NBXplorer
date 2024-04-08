@@ -1,7 +1,7 @@
 ﻿using NBitcoin;
 using System;
 
-namespace NBXplorer.Backends
+namespace NBXplorer.Backend
 {
 	public class SavedTransaction
 	{

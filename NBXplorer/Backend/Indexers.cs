@@ -16,7 +16,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace NBXplorer.Backends
+namespace NBXplorer.Backend
 {
 	public class Indexers : IHostedService
 	{

@@ -6,12 +6,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using Dapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
 using Npgsql;
-using static NBXplorer.Backends.Repository;
+using static NBXplorer.Backend.Repository;
 
 namespace NBXplorer.Controllers
 {

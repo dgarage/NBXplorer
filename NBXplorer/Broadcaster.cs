@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using NBitcoin;
 using NBitcoin.RPC;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using System;
 using System.Threading.Tasks;
 

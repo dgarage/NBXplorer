@@ -14,7 +14,7 @@ using Newtonsoft.Json.Converters;
 using Microsoft.Extensions.Hosting;
 
 
-namespace NBXplorer.Backends
+namespace NBXplorer.Backend
 {
 	public class RepositoryProvider : IHostedService
 	{

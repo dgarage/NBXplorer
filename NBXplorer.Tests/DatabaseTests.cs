@@ -18,8 +18,8 @@ using System.IO;
 using System.Diagnostics;
 using NBXplorer.Client;
 using System.Data;
-using static NBXplorer.Backends.DbConnectionHelper;
-using NBXplorer.Backends;
+using static NBXplorer.Backend.DbConnectionHelper;
+using NBXplorer.Backend;
 
 namespace NBXplorer.Tests
 {

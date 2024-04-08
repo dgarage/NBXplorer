@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System;
 
-namespace NBXplorer.Backends
+namespace NBXplorer.Backend
 {
 	public class Indexer
 	{

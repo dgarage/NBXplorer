@@ -18,10 +18,10 @@ using NBXplorer.Client;
 using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
 using Npgsql;
-using static NBXplorer.Backends.DbConnectionHelper;
+using static NBXplorer.Backend.DbConnectionHelper;
 
 
-namespace NBXplorer.Backends
+namespace NBXplorer.Backend
 {
 	public class Repository
 	{

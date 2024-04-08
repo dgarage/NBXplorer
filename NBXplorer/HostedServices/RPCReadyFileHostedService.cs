@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 
 namespace NBXplorer.HostedServices
 {

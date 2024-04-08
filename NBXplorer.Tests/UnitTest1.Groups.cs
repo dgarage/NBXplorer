@@ -1,6 +1,6 @@
 ﻿using Dapper;
 using NBitcoin;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using NBXplorer.Models;
 using System;
 using System.Linq;

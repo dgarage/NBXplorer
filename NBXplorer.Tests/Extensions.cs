@@ -6,7 +6,7 @@ using System.Linq;
 using NBXplorer.DerivationStrategy;
 using NBitcoin.RPC;
 using System.Threading;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 
 namespace NBXplorer.Tests
 {
@@ -69,12 +69,6 @@ namespace NBXplorer.Tests
 		public static uint256[] EnsureGenerate(this RPCClient client, int blockCount)
 		{
 			return client.EnsureGenerateAsync(blockCount).GetAwaiter().GetResult();
-		}
-
-		public static RPCClient WithCapabilitiesOf(this RPCClient client, RPCClient target)
-		{
-			client.Capabilities = target.Capabilities;
-			return client;
 		}
 	}
 

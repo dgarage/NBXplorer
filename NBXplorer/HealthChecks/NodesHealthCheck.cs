@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Diagnostics.HealthChecks;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;

@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using System;
 using System.Linq;
 using Dapper;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 
 namespace NBXplorer.Controllers
 {

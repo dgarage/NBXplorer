@@ -21,7 +21,7 @@ using System.Net.Http;
 using System.IO;
 using Dapper;
 using NBXplorer.Configuration;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 
 using NBitcoin.Tests;
 using System.Globalization;
@@ -3677,7 +3677,7 @@ namespace NBXplorer.Tests
 
 				// Let's try to invalidate the blocks we indexed
 				tester.Client.Wipe(pubkey);
-				using var conn = await tester.GetService<Backends.DbConnectionFactory>().CreateConnection();
+				using var conn = await tester.GetService<Backend.DbConnectionFactory>().CreateConnection();
 				await conn.ExecuteAsync("UPDATE blks SET confirmed='f';DELETE FROM blks;DELETE FROM txs;");
 
 				// We should find the tx again

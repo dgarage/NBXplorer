@@ -23,7 +23,7 @@ using NBXplorer.MessageBrokers;
 using NBXplorer.HostedServices;
 using NBXplorer.Controllers;
 
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using NBitcoin.Altcoins.Elements;
 using Npgsql;
 using NBitcoin.Altcoins;

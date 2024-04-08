@@ -13,7 +13,7 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using NBXplorer.Logging;
 using NBitcoin.Scripting;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 
 namespace NBXplorer
 {

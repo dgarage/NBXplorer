@@ -22,7 +22,7 @@ using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using System.Reflection;
 using NBXplorer.Analytics;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using NBitcoin.Scripting;
 using System.Globalization;
 

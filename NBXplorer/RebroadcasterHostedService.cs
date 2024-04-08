@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Hosting;
 using NBitcoin;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 using NBXplorer.Configuration;
 using NBXplorer.Events;
 using NBXplorer.Models;

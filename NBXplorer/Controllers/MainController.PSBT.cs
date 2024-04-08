@@ -10,7 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using NBitcoin.RPC;
 using NBXplorer.Analytics;
-using NBXplorer.Backends;
+using NBXplorer.Backend;
 
 namespace NBXplorer.Controllers
 {
