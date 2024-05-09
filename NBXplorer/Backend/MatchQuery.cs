@@ -1,5 +1,6 @@
 ﻿#nullable enable
 using NBitcoin;
+using NBitcoin.Altcoins.Elements;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -12,44 +13,13 @@ namespace NBXplorer.Backend
 			Ins = ins;
 			Outs = outs;
 		}
+		public MatchQuery(IEnumerable<ICoin> coins)
+		{
+			Outs = coins.Select(c => DbConnectionHelper.NewOut.FromCoin(c)).ToList();
+			Ins = new List<DbConnectionHelper.NewIn>();
+		}
 		public List<DbConnectionHelper.NewIn> Ins { get; }
 		public List<DbConnectionHelper.NewOut> Outs { get; }
-
-		public static MatchQuery FromTransactions(IEnumerable<TrackedTransaction> txs, Money? minUtxoValue)
-		{
-			var outCount = txs.Select(t => t.ReceivedCoins.Count).Sum();
-			var inCount = txs.Select(t => t.SpentOutpoints.Count).Sum();
-			List<DbConnectionHelper.NewOut> outs = new List<DbConnectionHelper.NewOut>(outCount);
-			List<DbConnectionHelper.NewIn> ins = new List<DbConnectionHelper.NewIn>(inCount);
-			foreach (var tx in txs)
-			{
-				if (!tx.IsCoinBase)
-				{
-					foreach (var input in tx.SpentOutpoints)
-					{
-						ins.Add(new DbConnectionHelper.NewIn(
-							tx.TransactionHash,
-							input.InputIndex,
-							input.Outpoint.Hash,
-							(int)input.Outpoint.N
-							));
-					}
-				}
-
-				foreach (var output in tx.ReceivedCoins)
-				{
-					if (minUtxoValue != null && (Money)output.Amount < minUtxoValue)
-						continue;
-					outs.Add(new DbConnectionHelper.NewOut(
-						tx.TransactionHash,
-						(int)output.Outpoint.N,
-						output.TxOut.ScriptPubKey,
-						(Money)output.Amount
-						));
-				}
-			}
-			return new MatchQuery(ins, outs);
-		}
 
 		public static MatchQuery FromTransactions(IEnumerable<Transaction> txs, Money? minUtxoValue)
 		{
@@ -75,7 +45,12 @@ namespace NBXplorer.Backend
 					io++;
 					if (minUtxoValue != null && output.Value < minUtxoValue)
 						continue;
-					outs.Add(new DbConnectionHelper.NewOut(hash, io, output.ScriptPubKey, output.Value));
+					IMoney val = output switch
+					{
+						ElementsTxOut { Asset: { AssetId: { } assetId } } el => new AssetMoney(assetId, el.Value),
+						_ => output.Value
+					};
+					outs.Add(new DbConnectionHelper.NewOut(hash, io, output.ScriptPubKey, val));
 				}
 			}
 			return new MatchQuery(ins, outs);

@@ -75,16 +75,6 @@ namespace NBXplorer.Backend
 					"s.code=ds.code AND s.script=ds.script AND s.used IS FALSE", parameters);
 		}
 
-		public TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, IEnumerable<Coin> coins, Dictionary<Script, KeyPath> knownScriptMapping)
-		{
-			return new TrackedTransaction(transactionKey, trackedSource, coins, knownScriptMapping);
-		}
-
-		public TrackedTransaction CreateTrackedTransaction(TrackedSource trackedSource, TrackedTransactionKey transactionKey, Transaction tx, Dictionary<Script, KeyPath> knownScriptMapping)
-		{
-			return new TrackedTransaction(transactionKey, trackedSource, tx, knownScriptMapping);
-		}
-
 		public record DescriptorKey(string code, string descriptor);
 		internal DescriptorKey GetDescriptorKey(DerivationStrategyBase strategy, DerivationFeature derivationFeature)
 		{
@@ -381,6 +371,7 @@ namespace NBXplorer.Backend
 		}
 		async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(DbConnection connection, IList<Script> scripts)
 		{
+			scripts = scripts.Distinct().ToArray();
 			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
 			foreach (var s in scripts)
 				result.AddRange(s, Array.Empty<KeyPathInformation>());
@@ -459,60 +450,39 @@ namespace NBXplorer.Backend
 
 		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
 
-		public Task<TrackedTransaction[]> GetMatchesAndSave(DbConnectionHelper conn, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
-		{
-			return GetMatches(conn, txs, slimBlock, now, useCache, true);
-		}
-
 		class ElementMatchContext
 		{
 			public List<UpdateMatchesOuts> matchedOutsUpdate = new List<UpdateMatchesOuts>();
 			public HashSet<uint256> txsToUnblind = new HashSet<uint256>();
-			public MultiValueDictionary<TrackedTransaction, KeyPathInformation> keyPathInformationsByTrackedTransaction = new MultiValueDictionary<TrackedTransaction, KeyPathInformation>();
+			public HashSet<OutPoint> utxoToUnblind = new HashSet<OutPoint>();
+
 			internal void MatchedOut(dynamic r)
 			{
-				if (r.asset_id == NBXplorerNetwork.UnknownAssetId)
-					txsToUnblind.Add(uint256.Parse(r.tx_id));
-			}
-
-			public void TrackedTransaction(TrackedTransaction match, KeyPathInformation keyInfo)
-			{
-				keyPathInformationsByTrackedTransaction.Add(match, keyInfo);
-			}
-
-			public async Task Unblind(RPCClient rpc, TrackedTransaction m)
-			{
-				if (txsToUnblind.Contains(m.TransactionHash))
+				if (r.asset_id == NBXplorerNetwork.UnknownAssetId || r.value == NBXplorerNetwork.UnknownAssetMoney.Quantity)
 				{
-					var unblinded = await rpc.UnblindTransaction(m, keyPathInformationsByTrackedTransaction[m]);
-					foreach (var coin in m.ReceivedCoins.ToList())
-					{
-						if (coin is Coin)
-						{
-							m.ReceivedCoins.Remove(coin);
-							var elementTxOut = (ElementsTxOut)(unblinded ?? m.Transaction).Outputs[coin.Outpoint.N];
-							if (elementTxOut.Asset?.AssetId is not null && elementTxOut.Value is not null)
-							{
-								var unblindedCoin = new AssetCoin(new AssetMoney(elementTxOut.Asset.AssetId, elementTxOut.Value.Satoshi), coin);
-								m.ReceivedCoins.Add(unblindedCoin);
-								matchedOutsUpdate.Add(new UpdateMatchesOuts(
-									m.TransactionHash.ToString(),
-									coin.Outpoint.N,
-									unblindedCoin.Money.AssetId.ToString(),
-									unblindedCoin.Money.Quantity));
-							}
-							else
-							{
-								var unblindedCoin = new AssetCoin(NBXplorerNetwork.UnknownAssetMoney, coin);
-								m.ReceivedCoins.Add(unblindedCoin);
-							}
-						}
-					}
+					var txId = uint256.Parse(r.tx_id);
+					txsToUnblind.Add(txId);
+					utxoToUnblind.Add(new OutPoint(txId, (int)r.idx));
 				}
 			}
 
-			internal async Task UpdateMatchedOuts(DbConnection connection)
+			internal async Task Unblind(DbConnection connection, RPCClient rpc, Dictionary<uint256, SaveTransactionRecord> txs, MultiValueDictionary<Script, KeyPathInformation> allKeyInfos)
 			{
+				if (txsToUnblind.Count == 0)
+					return;
+				foreach (var tx in txsToUnblind.Select(h => txs[h].Transaction).OfType<ElementsTransaction>())
+				{
+					var keyInfos = tx.Outputs.AsCoins()
+									.Where(o => utxoToUnblind.Contains(o.Outpoint))
+									.Where(o => allKeyInfos.ContainsKey(o.ScriptPubKey))
+									.SelectMany(o => allKeyInfos[o.ScriptPubKey]).ToArray();
+					foreach (var g in keyInfos.GroupBy(o => o.TrackedSource))
+					{
+						if (g.Key is DerivationSchemeTrackedSource { DerivationStrategy: { } ts })
+							await Unblind(rpc, ts, tx, keyInfos);
+					}
+				}
+
 				if (matchedOutsUpdate.Count != 0)
 				{
 					await connection.ExecuteAsync(
@@ -520,9 +490,39 @@ namespace NBXplorer.Backend
 						"WHERE tx_id=@tx_id AND idx=@idx", matchedOutsUpdate);
 				}
 			}
+
+			public async Task Unblind(RPCClient rpc, DerivationStrategyBase ts, ElementsTransaction tx, KeyPathInformation[] keyInfos)
+			{
+				var txHash = tx.GetHash();
+				if (txsToUnblind.Contains(txHash))
+				{
+					var unblinded = await rpc.UnblindTransaction(ts, tx, keyInfos);
+					if (unblinded is null)
+						return;
+					int n = -1;
+					foreach (var o in unblinded.Outputs.Zip(tx.Outputs, (a, b) => (Unblinded: (ElementsTxOut)a, Original: (ElementsTxOut)b)))
+					{
+						n++;
+						if (o is
+							{
+								Unblinded: { Asset: { AssetId: { } asset }, Value: { } quantity },
+								Original: (not { Asset: { AssetId: { } } }) or { Value: null }
+							})
+						{
+
+							matchedOutsUpdate.Add(new UpdateMatchesOuts(
+								txHash.ToString(),
+								n,
+								asset.ToString(),
+								quantity.Satoshi));
+						}
+					}
+				}
+			}
 		}
 		record UpdateMatchesOuts(string tx_id, long idx, string asset_id, long value);
-		Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache, bool immediateSave)
+
+		public async Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool blockMatch, bool useCache)
 		{
 			List<SaveTransactionRecord> records = new(txs.Count);
 			foreach (var tx in txs)
@@ -532,7 +532,7 @@ namespace NBXplorer.Backend
 				int i = 0;
 				foreach (var tx in txs)
 				{
-					var record = SaveTransactionRecord.Create(slimBlock, tx, i, now);
+					var record = SaveTransactionRecord.Create(tx, slimBlock: slimBlock, blockIndex: blockMatch ? i : null, seenAt: now);
 					if (!useCache || !noMatchCache.Contains(record.Id))
 						records.Add(record);
 					i++;
@@ -542,38 +542,47 @@ namespace NBXplorer.Backend
 			{
 				foreach (var tx in txs)
 				{
-					var record = SaveTransactionRecord.Create(null, tx, null, now);
+					var record = SaveTransactionRecord.Create(tx, seenAt: now);
 					records.Add(record);
 				}
 			}
 			var query = MatchQuery.FromTransactions(records.Select(r => r.Transaction), MinUtxoValue);
-			return GetMatches(connection, query, records, slimBlock, immediateSave); 
+
+			var matches = await SaveMatches(connection, query, records);
+
+			// Let's remember unconfirmed that didn't match so the processing of a block is faster
+			if (useCache && slimBlock is null)
+			{
+				var matched = matches.Saved.Select(m => m.Id).ToHashSet();
+				foreach (var noMatch in records.Where(r => !matched.Contains(r.Id)))
+				{
+					noMatchCache.Add(noMatch.Id);
+				}
+			}
+			return matches.TrackedTransactions;
 		}
-		async Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, MatchQuery matchQuery, IList<SaveTransactionRecord> records, SlimChainedBlock slimBlock, bool immediateSave)
+		async Task<(TrackedTransaction[] TrackedTransactions, SaveTransactionRecord[] Saved)> SaveMatches(DbConnectionHelper connection, MatchQuery matchQuery, IList<SaveTransactionRecord> records)
 		{
-			var unconfTxs = slimBlock is null ? null : await connection.GetUnconfirmedTxs();
+			HashSet<uint256> unconfTxs = await connection.GetUnconfirmedTxs();
 			Dictionary<uint256, SaveTransactionRecord> txs = new();
 			HashSet<uint256> savedTxs = new();
+			List<dynamic> matchedConflicts = new List<dynamic>();
+			var scripts = new List<Script>();
 			foreach (var record in records)
 			{
 				txs.TryAdd(record.Id, record);
-				if (unconfTxs?.Contains(record.Id) is true)
+				if (record.BlockId is not null && unconfTxs.Contains(record.Id))
 					// If a block has been found, and we have some unconf transactions
 					// then we want to add an entry in blks_txs, even if the unconf tx isn't matching
 					// any wallet. So we add record.
 					savedTxs.Add(record.Id);
 			}
+			SaveTransactionRecord[] GetSavedTxs() => txs.Values.Where(r => savedTxs.Contains(r.Id)).ToArray();
 
-			var outpointCount = matchQuery.Ins.Count + matchQuery.Outs.Count;
-			var scripts = new List<Script>(outpointCount);
-			var transactionsPerScript = new MultiValueDictionary<Script, SaveTransactionRecord>(outpointCount);
-
-			var matches = new Dictionary<(TrackedSource TrackedSource, uint256 TxId), TrackedTransaction>();
 			var elementContext = Network.IsElement ? new ElementMatchContext() : null;
 
 			if (!await connection.FetchMatches(matchQuery))
 				goto end;
-
 			using (var result = await connection.Connection.QueryMultipleAsync(
 				"SELECT * FROM matched_outs;" +
 				"SELECT * FROM matched_ins;" +
@@ -584,7 +593,7 @@ namespace NBXplorer.Backend
 			{
 				var matchedOuts = await result.ReadAsync();
 				var matchedIns = await result.ReadAsync();
-				var matchedConflicts = await result.ReadAsync();
+				matchedConflicts = (await result.ReadAsync()).ToList();
 				foreach (var r in matchedConflicts)
 				{
 					savedTxs.Add(uint256.Parse(r.replacing_tx_id));
@@ -593,118 +602,64 @@ namespace NBXplorer.Backend
 				{
 					var s = Script.FromHex(r.script);
 					scripts.Add(s);
-					transactionsPerScript.Add(s, txs[uint256.Parse(r.tx_id)]);
+					savedTxs.Add(uint256.Parse(r.tx_id));
 					elementContext?.MatchedOut(r);
 				}
-
-				var matchedInputs = new MultiValueDictionary<uint256, MatchedInput>();
 				foreach (var r in matchedIns)
 				{
-					Script s = Script.FromHex(r.script);
+					var s = Script.FromHex(r.script);
 					scripts.Add(s);
-					var txId = uint256.Parse(r.tx_id);
-					transactionsPerScript.Add(s, txs[txId]);
-
-					matchedInputs.Add(txId,	
-					new MatchedInput()
-					{
-						InputIndex = (int)r.idx,
-						Index = (int)r.spent_idx,
-						ScriptPubKey = s,
-						TransactionId = uint256.Parse(r.spent_tx_id),
-						Value = Money.Satoshis(r.value)
-					});
-				}
-
-				if (scripts.Count > 0)
-				{
-					var keyInformations = await GetKeyInformations(connection.Connection, scripts);
-					foreach (var keyInfoByScripts in keyInformations)
-					{
-						foreach (var record in transactionsPerScript[keyInfoByScripts.Key])
-						{
-							foreach (var keyInfo in keyInfoByScripts.Value)
-							{
-								var matchesGroupingKey = (keyInfo.TrackedSource, record.Id);
-								if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
-								{
-									match = CreateTrackedTransaction(keyInfo.TrackedSource,
-										new TrackedTransactionKey(record.Id, slimBlock?.Hash, false),
-										record.Transaction,
-										new Dictionary<Script, KeyPath>());
-
-									match.BlockHeight = record.BlockHeight;
-									match.FirstSeen = record.SeenAt;
-									match.BlockIndex = record.BlockIndex;
-									match.Immature = record.Immature;
-									match.Replacing = new HashSet<uint256>();
-
-									foreach (var r in matchedConflicts)
-									{
-										var wallet_id = GetWalletKey(match.TrackedSource).wid;
-										uint256 replacingTxId = uint256.Parse(r.replacing_tx_id);
-										if (replacingTxId == match.TransactionHash && r.wallet_id == wallet_id)
-										{
-											uint256 replacedTxId = uint256.Parse(r.replaced_tx_id);
-											match.Replacing.Add(replacedTxId);
-										}
-									}
-									matches.Add(matchesGroupingKey, match);
-									savedTxs.Add(record.Id);
-								}
-								match.AddKnownKeyPathInformation(keyInfo);
-								elementContext?.TrackedTransaction(match, keyInfo);
-							}
-						}
-					}
-					foreach (var m in matches.Values)
-					{
-						m.UpdateMatchedInputs(matchedInputs
-											.GetOrEmpty(m.TransactionHash)
-											.Where(mi => m.OwnedScripts.Contains(mi.ScriptPubKey)));
-						m.OwnedScriptsUpdated();
-						if (elementContext is not null)
-							await elementContext.Unblind(rpc, m);
-					}
+					savedTxs.Add(uint256.Parse(r.tx_id));
 				}
 			}
 			end:
-			if (immediateSave && savedTxs.Count != 0)
+			if (savedTxs.Count is 0)
+				return (Array.Empty<TrackedTransaction>(), GetSavedTxs());
+			await connection.SaveTransactions(savedTxs.Select(h => txs[h]).ToArray());
+			if (scripts.Count is 0)
+				return (Array.Empty<TrackedTransaction>(), GetSavedTxs());
+			var allKeyInfos = await GetKeyInformations(connection.Connection, scripts);
+			if (elementContext is not null)
+				await elementContext.Unblind(connection.Connection, rpc, txs, allKeyInfos);
+			retry:
+			try
 			{
-				await connection.SaveTransactions(savedTxs.Select(h => txs[h]).ToArray());
-				if (elementContext is not null)
-					await elementContext.UpdateMatchedOuts(connection.Connection);
-				retry:
-				try
+				await CommitMatches(connection.Connection);
+			}
+			// Broadcast call this method, and it may be called at same time as the indexer, resulting in a Deadlock
+			// I believe we can safely retry in that case.
+			catch (NpgsqlException ex) when (ex.SqlState == PostgresErrorCodes.DeadlockDetected)
+			{
+				goto retry;
+			}
+			var transactions = await GetTransactions(connection,
+				GetTransactionQuery.Create(
+					allKeyInfos.SelectMany(k => k.Value).ToArray(),
+					savedTxs.ToArray()), includeTransactions: true);
+			AddReplacementInfo(matchedConflicts, transactions);
+			return (transactions, GetSavedTxs());
+		}
+
+		private void AddReplacementInfo(List<dynamic> matchedConflicts, TrackedTransaction[] transactions)
+		{
+			foreach (var match in transactions)
+			{
+				match.Replacing = new HashSet<uint256>();
+				foreach (var r in matchedConflicts)
 				{
-					await CommitMatches(connection.Connection);
-				}
-				// Broadcast call this method, and it may be called at same time as the indexer, resulting in a Deadlock
-				// I believe we can safely retry in that case.
-				catch (NpgsqlException ex) when (ex.SqlState == PostgresErrorCodes.DeadlockDetected)
-				{
-					goto retry;
+					var wallet_id = GetWalletKey(match.TrackedSource).wid;
+					uint256 replacingTxId = uint256.Parse(r.replacing_tx_id);
+					if (replacingTxId == match.TransactionHash && r.wallet_id == wallet_id)
+					{
+						uint256 replacedTxId = uint256.Parse(r.replaced_tx_id);
+						match.Replacing.Add(replacedTxId);
+					}
 				}
 			}
-			if (slimBlock is null)
-			{
-				var matched = matches.Values.Select(m => m.TransactionHash).ToHashSet();
-				foreach (var noMatch in txs.Where(t => !matched.Contains(t.Key)))
-				{
-					noMatchCache.Add(noMatch.Key);
-				}
-			}
-			return matches.Values.Count == 0 ? Array.Empty<TrackedTransaction>() : matches.Values.ToArray();
 		}
 
 		public Task CommitMatches(DbConnection connection)
 		=> connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
-
-		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
-		{
-			await using var conn = await GetConnection();
-			return await GetMatches(conn, new[] { tx }, slimBlock, now, useCache, false);
-		}
 
 		record SavedTransactionRow(byte[] raw, string blk_id, long? blk_height, string replaced_by, DateTime seen_at);
 		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
@@ -723,43 +678,41 @@ namespace NBXplorer.Backend
 			}};
 		}
 
-		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, bool includeTransactions = true, CancellationToken cancellation = default)
+
+		public Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, bool includeTransactions = true, CancellationToken cancellation = default) =>
+			GetTransactions(GetTransactionQuery.Create(trackedSource, txId), includeTransactions, cancellation);
+		public async Task<TrackedTransaction[]> GetTransactions(GetTransactionQuery query, bool includeTransactions = true, CancellationToken cancellation = default)
 		{
 			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
+			return await GetTransactions(connection, query, includeTransactions, cancellation);
+		}
+		async Task<TrackedTransaction[]> GetTransactions(DbConnectionHelper connection, GetTransactionQuery query, bool includeTransactions = true, CancellationToken cancellation = default)
+		{
 			var tip = await connection.GetTip();
-			var txIdCond = txId is null ? string.Empty : " AND tx_id=@tx_id";
+			var para = new DynamicParameters();
+			var sql = query.GetSql(para, Network);
 			var utxos = await
-				connection.Connection.QueryAsync<(string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, DateTime seen_at)>(
-				"SELECT tx_id, idx, blk_id, blk_height, blk_idx, is_out, spent_tx_id, spent_idx, script, s.addr, value, asset_id, immature, keypath, seen_at " +
-				"FROM nbxv1_tracked_txs LEFT JOIN scripts s USING (code, script) " +
-				$"WHERE code=@code AND wallet_id=@walletId{txIdCond}", new { code = Network.CryptoCode, walletId = GetWalletKey(trackedSource).wid, tx_id = txId?.ToString() });
+				connection.Connection.QueryAsync<(string wallet_id, string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, DateTime seen_at)>(sql, para);
 			utxos.TryGetNonEnumeratedCount(out int c);
-			var trackedById = new Dictionary<string, TrackedTransaction>(c);
+			var trackedById = new Dictionary<(TrackedSource, string), TrackedTransaction>(c);
 			foreach (var utxo in utxos)
 			{
-				var tracked = GetTrackedTransaction(trackedSource, utxo.tx_id, utxo.blk_id, utxo.blk_height, utxo.blk_idx, utxo.seen_at, trackedById);
+				var trackedSource = query.GetTrackedSource(utxo.wallet_id);
+				if (trackedSource is null)
+					continue;
+				var tracked = GetTrackedTransaction(trackedSource, utxo.tx_id, utxo.blk_id, utxo.blk_height, utxo.blk_idx, utxo.immature, utxo.seen_at, trackedById);
 				if (utxo.is_out)
 				{
-					var txout = Network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTxOut();
-					txout.ScriptPubKey = Script.FromHex(utxo.script);
-					tracked.KnownAddresses.TryAdd(txout.ScriptPubKey, BitcoinAddress.Create(utxo.addr, this.Network.NBitcoinNetwork));
-					txout.Value = Money.Satoshis(utxo.value);
-					var coin = new Coin(new OutPoint(tracked.Key.TxId, (uint)utxo.idx), txout);
-					if (Network.IsElement)
+					var matchedOutput = new MatchedOutput()
 					{
-						tracked.ReceivedCoins.Add(new AssetCoin(new AssetMoney(uint256.Parse(utxo.asset_id), utxo.value), coin));
-					}
-					else
-					{
-						tracked.ReceivedCoins.Add(coin);
-					}
-
-					// TODO: IsCoinBase is actually not used anywhere.
-					tracked.IsCoinBase = utxo.immature;
-					tracked.Immature = utxo.immature;
-					if (utxo.keypath is string)
-						tracked.KnownKeyPathMapping.TryAdd(txout.ScriptPubKey, KeyPath.Parse(utxo.keypath));
-					tracked.OwnedScripts.Add(txout.ScriptPubKey);
+						Value = Network.IsElement ? new AssetMoney(uint256.Parse(utxo.asset_id), utxo.value)
+												  : Money.Satoshis(utxo.value),
+						ScriptPubKey = Script.FromHex(utxo.script),
+						KeyPath = utxo.keypath is string kp ? KeyPath.Parse(kp) : null,
+						Index = (int)utxo.idx,
+						Address = BitcoinAddress.Create(utxo.addr, this.Network.NBitcoinNetwork)
+					};
+					tracked.MatchedOutputs.Add(matchedOutput);
 				}
 				else
 				{
@@ -770,47 +723,64 @@ namespace NBXplorer.Backend
 						Index = (int)utxo.spent_idx,
 						TransactionId = uint256.Parse(utxo.spent_tx_id),
 						Address = utxo.addr is null ? null : BitcoinAddress.Create(utxo.addr, Network.NBitcoinNetwork),
+						KeyPath = utxo.keypath is string kp ? KeyPath.Parse(kp) : null,
 						ScriptPubKey = Script.FromHex(utxo.script),
 						Value = Money.Satoshis(utxo.value)
 					});
 				}
 			}
 
-			var txsToFetch = includeTransactions ? trackedById.Keys.AsList() :
+			var txsToFetch = (includeTransactions ? trackedById.Keys.Select(t => t.Item2).AsList() :
 												  // For double spend detection, we need the full transactions from unconfs
-												  trackedById.Where(t => t.Value.BlockHash is null).Select(t => t.Key).AsList();
+												  trackedById.Where(t => t.Value.BlockHash is null).Select(t => t.Key.Item2).AsList()).ToHashSet();
 			var txRaws = txsToFetch.Count > 0
 				? await connection.Connection.QueryAsync<(string tx_id, byte[] raw)>(
 					"SELECT	t.tx_id, t.raw FROM unnest(@txId) i " +
 					"JOIN txs t ON t.code=@code AND t.tx_id=i " +
-					"WHERE t.raw IS NOT NULL;", new { code = Network.CryptoCode, txId = txsToFetch })
+					"WHERE t.raw IS NOT NULL;", new { code = Network.CryptoCode, txId = txsToFetch.ToArray() })
 				: Array.Empty<(string tx_id, byte[] raw)>();
-			foreach (var row in txRaws)
+
+			var txRawsById = txRaws.ToDictionary(t => t.tx_id);
+			foreach (var tracked in trackedById.Values)
 			{
-				var tracked = trackedById[row.tx_id];
+				tracked.Sort();
+				if (!txRawsById.TryGetValue(tracked.Key.TxId.ToString(), out var row))
+					continue;
 				tracked.Transaction = Transaction.Load(row.raw, Network.NBitcoinNetwork);
-				tracked.Key = new TrackedTransactionKey(tracked.Key.TxId, tracked.Key.BlockHash, false);
+				tracked.Key = tracked.Key with { IsPruned = false };
 				if (tracked.BlockHash is null) // Only need the spend outpoint for double spend detection on unconf txs
 					tracked.SpentOutpoints.AddInputs(tracked.Transaction);
 			}
 
-			return trackedById.Values.Select(c =>
-			{
-				c.OwnedScriptsUpdated();
-				return c;
-			}).ToArray();
+			if (Network.IsElement)
+				await UnblindTrackedTransactions(connection, trackedById.Values, query);
+
+			return trackedById.Values.ToArray();
 		}
 
-		private TrackedTransaction GetTrackedTransaction(TrackedSource trackedSource, string tx_id, string block_id, long? blk_height, int? blk_idx, DateTime seenAt, Dictionary<string, TrackedTransaction> trackedById)
+		private async Task UnblindTrackedTransactions(DbConnectionHelper connection, IEnumerable<TrackedTransaction> trackedTransactions, GetTransactionQuery query)
 		{
-			if (trackedById.TryGetValue(tx_id, out var tracked))
+			var keyInfos = ((query as GetTransactionQuery.ScriptsTxIds)?.KeyInfos)?.ToMultiValueDictionary(k => k.ScriptPubKey); 
+			if (keyInfos is null)
+				keyInfos = (await this.GetKeyInformations(connection.Connection, trackedTransactions.SelectMany(t => t.InOuts).Select(s => s.ScriptPubKey).ToList()));
+			foreach (var tracked in trackedTransactions)
+				tracked.AddKnownKeyPathInformation(keyInfos);
+		}
+
+		private TrackedTransaction GetTrackedTransaction(TrackedSource trackedSource, string tx_id, string block_id, long? blk_height, int? blk_idx, bool immature, DateTime seenAt, Dictionary<(TrackedSource, string), TrackedTransaction> trackedById)
+		{
+			if (trackedById.TryGetValue((trackedSource, tx_id), out var tracked))
 				return tracked;
-			TrackedTransactionKey key = new TrackedTransactionKey(uint256.Parse(tx_id), block_id is null ? null : uint256.Parse(block_id), true);
-			tracked = CreateTrackedTransaction(trackedSource, key, null as IEnumerable<Coin>, new Dictionary<Script, KeyPath>());
-			tracked.FirstSeen = seenAt;
-			tracked.BlockHeight = blk_height;
-			tracked.BlockIndex = blk_idx;
-			trackedById.Add(tx_id, tracked);
+			var record = new SaveTransactionRecord(
+				null,
+				uint256.Parse(tx_id),
+				block_id is null ? null : uint256.Parse(block_id),
+				blk_idx,
+				blk_height,
+				immature,
+				seenAt);
+			tracked = TrackedTransaction.Create(trackedSource, record);
+			trackedById.Add((trackedSource, tx_id), tracked);
 			return tracked;
 		}
 
@@ -962,12 +932,12 @@ namespace NBXplorer.Backend
 			var receivedCoinsToDelete =
 				prunable
 				.Where(p => p.BlockHash is not null)
-				.SelectMany(c => c.ReceivedCoins)
+				.SelectMany(c => c.MatchedOutputs.Select(m => (tx: c, m)))
 				.Select(c => new
 				{
 					code = Network.CryptoCode,
-					txId = c.Outpoint.Hash.ToString(),
-					idx = (long)c.Outpoint.N
+					txId = c.tx.TransactionHash.ToString(),
+					idx = (long)c.m.Index
 				}).ToArray();
 			var spentCoins =
 				prunable
@@ -1025,19 +995,11 @@ namespace NBXplorer.Backend
 			}
 		}
 
-		public async Task SaveMatches(TrackedTransaction[] transactions)
+		public async Task<TrackedTransaction[]> SaveMatches(MatchQuery query, SaveTransactionRecord[] records)
 		{
-			if (transactions.Length is 0)
-				return;
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
-			var connection = helper.Connection;
-
-			var query = MatchQuery.FromTransactions(transactions, MinUtxoValue);
-			await helper.FetchMatches(query);
-			await helper.SaveTransactions(transactions.Select(SaveTransactionRecord.Create));
-			await CommitMatches(connection);
+			return (await this.SaveMatches(helper, query, records)).TrackedTransactions;
 		}
-
 		public async Task SaveMetadata<TMetadata>(TrackedSource source, string key, TMetadata value) where TMetadata : class
 		{
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
@@ -1056,16 +1018,10 @@ namespace NBXplorer.Backend
 			return await helper.GetMetadata<TMetadata>(walletKey.wid, key);
 		}
 
-		public async Task<List<SavedTransaction>> SaveTransactions(DateTimeOffset now, Transaction[] transactions, SlimChainedBlock slimBlock)
+		public async Task SaveTransactions(SaveTransactionRecord[] records)
 		{
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
-			await helper.SaveTransactions(transactions.Select(t => new SaveTransactionRecord(t, null as uint256, slimBlock?.Hash, null as int?, (long?)slimBlock?.Height, false, now)));
-			return transactions.Select(t => new SavedTransaction()
-			{
-				BlockHash = slimBlock?.Hash,
-				Timestamp = now,
-				Transaction = t
-			}).ToList();
+			await helper.SaveTransactions(records);
 		}
 
 		public async Task SetIndexProgress(BlockLocator locator)
@@ -1180,6 +1136,8 @@ namespace NBXplorer.Backend
 
 		}
 
+		public Task SaveBlocks(BlockHeaders blocks) =>
+			SaveBlocks(blocks.Select(b => b.ToSlimChainedBlock()).ToArray());
 		public async Task SaveBlocks(IList<SlimChainedBlock> slimBlocks)
 		{
 			await using var conn = await GetConnection();
@@ -1210,11 +1168,19 @@ namespace NBXplorer.Backend
 			await using var connection = await ConnectionFactory.CreateConnection();
 			await connection.ExecuteAsync(WalletInsertQuery, walletKey);
 		}
-		
+
 		public async Task<bool> WalletExists(WalletKey walletKey)
 		{
 			await using var connection = await ConnectionFactory.CreateConnection();
-			return await connection.ExecuteScalarAsync<int>(WalletCheckQuery, new{walletKey.wid}) != 0;
+			return await connection.ExecuteScalarAsync<int>(WalletCheckQuery, new { walletKey.wid }) != 0;
+		}
+
+		public void RemoveFromCache(IEnumerable<uint256> txIds)
+		{
+			foreach (var id in txIds)
+			{
+				noMatchCache.Remove(id);
+			}
 		}
 
 		internal static readonly string WalletInsertQuery = "INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING;";

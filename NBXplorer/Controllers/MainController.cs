@@ -27,6 +27,8 @@ using NBitcoin.Scripting;
 using System.Globalization;
 
 using Dapper;
+using static NBXplorer.Backend.DbConnectionHelper;
+using System.Diagnostics;
 
 namespace NBXplorer.Controllers
 {
@@ -73,7 +75,7 @@ namespace NBXplorer.Controllers
 			get;
 		}
 		public ExplorerConfiguration ExplorerConfiguration { get; }
-		
+
 
 		static HashSet<string> WhitelistedRPCMethods = new HashSet<string>()
 		{
@@ -230,7 +232,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> CancelReservation(TrackedSourceContext trackedSourceContext, [FromBody] KeyPath[] keyPaths)
 		{
 			var repo = trackedSourceContext.Repository;
-			var strategy = ((DerivationSchemeTrackedSource )trackedSourceContext.TrackedSource).DerivationStrategy;
+			var strategy = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
 			await repo.CancelReservation(strategy, keyPaths);
 			return Ok();
 		}
@@ -255,7 +257,7 @@ namespace NBXplorer.Controllers
 		{
 			var network = trackedSourceContext.Network;
 			var repo = trackedSourceContext.Repository;
-			var strategy = ((DerivationSchemeTrackedSource )trackedSourceContext.TrackedSource).DerivationStrategy;
+			var strategy = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
 			var result = (await repo.GetKeyInformations(new[] { script }))
 				.SelectMany(k => k.Value)
 				.FirstOrDefault(k => k.DerivationStrategy == strategy);
@@ -594,8 +596,8 @@ namespace NBXplorer.Controllers
 						Transaction = includeTransaction ? tx.Record.Transaction : null,
 						Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 						Timestamp = tx.Record.FirstSeen,
-						Inputs = tx.Record.MatchedInputs.OrderBy(m => m.InputIndex).ToList(),
-						Outputs = tx.Record.GetReceivedOutputs().ToList(),
+						Inputs = tx.Record.MatchedInputs,
+						Outputs = tx.Record.MatchedOutputs,
 						Replaceable = tx.Replaceable,
 						ReplacedBy = tx.ReplacedBy == NBXplorerNetwork.UnknownTxId ? null : tx.ReplacedBy,
 						Replacing = tx.Replacing
@@ -670,18 +672,16 @@ namespace NBXplorer.Controllers
 												   .ToArray();
 
 			var blocks = await rpc.GetBlockHeadersAsync(transactions.Select(t => t.BlockId).Where(b => b != null).ToArray(), cancellationToken);
-			await repo.SaveBlocks(blocks.Select(b => b.ToSlimChainedBlock()).ToList());
+			await repo.SaveBlocks(blocks);
 			foreach (var txs in transactions.GroupBy(t => t.BlockId, t => (t.Transaction, t.BlockTime))
 											.OrderBy(t => t.First().BlockTime))
 			{
-				blocks.ByHashes.TryGetValue(txs.Key, out var slimBlock);
-				await repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), slimBlock.ToSlimChainedBlock());
-				foreach (var tx in txs)
-				{
-					var matches = await repo.GetMatches(tx.Transaction, slimBlock.ToSlimChainedBlock(), tx.BlockTime, false);
-					await repo.SaveMatches(matches);
-					_ = AddressPoolService.GenerateAddresses(network, matches);
-				}
+				blocks.ByHashes.TryGetValue(txs.Key, out var b);
+				var slimBlock = b?.ToSlimChainedBlock();
+				var records = txs.Select(t => SaveTransactionRecord.Create(t.Transaction, slimBlock: slimBlock, seenAt: t.BlockTime)).ToArray();
+				var query = MatchQuery.FromTransactions(records.Select(r => r.Transaction), repo.MinUtxoValue);
+				var matches = await repo.SaveMatches(query, records);
+				_ = AddressPoolService.GenerateAddresses(network, matches);
 			}
 			return Ok();
 		}

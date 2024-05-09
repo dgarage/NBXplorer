@@ -14,6 +14,8 @@ using NBXplorer.Models;
 using NBXplorer.Logging;
 using NBitcoin.Scripting;
 using NBXplorer.Backend;
+using NBitcoin.Altcoins;
+using static NBXplorer.Backend.DbConnectionHelper;
 
 namespace NBXplorer
 {
@@ -275,13 +277,13 @@ namespace NBXplorer
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
 			DateTimeOffset now = DateTimeOffset.UtcNow;
 
-			await repo.SaveBlocks(blockHeaders.Select(b => b.ToSlimChainedBlock()).ToList());
-			await repo.SaveMatches(data.Select(o =>
-			{
-				var trackedTransaction = repo.CreateTrackedTransaction(trackedSource, new TrackedTransactionKey(o.TxId, o.BlockHeader.Hash, true), o.Coins, ToDictionary(o.KeyPathInformations));
-				trackedTransaction.FirstSeen = o.BlockHeader.Time;
-				return trackedTransaction;
-			}).ToArray());
+			var records = data.Select(d => SaveTransactionRecord.Create(
+						txHash: d.TxId,
+						slimBlock: d.BlockHeader.ToSlimChainedBlock(),
+						seenAt: Extensions.MinDate(d.BlockHeader.Time, now))).ToArray();
+			var query = new MatchQuery(data.SelectMany(d => d.Coins));
+			await repo.SaveBlocks(blockHeaders);
+			await repo.SaveMatches(query, records.ToArray());
 		}
 		private static Dictionary<Script, KeyPath> ToDictionary(IEnumerable<KeyPathInformation> knownScriptMapping)
 		{

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Collections.Generic;
 using NBitcoin;
 using NBXplorer.Models;
+using static NBXplorer.Backend.DbConnectionHelper;
 
 namespace NBXplorer.Tests
 {
@@ -21,17 +22,20 @@ namespace NBXplorer.Tests
 
 			public TrackedTransaction Build()
 			{
-				var tx = new TrackedTransaction(new TrackedTransactionKey(_TransactionId, _BlockId, true), _Parent._TrackedSource, null as Coin[], null)
-				{
-					FirstSeen = _TimeStamp
-				};
+				var record = new SaveTransactionRecord(null, _TransactionId, _BlockId, null, null, false, _TimeStamp);
+				var tx = TrackedTransaction.Create(_Parent._TrackedSource, record);
 				foreach (var input in _Inputs)
 				{
 					tx.SpentOutpoints.Add(input.Coin.Outpoint, 0);
 				}
 				foreach (var output in _Outputs)
 				{
-					tx.ReceivedCoins.Add(output.Coin);
+					tx.MatchedOutputs.Add(new MatchedOutput()
+					{
+						Index = (int)output.Coin.Outpoint.N,
+						Value = output.Coin.Amount,
+						ScriptPubKey = output.Coin.ScriptPubKey
+					});
 				}
 				return tx;
 			}

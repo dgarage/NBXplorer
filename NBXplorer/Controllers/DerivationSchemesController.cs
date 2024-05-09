@@ -160,7 +160,7 @@ namespace NBXplorer.Controllers
 			{
 				if (tx.Height is long h && tip - h + 1 > keepConfMax)
 				{
-					if (tx.Record.ReceivedCoins.All(c => state.SpentUTXOs.Contains(c.Outpoint)))
+					if (tx.Record.MatchedOutputs.All(c => state.SpentUTXOs.Contains(new OutPoint(tx.Record.TransactionHash, c.Index))))
 					{
 						prunableIds.Add(tx.Record.Key.TxId);
 					}

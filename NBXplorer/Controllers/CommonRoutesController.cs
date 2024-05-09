@@ -6,9 +6,13 @@ using NBXplorer.Models;
 using System.Threading.Tasks;
 using System;
 using System.Linq;
+using System.Threading;
 using Dapper;
 using NBXplorer.Backend;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NBXplorer.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace NBXplorer.Controllers
 {
@@ -18,9 +22,13 @@ namespace NBXplorer.Controllers
 	[Authorize]
 	public class CommonRoutesController : Controller
 	{
+		public GroupsController GroupsController{ get; }
+		public AddressPoolService AddressPoolService{ get; }
 		public DbConnectionFactory ConnectionFactory { get; }
-		public CommonRoutesController(DbConnectionFactory connectionFactory)
+		public CommonRoutesController(DbConnectionFactory connectionFactory, AddressPoolService addressPoolService, GroupsController groupsController)
 		{
+			GroupsController = groupsController;
+			AddressPoolService = addressPoolService;
 			ConnectionFactory = connectionFactory;
 		}
 		
@@ -111,7 +119,7 @@ namespace NBXplorer.Controllers
 			// On elements, we can't get blinded address from the scriptPubKey, so we need to fetch it rather than compute it
 			string addrColumns = "NULL as address";
 			var derivationScheme = (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-			if (network.IsElement && derivationScheme?.Unblinded() is true)
+			if (network.IsElement && derivationScheme is not null && !derivationScheme.Unblinded())
 			{
 				addrColumns = "ds.metadata->>'blindedAddress' as address";
 			}

@@ -28,6 +28,7 @@ using System.Globalization;
 using System.Net;
 using NBXplorer.HostedServices;
 using NBitcoin.Altcoins;
+using static NBXplorer.Backend.DbConnectionHelper;
 
 namespace NBXplorer.Tests
 {
@@ -1167,7 +1168,7 @@ namespace NBXplorer.Tests
 
 			var bobW = await tester.Client.GenerateWalletAsync();
 			var bob = bobW.DerivationScheme;
-			
+
 			var bobAddr = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, 0);
 			var bobAddr1 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, 1);
 
@@ -2013,11 +2014,11 @@ namespace NBXplorer.Tests
 					// but make test flaky.
 					if (blockEvent.Hash != expectedBlockId)
 						blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
-					
+
 					Assert.True(blockEvent.EventId != 0);
 					Assert.Equal(expectedBlockId, blockEvent.Hash);
 					Assert.NotEqual(0, blockEvent.Height);
-					
+
 					Assert.Equal(1, blockEvent.Confirmations);
 
 					connected.ListenDerivationSchemes(new[] { pubkey });
@@ -2097,7 +2098,7 @@ namespace NBXplorer.Tests
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				
+
 				var wLegacy = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Legacy });
 				var wSegwit = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Segwit });
 
@@ -2137,7 +2138,7 @@ namespace NBXplorer.Tests
 
 					// Here, we will try to spend the coins of the segwit wallet
 					var psbt = await tester.Client.CreatePSBTAsync(pubkey2, new CreatePSBTRequest()
-					{ 
+					{
 						Destinations = [
 							new ()
 							{
@@ -2156,7 +2157,7 @@ namespace NBXplorer.Tests
 						txEvent = (Models.NewTransactionEvent)await connected.NextEventAsync(Cancel);
 						if (txEvent.TrackedSource == TrackedSource.Parse(wSegwit.TrackedSource, tester.NBXplorerNetwork))
 						{
-							
+
 							void AssertInputs(List<MatchedInput> inputs)
 							{
 								Assert.Equal(2, inputs.Count);
@@ -2213,8 +2214,11 @@ namespace NBXplorer.Tests
 				var transactions = await repo.GetTransactions(new DerivationSchemeTrackedSource(bobPubKey), id);
 				var tx = Assert.Single(transactions);
 				var timestamp = tx.FirstSeen;
-				var match = (await repo.GetMatches(tx.Transaction, null, DateTimeOffset.UtcNow + TimeSpan.FromSeconds(2), false));
-				await repo.SaveMatches(match);
+				var query = MatchQuery.FromTransactions(new[] { tx.Transaction }, null);
+				var records = new SaveTransactionRecord[] { SaveTransactionRecord.Create(tx: tx.Transaction, seenAt: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(2)) };
+				var tracked = await repo.SaveMatches(query, records);
+				Assert.Single(tracked);
+				Assert.Equal(timestamp, tracked[0].FirstSeen);
 				transactions = await repo.GetTransactions(new DerivationSchemeTrackedSource(bobPubKey), id);
 				tx = Assert.Single(transactions);
 				Assert.Equal(timestamp, tx.FirstSeen);
@@ -2555,7 +2559,7 @@ namespace NBXplorer.Tests
 		{
 			var rpc = new RPCClient(new RPCCredentialString()
 			{
-				UserPassword = new NetworkCredential("dashrpc","PQQgOzs1jN7q2SWQ6TpBNLm9j"),
+				UserPassword = new NetworkCredential("dashrpc", "PQQgOzs1jN7q2SWQ6TpBNLm9j"),
 			}, "https://dash-testnet.nodes.m3t4c0.xyz", AltNetworkSets.Dash.Testnet);
 			var b1 = await rpc.GetBlockAsync(new uint256("000001f02c1623e0bb12b54ac505cefdfca3f0f664bf333fc73ae5eafe34b830"));
 		}
@@ -2737,7 +2741,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		public CancellationToken Timeout => new CancellationTokenSource(10000).Token;
+		public CancellationToken Timeout => new CancellationTokenSource(10_000).Token;
 
 
 		[FactWithTimeout]
@@ -2958,7 +2962,7 @@ namespace NBXplorer.Tests
 				var utxo = await tester.Client.GetUTXOsAsync(pubkey);
 				Assert.Equal(tester.Network.Consensus.CoinbaseMaturity + 1, utxo.CurrentHeight);
 				Assert.Single(utxo.Unconfirmed.UTXOs);
-				
+
 				Assert.Equal(tester.AddressOf(key, "0/0"), utxo.Unconfirmed.UTXOs[0].Address);
 				Assert.Equal(txId, utxo.Unconfirmed.UTXOs[0].Outpoint.Hash);
 				var unconfTimestamp = utxo.Unconfirmed.UTXOs[0].Timestamp;
@@ -3253,7 +3257,7 @@ namespace NBXplorer.Tests
 
 			var outpoint = new OutPoint(tx2.Record.Key.TxId, 0);
 			tx1.Record.SpentOutpoints.Add(outpoint, 0);
-			tx2.Record.ReceivedCoins.Add(new Coin(outpoint, new TxOut()));
+			tx2.Record.MatchedOutputs.Add(new MatchedOutput() { Index = (int)outpoint.N });
 			AssertExpectedOrder(new[] { tx2, tx1 }, true); // tx1 depends on tx2 so even if tx1 has been seen first, topological sort should be used
 
 			List<AnnotatedTransaction> txs = new List<AnnotatedTransaction>();
@@ -3298,12 +3302,11 @@ namespace NBXplorer.Tests
 
 		private static AnnotatedTransaction CreateRandomAnnotatedTransaction(DerivationSchemeTrackedSource trackedSource, int? height = null, int? seen = null)
 		{
-			var a = new AnnotatedTransaction(height, new TrackedTransaction(new TrackedTransactionKey(RandomUtils.GetUInt256(), null, true), trackedSource, null as Coin[], null), true);
-			if (seen is int v)
-			{
-				a.Record.FirstSeen = NBitcoin.Utils.UnixTimeToDateTime(v);
-			}
-			return a;
+			var record = new SaveTransactionRecord(null, RandomUtils.GetUInt256(), null, null, height, false, NBitcoin.Utils.UnixTimeToDateTime(seen ?? 0));
+			return new AnnotatedTransaction(
+				record.BlockHeight,
+				TrackedTransaction.Create(trackedSource, record),
+				!record.Immature);
 		}
 
 		[Fact]
@@ -4254,7 +4257,7 @@ namespace NBXplorer.Tests
 			Assert.False(await tester.Client.IsTrackedAsync(xpub, Cancel));
 			await tester.Client.TrackAsync(xpub, new TrackWalletRequest(), Cancel);
 			Assert.True(await tester.Client.IsTrackedAsync(xpub, Cancel));
-			
+
 			var address = new AddressTrackedSource(new Key().GetAddress(ScriptPubKeyType.Legacy, tester.Network));
 			Assert.False(await tester.Client.IsTrackedAsync(address, Cancel));
 			await tester.Client.TrackAsync(address, new TrackWalletRequest(), Cancel);
@@ -4262,7 +4265,7 @@ namespace NBXplorer.Tests
 
 			var group = new GroupTrackedSource("lolno");
 			Assert.False(await tester.Client.IsTrackedAsync(group, Cancel));
-			
+
 			group = new GroupTrackedSource((await tester.Client.CreateGroupAsync(Cancel)).GroupId);
 			Assert.True(await tester.Client.IsTrackedAsync(group, Cancel));
 		}
