@@ -81,7 +81,12 @@ namespace NBXplorer.Controllers
 			"getrawtransaction",
 			"gettxout",
 			"estimatesmartfee",
-			"getmempoolinfo"
+			"getmempoolinfo",
+			"gettxoutproof",
+			"verifytxoutproof",
+			"getblockchaininfo",
+			"getblockhash",
+			"getblockheader"
 		};
 		internal NBXplorerNetwork GetNetwork(string cryptoCode, bool checkRPC)
 		{
@@ -811,6 +816,78 @@ namespace NBXplorer.Controllers
 			}
 		}
 
+		
+		[HttpPost("import-utxos")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(true)]
+		public async Task<IActionResult> ImportUTXOs(TrackedSourceContext trackedSourceContext, [FromBody] JObject rawRequest, CancellationToken cancellationToken = default)
+		{
+			var repo = trackedSourceContext.Repository;
+			var jsonSerializer = JsonSerializer.Create(trackedSourceContext.Network.JsonSerializerSettings);
+			var request = rawRequest.ToObject<ImportUTXORequest>(jsonSerializer);
+
+			if (request.Utxos?.Any() is not true)
+				return Ok();
+
+			var rpc = trackedSourceContext.RpcClient;
+
+			var coinToTxOut = await rpc.GetTxOuts(request.Utxos);
+			var bestBlocks = await rpc.GetBlockHeadersAsync(coinToTxOut.Select(c => c.Value.BestBlock).ToHashSet().ToList(),cancellationToken);
+			var coinsWithHeights = coinToTxOut
+				.Select(c => new
+				{
+					BestBlock = bestBlocks.ByHashes.TryGet(c.Value.BestBlock),
+					Outpoint = c.Key,
+					RPCTxOut = c.Value
+				})
+				.Where(c => c.BestBlock is not null)
+				.Select(c => new
+				{
+					Height = c.BestBlock.Height - c.RPCTxOut.Confirmations + 1,
+					c.Outpoint,
+					c.RPCTxOut
+				})
+				.ToList();
+			var blockHeaders = await rpc.GetBlockHeadersAsync(coinsWithHeights.Where(c => c.RPCTxOut.Confirmations != 0).Select(c => c.Height).Distinct().ToList());
+
+			var scripts = coinToTxOut
+				.Select(pair => new AssociateScriptRequest()
+				{
+					ScriptPubKey = pair.Value.TxOut.ScriptPubKey
+				})
+				.ToArray();
+
+			var now = DateTimeOffset.UtcNow;
+			var trackedTransactions =
+				coinsWithHeights
+				.Select(c => new
+				{
+					Block = blockHeaders.ByHeight.TryGet(c.Height),
+					c.Height,
+					c.RPCTxOut,
+					c.Outpoint
+				})
+				.Where(c => c.Block is not null || c.RPCTxOut.Confirmations == 0)
+				.GroupBy(c => c.Outpoint.Hash)
+				.Select(g =>
+				{
+					var coins = g.Select(c => new Coin(c.Outpoint, c.RPCTxOut.TxOut)).ToArray();
+					var txInfo = g.First().RPCTxOut;
+					var block = g.First().Block;
+					var ttx = repo.CreateTrackedTransaction(trackedSourceContext.TrackedSource,
+						new TrackedTransactionKey(g.Key, block?.Hash, true) { }, coins, null);
+					ttx.Inserted = now;
+					ttx.Immature = txInfo.IsCoinBase && txInfo.Confirmations <= repo.Network.NBitcoinNetwork.Consensus.CoinbaseMaturity;
+					ttx.FirstSeen = block?.Time ?? now;
+					return ttx;
+				}).ToArray();
+
+			await repo.AssociateScriptsToWalletExplicitly(trackedSourceContext.TrackedSource, scripts);
+			await repo.SaveBlocks(blockHeaders.Select(b => b.ToSlimChainedBlock()).ToList());
+			await repo.SaveMatches(trackedTransactions);
+
+			return Ok();
+		}
+		
 		private RPCErrorCode? GetRPCCodeFromReason(string rejectReason)
 		{
 			return rejectReason switch
