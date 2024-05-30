@@ -33,6 +33,11 @@ namespace NBXplorer.Models
 			get; set;
 		} = new List<MatchedOutput>();
 
+		public bool HasSpendMatch
+		{
+			get; set;
+		} = false;
+
 		[JsonIgnore]
 		public override string EventType => "newtransaction";
 

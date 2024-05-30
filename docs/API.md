@@ -626,6 +626,7 @@ Then you will receive such notifications when a transaction is impacting the `de
         "value": 100000000
       }
     ],
+    "hasSpendMatch": false,
     "cryptoCode": "BTC",
     "replacing": ["25d6bc1b2812670550aca8b2984670203b5ebf00e75f9b2bbf1940c3fa27841e", "81a20eb55ec16b92c65d4e142278fd521caa9e5dcad9d941c8e256dbd917ae84"]
   }
@@ -879,6 +880,7 @@ The smallest `eventId` is 1.
           "value": 100000000
         }
       ],
+      "hasSpendMatch": false,
       "cryptoCode": "BTC",
     }
   }

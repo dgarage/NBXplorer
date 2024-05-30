@@ -503,6 +503,7 @@ namespace NBXplorer.Backend
 							TransactionHash = matches[i].TransactionHash
 						},
 						Outputs = matches[i].GetReceivedOutputs().ToList(),
+						HasSpendMatch = matches[i].SpentOutpoints.Count != 0,
 						Replacing = matches[i].Replacing.ToList()
 					};
 
