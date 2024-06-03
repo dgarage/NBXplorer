@@ -167,11 +167,6 @@ namespace NBXplorer
 							});
 		}
 
-		public virtual ITrackedTransactionSerializable CreateBitcoinSerializable()
-		{
-			return new TransactionMatchData(this);
-		}
-
 		internal void AddKnownKeyPathInformation(KeyPathInformation keyInfo)
 		{
 			if (keyInfo.KeyPath != null)
