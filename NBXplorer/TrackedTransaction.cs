@@ -148,7 +148,7 @@ namespace NBXplorer
 		public long? BlockHeight { get; set; }
 		public bool Immature { get; internal set; }
 		public HashSet<uint256> Replacing { get; internal set; }
-
+		public List<MatchedInput> MatchedInputs { get; private set; } = new List<MatchedInput>();
 		public IEnumerable<MatchedOutput> GetReceivedOutputs()
 		{
 			return this.ReceivedCoins
@@ -174,6 +174,18 @@ namespace NBXplorer
 			if (keyInfo.Address != null)
 				this.KnownAddresses.TryAdd(keyInfo.ScriptPubKey, keyInfo.Address);
 			this.OwnedScripts.Add(keyInfo.ScriptPubKey);
+		}
+
+		public void UpdateMatchedInputs(IEnumerable<MatchedInput> matchedInputs)
+		{
+			MatchedInputs = new List<MatchedInput>(matchedInputs);
+			foreach (var mi in MatchedInputs)
+			{
+				if (this.KnownAddresses.TryGetValue(mi.ScriptPubKey, out var addr))
+					mi.Address = addr;
+				if (this.KnownKeyPathMapping.TryGetValue(mi.ScriptPubKey, out var keypath))
+					mi.KeyPath = keypath;
+			}
 		}
 	}
 

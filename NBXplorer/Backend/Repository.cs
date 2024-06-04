@@ -615,11 +615,24 @@ namespace NBXplorer.Backend
 					transactionsPerScript.Add(s, transactions[uint256.Parse(r.tx_id)]);
 					elementContext?.MatchedOut(r);
 				}
+
+				var matchedInputs = new MultiValueDictionary<uint256, MatchedInput>();
 				foreach (var r in matchedIns)
 				{
-					var s = Script.FromHex(r.script);
+					Script s = Script.FromHex(r.script);
 					scripts.Add(s);
-					transactionsPerScript.Add(s, transactions[uint256.Parse(r.tx_id)]);
+					var txId = uint256.Parse(r.tx_id);
+					transactionsPerScript.Add(s, transactions[txId]);
+
+					matchedInputs.Add(txId,	
+					new MatchedInput()
+					{
+						InputIndex = (int)r.idx,
+						Index = (int)r.spent_idx,
+						ScriptPubKey = s,
+						TransactionId = uint256.Parse(r.spent_tx_id),
+						Value = Money.Satoshis(r.value)
+					});
 				}
 
 				if (scripts.Count > 0)
@@ -629,15 +642,16 @@ namespace NBXplorer.Backend
 					{
 						foreach (var tx in transactionsPerScript[keyInfoByScripts.Key])
 						{
+							var txId = tx.GetHash();
 							if (keyInfoByScripts.Value.Count != 0)
-								noMatchTransactions?.Remove(tx.GetHash());
+								noMatchTransactions?.Remove(txId);
 							foreach (var keyInfo in keyInfoByScripts.Value)
 							{
-								var matchesGroupingKey = (keyInfo.TrackedSource, tx.GetHash());
+								var matchesGroupingKey = (keyInfo.TrackedSource, txId);
 								if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 								{
 									match = CreateTrackedTransaction(keyInfo.TrackedSource,
-										new TrackedTransactionKey(tx.GetHash(), slimBlock?.Hash, false),
+										new TrackedTransactionKey(txId, slimBlock?.Hash, false),
 										tx,
 										new Dictionary<Script, KeyPath>());
 
@@ -648,6 +662,7 @@ namespace NBXplorer.Backend
 									match.Inserted = now;
 									match.Immature = record.Immature;
 									match.Replacing = new HashSet<uint256>();
+
 									foreach (var r in matchedConflicts)
 									{
 										var wallet_id = GetWalletKey(match.TrackedSource).wid;
@@ -668,6 +683,9 @@ namespace NBXplorer.Backend
 					}
 					foreach (var m in matches.Values)
 					{
+						m.UpdateMatchedInputs(matchedInputs
+											.GetOrEmpty(m.TransactionHash)
+											.Where(mi => m.OwnedScripts.Contains(mi.ScriptPubKey)));
 						m.OwnedScriptsUpdated();
 						if (elementContext is not null)
 							await elementContext.Unblind(rpc, m);
@@ -765,6 +783,15 @@ namespace NBXplorer.Backend
 				else
 				{
 					tracked.SpentOutpoints.Add(new OutPoint(uint256.Parse(utxo.spent_tx_id), (uint)utxo.spent_idx), (int)utxo.idx);
+					tracked.MatchedInputs.Add(new MatchedInput()
+					{
+						InputIndex = (int)utxo.idx,
+						Index = (int)utxo.spent_idx,
+						TransactionId = uint256.Parse(utxo.spent_tx_id),
+						Address = utxo.addr is null ? null : BitcoinAddress.Create(utxo.addr, Network.NBitcoinNetwork),
+						ScriptPubKey = Script.FromHex(utxo.script),
+						Value = Money.Satoshis(utxo.value)
+					});
 				}
 			}
 

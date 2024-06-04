@@ -398,6 +398,13 @@ namespace NBXplorer
 			return new Enumerator(this);
 		}
 
+		public IEnumerable<TValue> GetOrEmpty(TKey key)
+		{
+			if (dictionary.TryGetValue(key, out var v))
+				return v;
+			return Array.Empty<TValue>();
+		}
+
 		#endregion
 
 		/// <summary>
