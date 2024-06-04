@@ -572,7 +572,7 @@ namespace NBXplorer.Backend
 			var scripts = new List<Script>(outpointCount);
 			var transactionsPerScript = new MultiValueDictionary<Script, NBitcoin.Transaction>(outpointCount);
 
-			var matches = new Dictionary<string, TrackedTransaction>();
+			var matches = new Dictionary<(TrackedSource TrackedSource, uint256 TxId), TrackedTransaction>();
 			var noMatchTransactions = slimBlock?.Hash is null ? new HashSet<uint256>(txs.Count) : null;
 			var transactions = new Dictionary<uint256, NBitcoin.Transaction>(txs.Count);
 			var outpoints = new List<OutPoint>(inputCount);
@@ -633,7 +633,7 @@ namespace NBXplorer.Backend
 								noMatchTransactions?.Remove(tx.GetHash());
 							foreach (var keyInfo in keyInfoByScripts.Value)
 							{
-								var matchesGroupingKey = $"{keyInfo.DerivationStrategy?.ToString() ?? keyInfo.ScriptPubKey.ToHex()}-[{tx.GetHash()}]";
+								var matchesGroupingKey = (keyInfo.TrackedSource, tx.GetHash());
 								if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 								{
 									match = CreateTrackedTransaction(keyInfo.TrackedSource,
