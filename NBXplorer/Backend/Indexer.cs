@@ -502,6 +502,7 @@ namespace NBXplorer.Backend
 							Transaction = matches[i].Transaction,
 							TransactionHash = matches[i].TransactionHash
 						},
+						Inputs = matches[i].MatchedInputs.OrderBy(m => m.InputIndex).ToList(),
 						Outputs = matches[i].GetReceivedOutputs().ToList(),
 						Replacing = matches[i].Replacing.ToList()
 					};

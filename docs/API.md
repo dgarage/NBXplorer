@@ -211,7 +211,24 @@ Returns:
             "value": 100000000
           }
         ],
-        "inputs": [],
+        "inputs": [
+            {
+              "inputIndex": 0,
+              "transactionId": "194d6dc4e1c4c983b5235ad2b82cc7c48c36def4960fdcf37697253c9d9854a2",
+              "scriptPubKey": "001409249118830af97a029217f3a8744973c5a4a02e",
+              "index": 4,
+              "value": 90000000,
+              "address": "bcrt1qpyjfzxyrptuh5q5jzle6sazfw0z6fgpwuz2rye"
+            },
+            {
+              "inputIndex": 1,
+              "transactionId": "194d6dc4e1c4c983b5235ad2b82cc7c48c36def4960fdcf37697253c9d9854a2",
+              "scriptPubKey": "0014d83837bd474d799ad4decba4bac561a7356e0371",
+              "index": 1,
+              "value": 50000000,
+              "address": "bcrt1qmqur0028f4ue44x7ewjt43tp5u6kuqm3eqa3ua"
+            }
+        ],
         "timestamp": 1540381888,
         "balanceChange": 100000000,
         "replaceable": false,
@@ -616,6 +633,23 @@ Then you will receive such notifications when a transaction is impacting the `de
       "height": null,
       "timestamp": 1540434424
     },
+    "inputs": [
+    {
+      "inputIndex": 0,
+      "transactionId": "194d6dc4e1c4c983b5235ad2b82cc7c48c36def4960fdcf37697253c9d9854a2",
+      "scriptPubKey": "001409249118830af97a029217f3a8744973c5a4a02e",
+      "index": 4,
+      "value": 90000000,
+      "address": "bcrt1qpyjfzxyrptuh5q5jzle6sazfw0z6fgpwuz2rye"
+    },
+    {
+      "inputIndex": 1,
+      "transactionId": "194d6dc4e1c4c983b5235ad2b82cc7c48c36def4960fdcf37697253c9d9854a2",
+      "scriptPubKey": "0014d83837bd474d799ad4decba4bac561a7356e0371",
+      "index": 1,
+      "value": 50000000,
+      "address": "bcrt1qmqur0028f4ue44x7ewjt43tp5u6kuqm3eqa3ua"
+    }],
     "outputs": [
       {
         "keyPath": "0/1",

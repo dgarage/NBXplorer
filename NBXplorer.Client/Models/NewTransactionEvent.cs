@@ -28,6 +28,10 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
+		public List<MatchedInput> Inputs
+		{
+			get; set;
+		} = new List<MatchedInput>();
 		public List<MatchedOutput> Outputs
 		{
 			get; set;
@@ -69,5 +73,9 @@ namespace NBXplorer.Models
 	public class MatchedInput : MatchedOutput
 	{
 		public int InputIndex { get; set; }
+		public uint256 TransactionId
+		{
+			get; set;
+		}
 	}
 }

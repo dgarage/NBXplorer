@@ -569,7 +569,7 @@ namespace NBXplorer.Controllers
 						Transaction = includeTransaction ? tx.Record.Transaction : null,
 						Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 						Timestamp = tx.Record.FirstSeen,
-						Inputs = tx.Record.SpentOutpoints.Select(o =>txs.GetSpentUTXO(o.Outpoint, o.InputIndex)).Where(o => o != null).ToList(),
+						Inputs = tx.Record.MatchedInputs.OrderBy(m => m.InputIndex).ToList(),
 						Outputs = tx.Record.GetReceivedOutputs().ToList(),
 						Replaceable = tx.Replaceable,
 						ReplacedBy = tx.ReplacedBy == NBXplorerNetwork.UnknownTxId ? null : tx.ReplacedBy,

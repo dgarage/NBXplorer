@@ -39,13 +39,6 @@ namespace NBXplorer
 		{
 			_TxById = new Dictionary<uint256, AnnotatedTransaction>(transactions.Count);
 			ConfirmedTransactions = new List<AnnotatedTransaction>(transactions.Count);
-			foreach (var tx in transactions)
-			{
-				foreach (var keyPathInfo in tx.KnownKeyPathMapping)
-				{
-					_KeyPaths.TryAdd(keyPathInfo.Key, keyPathInfo.Value);
-				}
-			}
 
 			// Let's remove the dups and let's get the current height of the transactions
 			foreach (var trackedTx in transactions)
@@ -259,37 +252,6 @@ namespace NBXplorer
 					return annotatedTransaction.Height < conflicted.Height; // The most buried block win (should never happen though)
 				}
 			}
-		}
-
-		public MatchedOutput GetUTXO(OutPoint outpoint)
-		{
-			if (_TxById.TryGetValue(outpoint.Hash, out var tx))
-			{
-				return tx.Record.GetReceivedOutputs().FirstOrDefault(c => c.Index == outpoint.N);
-			}
-			return null;
-		}
-		public MatchedInput GetSpentUTXO(OutPoint outpoint, int inputIndex)
-		{
-			if (GetUTXO(outpoint) is { } result)
-			{
-				return new MatchedInput()
-				{
-					InputIndex = inputIndex,
-					Index = result.Index,
-					Value = result.Value,
-					KeyPath = result.KeyPath,
-					ScriptPubKey = result.ScriptPubKey
-				};
-			}
-
-			return null;
-		}
-
-		Dictionary<Script, KeyPath> _KeyPaths = new Dictionary<Script, KeyPath>();
-		public KeyPath GetKeyPath(Script scriptPubkey)
-		{
-			return _KeyPaths.TryGet(scriptPubkey);
 		}
 
 		Dictionary<uint256, AnnotatedTransaction> _TxById = new Dictionary<uint256, AnnotatedTransaction>();

@@ -2089,12 +2089,12 @@ namespace NBXplorer.Tests
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), false);
+				
+				var wLegacy = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Legacy });
+				var wSegwit = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Segwit });
 
-				var pubkey2 = tester.CreateDerivationStrategy(key.Neuter(), true);
+				(var pubkey, var pubkey2) = (wLegacy.DerivationScheme, wSegwit.DerivationScheme);
 
-				await tester.Client.TrackAsync(pubkey);
-				await tester.Client.TrackAsync(pubkey2);
 				using (var connected = tester.Client.CreateWebsocketNotificationSession())
 				{
 					connected.ListenAllDerivationSchemes();
@@ -2115,6 +2115,7 @@ namespace NBXplorer.Tests
 						var derived = ((DerivationSchemeTrackedSource)txEvent.TrackedSource).DerivationStrategy.GetDerivation(output.KeyPath);
 						Assert.Equal(derived.ScriptPubKey, txOut.ScriptPubKey);
 					}
+					var fundingTx = txEvent.TransactionData.TransactionHash;
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), schemes);
 					schemes.Remove(txEvent.DerivationStrategy.ToString());
 
@@ -2124,6 +2125,68 @@ namespace NBXplorer.Tests
 					txEvent = (Models.NewTransactionEvent)await connected.NextEventAsync(Cancel);
 					Assert.Equal(2, txEvent.Outputs.Count);
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), new[] { pubkey.ToString(), pubkey2.ToString() });
+					Assert.Empty(txEvent.Inputs);
+
+					// Here, we will try to spend the coins of the segwit wallet
+					var psbt = await tester.Client.CreatePSBTAsync(pubkey2, new CreatePSBTRequest()
+					{ 
+						Destinations = [
+							new ()
+							{
+								SweepAll = true,
+								Destination = tester.AddressOf(pubkey, "1/1")
+							},
+						],
+						FeePreference = new FeePreference() { ExplicitFee = Money.Satoshis(1000) }
+					});
+					var signed = psbt.PSBT.SignAll(ScriptPubKeyType.Segwit, wSegwit.AccountHDKey, wSegwit.AccountKeyPath).Finalize().ExtractTransaction();
+					await tester.Client.BroadcastAsync(signed);
+
+					// Make sure we receive two events with expected inputs/outputs
+					for (int evtidx = 0; evtidx < 2; evtidx++)
+					{
+						txEvent = (Models.NewTransactionEvent)await connected.NextEventAsync(Cancel);
+						if (txEvent.TrackedSource == TrackedSource.Parse(wSegwit.TrackedSource, tester.NBXplorerNetwork))
+						{
+							
+							void AssertInputs(List<MatchedInput> inputs)
+							{
+								Assert.Equal(2, inputs.Count);
+								for (int i = 0; i < inputs.Count; i++)
+								{
+									var input = txEvent.Inputs[i];
+									Assert.Equal(fundingTx, input.TransactionId);
+									Assert.Equal(i, input.InputIndex);
+									if (input.KeyPath == new KeyPath("0/2"))
+									{
+										Assert.Equal(Money.Coins(0.9m), input.Value);
+										Assert.Equal(tester.AddressOf(pubkey2, "0/2"), input.Address);
+										Assert.Equal(input.Address.ScriptPubKey, input.ScriptPubKey);
+									}
+									else if (input.KeyPath == new KeyPath("1/2"))
+									{
+										Assert.Equal(Money.Coins(0.5m), input.Value);
+										Assert.Equal(tester.AddressOf(pubkey2, "1/2"), input.Address);
+										Assert.Equal(input.Address.ScriptPubKey, input.ScriptPubKey);
+									}
+									else
+										Assert.Fail("Unknown keypath " + input.KeyPath);
+								}
+							}
+							Assert.Empty(txEvent.Outputs);
+							AssertInputs(txEvent.Inputs);
+							var tx = await tester.Client.GetTransactionAsync(txEvent.TrackedSource, txEvent.TransactionData.TransactionHash);
+							Assert.Empty(tx.Outputs);
+							AssertInputs(tx.Inputs);
+						}
+						else if (txEvent.TrackedSource == TrackedSource.Parse(wLegacy.TrackedSource, tester.NBXplorerNetwork))
+						{
+							Assert.Empty(txEvent.Inputs);
+							Assert.Single(txEvent.Outputs);
+						}
+						else
+							Assert.Fail("Should not be reached");
+					}
 				}
 			}
 		}
