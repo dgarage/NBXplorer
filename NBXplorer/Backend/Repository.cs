@@ -742,16 +742,33 @@ namespace NBXplorer.Backend
 			}};
 		}
 
-		public async Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, bool includeTransactions = true, CancellationToken cancellation = default)
+		public async Task<TrackedTransaction[]> GetTransactions(
+			TrackedSource trackedSource,
+			uint256 txId = null,
+			bool includeTransactions = true,
+			long fromUnixTimestamp = 0,
+			long toUnixTimestamp = 0,
+			CancellationToken cancellation = default)
 		{
 			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
 			var tip = await connection.GetTip();
 			var txIdCond = txId is null ? string.Empty : " AND tx_id=@tx_id";
+
+			var fromUnixTimestampCond = fromUnixTimestamp == 0 ? string.Empty : " AND seen_at>=@fromUnixTimestamp"; 
+			var toUnixTimestampCond = toUnixTimestamp == 0 ? string.Empty : " AND seen_at<=@toUnixTimestamp";
+
 			var utxos = await
 				connection.Connection.QueryAsync<(string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, DateTime seen_at)>(
 				"SELECT tx_id, idx, blk_id, blk_height, blk_idx, is_out, spent_tx_id, spent_idx, script, s.addr, value, asset_id, immature, keypath, seen_at " +
 				"FROM nbxv1_tracked_txs LEFT JOIN scripts s USING (code, script) " +
-				$"WHERE code=@code AND wallet_id=@walletId{txIdCond}", new { code = Network.CryptoCode, walletId = GetWalletKey(trackedSource).wid, tx_id = txId?.ToString() });
+				$"WHERE code=@code AND wallet_id=@walletId{txIdCond}{fromUnixTimestampCond}{toUnixTimestampCond}", new {
+					code = Network.CryptoCode,
+					walletId = GetWalletKey(trackedSource).wid,
+					tx_id = txId?.ToString(),
+					fromUnixTimestamp = NBitcoin.Utils.UnixTimeToDateTime(fromUnixTimestamp),
+					toUnixTimestamp = NBitcoin.Utils.UnixTimeToDateTime(toUnixTimestamp)
+					}
+				);
 			utxos.TryGetNonEnumeratedCount(out int c);
 			var trackedById = new Dictionary<string, TrackedTransaction>(c);
 			foreach (var utxo in utxos)
