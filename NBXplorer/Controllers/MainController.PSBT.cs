@@ -443,6 +443,30 @@ namespace NBXplorer.Controllers
 					}
 				}
 			}
+
+			if (update.DerivationScheme is TaprootDerivationStrategy taprootDerivation)
+			{
+				// Adapt the create PSBT for Taproot...
+				// * HDTaprootKeyPaths is used instead of HDKeyPaths
+				// * TaprootSighashType is explicitely set to default
+				// * Fill up TaprootInternalKey
+				foreach (var input in update.PSBT.Inputs)
+				{
+					input.TaprootSighashType = TaprootSigHash.Default;
+					if (input.HDKeyPaths.Count != 1)
+						continue;
+					foreach (var keypath in input.HDKeyPaths)
+					{
+						var taprootPubKey = keypath.Key.GetTaprootFullPubKey();
+						input.TaprootInternalKey = taprootPubKey.InternalKey;
+						// Some consumers expect the internal key to be in the HDTaprootKeyPaths
+						if (!TaprootPubKey.TryCreate(input.TaprootInternalKey.ToBytes(), out var pk))
+							continue;
+						input.HDTaprootKeyPaths.AddOrReplace(pk, new TaprootKeyPath(keypath.Value));
+					}
+					input.HDKeyPaths.Clear();
+				}
+			}
 		}
 
 		private static async Task UpdateHDKeyPathsWitnessAndRedeem(UpdatePSBTRequest update, Repository repo)
