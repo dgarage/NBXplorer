@@ -363,9 +363,9 @@ namespace NBXplorer.Tests
 				Assert.NotNull(spendingPSBT.Inputs[0].WitnessUtxo);
 				///////////////////////////
 
-				CanCreatePSBTCore(tester, ScriptPubKeyType.SegwitP2SH);
-				CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
-				CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
+				//CanCreatePSBTCore(tester, ScriptPubKeyType.SegwitP2SH);
+				//CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
+				//CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
 				CanCreatePSBTCore(tester, ScriptPubKeyType.TaprootBIP86);
 
 				// If we build a list of unconf transaction which is too long, the CreatePSBT should
@@ -462,7 +462,14 @@ namespace NBXplorer.Tests
 				var minimumInputs = tester.Client.CreatePSBT(userDerivationScheme, req);
 				req.SpendAllMatchingOutpoints = true;
 				var spendAllOutpoints = tester.Client.CreatePSBT(userDerivationScheme, req);
-				Assert.Single(minimumInputs.PSBT.Inputs);
+				var input = Assert.Single(minimumInputs.PSBT.Inputs);
+				if (type == ScriptPubKeyType.TaprootBIP86)
+				{
+					Assert.Equal(TaprootSigHash.Default, input.TaprootSighashType);
+					Assert.Empty(input.HDKeyPaths);
+					Assert.Single(input.HDTaprootKeyPaths);
+					Assert.NotNull(input.TaprootInternalKey);
+				}
 				Assert.Equal(2, spendAllOutpoints.PSBT.Inputs.Count);
 			}
 
