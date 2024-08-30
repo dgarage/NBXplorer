@@ -815,7 +815,7 @@ namespace NBXplorer.Controllers
 		{
 			return rejectReason switch
 			{
-				"Transaction already in block chain" => RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN,
+				"Transaction already in block chain" or "Transaction outputs already in utxo set" => RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN,
 				"Transaction rejected by AcceptToMemoryPool" => RPCErrorCode.RPC_TRANSACTION_REJECTED,
 				"AcceptToMemoryPool failed" => RPCErrorCode.RPC_TRANSACTION_REJECTED,
 				"insufficient fee" => RPCErrorCode.RPC_TRANSACTION_REJECTED,
