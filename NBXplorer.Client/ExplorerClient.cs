@@ -568,6 +568,15 @@ namespace NBXplorer
 		{
 			return SendAsync<GroupInformation>(HttpMethod.Post, addresses, $"v1/cryptos/{cryptoCode}/groups/{groupId}/addresses", cancellationToken);
 		}
+		
+		public async Task ImportUTXOs(TrackedSource trackedSource, ImportUTXORequest request, CancellationToken cancellation = default)
+		{
+			if (request == null)
+				throw new ArgumentNullException(nameof(request));
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
+			await SendAsync(HttpMethod.Post, request, $"{GetBasePath(trackedSource)}/import-utxos", cancellation);
+		}
 
 		private static readonly HttpClient SharedClient = new HttpClient();
 		internal HttpClient Client = SharedClient;
