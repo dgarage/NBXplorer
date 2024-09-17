@@ -28,7 +28,7 @@ namespace NBXplorer
 			services.AddHttpClient();
 			services.AddHttpClient(nameof(RPCClientProvider), httpClient =>
 			{
-				httpClient.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+				httpClient.Timeout = TimeSpan.FromMinutes(10.0);
 			});
 			services.AddNBXplorer(Configuration);
 			services.ConfigureNBxplorer(Configuration);

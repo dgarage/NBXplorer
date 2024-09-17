@@ -82,7 +82,6 @@ namespace NBXplorer.Backend
 			{
 				return null;
 			}
-
 			var blockchainInfo = await rpc.GetBlockchainInfoAsyncEx(cancellationToken);
 			return blockchainInfo.BestBlockHash != lastBlock.Hash ? lastBlock : null;
 		}
