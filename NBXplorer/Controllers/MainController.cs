@@ -35,7 +35,7 @@ namespace NBXplorer.Controllers
 	public partial class MainController : Controller
 	{
 		public NBXplorerNetworkProvider NetworkProvider { get; }
-		public IRPCClients RPCClients { get; }
+		public RPCClientProvider RPCClients { get; }
 		public RepositoryProvider RepositoryProvider { get; }
 		public Indexers Indexers { get; }
 		public CommonRoutesController CommonRoutesController { get; }
@@ -45,7 +45,7 @@ namespace NBXplorer.Controllers
 			ExplorerConfiguration explorerConfiguration,
 			RepositoryProvider repositoryProvider,
 			EventAggregator eventAggregator,
-			IRPCClients rpcClients,
+			RPCClientProvider rpcClients,
 			AddressPoolService addressPoolService,
 			MvcNewtonsoftJsonOptions jsonOptions,
 			NBXplorerNetworkProvider networkProvider,

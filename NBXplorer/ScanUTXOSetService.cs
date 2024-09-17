@@ -62,7 +62,7 @@ namespace NBXplorer
 		}
 
 		public ScanUTXOSetService(ScanUTXOSetServiceAccessor accessor,
-								  IRPCClients rpcClients,
+								  RPCClientProvider rpcClients,
 								  KeyPathTemplates keyPathTemplates,
 								  RepositoryProvider repositories)
 		{
@@ -115,7 +115,7 @@ namespace NBXplorer
 		CancellationTokenSource _Cts = new CancellationTokenSource();
 		private readonly KeyPathTemplates keyPathTemplates;
 
-		public IRPCClients RpcClients { get; }
+		public RPCClientProvider RpcClients { get; }
 		public RepositoryProvider Repositories { get; }
 
 		public Task StartAsync(CancellationToken cancellationToken)

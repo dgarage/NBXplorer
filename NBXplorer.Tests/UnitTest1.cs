@@ -4104,7 +4104,7 @@ namespace NBXplorer.Tests
 				await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
 
 				Logs.Tester.LogInformation($"Let's assert it is tracked by RPC {firstKeyInfo.Address}");
-				var rpc = tester.GetService<IRPCClients>().Get(tester.Client.Network);
+				var rpc = tester.GetService<RPCClientProvider>().Get(tester.Client.Network);
 
 				var txid = await cashCow.SendToAddressAsync(firstKeyInfo.Address, Money.Coins(1.01m));
 				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);

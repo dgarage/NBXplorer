@@ -172,7 +172,7 @@ namespace NBXplorer.Tests
 				.Build();
 			NBXplorer.Logging.Logs.Configure(Host.Services.GetRequiredService<ILoggerFactory>());
 			NBXplorerNetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
-			RPC = ((IRPCClients)Host.Services.GetService(typeof(IRPCClients))).Get(NBXplorerNetwork);
+			RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).Get(NBXplorerNetwork);
 			var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 			Host.Start();
 			Configuration = conf;

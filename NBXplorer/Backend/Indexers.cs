@@ -25,7 +25,7 @@ namespace NBXplorer.Backend
 
 		public AddressPoolService AddressPoolService { get; }
 		public ILoggerFactory LoggerFactory { get; }
-		public IRPCClients RpcClients { get; }
+		public RPCClientProvider RpcClients { get; }
 		public ExplorerConfiguration Configuration { get; }
 		public NBXplorerNetworkProvider NetworkProvider { get; }
 		public RepositoryProvider RepositoryProvider { get; }
@@ -35,7 +35,7 @@ namespace NBXplorer.Backend
 		public Indexers(
 			AddressPoolService addressPoolService,
 			ILoggerFactory loggerFactory,
-			IRPCClients rpcClients,
+			RPCClientProvider rpcClients,
 			ExplorerConfiguration configuration,
 			NBXplorerNetworkProvider networkProvider,
 			RepositoryProvider repositoryProvider,

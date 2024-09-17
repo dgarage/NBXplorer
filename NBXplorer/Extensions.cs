@@ -205,7 +205,7 @@ namespace NBXplorer
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<AddressPoolService>();
 			services.AddSingleton<IHostedService, AddressPoolService>(o => o.GetRequiredService<AddressPoolService>());
-			services.TryAddSingleton<IRPCClients, RPCClientProvider>();
+			services.TryAddSingleton<RPCClientProvider>();
 			services.AddHostedService<RPCReadyFileHostedService>();
 			services.AddSingleton<IHostedService, ScanUTXOSetService>();
 			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
@@ -227,7 +227,6 @@ namespace NBXplorer
 				var c = o.GetRequiredService<ExplorerConfiguration>();
 				return c.NetworkProvider;
 			});
-			services.TryAddSingleton<IRPCClients>();
 			return services;
 		}
 
