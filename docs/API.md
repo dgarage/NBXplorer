@@ -69,7 +69,19 @@ On linux or mac:
 Be careful, if you run NBXplorer with `dotnet run`, you should do it this way, with settings after the `--`:
 
 ```bash
-dotnet run --no-launch-profile --no-build -c Release -p .\NBXplorer\NBXplorer.csproj -- --chains btc
+[
+  "n3XyBWEKWLxm5EzrrvLCJyCQrRhVWQ8YGa",
+  "n4FBNYjZny7sC4pzAVaTtnGTtiwMHV5nkY",
+  "mxrkNvovmmatB2vHVkNtVZ7dLLuDkPe5nr",
+  "mh43vYeeJAzzSXBPaQ3D9qXzLFwWhmZEGw",
+  "mkNfpqBrKyHs5wTsreLLhWAwnZPPH6seqe",
+  "n4nzmHnKsByo5pgdjVDuvbXMMY7gKAcZJy",
+  "mrxCU6b7RmyNXz1WJ4uJRZfdKSnwzagRov",
+  "msy6dEmKav8CpDX6TR8wsLPVFUoy4HDk2t",
+  "mw84oRAoojVPxHm9J514KTqpr6ozVFcWtH",
+  "muNtSq7tG3gBwh2L1ZHEKQRYuNuHPm5YZC"
+]
+
 ```
 
 Else, launch profiles, which are settings meant to be used only for debugging time, might be taken into account.
