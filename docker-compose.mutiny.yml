@@ -1,0 +1,54 @@
+version: "3"
+
+services:
+
+  bitcoind:
+    restart: always
+    container_name: btcpayserver_bitcoind
+    image: btcpayserver/mutinynet:c23afab47fbe
+    environment:
+      BITCOIN_NETWORK: signet
+      BITCOIN_EXTRA_ARGS: |
+        rpcport=43782
+        rpcallowip=0.0.0.0/0
+        rpcbind=0.0.0.0:43782
+        rpcauth=bitcoin:103604886c08fdeaa8826d9b670a77d7$$4ad48fb794d0fc83e2e7e1db893778ca56380903328f9ba4c5c29936f9a19adc
+        port=39388
+        whitelist=0.0.0.0/0
+        signetchallenge=512102f7561d208dd9ae99bf497273e16f389bdbd6c4742ddb8e6b216e64fa2928ad8f51ae
+        addnode=45.79.52.207:38333
+        dnsseed=0
+        signetblocktime=30
+    expose:
+    - "43782"
+    - "39388"
+    ports:
+      - "43782:43782"
+      - "39388:39388"
+    volumes:
+    - "bitcoin_datadir:/data"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    ports:
+      - 4369:4369
+      - 5671:5671
+      - 5672:5672
+      - 15672:15672
+  
+  postgres:
+    image:  postgres:13
+    container_name: nbxplorertests_postgres_1
+    command: [ "-c", "random_page_cost=1.0", "-c", "shared_preload_libraries=pg_stat_statements" ]
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "39383:5432"
+    expose:
+      - "5432"
+  
+  
+volumes:
+  nbxplorer_datadir: 
+  bitcoin_datadir:
