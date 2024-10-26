@@ -27,6 +27,7 @@ using NBitcoin.Tests;
 using System.Globalization;
 using System.Net;
 using NBXplorer.HostedServices;
+using NBitcoin.Altcoins;
 
 namespace NBXplorer.Tests
 {
@@ -2547,6 +2548,16 @@ namespace NBXplorer.Tests
 				Assert.Null(utxo.Confirmed.UTXOs[0].Feature);
 				Assert.NotNull(utxo2.Confirmed.UTXOs[0].Outpoint);
 			}
+		}
+
+		[Fact]
+		public async Task Test()
+		{
+			var rpc = new RPCClient(new RPCCredentialString()
+			{
+				UserPassword = new NetworkCredential("dashrpc","PQQgOzs1jN7q2SWQ6TpBNLm9j"),
+			}, "https://dash-testnet.nodes.m3t4c0.xyz", AltNetworkSets.Dash.Testnet);
+			var b1 = await rpc.GetBlockAsync(new uint256("000001f02c1623e0bb12b54ac505cefdfca3f0f664bf333fc73ae5eafe34b830"));
 		}
 
 		[FactWithTimeout]
