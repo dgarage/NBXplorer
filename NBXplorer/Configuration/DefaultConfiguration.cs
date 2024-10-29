@@ -111,9 +111,11 @@ namespace NBXplorer.Configuration
 				}
 				return n.ChainName;
 			}
+
 			var net = conf.GetOrDefault<bool>("regtest", false) ? ChainName.Regtest :
-						conf.GetOrDefault<bool>("testnet", false) ? ChainName.Testnet :
-						conf.GetOrDefault<bool>("signet", false) ? new ChainName("signet") : ChainName.Mainnet;
+				conf.GetOrDefault<bool>("testnet", false) ? ChainName.Testnet :
+				conf.GetOrDefault<bool>("signet", false) ? Bitcoin.Instance.Signet.ChainName :
+				conf.GetOrDefault<bool>("mutinynet", false) ? Bitcoin.Instance.Mutinynet.ChainName : ChainName.Mainnet;
 			return net;
 		}
 

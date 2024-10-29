@@ -14,6 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionFiles", "SolutionFi
 		.dockerignore = .dockerignore
 		docs\API.md = docs\API.md
 		.circleci\config.yml = .circleci\config.yml
+		docker-compose.mutiny.yml = docker-compose.mutiny.yml
 		docker-compose.regtest.yml = docker-compose.regtest.yml
 		Dockerfile = Dockerfile
 		global.json = global.json
