@@ -101,7 +101,6 @@ namespace NBXplorer.Configuration
 
 		public static ChainName GetNetworkType(IConfiguration conf)
 		{
-			NetworkBuilder builder = new NetworkBuilder();
 			var network = conf.GetOrDefault<string>("network", null);
 			if(network != null)
 			{
