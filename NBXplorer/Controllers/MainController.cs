@@ -725,8 +725,8 @@ namespace NBXplorer.Controllers
 			TrackedSource trackedSource,
 			bool includeTransaction,
 			uint256 txId = null,
-			ulong? fromSeen = 0,
-			ulong? toSeen = 0
+			ulong? fromSeen = null,
+			ulong? toSeen = null
 		)
 		{
 			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, fromSeen, toSeen, this.HttpContext?.RequestAborted ?? default);
