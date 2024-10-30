@@ -318,6 +318,10 @@ Optional Parameters:
 
 * `includeTransaction` includes the hex of the transaction, not only information (default: true)
 
+* `fromSeen` indicates the earliest date from which transactions should be retrieved, (default: 0, unix time)
+
+* `toSeen` indicates the latest date up to which transactions should be retrieved, (default: 0, unix time)
+
 Returns:
 
 ```json
@@ -375,6 +379,10 @@ Immature funds is the sum of UTXO's belonging to a coinbase transaction with les
 Optional Parameters:
 
 * `includeTransaction` includes the hex of the transaction, not only information (default: true)
+
+* `fromSeen` indicates the earliest date from which transactions should be retrieved, (default: 0, unix time)
+
+* `toSeen` indicates the latest date up to which transactions should be retrieved, (default: 0, unix time)
 
 Error codes:
 

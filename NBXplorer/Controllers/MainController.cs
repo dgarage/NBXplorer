@@ -524,8 +524,8 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId = null,
 			bool includeTransaction = true,
-			long fromUnixTimestamp = 0,
-			long toUnixTimestamp = 0
+			ulong? fromSeen = 0,
+			ulong? toSeen = 0
 			)
 		{
 			TransactionInformation fetchedTransactionInfo = null;
@@ -536,7 +536,7 @@ namespace NBXplorer.Controllers
 			var response = new GetTransactionsResponse();
 			int currentHeight = (await repo.GetTip()).Height;
 			response.Height = currentHeight;
-			var txs = await GetAnnotatedTransactions(repo, trackedSource, includeTransaction, txId, fromUnixTimestamp, toUnixTimestamp);
+			var txs = await GetAnnotatedTransactions(repo, trackedSource, includeTransaction, txId, fromSeen, toSeen);
 			foreach (var item in new[]
 			{
 					new
@@ -725,11 +725,11 @@ namespace NBXplorer.Controllers
 			TrackedSource trackedSource,
 			bool includeTransaction,
 			uint256 txId = null,
-			long fromUnixTimestamp = 0,
-			long toUnixTimestamp = 0
+			ulong? fromSeen = 0,
+			ulong? toSeen = 0
 		)
 		{
-			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, fromUnixTimestamp, toUnixTimestamp, this.HttpContext?.RequestAborted ?? default);
+			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, fromSeen, toSeen, this.HttpContext?.RequestAborted ?? default);
 
 			// If the called is interested by only a single txId, we need to fetch the parents as well
 			if (txId != null)

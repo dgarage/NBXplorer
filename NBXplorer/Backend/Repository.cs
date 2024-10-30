@@ -746,27 +746,27 @@ namespace NBXplorer.Backend
 			TrackedSource trackedSource,
 			uint256 txId = null,
 			bool includeTransactions = true,
-			long fromUnixTimestamp = 0,
-			long toUnixTimestamp = 0,
+			ulong? fromSeen = 0,
+			ulong? toSeen = 0,
 			CancellationToken cancellation = default)
 		{
 			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
 			var tip = await connection.GetTip();
 			var txIdCond = txId is null ? string.Empty : " AND tx_id=@tx_id";
 
-			var fromUnixTimestampCond = fromUnixTimestamp == 0 ? string.Empty : " AND seen_at>=@fromUnixTimestamp"; 
-			var toUnixTimestampCond = toUnixTimestamp == 0 ? string.Empty : " AND seen_at<=@toUnixTimestamp";
+			var fromSeenCond = fromSeen == 0 ? string.Empty : " AND seen_at>=@fromSeen"; 
+			var toSeenCond = toSeen == 0 ? string.Empty : " AND seen_at<=@toSeen";
 
 			var utxos = await
 				connection.Connection.QueryAsync<(string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, DateTime seen_at)>(
 				"SELECT tx_id, idx, blk_id, blk_height, blk_idx, is_out, spent_tx_id, spent_idx, script, s.addr, value, asset_id, immature, keypath, seen_at " +
 				"FROM nbxv1_tracked_txs LEFT JOIN scripts s USING (code, script) " +
-				$"WHERE code=@code AND wallet_id=@walletId{txIdCond}{fromUnixTimestampCond}{toUnixTimestampCond}", new {
+				$"WHERE code=@code AND wallet_id=@walletId{txIdCond}{fromSeenCond}{toSeenCond}", new {
 					code = Network.CryptoCode,
 					walletId = GetWalletKey(trackedSource).wid,
 					tx_id = txId?.ToString(),
-					fromUnixTimestamp = NBitcoin.Utils.UnixTimeToDateTime(fromUnixTimestamp),
-					toUnixTimestamp = NBitcoin.Utils.UnixTimeToDateTime(toUnixTimestamp)
+					fromSeen = NBitcoin.Utils.UnixTimeToDateTime((ulong)fromSeen),
+					toSeen = NBitcoin.Utils.UnixTimeToDateTime((ulong)toSeen)
 					}
 				);
 			utxos.TryGetNonEnumeratedCount(out int c);
