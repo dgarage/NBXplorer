@@ -524,8 +524,8 @@ namespace NBXplorer.Controllers
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId = null,
 			bool includeTransaction = true,
-			ulong? fromSeen = 0,
-			ulong? toSeen = 0
+			ulong? fromSeen = null,
+			ulong? toSeen = null
 			)
 		{
 			TransactionInformation fetchedTransactionInfo = null;

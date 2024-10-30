@@ -318,9 +318,9 @@ Optional Parameters:
 
 * `includeTransaction` includes the hex of the transaction, not only information (default: true)
 
-* `fromSeen` indicates the earliest date from which transactions should be retrieved, (default: 0, unix time)
+* `fromSeen` indicates the earliest date from which transactions should be retrieved, (default: null, unix time)
 
-* `toSeen` indicates the latest date up to which transactions should be retrieved, (default: 0, unix time)
+* `toSeen` indicates the latest date up to which transactions should be retrieved, (default: null, unix time)
 
 Returns:
 
@@ -380,9 +380,9 @@ Optional Parameters:
 
 * `includeTransaction` includes the hex of the transaction, not only information (default: true)
 
-* `fromSeen` indicates the earliest date from which transactions should be retrieved, (default: 0, unix time)
+* `fromSeen` indicates the earliest date from which transactions should be retrieved, (default: null, unix time)
 
-* `toSeen` indicates the latest date up to which transactions should be retrieved, (default: 0, unix time)
+* `toSeen` indicates the latest date up to which transactions should be retrieved, (default: null, unix time)
 
 Error codes:
 

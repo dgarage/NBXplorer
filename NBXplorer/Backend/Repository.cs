@@ -746,16 +746,16 @@ namespace NBXplorer.Backend
 			TrackedSource trackedSource,
 			uint256 txId = null,
 			bool includeTransactions = true,
-			ulong? fromSeen = 0,
-			ulong? toSeen = 0,
+			ulong? fromSeen = null,
+			ulong? toSeen = null,
 			CancellationToken cancellation = default)
 		{
 			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
 			var tip = await connection.GetTip();
 			var txIdCond = txId is null ? string.Empty : " AND tx_id=@tx_id";
 
-			var fromSeenCond = fromSeen == 0 ? string.Empty : " AND seen_at>=@fromSeen"; 
-			var toSeenCond = toSeen == 0 ? string.Empty : " AND seen_at<=@toSeen";
+			var fromSeenCond = fromSeen is null ? string.Empty : " AND seen_at>=@fromSeen"; 
+			var toSeenCond = toSeen is null ? string.Empty : " AND seen_at<=@toSeen";
 
 			var utxos = await
 				connection.Connection.QueryAsync<(string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, DateTime seen_at)>(
@@ -765,8 +765,8 @@ namespace NBXplorer.Backend
 					code = Network.CryptoCode,
 					walletId = GetWalletKey(trackedSource).wid,
 					tx_id = txId?.ToString(),
-					fromSeen = NBitcoin.Utils.UnixTimeToDateTime((ulong)fromSeen),
-					toSeen = NBitcoin.Utils.UnixTimeToDateTime((ulong)toSeen)
+					fromSeen = NBitcoin.Utils.UnixTimeToDateTime(fromSeen ?? 0),
+					toSeen = NBitcoin.Utils.UnixTimeToDateTime(toSeen ?? 0)
 					}
 				);
 			utxos.TryGetNonEnumeratedCount(out int c);
