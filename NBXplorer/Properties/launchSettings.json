@@ -7,7 +7,9 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "NBXPLORER_POSTGRES": "User ID=postgres;Application Name=test;Include Error Detail=true;Host=localhost;Port=39383",
-        "NBXPLORER_AUTOMIGRATE": "1"
+        "NBXPLORER_BTCSTARTHEIGHT": "860200",
+        "NBXPLORER_BTCRESCAN": "1",
+        "NBXPLORER_BTCRPCCOOKIEFILE": "D:\\Bitcoin\\.cookie"
       },
       "applicationUrl": "http://localhost:4774",
       "launchUrl": "v1/cryptos/btc/status"
@@ -44,6 +46,24 @@
       },
       "applicationUrl": "http://localhost:4774",
       "launchUrl": "v1/cryptos/lbtc/status"
+    },
+    "NBXplorer - BTC mutinynet from Docker": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "NBXPLORER_NETWORK": "mutinynet",
+        "NBXPLORER_CHAINS":"btc",
+        "NBXPLORER_BTCRPCURL": "http://127.0.0.1:43782/",
+        "NBXPLORER_BTCNODEENDPOINT": "127.0.0.1:39388",
+        "NBXPLORER_NOAUTH": "true",
+        "NBXPLORER_EXPOSERPC": "true",
+        "NBXPLORER_BTCRPCUSER": "bitcoin",
+        "NBXPLORER_BTCRPCPASSWORD": "bitcoin",
+        "NBXPLORER_POSTGRES": "User ID=postgres;Application Name=test;Include Error Detail=true;Host=localhost;Port=39383"
+      },
+      "applicationUrl": "http://localhost:4774",
+      "launchUrl": "v1/cryptos/btc/status"
     },
     "NBXplorer - DASH on Testnet": {
       "commandName": "Project",

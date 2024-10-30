@@ -47,7 +47,7 @@ namespace NBXplorer
 			"bad-txns-inputs-missingorspent" or
 			"txn-already-known" or
 			"missing-inputs" or
-			"Transaction already in block chain" => new Reject.MissingInput(),
+			"Transaction already in block chain" or "Transaction outputs already in utxo set" => new Reject.MissingInput(),
 			"mempool min fee not met" => new Reject.NotEnoughFee(),
 			_ => new Reject.Unknown(rejectReason)
 		};

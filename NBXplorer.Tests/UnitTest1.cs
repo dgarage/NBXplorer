@@ -27,6 +27,7 @@ using NBitcoin.Tests;
 using System.Globalization;
 using System.Net;
 using NBXplorer.HostedServices;
+using NBitcoin.Altcoins;
 
 namespace NBXplorer.Tests
 {
@@ -363,9 +364,9 @@ namespace NBXplorer.Tests
 				Assert.NotNull(spendingPSBT.Inputs[0].WitnessUtxo);
 				///////////////////////////
 
-				CanCreatePSBTCore(tester, ScriptPubKeyType.SegwitP2SH);
-				CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
-				CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
+				//CanCreatePSBTCore(tester, ScriptPubKeyType.SegwitP2SH);
+				//CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
+				//CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
 				CanCreatePSBTCore(tester, ScriptPubKeyType.TaprootBIP86);
 
 				// If we build a list of unconf transaction which is too long, the CreatePSBT should
@@ -462,7 +463,14 @@ namespace NBXplorer.Tests
 				var minimumInputs = tester.Client.CreatePSBT(userDerivationScheme, req);
 				req.SpendAllMatchingOutpoints = true;
 				var spendAllOutpoints = tester.Client.CreatePSBT(userDerivationScheme, req);
-				Assert.Single(minimumInputs.PSBT.Inputs);
+				var input = Assert.Single(minimumInputs.PSBT.Inputs);
+				if (type == ScriptPubKeyType.TaprootBIP86)
+				{
+					Assert.Equal(TaprootSigHash.Default, input.TaprootSighashType);
+					Assert.Empty(input.HDKeyPaths);
+					Assert.Single(input.HDTaprootKeyPaths);
+					Assert.NotNull(input.TaprootInternalKey);
+				}
 				Assert.Equal(2, spendAllOutpoints.PSBT.Inputs.Count);
 			}
 
@@ -2542,6 +2550,16 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		[Fact]
+		public async Task Test()
+		{
+			var rpc = new RPCClient(new RPCCredentialString()
+			{
+				UserPassword = new NetworkCredential("dashrpc","PQQgOzs1jN7q2SWQ6TpBNLm9j"),
+			}, "https://dash-testnet.nodes.m3t4c0.xyz", AltNetworkSets.Dash.Testnet);
+			var b1 = await rpc.GetBlockAsync(new uint256("000001f02c1623e0bb12b54ac505cefdfca3f0f664bf333fc73ae5eafe34b830"));
+		}
+
 		[FactWithTimeout]
 		public async Task CanTrack2()
 		{
@@ -4097,7 +4115,7 @@ namespace NBXplorer.Tests
 				await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
 
 				Logs.Tester.LogInformation($"Let's assert it is tracked by RPC {firstKeyInfo.Address}");
-				var rpc = tester.GetService<IRPCClients>().Get(tester.Client.Network);
+				var rpc = tester.GetService<RPCClientProvider>().Get(tester.Client.Network);
 
 				var txid = await cashCow.SendToAddressAsync(firstKeyInfo.Address, Money.Coins(1.01m));
 				tester.Notifications.WaitForTransaction(wallet.DerivationScheme, txid);

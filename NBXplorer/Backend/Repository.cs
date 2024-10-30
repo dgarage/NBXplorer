@@ -1163,6 +1163,8 @@ namespace NBXplorer.Backend
 				return null;
 			var locator = new BlockLocator();
 			locator.ReadWrite(data, Network.NBitcoinNetwork);
+			if (locator.Blocks.Count == 0)
+				return null;
 			return locator;
 		}
 

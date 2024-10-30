@@ -82,7 +82,6 @@ namespace NBXplorer.Backend
 			{
 				return null;
 			}
-
 			var blockchainInfo = await rpc.GetBlockchainInfoAsyncEx(cancellationToken);
 			return blockchainInfo.BestBlockHash != lastBlock.Hash ? lastBlock : null;
 		}
@@ -622,11 +621,10 @@ namespace NBXplorer.Backend
 			await SaveMatches(conn, new List<Transaction>(1) { transaction }, null, false);
 		}
 
-		public RPCClient GetConnectedClient()
+		public RPCClient GetConnectedClient() => State switch
 		{
-			if (State == BitcoinDWaiterState.CoreSynching || State == BitcoinDWaiterState.NBXplorerSynching || State == BitcoinDWaiterState.Ready)
-				return RPCClient;
-			return null;
-		}
+			BitcoinDWaiterState.CoreSynching or BitcoinDWaiterState.NBXplorerSynching or BitcoinDWaiterState.Ready => RPCClient,
+			_ => null
+		};
 	}
 }
