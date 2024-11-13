@@ -4238,5 +4238,28 @@ namespace NBXplorer.Tests
 			Logs.Tester.LogInformation($"Waiting for the first chain to be processed again");
 			tester.Notifications.WaitForBlocks(blocks[^1]);
 		}
+
+
+		[Fact]
+		public async Task IsTrackedTests()
+		{
+			using var tester = ServerTester.Create();
+			var xpub = new DerivationSchemeTrackedSource(new DirectDerivationStrategy(
+				new BitcoinExtPubKey(new Mnemonic(Wordlist.English).DeriveExtKey().Neuter(), tester.Network), true));
+			Assert.False(await tester.Client.IsTrackedAsync(xpub, Cancel));
+			await tester.Client.TrackAsync(xpub, new TrackWalletRequest(), Cancel);
+			Assert.True(await tester.Client.IsTrackedAsync(xpub, Cancel));
+			
+			var address = new AddressTrackedSource(new Key().GetAddress(ScriptPubKeyType.Legacy, tester.Network));
+			Assert.False(await tester.Client.IsTrackedAsync(address, Cancel));
+			await tester.Client.TrackAsync(address, new TrackWalletRequest(), Cancel);
+			Assert.True(await tester.Client.IsTrackedAsync(address, Cancel));
+
+			var group = new GroupTrackedSource("lolno");
+			Assert.False(await tester.Client.IsTrackedAsync(group, Cancel));
+			
+			group = new GroupTrackedSource((await tester.Client.CreateGroupAsync(Cancel)).GroupId);
+			Assert.True(await tester.Client.IsTrackedAsync(group, Cancel));
+		}
 	}
 }

@@ -713,6 +713,43 @@
   },
   "paths": {
     "/cryptos/{cryptoCode}/derivations/{derivationScheme}": {
+      "get": {
+        "summary": "Is tracked?",
+        "description": "Check if tracked source is tracked",
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cryptoCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The cryptocurrency code to track (e.g., 'BTC' for Bitcoin, 'LTC' for Litecoin)."
+          },
+          {
+            "name": "derivationScheme",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The derivation scheme represents the extended public key (xpub, ypub, zpub, etc.) and may include suffixes indicating the script type or additional derivation options. NBXplorer uses this to generate addresses and monitor transactions."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The derivation scheme is being tracked."
+          },
+          "404": {
+            "description": "The derivation scheme isn't being tracked."
+          }
+        }
+      },
       "post": {
         "summary": "Track a derivation scheme",
         "description": "Starts tracking a new derivation scheme (wallet) for the specified cryptocurrency. This allows NBXplorer to monitor all addresses derived from the provided derivation scheme and notify about related transactions. Once tracked, NBXplorer will start indexing the addresses and UTXOs associated with this derivation scheme.",

@@ -1252,13 +1252,19 @@ namespace NBXplorer.Backend
 			await EnsureWalletCreated(GetWalletKey(trackedSource));
 		}
 
-		record WalletHierarchyInsert(string child, string parent);
 		public async Task EnsureWalletCreated(WalletKey walletKey)
 		{
 			await using var connection = await ConnectionFactory.CreateConnection();
 			await connection.ExecuteAsync(WalletInsertQuery, walletKey);
 		}
+		
+		public async Task<bool> WalletExists(WalletKey walletKey)
+		{
+			await using var connection = await ConnectionFactory.CreateConnection();
+			return await connection.ExecuteScalarAsync<int>(WalletCheckQuery, new{walletKey.wid}) != 0;
+		}
 
 		internal static readonly string WalletInsertQuery = "INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING;";
+		internal static readonly string WalletCheckQuery = "SELECT COUNT(*) FROM wallets WHERE wallet_id=@wid";
 	}
 }
