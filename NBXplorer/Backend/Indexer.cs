@@ -444,18 +444,22 @@ namespace NBXplorer.Backend
 		private async Task SaveMatches(DbConnectionHelper conn, Block block, SlimChainedBlock slimChainedBlock)
 		{
 			block.Header.PrecomputeHash(false, false);
-			await SaveMatches(conn, block.Transactions, slimChainedBlock, true);
+			// If we are synching, the block time is better approximation of the received time
+			var seenAt = State == BitcoinDWaiterState.NBXplorerSynching
+							? block.Header.BlockTime
+							: DateTimeOffset.UtcNow;
+			await SaveMatches(conn, block.Transactions, slimChainedBlock, true, seenAt);
 			EventAggregator.Publish(new RawBlockEvent(block, this.Network), true);
 			lastIndexedBlock = slimChainedBlock;
 		}
 
 		SlimChainedBlock _NodeTip;
 
-		private async Task SaveMatches(DbConnectionHelper conn, List<Transaction> transactions, SlimChainedBlock slimChainedBlock, bool fireEvents)
+		private async Task SaveMatches(DbConnectionHelper conn, List<Transaction> transactions, SlimChainedBlock slimChainedBlock, bool fireEvents, DateTimeOffset? seenAt = null)
 		{
 			foreach (var tx in transactions)
 				tx.PrecomputeHash(false, true);
-			var now = DateTimeOffset.UtcNow;
+			var now = seenAt ?? DateTimeOffset.UtcNow;
 			if (slimChainedBlock != null)
 			{
 				await conn.NewBlock(slimChainedBlock);
