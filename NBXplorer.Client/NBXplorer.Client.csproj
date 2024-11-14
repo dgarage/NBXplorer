@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<TargetFrameworks>netstandard2.1</TargetFrameworks>
 		<Company>Digital Garage</Company>
-		<Version>4.3.2</Version>
+		<Version>4.3.3</Version>
 		<Copyright>Copyright © Digital Garage 2017</Copyright>
 		<Description>Client API for the minimalist HD Wallet Tracker NBXplorer</Description>
 		<PackageIcon>Bitcoin.png</PackageIcon>
@@ -27,8 +27,8 @@
 		  <NoWarn>$(NoWarn);1591;1573;1572;1584;1570;3021</NoWarn>
         </PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="7.0.42" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.28" />
+		<PackageReference Include="NBitcoin" Version="7.0.43" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.29" />
 		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
 	</ItemGroup>
   <ItemGroup>
