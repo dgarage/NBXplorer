@@ -44,6 +44,7 @@ namespace NBXplorer
 			.AddFormatterMappings();
 			services.AddAuthentication("Basic")
 				.AddNBXplorerAuthentication();
+			services.AddCors();
 		}
 
 		public void Configure(IApplicationBuilder app, IServiceProvider prov,
