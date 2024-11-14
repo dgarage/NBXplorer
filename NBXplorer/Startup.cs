@@ -70,6 +70,9 @@ namespace NBXplorer
 			app.UseAuthentication();
 			app.UseAuthorization();
 			app.UseWebSockets();
+			app.UseCors();
+			app.UseStaticFiles();
+
 			//app.UseMiddleware<LogAllRequestsMiddleware>();
 			app.UseEndpoints(endpoints =>
 			{
