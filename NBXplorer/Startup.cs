@@ -67,13 +67,14 @@ namespace NBXplorer
 					await next();
 				});
 			}
+			
+			app.UseDefaultFiles();
+			app.UseStaticFiles();
 			app.UseRouting();
 			app.UseAuthentication();
 			app.UseAuthorization();
 			app.UseWebSockets();
-			app.UseCors();
-			app.UseStaticFiles();
-
+			
 			//app.UseMiddleware<LogAllRequestsMiddleware>();
 			app.UseEndpoints(endpoints =>
 			{

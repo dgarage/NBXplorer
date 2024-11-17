@@ -12,7 +12,7 @@
         "NBXPLORER_BTCRPCCOOKIEFILE": "D:\\Bitcoin\\.cookie"
       },
       "applicationUrl": "http://localhost:4774",
-      "launchUrl": "v1/cryptos/btc/status"
+      "launchUrl": ""
     },
 
     "NBXplorer - BTC+LTC on Regtest": {
@@ -24,7 +24,7 @@
         "NBXPLORER_EXPOSERPC": "true"
       },
       "applicationUrl": "http://localhost:4774",
-      "launchUrl": "v1/cryptos/ltc/status"
+      "launchUrl": ""
     },
     "NBXplorer - BTC & LBTC on Regtest from Docker": {
       "commandName": "Project",
@@ -45,7 +45,7 @@
         "NBXPLORER_EXPOSERPC": "true"
       },
       "applicationUrl": "http://localhost:4774",
-      "launchUrl": "v1/cryptos/lbtc/status"
+      "launchUrl": ""
     },
     "NBXplorer - BTC mutinynet from Docker": {
       "commandName": "Project",
@@ -63,7 +63,7 @@
         "NBXPLORER_POSTGRES": "User ID=postgres;Application Name=test;Include Error Detail=true;Host=localhost;Port=39383"
       },
       "applicationUrl": "http://localhost:4774",
-      "launchUrl": "v1/cryptos/btc/status"
+      "launchUrl": ""
     },
     "NBXplorer - DASH on Testnet": {
       "commandName": "Project",
@@ -73,7 +73,7 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
       "applicationUrl": "http://localhost:4774",
-      "launchUrl": "v1/cryptos/dash/status"
+      "launchUrl": ""
     }
   }
 }

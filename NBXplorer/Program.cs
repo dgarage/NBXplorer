@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using System.IO;
+using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using NBXplorer.Configuration;
@@ -30,6 +31,7 @@ namespace NBXplorer
 
 				ConfigurationBuilder builder = new ConfigurationBuilder();
 				host = new WebHostBuilder()
+					.UseContentRoot(Directory.GetCurrentDirectory()) 
 					.UseKestrel()
 					.UseIISIntegration()
 					.UseConfiguration(conf)
