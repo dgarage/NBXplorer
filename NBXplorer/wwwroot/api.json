@@ -65,7 +65,7 @@
           },
           "transaction": {
             "type": "string",
-            "description": "Raw transaction in hex format."
+            "description": "Raw transaction in hex format. Included only if `includeTransaction` is `true`."
           },
           "outputs": {
             "type": "array",
@@ -103,8 +103,15 @@
             "nullable": true,
             "description": "If present, indicates the transaction ID that replaced this transaction via RBF."
           }
-        }
-      },
+        },
+        "required": [
+          "transactionId",
+          "confirmations",
+          "inputs",
+          "outputs"
+        ]
+      }
+,
       "TransactionOutput": {
         "type": "object",
         "properties": {
@@ -699,7 +706,9 @@
             "example": "BTC"
           }
         },
-        "required": ["trackedSource"]
+        "required": [
+          "trackedSource"
+        ]
       }
     }
   },
@@ -1185,7 +1194,7 @@
     "/cryptos/{cryptoCode}/transactions/{txId}": {
       "get": {
         "summary": "Get transaction by ID",
-        "description": "Retrieves details of a specific transaction by its transaction ID (txId) for the specified cryptocurrency.",
+        "description": "Retrieves details of a specific transaction by its transaction ID (`txId`) for the specified cryptocurrency.",
         "tags": [
           "Transactions"
         ],
@@ -1207,6 +1216,16 @@
               "type": "string"
             },
             "description": "The transaction ID to retrieve."
+          },
+          {
+            "name": "includeTransaction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Optional. If set to `true`, the response will include the raw transaction data in hexadecimal format (`transaction` field). Default is `false`."
           }
         ],
         "responses": {
@@ -1216,6 +1235,73 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TransactionResponse"
+                },
+                "examples": {
+                  "withoutTransaction": {
+                    "summary": "Without raw transaction data",
+                    "value": {
+                      "blockHash": "0000000000000000000...",
+                      "confirmations": 3,
+                      "height": 600000,
+                      "transactionId": "abcd1234...",
+                      "outputs": [
+                        {
+                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                          "index": 0,
+                          "value": 5000000000,
+                          "keyPath": "0/0"
+                        }
+                      ],
+                      "inputs": [
+                        {
+                          "inputIndex": 0,
+                          "transactionId": "efgh5678...",
+                          "index": 1,
+                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                          "value": 5000000000,
+                          "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
+                        }
+                      ],
+                      "timestamp": 1638307200,
+                      "balanceChange": 0,
+                      "replaceable": false,
+                      "replacing": null,
+                      "replacedBy": null
+                    }
+                  },
+                  "withTransaction": {
+                    "summary": "With raw transaction data",
+                    "value": {
+                      "blockHash": "0000000000000000000...",
+                      "confirmations": 3,
+                      "height": 600000,
+                      "transactionId": "abcd1234...",
+                      "transaction": "0200000001abcd1234...",
+                      "outputs": [
+                        {
+                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                          "index": 0,
+                          "value": 5000000000,
+                          "keyPath": "0/0"
+                        }
+                      ],
+                      "inputs": [
+                        {
+                          "inputIndex": 0,
+                          "transactionId": "efgh5678...",
+                          "index": 1,
+                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                          "value": 5000000000,
+                          "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
+                        }
+                      ],
+                      "timestamp": 1638307200,
+                      "balanceChange": 0,
+                      "replaceable": false,
+                      "replacing": null,
+                      "replacedBy": null
+                    }
+                  }
                 }
               }
             }
@@ -1226,6 +1312,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Transaction not found.",
+                  "code": 404
                 }
               }
             }
@@ -1934,7 +2024,9 @@
       "get": {
         "summary": "Get children of a group",
         "description": "Retrieves a list of child tracked sources associated with the specified group.",
-        "tags": ["Groups"],
+        "tags": [
+          "Groups"
+        ],
         "parameters": [
           {
             "name": "groupId",
