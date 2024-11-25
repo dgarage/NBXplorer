@@ -1492,8 +1492,8 @@
     },
     "/v1/cryptos/{cryptoCode}/rescan": {
       "post": {
-        "summary": "Rescan the blockchain",
-        "description": "Initiates a rescan of the blockchain for the specified cryptocurrency to update the state of tracked addresses and transactions.",
+        "summary": "Rescan a transaction",
+        "description": "NBXplorer does not rescan the whole blockchain when tracking a new derivation scheme. This means that if the derivation scheme already received UTXOs in the past, NBXplorer will not be aware of it and might reuse addresses already generated in the past, and will not show past transactions.\n\nBy using this route, you can ask NBXplorer to rescan specific transactions found in the blockchain. This way, the transactions and the UTXOs present before tracking the derivation scheme will appear correctly.",
         "tags": [
           "Blockchain"
         ],
@@ -1509,13 +1509,56 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "startHeight": {
-                    "type": "integer",
-                    "description": "The block height from which to start the rescan."
+                  "transactions": {
+                    "type": "array",
+                    "description": "The transactions to rescan",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "title": "blockId + txId (Unpruned node)",
+                          "properties": {
+                            "transactionId": {
+                              "type": "string",
+                              "description": "The transaction hash to rescan."
+                            },
+                            "transaction": {
+                              "type": "string",
+                              "description": "The transaction to rescan."
+                            },
+                            "blockId": {
+                              "type": "string",
+                              "description": "The block hash where the transaction is located."
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "title": "txId (With txindex)",
+                          "properties": {
+                            "transactionId": {
+                              "type": "string",
+                              "description": "The transaction hash to rescan."
+                            }
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "title": "blockId+tx (On pruned node)",
+                          "properties": {
+                            "blockId": {
+                              "type": "string",
+                              "description": "The block hash where the transaction is located."
+                            },
+                            "transaction": {
+                              "type": "string",
+                              "description": "The transaction to rescan."
+                            }
+                          }
+                        }
+                      ]
+                    }
                   }
-                },
-                "example": {
-                  "startHeight": 0
                 }
               }
             }
@@ -1523,20 +1566,7 @@
         },
         "responses": {
           "200": {
-            "description": "Rescan initiated successfully.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "example": "Rescan started."
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Rescan initiated successfully."
           }
         }
       }
