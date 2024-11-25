@@ -327,6 +327,21 @@ namespace NBXplorer
 		{
 			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/balance", cancellation);
 		}
+		public async Task<bool> IsTrackedAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
+		{
+			
+			var responseMessage = await  SendAsync(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}", cancellation);
+			switch (responseMessage.StatusCode)
+			{
+				case HttpStatusCode.OK:
+					return true;
+				case HttpStatusCode.NotFound:
+					return false;
+				default:
+					await ParseResponse(responseMessage);
+					return false;
+			}
+		}
 		public Task CancelReservationAsync(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default)
 		{
 			return SendAsync<string>(HttpMethod.Post, keyPaths, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/addresses/cancelreservation", cancellation);
@@ -664,7 +679,7 @@ namespace NBXplorer
 			}
 			return await ParseResponse<T>(result).ConfigureAwait(false);
 		}
-		internal async Task SendAsync(HttpMethod method, object body, FormattableString relativePath, CancellationToken cancellation)
+		internal async Task<HttpResponseMessage> SendAsync(HttpMethod method, object body, FormattableString relativePath, CancellationToken cancellation)
 		{
 			var message = CreateMessage(method, body, relativePath);
 			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
@@ -681,7 +696,7 @@ namespace NBXplorer
 					result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
 				}
 			}
-			await ParseResponse(result).ConfigureAwait(false);
+			return result;
 		}
 
 		internal HttpRequestMessage CreateMessage(HttpMethod method, object body, FormattableString relativePath)

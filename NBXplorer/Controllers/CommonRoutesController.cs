@@ -23,6 +23,20 @@ namespace NBXplorer.Controllers
 		{
 			ConnectionFactory = connectionFactory;
 		}
+		
+		
+		[HttpGet("")]
+		public async Task<IActionResult> IsTracked(TrackedSourceContext trackedSourceContext)
+		{
+			var trackedSource = trackedSourceContext.TrackedSource;
+			var network = trackedSourceContext.Network;
+			var repo = trackedSourceContext.Repository;
+			if(await repo.WalletExists( repo.GetWalletKey(trackedSource)))
+				return Ok();
+			return NotFound();
+		}
+		
+		
 		[HttpGet("balance")]
 		public async Task<IActionResult> GetBalance(TrackedSourceContext trackedSourceContext)
 		{

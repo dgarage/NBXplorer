@@ -40,7 +40,8 @@ namespace NBXplorer.Controllers
 			Indexers = indexers;
 			AddressPoolService = addressPoolService;
 		}
-
+		
+		
 		[HttpPost($"~/v1/{CommonRoutes.DerivationEndpoint}")]
 		[HttpPost($"~/v1/{CommonRoutes.AddressEndpoint}")]
 		public async Task<IActionResult> TrackWallet(
