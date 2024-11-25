@@ -18,6 +18,28 @@
         "scheme": "basic"
       }
     },
+    "parameters": {
+      "CryptoCode": {
+        "name": "cryptoCode",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "BTC",
+        "description": "The cryptocurrency code to track (e.g., 'BTC' for Bitcoin, 'LTC' for Litecoin)."
+      },
+      "DerivationScheme": {
+        "name": "derivationScheme",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "example": "2-of-xpub1-xpub2",
+        "description": "The derivation scheme ([See documentation](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#derivation-scheme))"
+      }
+    },
     "schemas": {
       "Balance": {
         "type": "object",
@@ -712,7 +734,7 @@
     }
   },
   "paths": {
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}": {
       "get": {
         "summary": "Is tracked?",
         "description": "Check if tracked source is tracked",
@@ -723,22 +745,10 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code to track (e.g., 'BTC' for Bitcoin, 'LTC' for Litecoin)."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme represents the extended public key (xpub, ypub, zpub, etc.) and may include suffixes indicating the script type or additional derivation options. NBXplorer uses this to generate addresses and monitor transactions."
+            "$ref": "#/components/parameters/DerivationScheme"
           }
         ],
         "responses": {
@@ -763,22 +773,10 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code to track (e.g., 'BTC' for Bitcoin, 'LTC' for Litecoin)."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme represents the extended public key (xpub, ypub, zpub, etc.) and may include suffixes indicating the script type or additional derivation options. NBXplorer uses this to generate addresses and monitor transactions."
+            "$ref": "#/components/parameters/DerivationScheme"
           }
         ],
         "requestBody": {
@@ -891,7 +889,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses/unused": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses/unused": {
       "get": {
         "summary": "Get a new unused address",
         "description": "Retrieves a new unused address from the specified derivation scheme. This endpoint allows you to generate new addresses for receiving funds, ensuring that you do not reuse addresses.",
@@ -900,22 +898,10 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme from which to generate the address. Typically, this is your extended public key (xpub) with optional suffixes indicating script type."
+            "$ref": "#/components/parameters/DerivationScheme"
           },
           {
             "name": "feature",
@@ -1005,7 +991,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations": {
+    "/v1/cryptos/{cryptoCode}/derivations": {
       "get": {
         "summary": "List tracked derivation schemes",
         "description": "Retrieves a list of all derivation schemes (wallets) that are currently being tracked for the specified cryptocurrency. This endpoint allows you to see all the wallets that NBXplorer is monitoring for transactions and balance changes.",
@@ -1014,13 +1000,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC' for Bitcoin)."
+            "$ref": "#/components/parameters/CryptoCode"
           }
         ],
         "responses": {
@@ -1076,17 +1056,12 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/addresses/{address}": {
+    "/v1/cryptos/{cryptoCode}/addresses/{address}": {
       "post": {
         "summary": "Track an address",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
             "name": "address",
@@ -1104,25 +1079,15 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/balance": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balance": {
       "get": {
         "summary": "Get balance of tracked derivation scheme",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/DerivationScheme"
           }
         ],
         "responses": {
@@ -1139,7 +1104,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/transactions": {
+    "/v1/cryptos/{cryptoCode}/transactions": {
       "post": {
         "summary": "Broadcast a transaction (raw or PSBT)",
         "description": "Broadcasts a raw transaction or a Partially Signed Bitcoin Transaction (PSBT) to the network for the specified cryptocurrency.",
@@ -1148,13 +1113,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
             "name": "testMempoolAccept",
@@ -1227,7 +1186,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/transactions/{txId}": {
+    "/v1/cryptos/{cryptoCode}/transactions/{txId}": {
       "get": {
         "summary": "Get transaction by ID",
         "description": "Retrieves details of a specific transaction by its transaction ID (`txId`) for the specified cryptocurrency.",
@@ -1236,13 +1195,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
             "name": "txId",
@@ -1359,7 +1312,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions": {
       "get": {
         "summary": "Get transactions for a derivation scheme",
         "description": "Retrieves a list of transactions associated with the specified derivation scheme (wallet).",
@@ -1369,22 +1322,10 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme (extended public key) of the wallet."
+            "$ref": "#/components/parameters/DerivationScheme"
           },
           {
             "name": "includeTransaction",
@@ -1509,7 +1450,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos": {
       "get": {
         "summary": "Get UTXOs for a derivation scheme",
         "description": "Retrieves the list of unspent transaction outputs (UTXOs) associated with the specified derivation scheme.",
@@ -1519,22 +1460,10 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme (extended public key) of the wallet."
+            "$ref": "#/components/parameters/DerivationScheme"
           }
         ],
         "responses": {
@@ -1551,7 +1480,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/rescan": {
+    "/v1/cryptos/{cryptoCode}/rescan": {
       "post": {
         "summary": "Rescan the blockchain",
         "description": "Initiates a rescan of the blockchain for the specified cryptocurrency to update the state of tracked addresses and transactions.",
@@ -1560,13 +1489,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           }
         ],
         "requestBody": {
@@ -1615,13 +1538,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           }
         ],
         "responses": {
@@ -1662,17 +1579,12 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/psbt/update": {
+    "/v1/cryptos/{cryptoCode}/psbt/update": {
       "post": {
         "summary": "Update Partially Signed Bitcoin Transaction",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/CryptoCode"
           }
         ],
         "requestBody": {
@@ -1831,7 +1743,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/connect": {
+    "/v1/cryptos/{cryptoCode}/connect": {
       "get": {
         "summary": "WebSocket connection for events",
         "description": "Establishes a WebSocket connection to receive real-time events for the specified cryptocurrency.",
@@ -1840,13 +1752,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           }
         ],
         "responses": {
@@ -1856,7 +1762,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/events": {
+    "/v1/cryptos/{cryptoCode}/events": {
       "get": {
         "summary": "Query event stream",
         "description": "Retrieves a stream of events for the specified cryptocurrency. This endpoint supports long polling and Server-Sent Events (SSE).",
@@ -1865,13 +1771,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
             "name": "lastEventId",
@@ -1920,17 +1820,12 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/events/latest": {
+    "/v1/cryptos/{cryptoCode}/events/latest": {
       "get": {
         "summary": "Query event stream from most recent",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
             "name": "limit",
@@ -1969,7 +1864,7 @@
         }
       }
     },
-    "/groups": {
+    "/v1/groups": {
       "post": {
         "summary": "Create a new empty group",
         "responses": {
@@ -1986,7 +1881,7 @@
         }
       }
     },
-    "/groups/{groupId}": {
+    "/v1/groups/{groupId}": {
       "get": {
         "summary": "Get group information",
         "description": "Retrieves information about the specified group, including its groupId and the list of its child tracked sources.",
@@ -2151,7 +2046,7 @@
         }
       }
     },
-    "/groups/{groupId}/children": {
+    "/v1/groups/{groupId}/children": {
       "get": {
         "summary": "Get children of a group",
         "description": "Retrieves a list of child tracked sources associated with the specified group.",
@@ -2372,17 +2267,12 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/groups/{groupId}/addresses": {
+    "/v1/cryptos/{cryptoCode}/groups/{groupId}/addresses": {
       "post": {
         "summary": "Add addresses to group",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
             "name": "groupId",
@@ -2412,25 +2302,15 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}": {
       "post": {
         "summary": "Attach metadata to a derivation scheme",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/DerivationScheme"
           },
           {
             "name": "key",
@@ -2460,20 +2340,10 @@
         "summary": "Retrieve metadata from a derivation scheme",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/DerivationScheme"
           },
           {
             "name": "key",
@@ -2504,20 +2374,10 @@
         "summary": "Remove metadata from a derivation scheme",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/DerivationScheme"
           },
           {
             "name": "key",
@@ -2535,7 +2395,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/fees/{blockCount}": {
+    "/v1/cryptos/{cryptoCode}/fees/{blockCount}": {
       "get": {
         "summary": "Estimate fee rate",
         "description": "Estimates the fee rate required for a transaction to be confirmed within a certain number of blocks.",
@@ -2544,13 +2404,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
             "name": "blockCount",
@@ -2600,7 +2454,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/status": {
+    "/v1/cryptos/{cryptoCode}/status": {
       "get": {
         "summary": "Get blockchain status",
         "description": "Retrieves the connection and synchronization status of the specified cryptocurrency's blockchain.",
@@ -2609,13 +2463,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           }
         ],
         "responses": {
@@ -2632,28 +2480,16 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/scripts/{script}": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/scripts/{script}": {
       "get": {
         "summary": "Get scriptPubKey information of a Derivation Scheme",
         "description": "Get information about a specific scriptPubKey for a derivation scheme",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., BTC)"
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme to query"
+            "$ref": "#/components/parameters/DerivationScheme"
           },
           {
             "name": "script",
@@ -2732,28 +2568,16 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan": {
       "post": {
         "summary": "Scan UTXO Set",
         "description": "Scan the UTXO Set for outputs belonging to the derivation scheme. \nThe scan is split into batches to conserve RAM, scanning the whole UTXO set sequentially.\nThree branches are scanned: 0/x, 1/x and x.\nIf a UTXO in one branch is found at a specific x, all addresses inferior to index x will be considered used.\n",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., BTC)"
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme to scan"
+            "$ref": "#/components/parameters/DerivationScheme"
           },
           {
             "name": "batchSize",
@@ -2832,28 +2656,16 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan/status": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan/status": {
       "get": {
         "summary": "Get UTXO scan status",
         "description": "Get the status of a UTXO scan. Results are kept for 24 hours after completion.\n",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., BTC)"
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme that was scanned"
+            "$ref": "#/components/parameters/DerivationScheme"
           }
         ],
         "responses": {
@@ -2991,28 +2803,16 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/wipe": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/wipe": {
       "post": {
         "summary": "Wipe derivation scheme transactions",
         "description": "Wipe all the transactions from a derivation scheme",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., BTC)"
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme whose transactions should be wiped"
+            "$ref": "#/components/parameters/DerivationScheme"
           }
         ],
         "responses": {
@@ -3022,28 +2822,16 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/prune": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/prune": {
       "post": {
         "summary": "Manual pruning",
         "description": "Manually prune transactions from a derivation scheme. \nThis can be used to remove old transactions whose UTXOs have been spent.\n",
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., BTC)"
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme to prune"
+            "$ref": "#/components/parameters/DerivationScheme"
           }
         ],
         "requestBody": {
@@ -3089,7 +2877,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/broadcast": {
+    "/v1/cryptos/{cryptoCode}/broadcast": {
       "post": {
         "summary": "Broadcast a transaction",
         "description": "Broadcasts a raw transaction to the network for the specified cryptocurrency.",
@@ -3098,13 +2886,7 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           }
         ],
         "requestBody": {
@@ -3165,7 +2947,7 @@
         }
       }
     },
-    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}": {
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}": {
       "get": {
         "summary": "Get a specific transaction",
         "description": "Retrieves details of a specific transaction associated with the specified derivation scheme.",
@@ -3175,22 +2957,10 @@
         ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "derivationScheme",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The derivation scheme (extended public key) of the wallet."
+            "$ref": "#/components/parameters/DerivationScheme"
           },
           {
             "name": "txId",

@@ -10,7 +10,7 @@ This document describes the concepts, while the [API endpoints are documented he
 
 * [Configuration](#configuration)
 * [Tracked Sources](#tracked-sources)
-  * [Derivation schemes](#derivationScheme)
+  * [Derivation schemes](#derivation-scheme)
   * [Groups](#groups)
   * [Addresses](#addresses)
 * [Authentication](#authentication)
