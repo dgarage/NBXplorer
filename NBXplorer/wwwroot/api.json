@@ -840,6 +840,75 @@
         "required": [
           "trackedSource"
         ]
+      },
+      "RpcRequest": {
+        "type": "object",
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "description": "JSON-RPC protocol version.",
+            "example": "1.0"
+          },
+          "id": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "integer" }
+            ],
+            "nullable": true,
+            "description": "An identifier established by the client.",
+            "example": "1"
+          },
+          "method": {
+            "type": "string",
+            "description": "The name of the RPC method to invoke.",
+            "example": "getblockchaininfo"
+          },
+          "params": {
+            "type": "array",
+            "description": "An array of parameters to pass to the RPC method.",
+            "items": {},
+            "example": []
+          }
+        },
+        "required": ["jsonrpc", "method", "params"]
+      },
+      "RpcResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "nullable": true,
+            "description": "Error information if the RPC call failed.",
+            "properties": {
+              "code": {
+                "type": "integer",
+                "description": "Error code."
+              },
+              "message": {
+                "type": "string",
+                "description": "Error message."
+              }
+            }
+          },
+          "result": {
+            "description": "The result of the RPC call. The structure depends on the method called.",
+            "nullable": true
+          },
+          "resultString": {
+            "type": "string",
+            "description": "String representation of the result (if any).",
+            "nullable": true
+          },
+          "id": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "integer" }
+            ],
+            "nullable": true,
+            "description": "An identifier established by the client.",
+            "example": "1"
+          }
+        }
       }
     }
   },
@@ -3397,6 +3466,138 @@
             }
           }
         }
+      }
+    },
+    "/cryptos/{cryptoCode}/node/rpc": {
+      "post": {
+        "summary": "Proxy RPC call to the underlying node",
+        "description": "Allows you to make RPC calls to the underlying cryptocurrency node (e.g., Bitcoin Core) via NBXplorer. This endpoint acts as a proxy, forwarding your RPC requests to the node and returning the node's responses.",
+        "tags": ["Node RPC Proxy"],
+        "parameters": [
+          {
+            "name": "cryptoCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RpcRequest"
+              },
+              "example": {
+                "method": "getblockchaininfo",
+                "params": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful RPC call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcResponse"
+                },
+                "example": {
+                  "result": {
+                    "chain": "main",
+                    "blocks": 600000,
+                    "headers": 600000,
+                    "bestblockhash": "0000000000000000000...",
+                    "difficulty": 123456789.0,
+                    "mediantime": 1609459200,
+                    "verificationprogress": 0.999999,
+                    "initialblockdownload": false,
+                    "chainwork": "0000000000000000000...",
+                    "size_on_disk": 350000000000,
+                    "pruned": false,
+                    "softforks": [],
+                    "warnings": ""
+                  },
+                  "error": null,
+                  "id": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Invalid RPC method or parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcResponse"
+                },
+                "example": {
+                  "result": null,
+                  "error": {
+                    "code": -32601,
+                    "message": "Method not found"
+                  },
+                  "id": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized. Authentication failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Unauthorized",
+                  "code": 401
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden. Access to the RPC method is not allowed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "code": 403
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error. An error occurred while processing the RPC call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RpcResponse"
+                },
+                "example": {
+                  "result": null,
+                  "error": {
+                    "code": -32603,
+                    "message": "Internal error"
+                  },
+                  "id": null
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
       }
     }
   }
