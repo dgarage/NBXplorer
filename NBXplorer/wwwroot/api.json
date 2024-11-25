@@ -1150,10 +1150,10 @@
     "/v1/cryptos/{cryptoCode}/addresses/{address}": {
       "post": {
         "summary": "Track a single address",
-        "operationId": "TrackSingle",
+        "operationId": "Track",
         "description": "Starts tracking a single address",
         "tags": [
-          "Blockchain"
+          "Legacy"
         ],
         "parameters": [
           {
@@ -1171,6 +1171,40 @@
         "responses": {
           "200": {
             "description": "Successfully tracked address"
+          }
+        }
+      }
+    },
+    "/v1/cryptos/{cryptoCode}/addresses/{address}/balance": {
+      "get": {
+        "summary": "Get balance of single address",
+        "description": "This route only work for address [individually tracked](#tag/Legacy/operation/Track)",
+        "tags": [
+          "Legacy"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Balance information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Balance"
+                }
+              }
+            }
           }
         }
       }
@@ -1554,8 +1588,7 @@
         "summary": "Get UTXOs for a derivation scheme",
         "description": "Retrieves the list of unspent transaction outputs (UTXOs) associated with the specified derivation scheme.",
         "tags": [
-          "Derivations",
-          "UTXOs"
+          "Derivations"
         ],
         "parameters": [
           {
@@ -2397,6 +2430,190 @@
         "responses": {
           "200": {
             "description": "Addresses added successfully"
+          }
+        }
+      }
+    },
+    "/v1/cryptos/{cryptoCode}/groups/{groupId}/balance": {
+      "get": {
+        "summary": "Get balance of a group",
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Balance information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Balance"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cryptos/{cryptoCode}/groups/{groupId}/utxos": {
+      "get": {
+        "summary": "Get UTXOs for a group",
+        "description": "Retrieves the list of unspent transaction outputs (UTXOs) associated with the specified group.",
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "UTXOs retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UTXOChanges"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/groups/{groupId}/metadata/{key}": {
+      "post": {
+        "summary": "Attach metadata to a group",
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metadata attached successfully"
+          }
+        }
+      },
+      "get": {
+        "summary": "Retrieve metadata from a group",
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove metadata from a group",
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata removed successfully"
           }
         }
       }

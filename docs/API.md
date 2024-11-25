@@ -99,7 +99,7 @@ This refers to a tracked source that monitors a single address. It functions sim
 
 The address tracked source's format is `ADDRESS:bc1...`.
 
-You can create one by calling [Tracking an address](https://nbxplorerdocs.z5.web.core.windows.net/#tag/Blockchain/operation/TrackSingle).
+You can create one by calling [Tracking an address](https://nbxplorerdocs.z5.web.core.windows.net/#tag/Legacy/operation/Track).
 
 ## Authentication
 
