@@ -295,24 +295,14 @@ namespace NBXplorer.Controllers
 
 		private KeyPath GetDerivationKeyPath(ScriptPubKeyType scriptPubKeyType, int accountNumber, NBXplorerNetwork network)
 		{
-			var path = "";
-			switch (scriptPubKeyType)
+			var path = scriptPubKeyType switch
 			{
-				case ScriptPubKeyType.Legacy:
-					path = "44'";
-					break;
-				case ScriptPubKeyType.Segwit:
-					path = "84'";
-					break;
-				case ScriptPubKeyType.SegwitP2SH:
-					path = "49'";
-					break;
-				case ScriptPubKeyType.TaprootBIP86:
-					path = "86'";
-					break;
-				default:
-					throw new NotSupportedException(scriptPubKeyType.ToString()); // Should never happen
-			}
+				ScriptPubKeyType.Legacy => "44'",
+				ScriptPubKeyType.Segwit => "84'",
+				ScriptPubKeyType.SegwitP2SH => "49'",
+				ScriptPubKeyType.TaprootBIP86 => "86'",
+				_ => throw new NotSupportedException(scriptPubKeyType.ToString())
+			};
 			var keyPath = new KeyPath(path);
 			return keyPath.Derive(network.CoinType)
 				   .Derive(accountNumber, true);

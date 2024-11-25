@@ -514,7 +514,7 @@
           "accountNumber": {
             "type": "integer",
             "default": 0,
-            "description": "Optional. The account number used for determining the key path that NBXplorer will track. This corresponds to the 'account' level in BIP44 derivation paths, e.g., m/44'/0'/accountNumber'. Default is **0**."
+            "description": "Optional. The account number used for determining the key path that NBXplorer will track. This corresponds to the 'account' level in the derivation paths, e.g., `m/44'/0'/accountNumber'`. Default is **0**."
           },
           "wordList": {
             "type": "string",
@@ -1244,6 +1244,40 @@
                 "example": {
                   "error": "No derivation schemes found for the specified crypto code.",
                   "code": 404
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Generate a hot wallet",
+        "description": "NBXplorer will generate and save a mnemonic and create a derivationScheme.",
+        "tags": [
+          "Derivations"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WalletGenerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully generated a hot wallet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletGenerationResponse"
                 }
               }
             }
