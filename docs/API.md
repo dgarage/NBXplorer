@@ -117,7 +117,7 @@ On linux or mac:
 
 The content of this cookie must be used is used as HTTP BASIC authentication to use the API.
 
-This can be disabled with `--noauth`.
+This can be disabled with `--noauth` or `NBXPLORER_NOAUTH=1`.
 
 Also, NBXPlorer listen by default on `127.0.0.1`, if you want to access it from another machine, run `--bind "0.0.0.0"`.
 

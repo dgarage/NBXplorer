@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "NBXplorer API",
-    "description": "NBXplorer is a multi-cryptocurrency lightweight block explorer that does not index the whole blockchain. \nInstead, it listens to transactions and blocks from a trusted full node and indexes only addresses and \ntransactions that belong to tracked DerivationSchemes.\n",
+    "description": "NBXplorer is a multi-cryptocurrency lightweight block explorer that does not index the whole blockchain. \nInstead, it listens to transactions and blocks from a trusted full node and indexes only addresses and \ntransactions that belong to tracked DerivationSchemes.\n\nBy default, NBXplorer is are using [Basic Authentication with a cookie file](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#authentication) for authentication.",
     "version": "1.0.0"
   },
   "servers": [
