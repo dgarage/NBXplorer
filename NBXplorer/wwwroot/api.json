@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "/v1",
+      "url": "/",
       "description": "Base API path"
     }
   ],
@@ -738,6 +738,9 @@
       "get": {
         "summary": "Is tracked?",
         "description": "Check if tracked source is tracked",
+        "tags": [
+          "Derivations"
+        ],
         "security": [
           {
             "basicAuth": []
@@ -1058,7 +1061,11 @@
     },
     "/v1/cryptos/{cryptoCode}/addresses/{address}": {
       "post": {
-        "summary": "Track an address",
+        "summary": "Track a single address",
+        "description": "Starts tracking a single address",
+        "tags": [
+          "Blockchain"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -1082,6 +1089,9 @@
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/balance": {
       "get": {
         "summary": "Get balance of tracked derivation scheme",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -1529,59 +1539,14 @@
             }
           }
         }
-      },
-      "get": {
-        "summary": "Get rescan status",
-        "description": "Retrieves the status of an ongoing blockchain rescan for the specified cryptocurrency.",
-        "tags": [
-          "Blockchain"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/CryptoCode"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Rescan status retrieved successfully.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "description": "The current status of the rescan."
-                    },
-                    "progress": {
-                      "type": "number",
-                      "description": "The progress of the rescan as a percentage."
-                    }
-                  },
-                  "example": {
-                    "status": "Rescan in progress.",
-                    "progress": 75.0
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No rescan in progress.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/v1/cryptos/{cryptoCode}/psbt/update": {
       "post": {
         "summary": "Update Partially Signed Bitcoin Transaction",
+        "tags": [
+          "Blockchain"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -1644,6 +1609,9 @@
       "get": {
         "summary": "Health check endpoint",
         "description": "Performs a health check of NBXplorer and its connected nodes. This endpoint can be used without authentication and returns HTTP 200 if all nodes are ready and synchronized.",
+        "tags": [
+          "Health"
+        ],
         "security": [],
         "responses": {
           "200": {
@@ -1823,6 +1791,9 @@
     "/v1/cryptos/{cryptoCode}/events/latest": {
       "get": {
         "summary": "Query event stream from most recent",
+        "tags": [
+          "Events"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -1867,6 +1838,9 @@
     "/v1/groups": {
       "post": {
         "summary": "Create a new empty group",
+        "tags": [
+          "Groups"
+        ],
         "responses": {
           "200": {
             "description": "Group created successfully",
@@ -2270,6 +2244,9 @@
     "/v1/cryptos/{cryptoCode}/groups/{groupId}/addresses": {
       "post": {
         "summary": "Add addresses to group",
+        "tags": [
+          "Groups"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -2305,6 +2282,9 @@
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/metadata/{key}": {
       "post": {
         "summary": "Attach metadata to a derivation scheme",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -2338,6 +2318,9 @@
       },
       "get": {
         "summary": "Retrieve metadata from a derivation scheme",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -2372,6 +2355,9 @@
       },
       "delete": {
         "summary": "Remove metadata from a derivation scheme",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -2484,6 +2470,9 @@
       "get": {
         "summary": "Get scriptPubKey information of a Derivation Scheme",
         "description": "Get information about a specific scriptPubKey for a derivation scheme",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -2572,6 +2561,9 @@
       "post": {
         "summary": "Scan UTXO Set",
         "description": "Scan the UTXO Set for outputs belonging to the derivation scheme. \nThe scan is split into batches to conserve RAM, scanning the whole UTXO set sequentially.\nThree branches are scanned: 0/x, 1/x and x.\nIf a UTXO in one branch is found at a specific x, all addresses inferior to index x will be considered used.\n",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -2659,7 +2651,10 @@
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos/scan/status": {
       "get": {
         "summary": "Get UTXO scan status",
-        "description": "Get the status of a UTXO scan. Results are kept for 24 hours after completion.\n",
+        "description": "Get the status of a UTXO scan. Results are kept for 24 hours after completion.",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -2807,6 +2802,9 @@
       "post": {
         "summary": "Wipe derivation scheme transactions",
         "description": "Wipe all the transactions from a derivation scheme",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
@@ -2825,7 +2823,10 @@
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/prune": {
       "post": {
         "summary": "Manual pruning",
-        "description": "Manually prune transactions from a derivation scheme. \nThis can be used to remove old transactions whose UTXOs have been spent.\n",
+        "description": "Manually prune transactions from a derivation scheme. \nThis can be used to remove old transactions whose UTXOs have been spent.",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/CryptoCode"
