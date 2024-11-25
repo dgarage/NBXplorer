@@ -667,13 +667,21 @@
       "ErrorResponse": {
         "type": "object",
         "properties": {
-          "error": {
-            "type": "string",
-            "description": "Description of the error."
+          "httpCode": {
+            "type": "integer",
+            "description": "HTTP Code of the error"
           },
           "code": {
-            "type": "integer",
-            "description": "HTTP status code associated with the error."
+            "type": "string",
+            "description": "Code of the error"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human readable error message"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Additional error code to use when `code` isn't specific enough'"
           }
         },
         "required": [
@@ -1097,6 +1105,87 @@
         }
       }
     },
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/psbt/create": {
+      "post": {
+        "summary": "Create a PSBT",
+        "description": "A [Partially Signed Bitcoin Transaction (PSBT)](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki) is a standard format to represent a transaction with pending signatures associated to it. A PSBT can be signed independently by many signers, and combined together before broadcast.",
+        "tags": [
+          "Derivations"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "$ref": "#/components/parameters/DerivationScheme"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PSBTRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A PSBT get returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "psbt": {
+                      "type": "string",
+                      "description": "Partially signed Bitcoin transaction in Base64 encoding",
+                      "example": "cHNidP8BAHcBAAAAASjvZHM29AbxO..."
+                    },
+                    "changeAddress": {
+                      "type": "string",
+                      "description": "Bitcoin address where change will be sent",
+                      "example": "mqVvTQKsdJ36Z8m5uFWQSA5nhrJ5NHQ2Hs"
+                    },
+                    "suggestions": {
+                      "type": "object",
+                      "properties": {
+                        "shouldEnforceLowR": {
+                          "type": "boolean",
+                          "description": "Indicates whether to enforce LowR signatures",
+                          "example": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Impossible to satisfy the request. Code: `not-enough-funds`, `output-too-small`, `fee-estimation-unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The `cryptoCode` isn't supported. Code: `cryptoCode-not-supported`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/cryptos/{cryptoCode}/derivations": {
       "get": {
         "summary": "List tracked derivation schemes",
@@ -1166,7 +1255,7 @@
       "post": {
         "summary": "Track a single address",
         "operationId": "Track",
-        "description": "Starts tracking a single address",
+        "description": "Starts tracking a single address. Consider adding [individual addresses to a group](#tag/Groups/operation/AddAddress) instead.",
         "tags": [
           "Legacy"
         ],
@@ -2378,6 +2467,7 @@
     "/v1/cryptos/{cryptoCode}/groups/{groupId}/addresses": {
       "post": {
         "summary": "Add addresses to group",
+        "operationId": "AddAddress",
         "tags": [
           "Groups"
         ],
@@ -2716,7 +2806,7 @@
             }
           },
           "400": {
-            "description": "Fee estimation unavailable.",
+            "description": "Fee estimation unavailable. Error code: `fee-estimation-unavailable`",
             "content": {
               "application/json": {
                 "schema": {
@@ -2895,40 +2985,31 @@
             "description": "Scan request queued"
           },
           "405": {
-            "description": "ScanUTXOSet not supported",
+            "description": "ScanUTXOSet not supported. Code: `scanutxoset-not-suported`",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string",
-                  "enum": [
-                    "scanutxoset-not-suported"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "409": {
-            "description": "ScanUTXOSet already in progress",
+            "description": "ScanUTXOSet already in progress. Code: `scanutxoset-in-progress`",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string",
-                  "enum": [
-                    "scanutxoset-in-progress"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
           "400": {
-            "description": "RPC unavailable",
+            "description": "RPC unavailable. Code: `rpc-unavailable`",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string",
-                  "enum": [
-                    "rpc-unavailable"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3071,14 +3152,11 @@
             }
           },
           "404": {
-            "description": "Scan information not found (older than 24H)",
+            "description": "Scan information not found (older than 24H). Code: `scanutxoset-info-not-found`",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string",
-                  "enum": [
-                    "scanutxoset-info-not-found"
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
