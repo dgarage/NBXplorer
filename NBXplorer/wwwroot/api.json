@@ -11,6 +11,12 @@
       "description": "Base API path"
     }
   ],
+  "tags": [
+    {
+      "name": "Groups",
+      "description": "A group is a tracked source which serves as a logical method for grouping several tracked sources into a single entity. You can add or remove tracked sources to and from a group.\n\nFor more details, check out the documentation on [github](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#groups)."
+    }
+  ],
   "components": {
     "securitySchemes": {
       "basicAuth": {
@@ -846,6 +852,7 @@
       },
       "post": {
         "summary": "Track a derivation scheme",
+        "operationId": "Track",
         "description": "Starts tracking a new derivation scheme (wallet) for the specified cryptocurrency. This allows NBXplorer to monitor all addresses derived from the provided derivation scheme and notify about related transactions. Once tracked, NBXplorer will start indexing the addresses and UTXOs associated with this derivation scheme.",
         "tags": [
           "Derivations"
@@ -1143,6 +1150,7 @@
     "/v1/cryptos/{cryptoCode}/addresses/{address}": {
       "post": {
         "summary": "Track a single address",
+        "operationId": "TrackSingle",
         "description": "Starts tracking a single address",
         "tags": [
           "Blockchain"
@@ -1827,7 +1835,7 @@
         "summary": "WebSocket connection for events",
         "description": "Establishes a WebSocket connection to receive real-time events for the specified cryptocurrency.",
         "tags": [
-          "WebSocket"
+          "Events"
         ],
         "parameters": [
           {
@@ -1914,6 +1922,7 @@
             "in": "query",
             "schema": {
               "type": "integer",
+              "description": "The maximum number of events to return.",
               "default": 10
             }
           }
@@ -1969,6 +1978,7 @@
     "/v1/groups/{groupId}": {
       "get": {
         "summary": "Get group information",
+        "operationId": "Get",
         "description": "Retrieves information about the specified group, including its groupId and the list of its child tracked sources.",
         "tags": [
           "Groups"
@@ -2026,6 +2036,7 @@
       },
       "post": {
         "summary": "Create or overwrite a group",
+        "operationId": "Create",
         "description": "Creates a new group with the specified groupId. If a group with the same groupId already exists, it will be overwritten.",
         "tags": [
           "Groups"

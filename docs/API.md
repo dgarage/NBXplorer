@@ -74,7 +74,9 @@ Most of routes asks for a `cryptoCode`. This identify the crypto currency to req
 
 Note: Taproot is incompatible with all other options.
 
-You can create one by calling [Tracking derivation scheme or address](#track).
+A derivation scheme tracked source's format is `DERIVATIONSCHEME:derivationScheme` (eg. `DERIVATIONSCHEME:xpub1`).
+
+You can create one by calling [Tracking derivation scheme](https://nbxplorerdocs.z5.web.core.windows.net/#tag/Derivations/operation/Track).
 
 ### <a name="groups"></a>Groups
 
@@ -85,11 +87,11 @@ Additionally, specific addresses can be tracked through the group.
 Every address attached by a child tracked source will be added to the group, including all related UTXOs and transactions. 
 
 A group can have any number of children, and a group can also be a child of another group.
-Please note that all the children are returned by [Get a group](#get-group). As such, it is advised not to add too many children to avoid slowing down this call.
+Please note that all the children are returned by [Get a group](https://nbxplorerdocs.z5.web.core.windows.net/#tag/Groups/operation/Get). As such, it is advised not to add too many children to avoid slowing down this call.
 
 A group tracked source's format is `GROUP:groupid`.
 
-You can create a new group by calling [Create a group](#create-group).
+You can create a new group by calling [Create a group](https://nbxplorerdocs.z5.web.core.windows.net/#tag/Groups/operation/Create).
 
 ### <a name="addresses"></a>Addresses
 
@@ -97,7 +99,7 @@ This refers to a tracked source that monitors a single address. It functions sim
 
 The address tracked source's format is `ADDRESS:bc1...`.
 
-You can create one by calling [Tracking derivation scheme or address](#track).
+You can create one by calling [Tracking an address](https://nbxplorerdocs.z5.web.core.windows.net/#tag/Blockchain/operation/TrackSingle).
 
 ## Authentication
 
