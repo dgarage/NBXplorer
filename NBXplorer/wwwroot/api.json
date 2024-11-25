@@ -1288,7 +1288,7 @@
     "/v1/cryptos/{cryptoCode}/addresses/{address}": {
       "post": {
         "summary": "Track a single address",
-        "operationId": "Track",
+        "operationId": "TrackSingleAddress",
         "description": "Starts tracking a single address. Consider adding [individual addresses to a group](#tag/Groups/operation/AddAddress) instead.",
         "tags": [
           "Legacy"
@@ -1316,7 +1316,7 @@
     "/v1/cryptos/{cryptoCode}/addresses/{address}/balance": {
       "get": {
         "summary": "Get balance of single address",
-        "description": "This route only work for address [individually tracked](#tag/Legacy/operation/Track)",
+        "description": "This route only work for address [individually tracked](#tag/Legacy/operation/TrackSingleAddress)",
         "tags": [
           "Legacy"
         ],
@@ -2416,8 +2416,10 @@
             }
           }
         }
-      },
-      "delete": {
+      }
+    },
+    "/v1/groups/{groupId}/children/delete": {
+      "post": {
         "summary": "Remove children from a group",
         "description": "Removes one or more child tracked sources from the specified group.",
         "tags": [
