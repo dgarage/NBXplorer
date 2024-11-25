@@ -699,17 +699,98 @@
       "StatusResponse": {
         "type": "object",
         "properties": {
-          "isSynchronized": {
+          "bitcoinStatus": {
+            "type": "object",
+            "description": "Information about the core node, can be null if NBXplorer's is unable to connect",
+            "properties": {
+              "blocks": {
+                "type": "integer",
+                "example": 103
+              },
+              "headers": {
+                "type": "integer",
+                "example": 103
+              },
+              "verificationProgress": {
+                "type": "number",
+                "format": "float",
+                "example": 1.0,
+                "minimum": 0,
+                "maximum": 1.0
+              },
+              "isSynched": {
+                "type": "boolean",
+                "example": true
+              },
+              "incrementalRelayFee": {
+                "type": "number",
+                "format": "float",
+                "example": 1.0,
+                "description": "The incremental relay fee in sats/vbyte"
+              },
+              "minRelayTxFee": {
+                "type": "number",
+                "format": "float",
+                "example": 1.0,
+                "description": "The minimum relay fee in sats/vbyte"
+              },
+              "capabilities": {
+                "type": "object",
+                "properties": {
+                  "canScanTxoutSet": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "canSupportSegwit": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "canSupportTaproot": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "canSupportTransactionCheck": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              }
+            }
+          },
+          "isFullySynched": {
             "type": "boolean",
-            "description": "Indicates if the node is synchronized."
+            "description": "`true` if both, NBXplorer and the full node, are fully synched with the network",
+            "example": true
           },
-          "blocks": {
+          "syncHeight": {
             "type": "integer",
-            "description": "Number of blocks processed."
+            "description": "NBXplorer's current sync height",
+            "example": 103
           },
-          "headers": {
-            "type": "integer",
-            "description": "Total number of headers."
+          "networkType": {
+            "type": "string",
+            "example": "Regtest"
+          },
+          "cryptoCode": {
+            "type": "string",
+            "example": "BTC"
+          },
+          "instanceName": {
+            "type": "string",
+            "description": "The instance name given to your server via `--instancename` or `NBXPLORER_INSTANCENAME`",
+            "example": "MyInstance",
+            "nullable": true
+          },
+          "supportedCryptoCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [ "BTC" ]
+          },
+          "version": {
+            "type": "string",
+            "example": "1.0.3.5"
           }
         }
       },
