@@ -44,6 +44,15 @@
         },
         "example": "2-of-xpub1-xpub2",
         "description": "The derivation scheme ([See documentation](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#derivation-scheme))"
+      },
+      "GroupId": {
+        "name": "groupId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "The unique identifier for the group."
       }
     },
     "schemas": {
@@ -792,7 +801,9 @@
             "items": {
               "type": "string"
             },
-            "example": [ "BTC" ]
+            "example": [
+              "BTC"
+            ]
           },
           "version": {
             "type": "string",
@@ -2018,13 +2029,7 @@
         ],
         "parameters": [
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The unique identifier of the group to retrieve."
+            "$ref": "#/components/parameters/GroupId"
           }
         ],
         "responses": {
@@ -2076,13 +2081,7 @@
         ],
         "parameters": [
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The unique identifier for the group."
+            "$ref": "#/components/parameters/GroupId"
           }
         ],
         "requestBody": {
@@ -2145,13 +2144,7 @@
         ],
         "parameters": [
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The unique identifier of the group to be deleted."
+            "$ref": "#/components/parameters/GroupId"
           }
         ],
         "responses": {
@@ -2184,13 +2177,7 @@
         ],
         "parameters": [
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The unique identifier of the group whose children are to be retrieved."
+            "$ref": "#/components/parameters/GroupId"
           }
         ],
         "responses": {
@@ -2239,13 +2226,7 @@
         ],
         "parameters": [
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The unique identifier of the group to which children will be added."
+            "$ref": "#/components/parameters/GroupId"
           }
         ],
         "requestBody": {
@@ -2317,13 +2298,7 @@
         ],
         "parameters": [
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The unique identifier of the group from which children will be removed."
+            "$ref": "#/components/parameters/GroupId"
           }
         ],
         "requestBody": {
@@ -2407,12 +2382,7 @@
             "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/GroupId"
           }
         ],
         "requestBody": {
@@ -2445,12 +2415,7 @@
             "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/GroupId"
           }
         ],
         "responses": {
@@ -2479,12 +2444,7 @@
             "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/GroupId"
           }
         ],
         "responses": {
@@ -2512,12 +2472,7 @@
             "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/GroupId"
           },
           {
             "name": "key",
@@ -2553,12 +2508,7 @@
             "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/GroupId"
           },
           {
             "name": "key",
@@ -2595,12 +2545,7 @@
             "$ref": "#/components/parameters/CryptoCode"
           },
           {
-            "name": "groupId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/GroupId"
           },
           {
             "name": "key",
