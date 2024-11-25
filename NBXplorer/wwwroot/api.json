@@ -14,7 +14,11 @@
   "tags": [
     {
       "name": "Groups",
-      "description": "A group is a tracked source which serves as a logical method for grouping several tracked sources into a single entity. You can add or remove tracked sources to and from a group.\n\nFor more details, check out the documentation on [github](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#groups)."
+      "description": "A group is a tracked source which serves as a logical method for grouping several tracked sources into a single entity. You can add or remove tracked sources to and from a group.\n\nFor more details, check out the documentation on [GitHub](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#groups)."
+    },
+    {
+      "name": "Derivations",
+      "description": "A derivation scheme, (also called derivationStrategy) is a flexible way to define how to generate deterministic addresses for a wallet. NBXplorer will track any addresses on the `0/x`, `1/x` and `x` path.\n\nFor more details, check out the documentation on [GitHub](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#derivation-scheme)."
     }
   ],
   "components": {
@@ -2670,7 +2674,7 @@
         "summary": "Estimate fee rate",
         "description": "Estimates the fee rate required for a transaction to be confirmed within a certain number of blocks.",
         "tags": [
-          "Fees"
+          "Blockchain"
         ],
         "parameters": [
           {
