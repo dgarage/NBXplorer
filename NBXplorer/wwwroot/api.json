@@ -24,23 +24,23 @@
         "properties": {
           "unconfirmed": {
             "type": "integer",
-            "description": "How the confirmed balance would be updated once all unconfirmed transactions are confirmed"
+            "description": "Represents how the confirmed balance would be updated once all unconfirmed transactions are confirmed."
           },
           "confirmed": {
             "type": "integer",
-            "description": "The balance of all funds in confirmed transactions"
+            "description": "The balance of all funds in confirmed transactions."
           },
           "available": {
             "type": "integer",
-            "description": "The total spendable balance (total - immature)"
+            "description": "The total spendable balance, calculated as total minus immature funds."
           },
           "immature": {
             "type": "integer",
-            "description": "The total unspendable funds"
+            "description": "The total unspendable funds (e.g., coinbase rewards that need 100 confirmations before being spendable)."
           },
           "total": {
             "type": "integer",
-            "description": "The total of funds owned (confirmed + unconfirmed)"
+            "description": "The total funds owned, calculated as confirmed plus unconfirmed balances."
           }
         }
       },
@@ -49,78 +49,86 @@
         "properties": {
           "blockHash": {
             "type": "string",
-            "description": "The hash of the block containing this transaction"
+            "description": "The hash of the block containing this transaction. Will be `null` if the transaction is unconfirmed."
           },
           "confirmations": {
             "type": "integer",
-            "description": "Number of confirmations"
+            "description": "Number of confirmations the transaction has."
           },
           "height": {
             "type": "integer",
-            "description": "Block height"
+            "description": "The block height. Will be `null` if the transaction is unconfirmed."
           },
           "transactionId": {
             "type": "string",
-            "description": "Transaction ID"
+            "description": "The transaction ID."
           },
           "transaction": {
             "type": "string",
-            "description": "Raw transaction hex"
+            "description": "Raw transaction in hex format. Included only if `includeTransaction` is `true`."
           },
           "outputs": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TransactionOutput"
-            }
+            },
+            "description": "List of outputs related to the tracked source."
           },
           "inputs": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TransactionInput"
-            }
+            },
+            "description": "List of inputs related to the tracked source."
           },
           "timestamp": {
             "type": "integer",
-            "description": "Transaction timestamp"
+            "description": "Transaction timestamp."
           },
           "balanceChange": {
             "type": "integer",
-            "description": "Net balance change for the wallet"
+            "description": "Net balance change for the wallet due to this transaction."
           },
           "replaceable": {
             "type": "boolean",
-            "description": "Whether the transaction can be replaced via RBF"
+            "description": "`true` if the transaction can be replaced (the transaction has RBF activated, is unconfirmed, and is not an intermediate transaction in a chain of unconfirmed transactions)."
           },
           "replacing": {
             "type": "string",
             "nullable": true,
-            "description": "Transaction ID being replaced by this transaction"
+            "description": "If present, indicates the transaction ID that this transaction is replacing via RBF."
           },
           "replacedBy": {
             "type": "string",
             "nullable": true,
-            "description": "Transaction ID that replaced this transaction"
+            "description": "If present, indicates the transaction ID that replaced this transaction via RBF."
           }
-        }
+        },
+        "required": [
+          "transactionId",
+          "confirmations",
+          "inputs",
+          "outputs"
+        ]
       },
       "TransactionOutput": {
         "type": "object",
         "properties": {
-          "keyPath": {
-            "type": "string",
-            "description": "Derivation path for the output"
-          },
           "scriptPubKey": {
             "type": "string",
-            "description": "Output script"
+            "description": "The scriptPubKey of the output in hexadecimal format."
           },
           "index": {
             "type": "integer",
-            "description": "Output index"
+            "description": "The index of the output in the transaction."
           },
           "value": {
             "type": "integer",
-            "description": "Output amount in satoshis"
+            "description": "The amount of the output in satoshis."
+          },
+          "keyPath": {
+            "type": "string",
+            "description": "The derivation path if the output is associated with the wallet."
           }
         }
       },
@@ -129,54 +137,78 @@
         "properties": {
           "inputIndex": {
             "type": "integer",
-            "description": "Input index in the transaction"
+            "description": "The index of this input within the transaction's list of inputs.",
+            "example": 0
           },
           "transactionId": {
             "type": "string",
-            "description": "Transaction ID being spent"
-          },
-          "scriptPubKey": {
-            "type": "string",
-            "description": "Input script"
+            "description": "The transaction ID (hash) of the previous transaction whose output is being spent.",
+            "example": "e3c0c6c0e0a0f8e0d0e0b0a0c0b0a0d0e0f0c0b0a0e0d0c0b0a0d0e0f0c0b0a0"
           },
           "index": {
             "type": "integer",
-            "description": "Input index"
+            "description": "The index of the output in the previous transaction being referenced.",
+            "example": 1
+          },
+          "scriptPubKey": {
+            "type": "string",
+            "description": "The scriptPubKey of the output being spent, in hexadecimal format.",
+            "example": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac"
           },
           "value": {
             "type": "integer",
-            "description": "Input amount in satoshis"
+            "description": "The amount of the output being spent, in satoshis.",
+            "example": 100000000
           },
           "address": {
             "type": "string",
-            "description": "Input address"
+            "description": "The Bitcoin address corresponding to the scriptPubKey of the output being spent.",
+            "example": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
           }
-        }
+        },
+        "required": [
+          "inputIndex",
+          "transactionId",
+          "index"
+        ]
       },
       "UnusedAddress": {
         "type": "object",
         "properties": {
           "trackedSource": {
-            "type": "string"
+            "type": "string",
+            "description": "The tracked source identifier, typically representing the derivation scheme being used.",
+            "example": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuok..."
           },
           "feature": {
-            "type": "string"
+            "type": "string",
+            "description": "Specifies the type of address generated. Possible values are:\n- `Deposit`: A deposit address from the external chain (`0/x`).\n- `Change`: A change address from the internal chain (`1/x`).\n- `Direct`: An address from the direct chain (`x`).\n- `Custom`: An address using a custom key path template.",
+            "example": "Deposit"
           },
           "derivationStrategy": {
-            "type": "string"
+            "type": "string",
+            "description": "The derivation strategy used to derive addresses, typically the extended public key (xpub) with optional suffixes indicating the script type.",
+            "example": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuok..."
           },
           "keyPath": {
-            "type": "string"
+            "type": "string",
+            "description": "The derivation path used to generate this address, e.g., `0/0`.",
+            "example": "0/0"
           },
           "scriptPubKey": {
-            "type": "string"
+            "type": "string",
+            "description": "The scriptPubKey of the generated address in hexadecimal format.",
+            "example": "001460c25d29559774803f262acf5ee5c922eff52ccd"
           },
           "address": {
-            "type": "string"
+            "type": "string",
+            "description": "The generated address, in base58 or bech32 format, depending on the script type.",
+            "example": "tb1qvrp96224ja6gq0ex9t84aewfythl2txdkpdmu0"
           },
           "redeem": {
             "type": "string",
-            "description": "Segwit redeem script if applicable"
+            "description": "The redeem script associated with the address (if applicable). Returns the SegWit redeem script if the derivation scheme is P2SH-P2WPKH or P2WPKH, or the P2SH redeem script if the script type is P2SH.",
+            "example": "0014e2eb89edba1fe6c6c0863699eeb78f6ec3271b45"
           }
         }
       },
@@ -184,34 +216,54 @@
         "type": "object",
         "properties": {
           "feature": {
-            "type": "string"
+            "type": "string",
+            "description": "Specifies the type of address from which this UTXO originated. Possible values are:\n- `Deposit`: An address from the external chain (`0/x`).\n- `Change`: An address from the internal chain (`1/x`).\n- `Direct`: An address from the direct chain (`x`).\n- `Custom`: An address using a custom key path template.",
+            "example": "Deposit"
           },
           "outpoint": {
-            "type": "string"
+            "type": "string",
+            "description": "The unique identifier of the UTXO, consisting of the transaction ID and the output index, formatted as `{transactionHash}-{outputIndex}`.",
+            "example": "8ac84044e85644486ec07eb8251b870f91a9aec70b8bd91b0b1303ddca4bba10-1"
           },
           "index": {
-            "type": "integer"
+            "type": "integer",
+            "description": "The index of the output in the transaction. Indicates which output of the transaction this UTXO corresponds to.",
+            "example": 1
           },
           "transactionHash": {
-            "type": "string"
+            "type": "string",
+            "description": "The transaction ID (hash) of the transaction that created this UTXO.",
+            "example": "8ac84044e85644486ec07eb8251b870f91a9aec70b8bd91b0b1303ddca4bba10"
           },
           "scriptPubKey": {
-            "type": "string"
+            "type": "string",
+            "description": "The scriptPubKey of the UTXO in hexadecimal format. This script specifies the conditions under which the UTXO can be spent.",
+            "example": "00149681ae465a045e2068460b9d281cf97dede87cd8"
           },
           "address": {
-            "type": "string"
+            "type": "string",
+            "description": "The Bitcoin address corresponding to the scriptPubKey.",
+            "example": "bcrt1qj6q6u3j6q30zq6zxpwwjs88e0hk7slxcunru7u"
           },
           "value": {
-            "type": "integer"
+            "type": "integer",
+            "description": "The amount of the UTXO in satoshis.",
+            "example": 100000000
           },
           "keyPath": {
-            "type": "string"
+            "type": "string",
+            "description": "The derivation path used to derive the address for this UTXO from the master public key. For example, `0/0`.",
+            "example": "0/0"
           },
           "timestamp": {
-            "type": "integer"
+            "type": "integer",
+            "description": "The UNIX timestamp indicating when the UTXO was first seen by NBXplorer.",
+            "example": 1540376171
           },
           "confirmations": {
-            "type": "integer"
+            "type": "integer",
+            "description": "The number of confirmations of the transaction containing this UTXO. A value of `0` means the transaction is unconfirmed.",
+            "example": 0
           }
         }
       },
@@ -219,22 +271,64 @@
         "type": "object",
         "properties": {
           "seed": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Optional. A seed specific to get a deterministic PSBT, useful for testing purposes. Default is null."
           },
           "rbf": {
             "type": "boolean",
-            "default": true
+            "default": true,
+            "description": "Optional. Determines if the transaction should have Replace-By-Fee (RBF) activated. Default is true if 'disableFingerprintRandomization' is true."
           },
           "version": {
             "type": "integer",
-            "default": 1
+            "default": 1,
+            "description": "Optional. The version of the transaction. Default is 1 if 'disableFingerprintRandomization' is true."
           },
           "timeLock": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Optional. The timelock (nLockTime) of the transaction. Activates RBF if not null. Default is 0 if 'disableFingerprintRandomization' is true."
           },
           "includeGlobalXPub": {
             "type": "boolean",
-            "default": false
+            "default": false,
+            "description": "Optional. Whether to include the global xpubs of the derivation scheme in the PSBT. Default is false."
+          },
+          "reserveChangeAddress": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optional. If true, the creation of this PSBT will reserve a new change address. Default is false."
+          },
+          "spendAllMatchingOutpoints": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optional. If true, all the UTXOs that have been selected will be used as inputs in the PSBT. Default is false."
+          },
+          "explicitChangeAddress": {
+            "type": "string",
+            "description": "Optional. Use a specific change address. Mutually exclusive with 'reserveChangeAddress'. Default is null."
+          },
+          "minConfirmations": {
+            "type": "integer",
+            "default": 0,
+            "description": "Optional. The minimum number of confirmations a UTXO needs to be selected. By default, both unconfirmed and confirmed UTXOs will be used."
+          },
+          "includeOnlyOutpoints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional. Only select the specified outpoints for creating the PSBT. Can select outpoints that have been spent but are unconfirmed, useful for RBF. Default is null."
+          },
+          "excludeOutpoints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional. Do not select the specified outpoints for creating the PSBT. Default is an empty array."
+          },
+          "minValue": {
+            "type": "integer",
+            "description": "Optional. UTXOs with value below this amount (in satoshis) will be ignored. Default is null."
           },
           "destinations": {
             "type": "array",
@@ -242,70 +336,144 @@
               "type": "object",
               "properties": {
                 "destination": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Required. The destination address where to send funds."
                 },
                 "amount": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "Optional. The amount (in satoshis) to send to the destination. Mutually exclusive with 'sweepAll'."
                 },
                 "substractFees": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "Optional. If true, the fees will be subtracted from this destination's amount. Mutually exclusive with 'sweepAll'. Default is false."
                 },
                 "sweepAll": {
-                  "type": "boolean"
+                  "type": "boolean",
+                  "description": "Optional. If true, will sweep all the balance of your wallet to this destination. Mutually exclusive with 'amount' and 'substractFees'. Default is false."
                 }
-              }
-            }
+              },
+              "required": [
+                "destination"
+              ]
+            },
+            "description": "Required. An array of destinations where funds will be sent."
           },
           "feePreference": {
             "type": "object",
             "properties": {
               "explicitFeeRate": {
-                "type": "integer"
+                "type": "integer",
+                "description": "Optional. An explicit fee rate for the transaction in satoshis per virtual byte (vByte). Mutually exclusive with 'blockTarget', 'explicitFee', and 'fallbackFeeRate'."
               },
               "explicitFee": {
-                "type": "integer"
+                "type": "integer",
+                "description": "Optional. An explicit total fee for the transaction in satoshis. Mutually exclusive with 'blockTarget', 'explicitFeeRate', and 'fallbackFeeRate'."
               },
               "blockTarget": {
-                "type": "integer"
+                "type": "integer",
+                "description": "Optional. The target number of blocks within which the user expects the transaction to be confirmed. Mutually exclusive with 'explicitFeeRate' and 'explicitFee'."
               },
               "fallbackFeeRate": {
-                "type": "integer"
+                "type": "integer",
+                "description": "Optional. A fallback fee rate in satoshis per vByte to use if fee estimation is unavailable. Ensures 'fee-estimation-unavailable' error is not sent. Mutually exclusive with 'explicitFeeRate' and 'explicitFee'."
               }
-            }
+            },
+            "description": "Optional. Preferences for how transaction fees are calculated."
+          },
+          "discourageFeeSniping": {
+            "type": "boolean",
+            "default": true,
+            "description": "Optional. If 'timeLock' is not set, sets the 'timeLock' to a random value to discourage fee sniping. Default is true if 'disableFingerprintRandomization' is true."
+          },
+          "rebaseKeyPaths": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "accountKey": {
+                  "type": "string",
+                  "description": "The account extended public key (xpub) to rebase."
+                },
+                "accountKeyPath": {
+                  "type": "string",
+                  "description": "The derivation path from the root to the account key, prefixed by the master public key fingerprint."
+                }
+              },
+              "required": [
+                "accountKey",
+                "accountKeyPath"
+              ]
+            },
+            "description": "Optional. Rebase the HD key paths to adjust key paths in the PSBT to match the signer's expectations."
+          },
+          "disableFingerprintRandomization": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optional. Disables the randomization of default parameter values to match the network's fingerprint distribution. Randomized default values include 'version', 'timeLock', 'rbf', and 'discourageFeeSniping'. Default is false."
+          },
+          "alwaysIncludeNonWitnessUTXO": {
+            "type": "boolean",
+            "default": false,
+            "description": "Optional. If true, includes the full previous transaction in 'non_witness_utxo' even for SegWit inputs. Default is false."
+          },
+          "mergeOutputs": {
+            "type": "boolean",
+            "default": true,
+            "description": "Optional. If true, outputs sending to the same scriptPubKey will be merged into a single output. Default is true."
           }
-        }
+        },
+        "required": [
+          "destinations"
+        ]
       },
       "Group": {
         "type": "object",
         "properties": {
           "trackedSource": {
-            "type": "string"
+            "type": "string",
+            "description": "The tracked source identifier for the group, formatted as 'GROUP:{groupId}'. Used to reference the group within NBXplorer.",
+            "example": "GROUP:6N23bHztah546P6xQT"
           },
           "groupId": {
-            "type": "string"
+            "type": "string",
+            "description": "The unique identifier of the group.",
+            "example": "6N23bHztah546P6xQT"
           },
           "children": {
             "type": "array",
+            "description": "An array of child tracked sources that are part of this group. Each child can be another group (nested groups) or a derivation scheme.",
             "items": {
               "type": "object",
               "properties": {
                 "trackedSource": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "The tracked source identifier of the child, which can be a group or a derivation scheme.",
+                  "example": "DERIVATIONSCHEME:tpubDC6xFicnheK85vUNGjegu4HuJGg8nPi..."
                 },
                 "cryptoCode": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "The cryptocurrency code associated with the child tracked source, e.g., 'BTC'. Present if the child is a derivation scheme.",
+                  "example": "BTC"
                 }
-              }
+              },
+              "required": [
+                "trackedSource"
+              ]
             }
           }
-        }
+        },
+        "required": [
+          "trackedSource",
+          "groupId"
+        ]
       },
       "WalletGenerationRequest": {
         "type": "object",
         "properties": {
           "accountNumber": {
             "type": "integer",
-            "default": 0
+            "default": 0,
+            "description": "Optional. The account number used for determining the key path that NBXplorer will track. This corresponds to the 'account' level in BIP44 derivation paths, e.g., m/44'/0'/accountNumber'. Default is **0**."
           },
           "wordList": {
             "type": "string",
@@ -316,14 +484,17 @@
               "Spanish",
               "ChineseSimplified"
             ],
-            "default": "English"
+            "default": "English",
+            "description": "Optional. The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) wordlist to use when generating the mnemonic. Available options are **English**, **French**, **Japanese**, **Spanish**, **ChineseSimplified**. Default is **'English'**."
           },
           "existingMnemonic": {
-            "type": "string"
+            "type": "string",
+            "description": "Optional. An existing [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) mnemonic seed to import instead of generating a new one. If provided, NBXplorer will use this mnemonic to generate the wallet."
           },
           "wordCount": {
             "type": "integer",
-            "default": 12
+            "default": 12,
+            "description": "Optional. The number of words in the [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) mnemonic. Common options are **12**, **15**, **18**, **21**, or **24** words. Default is **12**."
           },
           "scriptPubKeyType": {
             "type": "string",
@@ -332,20 +503,25 @@
               "Segwit",
               "SegwitP2SH",
               "Taproot"
-            ]
+            ],
+            "description": "Optional. The type of scriptPubKey (address) to generate. Available options are:\n- **Legacy**: P2PKH addresses (starting with '1' on mainnet).\n- **Segwit**: Native SegWit addresses (bech32, starting with 'bc1' on mainnet).\n- **SegwitP2SH**: SegWit nested in P2SH addresses (starting with '3' on mainnet).\n- **Taproot**: Taproot addresses (bech32m, starting with 'bc1p' on mainnet).\nDefault is **'Segwit'**, or **'Legacy'** if the `cryptoCode` does not support SegWit."
           },
           "passphrase": {
-            "type": "string"
+            "type": "string",
+            "description": "Optional. The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) passphrase to use with the mnemonic. This is also known as the 'wallet password'. Default is an empty string."
           },
           "importKeysToRPC": {
             "type": "boolean",
-            "default": false
+            "default": false,
+            "description": "Optional. If **true**, every time a new unused address is generated, the corresponding private key will be imported into the underlying node via RPC's `importprivkey`. Useful if you need to manage your wallet via the node's command-line interface or RPC calls. Default is **false**."
           },
           "savePrivateKeys": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Optional. If **true**, the private keys (mnemonic seed and derived keys) will be saved in NBXplorer's metadata under `Mnemonic`, `MasterHDKey`, and `AccountHDKey`. Be cautious when enabling this option, as storing private keys increases security risks."
           },
           "additionalOptions": {
-            "type": "object"
+            "type": "object",
+            "description": "Optional. Additional options that may be supported by certain networks or derivation schemes. For example, in Liquid, you might provide a `slip77` master blinding key for confidential transactions. This field is network-specific."
           }
         }
       },
@@ -353,33 +529,185 @@
         "type": "object",
         "properties": {
           "mnemonic": {
-            "type": "string"
+            "type": "string",
+            "description": "The generated [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) mnemonic phrase. This is the seed phrase consisting of a series of words used to generate the wallet's master private key.",
+            "example": "musicien sinistre divertir réussir louve alliage péplum innocent filmer stipuler chignon utopie effusion heureux légal"
           },
           "passphrase": {
-            "type": "string"
+            "type": "string",
+            "description": "The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) passphrase (also known as the wallet password) used in conjunction with the mnemonic to generate the master key. If not provided, this will be an empty string.",
+            "example": "hello"
           },
           "wordList": {
-            "type": "string"
+            "type": "string",
+            "description": "The language of the word list used to generate the mnemonic phrase. Available options are **English**, **French**, **Japanese**, **Spanish**, **ChineseSimplified**.",
+            "example": "French"
           },
           "wordCount": {
-            "type": "integer"
+            "type": "integer",
+            "description": "The number of words in the generated mnemonic phrase. Common values are **12**, **15**, **18**, **21**, or **24**.",
+            "example": 15
           },
           "masterHDKey": {
-            "type": "string"
+            "type": "string",
+            "description": "The [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) master extended private key (xprv) derived from the mnemonic and passphrase. This key is the root of all derived keys in the wallet.",
+            "example": "tprv8ZgxMBicQKsPdv26BvirqqQCZJPSYEkSW7Por7a7r2PpsCUKHjjT18Gwk8k4FtkvqvakMFnsv9uaXHHoibieRd5BMhGCPYxVLaVY9vqpaxb"
           },
           "accountHDKey": {
-            "type": "string"
+            "type": "string",
+            "description": "The [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) account extended private key (xprv) derived from the `masterHDKey` and `accountKeyPath`. This key corresponds to a specific account in the wallet hierarchy.",
+            "example": "tprv8gPRns62uoh4zbRatcxUWZY7aX3XsTchHBp79YL6E3fEocsgd6XjThU4r7E3iUemBffeLSjcjXyD1VrmHMwNceVipFL7txTFMgKm4kehuSR"
           },
           "accountKeyPath": {
-            "type": "string"
+            "type": "string",
+            "description": "The derivation path from the master key to the account key, including the master key's fingerprint as defined by [BIP174](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki). This follows the format `{fingerprint}/{purpose}'/{coin_type}'/{account}'` and allows reconstructing the full path to the account key.",
+            "example": "a0aa59b4/49'/1'/2'"
           },
           "accountDescriptor": {
-            "type": "string"
+            "type": "string",
+            "description": "The output descriptor representing the account's public key and the script type used. This can be used with compatible wallets and tools to import the account.",
+            "example": "sh(wpkh([a0aa59b4/49'/1'/2']tpubDD5TwH8H4BNjt4TNnGd4uyCE9YZU2nobrVQtS4NPeKTde78TFVMKeC5w2G1nj7amQbGDptv4FtDBLuVQhofegQaZdFVuuxuCGpZQ4jZ6L5q))"
           },
           "derivationScheme": {
-            "type": "string"
+            "type": "string",
+            "description": "The [derivation scheme](#derivationScheme) that is being tracked by NBXplorer. This includes information about the script type and any applied suffixes, often representing the account extended public key with optional script type indicators.",
+            "example": "tpubDD5TwH8H4BNjt4TNnGd4uyCE9YZU2nobrVQtS4NPeKTde78TFVMKeC5w2G1nj7amQbGDptv4FtDBLuVQhofegQaZdFVuuxuCGpZQ4jZ6L5q-[p2sh]"
           }
         }
+      },
+      "DerivationScheme": {
+        "type": "object",
+        "properties": {
+          "derivationScheme": {
+            "type": "string",
+            "description": "The extended public key (xpub, ypub, zpub, etc.) representing the derivation scheme.",
+            "example": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C..."
+          },
+          "trackedSource": {
+            "type": "string",
+            "description": "The tracked source identifier for the derivation scheme, formatted as 'DERIVATIONSCHEME:{derivationScheme}'.",
+            "example": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C..."
+          },
+          "derivationStrategy": {
+            "type": "string",
+            "description": "The derivation strategy used, including any script type suffixes (e.g., '-[p2sh]').",
+            "example": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C...-[p2sh]"
+          },
+          "network": {
+            "type": "string",
+            "description": "The cryptocurrency network (e.g., 'BTC').",
+            "example": "BTC"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional metadata associated with the derivation scheme.",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "A human-readable label for the wallet.",
+                "example": "My Wallet"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Timestamp indicating when the derivation scheme was added.",
+                "example": "2023-10-01T12:34:56Z"
+              }
+            }
+          }
+        },
+        "required": [
+          "derivationScheme",
+          "trackedSource",
+          "derivationStrategy",
+          "network"
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Description of the error."
+          },
+          "code": {
+            "type": "integer",
+            "description": "HTTP status code associated with the error."
+          }
+        },
+        "required": [
+          "error",
+          "code"
+        ]
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "integer",
+            "description": "Unique identifier for the event."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of event (e.g., 'newblock', 'newtransaction')."
+          },
+          "data": {
+            "type": "object",
+            "description": "Additional data related to the event."
+          }
+        }
+      },
+      "UTXOChanges": {
+        "type": "object",
+        "properties": {
+          "spentUTXOs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UTXO"
+            }
+          },
+          "receivedUTXOs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UTXO"
+            }
+          }
+        }
+      },
+      "StatusResponse": {
+        "type": "object",
+        "properties": {
+          "isSynchronized": {
+            "type": "boolean",
+            "description": "Indicates if the node is synchronized."
+          },
+          "blocks": {
+            "type": "integer",
+            "description": "Number of blocks processed."
+          },
+          "headers": {
+            "type": "integer",
+            "description": "Total number of headers."
+          }
+        }
+      },
+      "TrackedSource": {
+        "type": "object",
+        "properties": {
+          "trackedSource": {
+            "type": "string",
+            "description": "The tracked source identifier, which can be a group or a derivation scheme.",
+            "example": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4W..."
+          },
+          "cryptoCode": {
+            "type": "string",
+            "description": "The cryptocurrency code associated with the tracked source (if applicable).",
+            "example": "BTC"
+          }
+        },
+        "required": [
+          "trackedSource"
+        ]
       }
     }
   },
@@ -387,6 +715,15 @@
     "/cryptos/{cryptoCode}/derivations/{derivationScheme}": {
       "post": {
         "summary": "Track a derivation scheme",
+        "description": "Starts tracking a new derivation scheme (wallet) for the specified cryptocurrency. This allows NBXplorer to monitor all addresses derived from the provided derivation scheme and notify about related transactions. Once tracked, NBXplorer will start indexing the addresses and UTXOs associated with this derivation scheme.",
+        "tags": [
+          "Derivations"
+        ],
+        "security": [
+          {
+            "basicAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -394,7 +731,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code to track (e.g., 'BTC' for Bitcoin, 'LTC' for Litecoin)."
           },
           {
             "name": "derivationScheme",
@@ -402,10 +740,12 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The derivation scheme represents the extended public key (xpub, ypub, zpub, etc.) and may include suffixes indicating the script type or additional derivation options. NBXplorer uses this to generate addresses and monitor transactions."
           }
         ],
         "requestBody": {
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
@@ -413,36 +753,103 @@
                 "properties": {
                   "derivationOptions": {
                     "type": "array",
+                    "description": "Optional. A list of derivation options specifying address generation features and address pool sizes.",
                     "items": {
                       "type": "object",
                       "properties": {
                         "feature": {
                           "type": "string",
                           "enum": [
-                            "Deposit"
-                          ]
+                            "Deposit",
+                            "Change",
+                            "Direct",
+                            "Custom"
+                          ],
+                          "description": "The type of address chain to pre-generate addresses for. Possible values:\n- `Deposit`: External chain (`0/*`), used for receiving payments.\n- `Change`: Internal chain (`1/*`), used for change addresses.\n- `Direct`: Direct chain (`*`), used in certain cases.\n- `Custom`: Custom chain if using a custom key path template."
                         },
                         "minAddresses": {
-                          "type": "integer"
+                          "type": "integer",
+                          "description": "Optional. The minimum number of addresses to pre-generate for this feature."
                         },
                         "maxAddresses": {
-                          "type": "integer"
+                          "type": "integer",
+                          "description": "Optional. The maximum number of addresses to pre-generate for this feature to prevent uncontrolled growth."
                         }
-                      }
+                      },
+                      "required": [
+                        "feature"
+                      ]
                     }
                   },
                   "wait": {
                     "type": "boolean",
-                    "default": false
+                    "default": false,
+                    "description": "Optional. If set to `true`, the server will wait until the derivation scheme is fully tracked before responding. Default is `false`."
                   }
                 }
+              },
+              "example": {
+                "derivationOptions": [
+                  {
+                    "feature": "Deposit",
+                    "minAddresses": 100,
+                    "maxAddresses": 200
+                  },
+                  {
+                    "feature": "Change",
+                    "minAddresses": 20,
+                    "maxAddresses": 50
+                  }
+                ],
+                "wait": true
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Successfully tracked derivation scheme"
+            "description": "Successfully started tracking the derivation scheme.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Derivation scheme is now being tracked."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. The request was invalid. Possible reasons include an invalid `cryptoCode` or `derivationScheme`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Invalid derivation scheme format.",
+                  "code": 400
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. The specified `cryptoCode` is not supported or not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Cryptocurrency code not supported.",
+                  "code": 404
+                }
+              }
+            }
           }
         }
       }
@@ -450,7 +857,10 @@
     "/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses/unused": {
       "get": {
         "summary": "Get a new unused address",
-        "description": "Get a new unused address from the derivation scheme",
+        "description": "Retrieves a new unused address from the specified derivation scheme. This endpoint allows you to generate new addresses for receiving funds, ensuring that you do not reuse addresses.",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -459,7 +869,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The cryptocurrency code (e.g., BTC)"
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           },
           {
             "name": "derivationScheme",
@@ -468,7 +878,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "The derivation scheme to get an address from"
+            "description": "The derivation scheme from which to generate the address. Typically, this is your extended public key (xpub) with optional suffixes indicating script type."
           },
           {
             "name": "feature",
@@ -484,7 +894,7 @@
               ],
               "default": "Deposit"
             },
-            "description": "Type of address to generate:\n* Deposit - get a deposit address (0/x)\n* Change - get a change address (1/x)\n* Direct - get x\n* Custom - use customKeyPathTemplate if configured\n"
+            "description": "Optional. Specifies the type of address to generate:\n- `Deposit`: Get a deposit address from the external chain (`0/x`).\n- `Change`: Get a change address from the internal chain (`1/x`).\n- `Direct`: Get an address from the direct chain (`x`).\n- `Custom`: Use `customKeyPathTemplate` if configured.\nDefault is `Deposit`."
           },
           {
             "name": "skip",
@@ -494,7 +904,7 @@
               "type": "integer",
               "default": 0
             },
-            "description": "How many addresses to skip (useful for getting multiple unused addresses)"
+            "description": "Optional. The number of addresses to skip. Useful for getting multiple unused addresses. Default is `0`."
           },
           {
             "name": "reserve",
@@ -504,32 +914,67 @@
               "type": "boolean",
               "default": false
             },
-            "description": "Mark the returned address as used"
+            "description": "Optional. If set to `true`, the returned address will be marked as used. Default is `false`."
           }
         ],
         "responses": {
           "200": {
-            "description": "Unused address information",
+            "description": "Successfully retrieved an unused address.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UnusedAddress"
+                },
+                "example": {
+                  "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuok...",
+                  "feature": "Deposit",
+                  "derivationStrategy": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuok...",
+                  "keyPath": "0/0",
+                  "scriptPubKey": "001460c25d29559774803f262acf5ee5c922eff52ccd",
+                  "address": "tb1qvrp96224ja6gq0ex9t84aewfythl2txdkpdmu0",
+                  "redeem": null
                 }
               }
             }
           },
           "400": {
-            "description": "Strategy not found"
+            "description": "Bad Request. The derivation scheme is not found or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Strategy not found.",
+                  "code": 400
+                }
+              }
+            }
           },
           "404": {
-            "description": "Crypto code not supported or not found"
+            "description": "Not Found. The specified cryptocurrency code is not supported or not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Crypto code not supported or not found.",
+                  "code": 404
+                }
+              }
+            }
           }
         }
       }
     },
     "/cryptos/{cryptoCode}/derivations": {
-      "post": {
-        "summary": "Generate a wallet",
+      "get": {
+        "summary": "List tracked derivation schemes",
+        "description": "Retrieves a list of all derivation schemes (wallets) that are currently being tracked for the specified cryptocurrency. This endpoint allows you to see all the wallets that NBXplorer is monitoring for transactions and balance changes.",
+        "tags": [
+          "Derivations"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -537,25 +982,56 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC' for Bitcoin)."
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WalletGenerationRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "Wallet generated successfully",
+            "description": "Successfully retrieved the list of tracked derivation schemes.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WalletGenerationResponse"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DerivationScheme"
+                  }
+                },
+                "example": [
+                  {
+                    "derivationScheme": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C...",
+                    "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C...",
+                    "derivationStrategy": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C...-[p2sh]",
+                    "network": "BTC",
+                    "metadata": {
+                      "label": "My Wallet",
+                      "createdAt": "2023-10-01T12:34:56Z"
+                    }
+                  },
+                  {
+                    "derivationScheme": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4D...",
+                    "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4D...",
+                    "derivationStrategy": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4D...-[p2wpkh]",
+                    "network": "BTC",
+                    "metadata": {
+                      "label": "Savings Account",
+                      "createdAt": "2023-09-15T09:21:00Z"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. The specified cryptocurrency code is not supported or no derivation schemes are being tracked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "No derivation schemes found for the specified crypto code.",
+                  "code": 404
                 }
               }
             }
@@ -628,7 +1104,11 @@
     },
     "/cryptos/{cryptoCode}/transactions": {
       "post": {
-        "summary": "Broadcast a transaction",
+        "summary": "Broadcast a transaction (raw or PSBT)",
+        "description": "Broadcasts a raw transaction or a Partially Signed Bitcoin Transaction (PSBT) to the network for the specified cryptocurrency.",
+        "tags": [
+          "Transactions"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -636,64 +1116,87 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           },
           {
             "name": "testMempoolAccept",
             "in": "query",
+            "required": false,
             "schema": {
               "type": "boolean",
               "default": false
-            }
+            },
+            "description": "If true, tests whether the transaction would be accepted into the mempool without broadcasting it."
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/octet-stream": {
+            "application/json": {
               "schema": {
-                "type": "string",
-                "format": "binary"
+                "type": "object",
+                "properties": {
+                  "hex": {
+                    "type": "string",
+                    "description": "The raw transaction in hexadecimal format."
+                  },
+                  "psbt": {
+                    "type": "string",
+                    "description": "The PSBT in Base64 encoding."
+                  }
+                },
+                "example": {
+                  "hex": "0200000001abcd1234...",
+                  "psbt": "cHNidP8BAHECAAAA..."
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Transaction broadcast result",
+            "description": "Transaction processed successfully.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "rpcCode": {
-                      "type": "integer"
-                    },
-                    "rpcCodeMessage": {
-                      "type": "string"
-                    },
-                    "rpcMessage": {
-                      "type": "string"
+                    "transactionId": {
+                      "type": "string",
+                      "description": "The ID of the transaction."
                     }
+                  },
+                  "required": [
+                    "transactionId"
+                  ],
+                  "example": {
+                    "transactionId": "abcd1234..."
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "RPC unavailable or not supported"
-          },
-          "404": {
-            "description": "Crypto code not supported"
+            "description": "Bad request. Invalid transaction data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/cryptos/{cryptoCode}/transactions/{txId}": {
       "get": {
-        "summary": "Get transaction details",
+        "summary": "Get transaction by ID",
+        "description": "Retrieves details of a specific transaction by its transaction ID (`txId`) for the specified cryptocurrency.",
+        "tags": [
+          "Transactions"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -701,7 +1204,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           },
           {
             "name": "txId",
@@ -709,37 +1213,123 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The transaction ID to retrieve."
           },
           {
             "name": "includeTransaction",
             "in": "query",
+            "required": false,
             "schema": {
               "type": "boolean",
-              "default": true
-            }
+              "default": false
+            },
+            "description": "Optional. If set to `true`, the response will include the raw transaction data in hexadecimal format (`transaction` field). Default is `false`."
           }
         ],
         "responses": {
           "200": {
-            "description": "Transaction details",
+            "description": "Transaction details retrieved successfully.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TransactionResponse"
+                },
+                "examples": {
+                  "withoutTransaction": {
+                    "summary": "Without raw transaction data",
+                    "value": {
+                      "blockHash": "0000000000000000000...",
+                      "confirmations": 3,
+                      "height": 600000,
+                      "transactionId": "abcd1234...",
+                      "outputs": [
+                        {
+                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                          "index": 0,
+                          "value": 5000000000,
+                          "keyPath": "0/0"
+                        }
+                      ],
+                      "inputs": [
+                        {
+                          "inputIndex": 0,
+                          "transactionId": "efgh5678...",
+                          "index": 1,
+                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                          "value": 5000000000,
+                          "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
+                        }
+                      ],
+                      "timestamp": 1638307200,
+                      "balanceChange": 0,
+                      "replaceable": false,
+                      "replacing": null,
+                      "replacedBy": null
+                    }
+                  },
+                  "withTransaction": {
+                    "summary": "With raw transaction data",
+                    "value": {
+                      "blockHash": "0000000000000000000...",
+                      "confirmations": 3,
+                      "height": 600000,
+                      "transactionId": "abcd1234...",
+                      "transaction": "0200000001abcd1234...",
+                      "outputs": [
+                        {
+                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                          "index": 0,
+                          "value": 5000000000,
+                          "keyPath": "0/0"
+                        }
+                      ],
+                      "inputs": [
+                        {
+                          "inputIndex": 0,
+                          "transactionId": "efgh5678...",
+                          "index": 1,
+                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                          "value": 5000000000,
+                          "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
+                        }
+                      ],
+                      "timestamp": 1638307200,
+                      "balanceChange": 0,
+                      "replaceable": false,
+                      "replacing": null,
+                      "replacedBy": null
+                    }
+                  }
                 }
               }
             }
           },
           "404": {
-            "description": "Transaction not found"
+            "description": "Transaction not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Transaction not found.",
+                  "code": 404
+                }
+              }
+            }
           }
         }
       }
     },
     "/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions": {
       "get": {
-        "summary": "Get transactions for derivation scheme",
+        "summary": "Get transactions for a derivation scheme",
+        "description": "Retrieves a list of transactions associated with the specified derivation scheme (wallet).",
+        "tags": [
+          "Derivations",
+          "Transactions"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -747,7 +1337,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           },
           {
             "name": "derivationScheme",
@@ -755,51 +1346,125 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The derivation scheme (extended public key) of the wallet."
           },
           {
             "name": "includeTransaction",
             "in": "query",
+            "required": false,
             "schema": {
               "type": "boolean",
-              "default": true
-            }
+              "default": false
+            },
+            "description": "Optional. If set to `true`, each transaction in the response will include the raw transaction data in hexadecimal format (`transaction` field). Default is `false`."
+          },
+          {
+            "name": "accountedOnly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "If true, only returns transactions that affect the wallet's balance."
           }
         ],
         "responses": {
           "200": {
-            "description": "Transaction list",
+            "description": "Transactions retrieved successfully.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "height": {
-                      "type": "integer"
-                    },
-                    "confirmedTransactions": {
-                      "type": "object",
-                      "properties": {
-                        "transactions": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/TransactionResponse"
-                          }
-                        }
-                      }
-                    },
-                    "unconfirmedTransactions": {
-                      "type": "object",
-                      "properties": {
-                        "transactions": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/TransactionResponse"
-                          }
-                        }
-                      }
-                    }
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransactionResponse"
                   }
+                },
+                "examples": {
+                  "withoutTransaction": {
+                    "summary": "Without raw transaction data",
+                    "value": [
+                      {
+                        "blockHash": "0000000000000000000...",
+                        "confirmations": 3,
+                        "height": 600000,
+                        "transactionId": "abcd1234...",
+                        "outputs": [
+                          {
+                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                            "index": 0,
+                            "value": 5000000000,
+                            "keyPath": "0/0"
+                          }
+                        ],
+                        "inputs": [
+                          {
+                            "inputIndex": 0,
+                            "transactionId": "efgh5678...",
+                            "index": 1,
+                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                            "value": 5000000000,
+                            "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
+                          }
+                        ],
+                        "timestamp": 1638307200,
+                        "balanceChange": 0,
+                        "replaceable": false,
+                        "replacing": null,
+                        "replacedBy": null
+                      }
+                    ]
+                  },
+                  "withTransaction": {
+                    "summary": "With raw transaction data",
+                    "value": [
+                      {
+                        "blockHash": "0000000000000000000...",
+                        "confirmations": 3,
+                        "height": 600000,
+                        "transactionId": "abcd1234...",
+                        "transaction": "0200000001abcd1234...",
+                        "outputs": [
+                          {
+                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                            "index": 0,
+                            "value": 5000000000,
+                            "keyPath": "0/0"
+                          }
+                        ],
+                        "inputs": [
+                          {
+                            "inputIndex": 0,
+                            "transactionId": "efgh5678...",
+                            "index": 1,
+                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                            "value": 5000000000,
+                            "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
+                          }
+                        ],
+                        "timestamp": 1638307200,
+                        "balanceChange": 0,
+                        "replaceable": false,
+                        "replacing": null,
+                        "replacedBy": null
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Derivation scheme not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Derivation scheme not found.",
+                  "code": 404
                 }
               }
             }
@@ -809,7 +1474,12 @@
     },
     "/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos": {
       "get": {
-        "summary": "Get UTXOs of tracked derivation scheme",
+        "summary": "Get UTXOs for a derivation scheme",
+        "description": "Retrieves the list of unspent transaction outputs (UTXOs) associated with the specified derivation scheme.",
+        "tags": [
+          "Derivations",
+          "UTXOs"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -817,7 +1487,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           },
           {
             "name": "derivationScheme",
@@ -825,67 +1496,17 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The derivation scheme (extended public key) of the wallet."
           }
         ],
         "responses": {
           "200": {
-            "description": "UTXO list",
+            "description": "UTXOs retrieved successfully.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "trackedSource": {
-                      "type": "string"
-                    },
-                    "derivationStrategy": {
-                      "type": "string"
-                    },
-                    "currentHeight": {
-                      "type": "integer"
-                    },
-                    "unconfirmed": {
-                      "type": "object",
-                      "properties": {
-                        "utxOs": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/UTXO"
-                          }
-                        },
-                        "spentOutpoints": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "hasChanges": {
-                          "type": "boolean"
-                        }
-                      }
-                    },
-                    "confirmed": {
-                      "type": "object",
-                      "properties": {
-                        "utxOs": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/UTXO"
-                          }
-                        },
-                        "spentOutpoints": {
-                          "type": "array",
-                          "items": {
-                            "type": "string"
-                          }
-                        },
-                        "hasChanges": {
-                          "type": "boolean"
-                        }
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/UTXOChanges"
                 }
               }
             }
@@ -895,7 +1516,11 @@
     },
     "/cryptos/{cryptoCode}/rescan": {
       "post": {
-        "summary": "Rescan specific transactions",
+        "summary": "Rescan the blockchain",
+        "description": "Initiates a rescan of the blockchain for the specified cryptocurrency to update the state of tracked addresses and transactions.",
+        "tags": [
+          "Blockchain"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -903,32 +1528,24 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           }
         ],
         "requestBody": {
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "transactions": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "blockId": {
-                          "type": "string"
-                        },
-                        "transactionId": {
-                          "type": "string"
-                        },
-                        "transaction": {
-                          "type": "string"
-                        }
-                      }
-                    }
+                  "startHeight": {
+                    "type": "integer",
+                    "description": "The block height from which to start the rescan."
                   }
+                },
+                "example": {
+                  "startHeight": 0
                 }
               }
             }
@@ -936,10 +1553,74 @@
         },
         "responses": {
           "200": {
-            "description": "Rescan initiated"
+            "description": "Rescan initiated successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "Rescan started."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Get rescan status",
+        "description": "Retrieves the status of an ongoing blockchain rescan for the specified cryptocurrency.",
+        "tags": [
+          "Blockchain"
+        ],
+        "parameters": [
+          {
+            "name": "cryptoCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rescan status retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "description": "The current status of the rescan."
+                    },
+                    "progress": {
+                      "type": "number",
+                      "description": "The progress of the rescan as a percentage."
+                    }
+                  },
+                  "example": {
+                    "status": "Rescan in progress.",
+                    "progress": 75.0
+                  }
+                }
+              }
+            }
           },
-          "400": {
-            "description": "RPC unavailable"
+          "404": {
+            "description": "No rescan in progress.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1013,14 +1694,99 @@
     "/health": {
       "get": {
         "summary": "Health check endpoint",
+        "description": "Performs a health check of NBXplorer and its connected nodes. This endpoint can be used without authentication and returns HTTP 200 if all nodes are ready and synchronized.",
         "security": [],
         "responses": {
           "200": {
-            "description": "System is healthy",
+            "description": "System is healthy. All nodes connected to NBXplorer are ready and synchronized.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "description": "The overall health status of the system.",
+                      "example": "healthy"
+                    },
+                    "details": {
+                      "type": "object",
+                      "description": "Detailed health status for each connected cryptocurrency node.",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "isHealthy": {
+                            "type": "boolean",
+                            "description": "Indicates whether the node is healthy (true) or not (false)."
+                          },
+                          "status": {
+                            "type": "string",
+                            "description": "A detailed status message for the node."
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "status": "healthy",
+                  "details": {
+                    "BTC": {
+                      "isHealthy": true,
+                      "status": "Node is fully synchronized."
+                    },
+                    "LTC": {
+                      "isHealthy": true,
+                      "status": "Node is fully synchronized."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable. One or more nodes are not synchronized or unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "description": "The overall health status of the system.",
+                      "example": "unhealthy"
+                    },
+                    "details": {
+                      "type": "object",
+                      "description": "Detailed health status for each connected cryptocurrency node.",
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "isHealthy": {
+                            "type": "boolean",
+                            "description": "Indicates whether the node is healthy (true) or not (false)."
+                          },
+                          "status": {
+                            "type": "string",
+                            "description": "A detailed status message for the node."
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "status": "unhealthy",
+                  "details": {
+                    "BTC": {
+                      "isHealthy": false,
+                      "status": "Node is synchronizing (blocks: 650000, headers: 700000)."
+                    },
+                    "LTC": {
+                      "isHealthy": true,
+                      "status": "Node is fully synchronized."
+                    }
+                  }
                 }
               }
             }
@@ -1030,7 +1796,11 @@
     },
     "/cryptos/{cryptoCode}/connect": {
       "get": {
-        "summary": "Connect to websocket for notifications",
+        "summary": "WebSocket connection for events",
+        "description": "Establishes a WebSocket connection to receive real-time events for the specified cryptocurrency.",
+        "tags": [
+          "WebSocket"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -1038,12 +1808,13 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           }
         ],
         "responses": {
           "101": {
-            "description": "Switching protocols to websocket"
+            "description": "Switching protocols to WebSocket."
           }
         }
       }
@@ -1051,6 +1822,10 @@
     "/cryptos/{cryptoCode}/events": {
       "get": {
         "summary": "Query event stream",
+        "description": "Retrieves a stream of events for the specified cryptocurrency. This endpoint supports long polling and Server-Sent Events (SSE).",
+        "tags": [
+          "Events"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -1058,56 +1833,48 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           },
           {
             "name": "lastEventId",
             "in": "query",
+            "required": false,
             "schema": {
               "type": "integer",
               "default": 0
-            }
+            },
+            "description": "The ID of the last event received. Used to fetch events that occurred after this ID."
           },
           {
             "name": "longPolling",
             "in": "query",
+            "required": false,
             "schema": {
               "type": "boolean",
               "default": false
-            }
+            },
+            "description": "If true, the server will hold the response until a new event occurs or the request times out."
           },
           {
             "name": "limit",
             "in": "query",
+            "required": false,
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The maximum number of events to return."
           }
         ],
         "responses": {
           "200": {
-            "description": "Event stream",
+            "description": "Event stream retrieved successfully.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "eventId": {
-                        "type": "integer"
-                      },
-                      "type": {
-                        "type": "string",
-                        "enum": [
-                          "newblock",
-                          "newtransaction"
-                        ]
-                      },
-                      "data": {
-                        "type": "object"
-                      }
-                    }
+                    "$ref": "#/components/schemas/Event"
                   }
                 }
               }
@@ -1185,6 +1952,10 @@
     "/groups/{groupId}": {
       "get": {
         "summary": "Get group information",
+        "description": "Retrieves information about the specified group, including its groupId and the list of its child tracked sources.",
+        "tags": [
+          "Groups"
+        ],
         "parameters": [
           {
             "name": "groupId",
@@ -1192,16 +1963,150 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The unique identifier of the group to retrieve."
           }
         ],
         "responses": {
           "200": {
-            "description": "Group information",
+            "description": "Group information retrieved successfully.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Group"
+                },
+                "example": {
+                  "trackedSource": "GROUP:my-group",
+                  "groupId": "my-group",
+                  "children": [
+                    {
+                      "trackedSource": "DERIVATIONSCHEME:xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiK...",
+                      "cryptoCode": "BTC"
+                    },
+                    {
+                      "trackedSource": "GROUP:my-other-group"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Group not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Group not found.",
+                  "code": 404
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create or overwrite a group",
+        "description": "Creates a new group with the specified groupId. If a group with the same groupId already exists, it will be overwritten.",
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier for the group."
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "children": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "An array of tracked sources (derivation schemes or other groups) to be included in the group."
+                  }
+                }
+              },
+              "example": {
+                "children": [
+                  "DERIVATIONSCHEME:xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiK...",
+                  "GROUP:my-other-group"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Group created or overwritten successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Group"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Invalid groupId or children.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Invalid groupId or children.",
+                  "code": 400
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete a group",
+        "description": "Deletes an existing group specified by `groupId`. This will remove the group but will not delete any of its child tracked sources.",
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the group to be deleted."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Group deleted successfully."
+          },
+          "404": {
+            "description": "Not Found. The specified group does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Group not found.",
+                  "code": 404
                 }
               }
             }
@@ -1210,8 +2115,12 @@
       }
     },
     "/groups/{groupId}/children": {
-      "post": {
-        "summary": "Add children to a group",
+      "get": {
+        "summary": "Get children of a group",
+        "description": "Retrieves a list of child tracked sources associated with the specified group.",
+        "tags": [
+          "Groups"
+        ],
         "parameters": [
           {
             "name": "groupId",
@@ -1219,36 +2128,120 @@
             "required": true,
             "schema": {
               "type": "string"
+            },
+            "description": "The unique identifier of the group whose children are to be retrieved."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Children retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrackedSource"
+                  }
+                },
+                "example": [
+                  {
+                    "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4W..."
+                  },
+                  {
+                    "trackedSource": "GROUP:another-group-id"
+                  }
+                ]
+              }
             }
+          },
+          "404": {
+            "description": "Not Found. The specified group does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Group not found.",
+                  "code": 404
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Add children to a group",
+        "description": "Adds one or more child tracked sources (derivation schemes or other groups) to the specified group.",
+        "tags": [
+          "Groups"
+        ],
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique identifier of the group to which children will be added."
           }
         ],
         "requestBody": {
+          "required": true,
+          "description": "A list of tracked sources to be added as children to the group.",
           "content": {
             "application/json": {
               "schema": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "trackedSource": {
-                      "type": "string"
-                    },
-                    "cryptoCode": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/TrackedSource"
                 }
-              }
+              },
+              "example": [
+                {
+                  "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4W..."
+                },
+                {
+                  "trackedSource": "GROUP:another-group-id"
+                }
+              ]
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Children added successfully",
+            "description": "Children added to group successfully.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Group"
+                },
+                "example": {
+                  "trackedSource": "GROUP:my-group-id",
+                  "groupId": "my-group-id",
+                  "children": [
+                    {
+                      "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4W..."
+                    },
+                    {
+                      "trackedSource": "GROUP:another-group-id"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. The specified group does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Group not found.",
+                  "code": 404
                 }
               }
             }
@@ -1257,7 +2250,10 @@
       },
       "delete": {
         "summary": "Remove children from a group",
-        "description": "Note: This endpoint accepts a request body with DELETE method, which is non-standard \nbut matches the actual API implementation.\n",
+        "description": "Removes one or more child tracked sources from the specified group.",
+        "tags": [
+          "Groups"
+        ],
         "parameters": [
           {
             "name": "groupId",
@@ -1265,40 +2261,73 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The unique identifier of the group from which children will be removed."
           }
         ],
-        "x-codegen-request-body-name": "children",
-        "x-body-required": true,
-        "x-request-body": {
+        "requestBody": {
+          "required": true,
+          "description": "A list of tracked sources to be removed from the group.",
           "content": {
             "application/json": {
               "schema": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "trackedSource": {
-                      "type": "string",
-                      "description": "The tracked source identifier"
-                    },
-                    "cryptoCode": {
-                      "type": "string",
-                      "description": "The cryptocurrency code (e.g., BTC)"
-                    }
-                  }
+                  "$ref": "#/components/schemas/TrackedSource"
                 }
-              }
+              },
+              "example": [
+                {
+                  "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4W..."
+                }
+              ]
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Children removed successfully",
+            "description": "Children removed from group successfully.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Group"
+                },
+                "example": {
+                  "trackedSource": "GROUP:my-group-id",
+                  "groupId": "my-group-id",
+                  "children": [
+                    {
+                      "trackedSource": "GROUP:another-group-id"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. This endpoint accepts a request body with the DELETE method, which is non-standard. Ensure the request is correctly formatted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Invalid request body.",
+                  "code": 400
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found. The specified group does not exist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Group not found.",
+                  "code": 404
                 }
               }
             }
@@ -1471,7 +2500,11 @@
     },
     "/cryptos/{cryptoCode}/fees/{blockCount}": {
       "get": {
-        "summary": "Get fee rate",
+        "summary": "Estimate fee rate",
+        "description": "Estimates the fee rate required for a transaction to be confirmed within a certain number of blocks.",
+        "tags": [
+          "Fees"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -1479,7 +2512,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           },
           {
             "name": "blockCount",
@@ -1487,40 +2521,55 @@
             "required": true,
             "schema": {
               "type": "integer"
-            }
+            },
+            "description": "The target number of blocks for confirmation."
           }
         ],
         "responses": {
           "200": {
-            "description": "Fee rate information",
+            "description": "Fee rate estimated successfully.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "feeRate": {
-                      "type": "number"
+                      "type": "number",
+                      "description": "The estimated fee rate in satoshis per vByte."
                     },
                     "blockCount": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "The target number of blocks for confirmation."
                     }
+                  },
+                  "example": {
+                    "feeRate": 25.0,
+                    "blockCount": 2
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "Fee estimation unavailable"
-          },
-          "404": {
-            "description": "Crypto code not supported"
+            "description": "Fee estimation unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
     },
     "/cryptos/{cryptoCode}/status": {
       "get": {
-        "summary": "Get connection status to the chain",
+        "summary": "Get blockchain status",
+        "description": "Retrieves the connection and synchronization status of the specified cryptocurrency's blockchain.",
+        "tags": [
+          "Blockchain"
+        ],
         "parameters": [
           {
             "name": "cryptoCode",
@@ -1528,50 +2577,17 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
           }
         ],
         "responses": {
           "200": {
-            "description": "Connection status",
+            "description": "Status retrieved successfully.",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "bitcoinStatus": {
-                      "type": "object",
-                      "properties": {
-                        "blocks": {
-                          "type": "integer"
-                        },
-                        "headers": {
-                          "type": "integer"
-                        },
-                        "verificationProgress": {
-                          "type": "number"
-                        },
-                        "isSynched": {
-                          "type": "boolean"
-                        }
-                      }
-                    },
-                    "isFullySynched": {
-                      "type": "boolean"
-                    },
-                    "chainHeight": {
-                      "type": "integer"
-                    },
-                    "networkType": {
-                      "type": "string"
-                    },
-                    "cryptoCode": {
-                      "type": "string"
-                    },
-                    "version": {
-                      "type": "string"
-                    }
-                  }
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
@@ -2029,6 +3045,143 @@
                 },
                 "example": {
                   "totalPruned": 10
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cryptos/{cryptoCode}/broadcast": {
+      "post": {
+        "summary": "Broadcast a transaction",
+        "description": "Broadcasts a raw transaction to the network for the specified cryptocurrency.",
+        "tags": [
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "cryptoCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "hex": {
+                    "type": "string",
+                    "description": "The raw transaction in hexadecimal format."
+                  }
+                },
+                "required": [
+                  "hex"
+                ]
+              },
+              "example": {
+                "hex": "0200000001abcd1234..."
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transaction broadcast successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transactionId": {
+                      "type": "string",
+                      "description": "The ID of the broadcasted transaction."
+                    }
+                  },
+                  "required": [
+                    "transactionId"
+                  ],
+                  "example": {
+                    "transactionId": "abcd1234..."
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request. Invalid transaction data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions/{txId}": {
+      "get": {
+        "summary": "Get a specific transaction",
+        "description": "Retrieves details of a specific transaction associated with the specified derivation scheme.",
+        "tags": [
+          "Derivations",
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "name": "cryptoCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The cryptocurrency code (e.g., 'BTC')."
+          },
+          {
+            "name": "derivationScheme",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The derivation scheme (extended public key) of the wallet."
+          },
+          {
+            "name": "txId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The transaction ID to retrieve."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction details retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transaction not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
