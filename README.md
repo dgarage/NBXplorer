@@ -14,7 +14,7 @@ It has a bunch of features:
 
 * Can pass arguments via environment variable, command line or configuration file
 * Automatically reconnect to your node if the connection goes temporarily down
-* An easy to use [REST API](https://nbxplorerdocs.z5.web.core.windows.net/)
+* An easy to use [REST API](https://dgarage.github.io/NBXplorer/)
 * Persistence via [Postgres](./docs/docs/Postgres-Schema.md)
 * Connect via RPC to broadcast transaction instead of using the P2P protocol like this example
 * Connect via RPC to your trusted node to get the proper fee rate.
@@ -49,7 +49,7 @@ It currently supports the following altcoins:
 * Ufo
 * Viacoin
 
-Read our [API Specification](https://nbxplorerdocs.z5.web.core.windows.net/).
+Read our [API Specification](https://dgarage.github.io/NBXplorer/).
 
 ## Prerequisite
 
@@ -101,7 +101,7 @@ Example, if you have ltc node and btc node on regtest (default configuration), a
 
 ## How to use the API?
 
-Check [the API documentation](https://nbxplorerdocs.z5.web.core.windows.net/), you can then use any client library:
+Check [the API documentation](https://dgarage.github.io/NBXplorer/), you can then use any client library:
 
 * [NBXplorer.NodeJS](https://github.com/junderw/NBXplorer.NodeJS) for NodeJS clients.
 * [NBXplorer.Client](https://www.nuget.org/packages/NBxplorer.Client) for .NET clients.
@@ -198,7 +198,7 @@ If you need to see old payments, you need to configure `--[crypto]startheight` t
 
 [Postman](https://www.getpostman.com) is a useful tool for testing and experimenting with REST API's.
 
-You can test the [NBXplorer API](https://nbxplorerdocs.z5.web.core.windows.net/) quickly and easily using Postman.
+You can test the [NBXplorer API](https://dgarage.github.io/NBXplorer/) quickly and easily using Postman.
 
 If you use cookie authentication (enabled by default) in your locally run NBXplorer, you need to set that up in Postman:
 
@@ -354,11 +354,3 @@ Then run the tests.
 ## Licence
 
 This project is under MIT License.
-
-## Special thanks
-
-Special thanks to Digital Garage for allowing me to open source the project, which is based on an internal work I have done on Elements.
-
-Thanks to the DG Lab Blockchain Team who had to fight with lots of bugs. (in particular kallewoof :p)
-
-Thanks to Metaco SA, whose constant challenging projects refine my taste on what a perfect Bitcoin API should be.
