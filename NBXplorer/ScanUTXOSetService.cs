@@ -279,7 +279,6 @@ namespace NBXplorer
 			await repo.SaveMatches(data.Select(o =>
 			{
 				var trackedTransaction = repo.CreateTrackedTransaction(trackedSource, new TrackedTransactionKey(o.TxId, o.BlockHeader.Hash, true), o.Coins, ToDictionary(o.KeyPathInformations));
-				trackedTransaction.Inserted = now;
 				trackedTransaction.FirstSeen = o.BlockHeader.Time;
 				return trackedTransaction;
 			}).ToArray());

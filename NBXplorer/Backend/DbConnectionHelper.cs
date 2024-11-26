@@ -54,46 +54,11 @@ namespace NBXplorer.Backend
 			dsBuilder.MapComposite<OutpointRaw>("outpoint");
 			dsBuilder.MapComposite<Repository.DescriptorScriptInsert>("nbxv1_ds");
 		}
-
-		public Task<bool> FetchMatches(IEnumerable<Transaction> txs, SlimChainedBlock slimBlock, Money? minUtxoValue)
+		public async Task<bool> FetchMatches(MatchQuery matchQuery)
 		{
-			var outCount = txs.Select(t => t.Outputs.Count).Sum();
-			List<DbConnectionHelper.NewOut> outs = new List<DbConnectionHelper.NewOut>(outCount);
-			var inCount = txs.Select(t => t.Inputs.Count).Sum();
-			List<DbConnectionHelper.NewIn> ins = new List<DbConnectionHelper.NewIn>(inCount);
-			foreach (var tx in txs)
-			{
-				if (!tx.IsCoinBase)
-				{
-					int i = 0;
-					foreach (var input in tx.Inputs)
-					{
-						ins.Add(new DbConnectionHelper.NewIn(tx.GetHash(), i, input.PrevOut.Hash, (int)input.PrevOut.N));
-						i++;
-					}
-				}
-				int io = -1;
-				foreach (var output in tx.Outputs)
-				{
-					io++;
-					if (minUtxoValue != null && output.Value < minUtxoValue)
-						continue;
-					outs.Add(new DbConnectionHelper.NewOut(tx.GetHash(), io, output.ScriptPubKey, output.Value));
-				}
-			}
-
-			return FetchMatches(outs, ins);
-		}
-		public async Task<bool> FetchMatches(IEnumerable<NewOut>? newOuts, IEnumerable<NewIn>? newIns)
-		{
-			newOuts ??= Array.Empty<NewOut>();
-			newIns ??= Array.Empty<NewIn>();
-			newOuts.TryGetNonEnumeratedCount(out int outCount);
-			newIns.TryGetNonEnumeratedCount(out int inCount);
-
-			var outs = new List<NewOutRaw>(outCount);
-			var ins = new List<NewInRaw>(inCount);
-			foreach (var o in newOuts)
+			var outs = new List<NewOutRaw>(matchQuery.Outs.Count);
+			var ins = new List<NewInRaw>(matchQuery.Ins.Count);
+			foreach (var o in matchQuery.Outs)
 			{
 				long value;
 				string assetId;
@@ -114,7 +79,7 @@ namespace NBXplorer.Backend
 				}
 				outs.Add(new NewOutRaw(o.txId.ToString(), o.idx, o.script.ToHex(), value, assetId));
 			}
-			foreach (var ni in newIns)
+			foreach (var ni in matchQuery.Ins)
 			{
 				ins.Add(new NewInRaw(ni.txId.ToString(), ni.idx, ni.spentTxId.ToString(), ni.spentIdx));
 			}
@@ -127,9 +92,9 @@ namespace NBXplorer.Backend
 			await Connection.QueryAsync<int>("fetch_matches", parameters, commandType: CommandType.StoredProcedure);
 			return parameters.Get<bool>("has_match");
 		}
-		public record SaveTransactionRecord(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset? SeenAt)
+		public record SaveTransactionRecord(Transaction? Transaction, uint256 Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset SeenAt)
 		{
-			public static SaveTransactionRecord Create(TrackedTransaction t) => new SaveTransactionRecord(t.Transaction, t.TransactionHash, t.BlockHash, t.BlockIndex, t.BlockHeight, t.IsCoinBase, new DateTimeOffset?(t.FirstSeen));
+			public static SaveTransactionRecord Create(TrackedTransaction t) => new SaveTransactionRecord(t.Transaction, t.TransactionHash, t.BlockHash, t.BlockIndex, t.BlockHeight, t.IsCoinBase, t.FirstSeen);
 			public static SaveTransactionRecord Create(SlimChainedBlock slimBlock, Transaction tx, int? blockIndex, DateTimeOffset now) => new SaveTransactionRecord(
 						tx,
 						tx.GetHash(),
