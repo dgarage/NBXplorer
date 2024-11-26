@@ -669,25 +669,16 @@ namespace NBXplorer.Controllers
 												   .Where(tx => tx.Transaction != null)
 												   .ToArray();
 
-			var blocks = new Dictionary<uint256, Task<RPCBlockHeader>>();
-			var batch = rpc.PrepareBatch();
-			foreach (var tx in transactions)
-			{
-				if (tx.BlockId != null && !blocks.ContainsKey(tx.BlockId))
-				{
-					blocks.Add(tx.BlockId, rpc.GetBlockHeaderAsyncEx(tx.BlockId, cancellationToken));
-				}
-			}
-			await batch.SendBatchAsync(cancellationToken);
-			await repo.SaveBlocks(blocks.Select(b => b.Value.Result.ToSlimChainedBlock()).ToList());
+			var blocks = await rpc.GetBlockHeadersAsync(transactions.Select(t => t.BlockId).Where(b => b != null).ToArray(), cancellationToken);
+			await repo.SaveBlocks(blocks.Select(b => b.ToSlimChainedBlock()).ToList());
 			foreach (var txs in transactions.GroupBy(t => t.BlockId, t => (t.Transaction, t.BlockTime))
 											.OrderBy(t => t.First().BlockTime))
 			{
-				blocks.TryGetValue(txs.Key, out var slimBlock);
-				await repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), slimBlock.Result.ToSlimChainedBlock());
+				blocks.ByHashes.TryGetValue(txs.Key, out var slimBlock);
+				await repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), slimBlock.ToSlimChainedBlock());
 				foreach (var tx in txs)
 				{
-					var matches = await repo.GetMatches(tx.Transaction, slimBlock.Result.ToSlimChainedBlock(), tx.BlockTime, false);
+					var matches = await repo.GetMatches(tx.Transaction, slimBlock.ToSlimChainedBlock(), tx.BlockTime, false);
 					await repo.SaveMatches(matches);
 					_ = AddressPoolService.GenerateAddresses(network, matches);
 				}

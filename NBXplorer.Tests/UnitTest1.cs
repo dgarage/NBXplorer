@@ -3395,7 +3395,7 @@ namespace NBXplorer.Tests
 
 			bool IsEqual(AnnotatedTransaction tx, TrackedTransactionBuilder.TransactionContext ctx)
 			{
-				return tx.Record.TransactionHash == ctx._TransactionId && tx.Record.Inserted == ctx._TimeStamp;
+				return tx.Record.TransactionHash == ctx._TransactionId && tx.Record.FirstSeen == ctx._TimeStamp;
 			}
 
 			for (int iii = 0; iii < 100; iii++)
@@ -3440,8 +3440,8 @@ namespace NBXplorer.Tests
 				Assert.Null(collection.GetByTxId(_17b3b3._TransactionId));
 
 				var tx = collection.GetByTxId(ab3922dup._TransactionId);
-				Assert.Equal(ab3922._TimeStamp, tx.Record.Inserted);
-				Assert.NotEqual(ab3922dup._TimeStamp, tx.Record.Inserted);
+				Assert.Equal(ab3922._TimeStamp, tx.Record.FirstSeen);
+				Assert.NotEqual(ab3922dup._TimeStamp, tx.Record.FirstSeen);
 			}
 
 			var lastBlock = ToUint256(10);

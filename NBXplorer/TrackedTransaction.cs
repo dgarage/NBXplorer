@@ -120,11 +120,6 @@ namespace NBXplorer
 		public uint256 BlockHash => Key.BlockHash;
 		public uint256 TransactionHash => Key.TxId;
 
-		public DateTimeOffset Inserted
-		{
-			get; set;
-		}
-
 		public DateTimeOffset FirstSeen
 		{
 			get; set;

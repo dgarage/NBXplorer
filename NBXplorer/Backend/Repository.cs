@@ -459,26 +459,6 @@ namespace NBXplorer.Backend
 
 		FixedSizeCache<uint256, uint256> noMatchCache = new FixedSizeCache<uint256, uint256>(5000, k => k);
 
-		record ScriptPubKeyQuery(string code, string id);
-
-		public async Task<TrackedTransaction[]> GetMatches(Block block, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
-		{
-			var matches = await GetMatches(block.Transactions, slimBlock, now, useCache);
-			if (matches.Length > 0)
-			{
-				var blockIndexes = block.Transactions.Select((tx, i) => (tx, i))
-								  .ToDictionary(o => o.tx.GetHash(), o => o.i);
-				foreach (var match in matches)
-					match.BlockIndex = blockIndexes[match.TransactionHash];
-			}
-			return matches;
-		}
-
-		public async Task<TrackedTransaction[]> GetMatches(IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
-		{
-			await using var conn = await GetConnection();
-			return await GetMatches(conn, txs, slimBlock, now, useCache, false);
-		}
 		public Task<TrackedTransaction[]> GetMatchesAndSave(DbConnectionHelper conn, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
 		{
 			return GetMatches(conn, txs, slimBlock, now, useCache, true);
@@ -542,53 +522,56 @@ namespace NBXplorer.Backend
 			}
 		}
 		record UpdateMatchesOuts(string tx_id, long idx, string asset_id, long value);
-		async Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache, bool immediateSave)
+		Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache, bool immediateSave)
 		{
-			var blockIndexes = slimBlock is null ? null : new Dictionary<uint256, int>(txs.Count);
-			SaveTransactionRecord CreateTransactionRecord(Transaction tx) => SaveTransactionRecord.Create(
-				slimBlock,
-				tx,
-				blockIndexes?.TryGetValue(tx.GetHash(), out var bi) is true ? bi : null,
-				now);
-			int i = 0;
-			var unconfTxs = slimBlock is null ? null : await connection.GetUnconfirmedTxs();
-			List<SaveTransactionRecord> txRecords = new();
+			List<SaveTransactionRecord> records = new(txs.Count);
 			foreach (var tx in txs)
-			{
 				tx.PrecomputeHash(false, true);
-				blockIndexes?.Add(tx.GetHash(), i);
-				i++;
-				if (unconfTxs?.Contains(tx.GetHash()) is true)
+			if (slimBlock is not null)
+			{
+				int i = 0;
+				foreach (var tx in txs)
+				{
+					var record = SaveTransactionRecord.Create(slimBlock, tx, i, now);
+					if (!useCache || !noMatchCache.Contains(record.Id))
+						records.Add(record);
+					i++;
+				}
+			}
+			else
+			{
+				foreach (var tx in txs)
+				{
+					var record = SaveTransactionRecord.Create(null, tx, null, now);
+					records.Add(record);
+				}
+			}
+			var query = MatchQuery.FromTransactions(records.Select(r => r.Transaction), MinUtxoValue);
+			return GetMatches(connection, query, records, slimBlock, immediateSave); 
+		}
+		async Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, MatchQuery matchQuery, IList<SaveTransactionRecord> records, SlimChainedBlock slimBlock, bool immediateSave)
+		{
+			var unconfTxs = slimBlock is null ? null : await connection.GetUnconfirmedTxs();
+			Dictionary<uint256, SaveTransactionRecord> txs = new();
+			HashSet<uint256> savedTxs = new();
+			foreach (var record in records)
+			{
+				txs.TryAdd(record.Id, record);
+				if (unconfTxs?.Contains(record.Id) is true)
 					// If a block has been found, and we have some unconf transactions
 					// then we want to add an entry in blks_txs, even if the unconf tx isn't matching
 					// any wallet. So we add record.
-					txRecords.Add(CreateTransactionRecord(tx));
+					savedTxs.Add(record.Id);
 			}
 
-			var outputCount = txs.Select(tx => tx.Outputs.Count).Sum();
-			var inputCount = txs.Select(tx => tx.Inputs.Count).Sum();
-			var outpointCount = inputCount + outputCount;
-
+			var outpointCount = matchQuery.Ins.Count + matchQuery.Outs.Count;
 			var scripts = new List<Script>(outpointCount);
-			var transactionsPerScript = new MultiValueDictionary<Script, NBitcoin.Transaction>(outpointCount);
+			var transactionsPerScript = new MultiValueDictionary<Script, SaveTransactionRecord>(outpointCount);
 
 			var matches = new Dictionary<(TrackedSource TrackedSource, uint256 TxId), TrackedTransaction>();
-			var noMatchTransactions = slimBlock?.Hash is null ? new HashSet<uint256>(txs.Count) : null;
-			var transactions = new Dictionary<uint256, NBitcoin.Transaction>(txs.Count);
-			var outpoints = new List<OutPoint>(inputCount);
 			var elementContext = Network.IsElement ? new ElementMatchContext() : null;
 
-			foreach (var tx in txs)
-			{
-				if (slimBlock?.Hash != null && useCache && noMatchCache.Contains(tx.GetHash()))
-				{
-					continue;
-				}
-				if (!transactions.TryAdd(tx.GetHash(), tx))
-					continue;
-				noMatchTransactions?.Add(tx.GetHash());
-			}
-			if (!await connection.FetchMatches(transactions.Values, slimBlock, MinUtxoValue))
+			if (!await connection.FetchMatches(matchQuery))
 				goto end;
 
 			using (var result = await connection.Connection.QueryMultipleAsync(
@@ -604,15 +587,13 @@ namespace NBXplorer.Backend
 				var matchedConflicts = await result.ReadAsync();
 				foreach (var r in matchedConflicts)
 				{
-					var txId = uint256.Parse(r.replacing_tx_id);
-					var tx = transactions[txId];
-					txRecords.Add(CreateTransactionRecord(tx));
+					savedTxs.Add(uint256.Parse(r.replacing_tx_id));
 				}
 				foreach (var r in matchedOuts)
 				{
 					var s = Script.FromHex(r.script);
 					scripts.Add(s);
-					transactionsPerScript.Add(s, transactions[uint256.Parse(r.tx_id)]);
+					transactionsPerScript.Add(s, txs[uint256.Parse(r.tx_id)]);
 					elementContext?.MatchedOut(r);
 				}
 
@@ -622,7 +603,7 @@ namespace NBXplorer.Backend
 					Script s = Script.FromHex(r.script);
 					scripts.Add(s);
 					var txId = uint256.Parse(r.tx_id);
-					transactionsPerScript.Add(s, transactions[txId]);
+					transactionsPerScript.Add(s, txs[txId]);
 
 					matchedInputs.Add(txId,	
 					new MatchedInput()
@@ -640,26 +621,21 @@ namespace NBXplorer.Backend
 					var keyInformations = await GetKeyInformations(connection.Connection, scripts);
 					foreach (var keyInfoByScripts in keyInformations)
 					{
-						foreach (var tx in transactionsPerScript[keyInfoByScripts.Key])
+						foreach (var record in transactionsPerScript[keyInfoByScripts.Key])
 						{
-							var txId = tx.GetHash();
-							if (keyInfoByScripts.Value.Count != 0)
-								noMatchTransactions?.Remove(txId);
 							foreach (var keyInfo in keyInfoByScripts.Value)
 							{
-								var matchesGroupingKey = (keyInfo.TrackedSource, txId);
+								var matchesGroupingKey = (keyInfo.TrackedSource, record.Id);
 								if (!matches.TryGetValue(matchesGroupingKey, out TrackedTransaction match))
 								{
 									match = CreateTrackedTransaction(keyInfo.TrackedSource,
-										new TrackedTransactionKey(txId, slimBlock?.Hash, false),
-										tx,
+										new TrackedTransactionKey(record.Id, slimBlock?.Hash, false),
+										record.Transaction,
 										new Dictionary<Script, KeyPath>());
 
-									var record = CreateTransactionRecord(tx);
 									match.BlockHeight = record.BlockHeight;
-									match.FirstSeen = now;
+									match.FirstSeen = record.SeenAt;
 									match.BlockIndex = record.BlockIndex;
-									match.Inserted = now;
 									match.Immature = record.Immature;
 									match.Replacing = new HashSet<uint256>();
 
@@ -674,7 +650,7 @@ namespace NBXplorer.Backend
 										}
 									}
 									matches.Add(matchesGroupingKey, match);
-									txRecords.Add(record);
+									savedTxs.Add(record.Id);
 								}
 								match.AddKnownKeyPathInformation(keyInfo);
 								elementContext?.TrackedTransaction(match, keyInfo);
@@ -693,15 +669,15 @@ namespace NBXplorer.Backend
 				}
 			}
 			end:
-			if (immediateSave && txRecords.Count != 0)
+			if (immediateSave && savedTxs.Count != 0)
 			{
-				await connection.SaveTransactions(txRecords);
+				await connection.SaveTransactions(savedTxs.Select(h => txs[h]).ToArray());
 				if (elementContext is not null)
 					await elementContext.UpdateMatchedOuts(connection.Connection);
 				retry:
 				try
 				{
-					await connection.Connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
+					await CommitMatches(connection.Connection);
 				}
 				// Broadcast call this method, and it may be called at same time as the indexer, resulting in a Deadlock
 				// I believe we can safely retry in that case.
@@ -710,19 +686,24 @@ namespace NBXplorer.Backend
 					goto retry;
 				}
 			}
-			if (noMatchTransactions != null)
+			if (slimBlock is null)
 			{
-				foreach (var txId in noMatchTransactions)
+				var matched = matches.Values.Select(m => m.TransactionHash).ToHashSet();
+				foreach (var noMatch in txs.Where(t => !matched.Contains(t.Key)))
 				{
-					noMatchCache.Add(txId);
+					noMatchCache.Add(noMatch.Key);
 				}
 			}
 			return matches.Values.Count == 0 ? Array.Empty<TrackedTransaction>() : matches.Values.ToArray();
 		}
 
-		public Task<TrackedTransaction[]> GetMatches(Transaction tx, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
+		public Task CommitMatches(DbConnection connection)
+		=> connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
+
+		public async Task<TrackedTransaction[]> GetMatches(Transaction tx, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache)
 		{
-			return GetMatches(new[] { tx }, slimBlock, now, useCache);
+			await using var conn = await GetConnection();
+			return await GetMatches(conn, new[] { tx }, slimBlock, now, useCache, false);
 		}
 
 		record SavedTransactionRow(byte[] raw, string blk_id, long? blk_height, string replaced_by, DateTime seen_at);
@@ -1051,38 +1032,10 @@ namespace NBXplorer.Backend
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
 			var connection = helper.Connection;
 
-			var outCount = transactions.Select(t => t.ReceivedCoins.Count).Sum();
-			var inCount = transactions.Select(t => t.SpentOutpoints.Count).Sum();
-			List<DbConnectionHelper.NewOut> outs = new List<DbConnectionHelper.NewOut>(outCount);
-			List<DbConnectionHelper.NewIn> ins = new List<DbConnectionHelper.NewIn>(inCount);
-			foreach (var tx in transactions)
-			{
-				if (!tx.IsCoinBase)
-				{
-					foreach (var input in tx.SpentOutpoints)
-					{
-						ins.Add(new DbConnectionHelper.NewIn(
-							tx.TransactionHash,
-							input.InputIndex,
-							input.Outpoint.Hash,
-							(int)input.Outpoint.N
-							));
-					}
-				}
-
-				foreach (var output in tx.GetReceivedOutputs())
-				{
-					outs.Add(new DbConnectionHelper.NewOut(
-						tx.TransactionHash,
-						output.Index,
-						output.ScriptPubKey,
-						(Money)output.Value
-						));
-				}
-			}
-			await helper.FetchMatches(outs, ins);
+			var query = MatchQuery.FromTransactions(transactions, MinUtxoValue);
+			await helper.FetchMatches(query);
 			await helper.SaveTransactions(transactions.Select(SaveTransactionRecord.Create));
-			await helper.Connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
+			await CommitMatches(connection);
 		}
 
 		public async Task SaveMetadata<TMetadata>(TrackedSource source, string key, TMetadata value) where TMetadata : class
@@ -1106,7 +1059,7 @@ namespace NBXplorer.Backend
 		public async Task<List<SavedTransaction>> SaveTransactions(DateTimeOffset now, Transaction[] transactions, SlimChainedBlock slimBlock)
 		{
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
-			await helper.SaveTransactions(transactions.Select(t => new SaveTransactionRecord(t, null as uint256, slimBlock?.Hash, null as int?, (long?)slimBlock?.Height, false, new DateTimeOffset?(now))));
+			await helper.SaveTransactions(transactions.Select(t => new SaveTransactionRecord(t, null as uint256, slimBlock?.Hash, null as int?, (long?)slimBlock?.Height, false, now)));
 			return transactions.Select(t => new SavedTransaction()
 			{
 				BlockHash = slimBlock?.Hash,

@@ -23,7 +23,6 @@ namespace NBXplorer.Tests
 			{
 				var tx = new TrackedTransaction(new TrackedTransactionKey(_TransactionId, _BlockId, true), _Parent._TrackedSource, null as Coin[], null)
 				{
-					Inserted = _TimeStamp,
 					FirstSeen = _TimeStamp
 				};
 				foreach (var input in _Inputs)

@@ -251,12 +251,24 @@ namespace NBXplorer
 		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<int> blockHeights, CancellationToken cancellationToken)
 		{
 			var batch = rpc.PrepareBatch();
-			var hashes = blockHeights.Select(h => batch.GetBlockHashAsync(h)).ToArray();
-			await batch.SendBatchAsync();
+			var hashes = blockHeights.Select(h => batch.GetBlockHashAsync(h, cancellationToken)).ToArray();
+			await batch.SendBatchAsync(cancellationToken);
 
 			batch = rpc.PrepareBatch();
 			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(await h, cancellationToken)).ToArray();
-			await batch.SendBatchAsync();
+			await batch.SendBatchAsync(cancellationToken);
+
+			return new BlockHeaders(headers.Select(h => h.GetAwaiter().GetResult()).Where(h => h is not null).ToList());
+		}
+
+		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<uint256> hashes, CancellationToken cancellationToken)
+		{
+			var batch = rpc.PrepareBatch();
+			await batch.SendBatchAsync(cancellationToken);
+
+			batch = rpc.PrepareBatch();
+			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(h, cancellationToken)).ToArray();
+			await batch.SendBatchAsync(cancellationToken);
 
 			return new BlockHeaders(headers.Select(h => h.GetAwaiter().GetResult()).Where(h => h is not null).ToList());
 		}
