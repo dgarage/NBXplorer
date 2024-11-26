@@ -3543,7 +3543,7 @@
             }
           },
           "401": {
-            "description": "RPC JSON Not Exposed. Code: `json-rpc-not-exposed`",
+            "description": "JSON RPC Not Exposed. Code: `json-rpc-not-exposed`",
             "content": {
               "application/json": {
                 "schema": {
