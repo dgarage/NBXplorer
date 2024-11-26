@@ -3471,17 +3471,13 @@
     "/cryptos/{cryptoCode}/node/rpc": {
       "post": {
         "summary": "Proxy RPC call to the underlying node",
-        "description": "Allows you to make RPC calls to the underlying cryptocurrency node (e.g., Bitcoin Core) via NBXplorer. This endpoint acts as a proxy, forwarding your RPC requests to the node and returning the node's responses.",
-        "tags": ["Node RPC Proxy"],
+        "description": "Allows you to make RPC calls to the underlying cryptocurrency node (e.g., Bitcoin Core) via NBXplorer. This endpoint acts as a proxy, forwarding your RPC requests to the node and returning the node's responses. Go to https://www.jsonrpc.org/specification and https://developer.bitcoin.org/reference/rpc for more info.",
+        "tags": [
+          "Blockchain"
+        ],
         "parameters": [
           {
-            "name": "cryptoCode",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "The cryptocurrency code (e.g., 'BTC')."
+            "$ref": "#/components/parameters/CryptoCode"
           }
         ],
         "requestBody": {
@@ -3547,7 +3543,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized. Authentication failed.",
+            "description": "RPC JSON Not Exposed. Code: `json-rpc-not-exposed`",
             "content": {
               "application/json": {
                 "schema": {
@@ -3559,45 +3555,8 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden. Access to the RPC method is not allowed.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Forbidden",
-                  "code": 403
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error. An error occurred while processing the RPC call.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RpcResponse"
-                },
-                "example": {
-                  "result": null,
-                  "error": {
-                    "code": -32603,
-                    "message": "Internal error"
-                  },
-                  "id": null
-                }
-              }
-            }
           }
-        },
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ]
+        }
       }
     }
   }
