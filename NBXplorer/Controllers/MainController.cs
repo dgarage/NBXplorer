@@ -81,7 +81,12 @@ namespace NBXplorer.Controllers
 			"getrawtransaction",
 			"gettxout",
 			"estimatesmartfee",
-			"getmempoolinfo"
+			"getmempoolinfo",
+			"gettxoutproof",
+			"verifytxoutproof",
+			"getblockchaininfo",
+			"getblockhash",
+			"getblockheader"
 		};
 		internal NBXplorerNetwork GetNetwork(string cryptoCode, bool checkRPC)
 		{
@@ -123,30 +128,50 @@ namespace NBXplorer.Controllers
 				jsonRPC = await reader.ReadToEndAsync();
 			}
 
-			if (string.IsNullOrEmpty(jsonRPC))
+			var req = RPCProxyRequest.TryParse(jsonRPC);
+			if (req is RPCProxyRequest.RPCProxyBatchedRequest batch)
+			{
+				var batchRPC = rpc.PrepareBatch();
+				if (batch.Requests.Count is 0)
+					return Json(new JArray());
+				var authorized = batch.Requests.All(r => WhitelistedRPCMethods.Contains(r.Method));
+				if (!exposed && !authorized)
+					throw JsonRPCNotExposed();
+				var results = batch.Requests.Select(r => batchRPC.SendCommandAsync(r)).ToList();
+				await batchRPC.SendBatchAsync();
+				return Json(new JArray(results.Select(task => ToRPCResponse(task.Result))));
+			}
+			else if (req is RPCProxyRequest.RPCProxySingleRequest sr)
+			{
+				var authorized = WhitelistedRPCMethods.Contains(sr.Request.Method);
+				if (!exposed && !authorized)
+					throw JsonRPCNotExposed();
+				var result = ToRPCResponse(await rpc.SendCommandAsync(sr.Request));
+				return Json(result);
+			}
+			else
 			{
 				throw new NBXplorerError(422, "no-json-rpc-request", $"A JSON-RPC request was not provided in the body.").AsException();
 			}
-			if (jsonRPC.StartsWith("["))
-			{
-				var batchRPC = rpc.PrepareBatch();
-				var results = network.Serializer.ToObject<RPCRequest[]>(jsonRPC).Select(rpcRequest =>
-				{
-					if (!exposed && !WhitelistedRPCMethods.Contains(rpcRequest.Method))
-						throw JsonRPCNotExposed();
-					rpcRequest.ThrowIfRPCError = false;
-					return batchRPC.SendCommandAsync(rpcRequest);
-				}).ToList();
-				await batchRPC.SendBatchAsync();
-				return Json(results.Select(task => task.Result));
-			}
-
-			var req = network.Serializer.ToObject<RPCRequest>(jsonRPC);
-			if (!exposed && !WhitelistedRPCMethods.Contains(req.Method))
-				throw JsonRPCNotExposed();
-			req.ThrowIfRPCError = false;
-			return Json(await rpc.SendCommandAsync(req));
 		}
+
+		private JObject ToRPCResponse(RPCResponse result) => result switch
+		{
+			{ Error: RPCError error } => new JObject
+			{
+				{ "error", new JObject
+					{
+						{ "code", (int)error.Code },
+						{ "message", error.Message }
+					}
+				}
+			},
+			{ Result: JToken rpcResult } => new JObject
+			{
+				{ "result", rpcResult }
+			},
+			_ => throw new InvalidOperationException("Unknown result from RPC")
+		};
 
 		[HttpGet]
 		[Route($"{CommonRoutes.BaseCryptoEndpoint}/fees/{{blockCount}}")]

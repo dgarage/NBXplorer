@@ -4186,10 +4186,15 @@ namespace NBXplorer.Tests
 
 				var batchTest = tester.Client.RPCClient.PrepareBatch();
 				var balanceResult = batchTest.GetBalanceAsync();
+				var getblockhash = batchTest.GetBlockHashAsync(-1);
 				var blockchainInfoResult = batchTest.GetBlockchainInfoAsync();
 				await batchTest.SendBatchAsync();
 				await balanceResult;
 				await blockchainInfoResult;
+
+				var rpcex = await Assert.ThrowsAsync<RPCException>(() => getblockhash);
+				Assert.NotNull(rpcex.Message);
+				Assert.Equal(RPCErrorCode.RPC_INVALID_PARAMETER, rpcex.RPCCode);
 
 				tester.GetService<ExplorerConfiguration>().ChainConfigurations[0].ExposeRPC = false;
 
