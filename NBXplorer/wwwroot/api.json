@@ -698,13 +698,100 @@
           },
           "type": {
             "type": "string",
-            "description": "Type of event (e.g., 'newblock', 'newtransaction')."
+            "description": "Type of event.",
+            "enum": [
+              "newblock",
+              "newtransaction"
+            ]
           },
           "data": {
-            "type": "object",
-            "description": "Additional data related to the event."
+            "description": "Data associated with the event.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/NewBlockEvent"
+              },
+              {
+                "$ref": "#/components/schemas/NewTransactionEvent"
+              }
+            ]
           }
-        }
+        },
+        "required": [
+          "eventId",
+          "type",
+          "data"
+        ]
+      },
+      "NewBlockEvent": {
+        "type": "object",
+        "properties": {
+          "height": {
+            "type": "integer",
+            "description": "Height of the new block."
+          },
+          "hash": {
+            "type": "string",
+            "description": "Hash of the new block."
+          },
+          "previousBlockHash": {
+            "type": "string",
+            "description": "Hash of the previous block."
+          },
+          "cryptoCode": {
+            "type": "string",
+            "description": "Cryptocurrency code (e.g., 'BTC')."
+          },
+          "confirmations": {
+            "type": "integer",
+            "description": "Number of confirmations (typically 1 for a new block)."
+          }
+        },
+        "required": [
+          "height",
+          "hash",
+          "previousBlockHash",
+          "cryptoCode",
+          "confirmations"
+        ]
+      },
+      "NewTransactionEvent": {
+        "type": "object",
+        "properties": {
+          "blockId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Hash of the block containing the transaction, or null if unconfirmed."
+          },
+          "trackedSource": {
+            "type": "string",
+            "description": "The tracked source identifier (e.g., derivation scheme)."
+          },
+          "derivationStrategy": {
+            "type": "string",
+            "description": "The derivation strategy used."
+          },
+          "transactionData": {
+            "$ref": "#/components/schemas/TransactionResponse"
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransactionOutput"
+            },
+            "description": "List of outputs related to the transaction."
+          },
+          "cryptoCode": {
+            "type": "string",
+            "description": "Cryptocurrency code (e.g., 'BTC')."
+          }
+        },
+        "required": [
+          "trackedSource",
+          "derivationStrategy",
+          "transactionData",
+          "outputs",
+          "cryptoCode"
+        ]
       },
       "UTXOChanges": {
         "type": "object",
@@ -2092,42 +2179,37 @@
     "/v1/cryptos/{cryptoCode}/events": {
       "get": {
         "summary": "Query event stream",
-        "description": "Retrieves a stream of events for the specified cryptocurrency. This endpoint supports long polling and Server-Sent Events (SSE).",
+        "description": "Retrieves a stream of events for the specified cryptocurrency.",
         "tags": [
           "Events"
         ],
         "parameters": [
           {
-            "$ref": "#/components/parameters/CryptoCode"
-          },
-          {
             "name": "lastEventId",
             "in": "query",
-            "required": false,
             "schema": {
               "type": "integer",
               "default": 0
             },
-            "description": "The ID of the last event received. Used to fetch events that occurred after this ID."
+            "description": "Will query all events which happened after this event ID; the first event has ID 1 (default: 0)."
           },
           {
             "name": "longPolling",
             "in": "query",
-            "required": false,
             "schema": {
               "type": "boolean",
               "default": false
             },
-            "description": "If true, the server will hold the response until a new event occurs or the request times out."
+            "description": "If no events have been received since `lastEventId`, the call will block (default: `false`)."
           },
           {
             "name": "limit",
             "in": "query",
-            "required": false,
             "schema": {
-              "type": "integer"
+              "type": "integer",
+              "default": null
             },
-            "description": "The maximum number of events to return."
+            "description": "Limit the maximum number of events to return (default: `null`)."
           }
         ],
         "responses": {
@@ -2138,8 +2220,93 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Event"
+                    "type": "object",
+                    "properties": {
+                      "eventId": {
+                        "type": "integer",
+                        "description": "Unique identifier of the event."
+                      },
+                      "type": {
+                        "type": "string",
+                        "description": "Type of the event (e.g., 'newblock', 'newtransaction').",
+                        "enum": [
+                          "newblock",
+                          "newtransaction"
+                        ]
+                      },
+                      "data": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/NewBlockEvent"
+                          },
+                          {
+                            "$ref": "#/components/schemas/NewTransactionEvent"
+                          }
+                        ],
+                        "description": "Details of the event, depending on the type."
+                      }
+                    },
+                    "required": [
+                      "eventId",
+                      "type",
+                      "data"
+                    ]
                   }
+                },
+                "examples": {
+                  "sample": {
+                    "summary": "Sample Events",
+                    "value": [
+                      {
+                        "eventId": 1,
+                        "type": "newblock",
+                        "data": {
+                          "height": 104,
+                          "hash": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35",
+                          "previousBlockHash": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
+                          "cryptoCode": "BTC",
+                          "confirmations": 1
+                        }
+                      },
+                      {
+                        "eventId": 2,
+                        "type": "newtransaction",
+                        "data": {
+                          "blockId": null,
+                          "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5Hpv...",
+                          "derivationStrategy": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5Hpv...",
+                          "transactionData": {
+                            "confirmations": 0,
+                            "blockId": null,
+                            "transactionId": "500359d971698c021587ea952bd38bd57dafc2b99615f71f7f978af394682737",
+                            "transaction": "0200000001b8af58c5dbed4bd0ea60ae8ba7e68e6...",
+                            "height": null,
+                            "timestamp": 1542703963
+                          },
+                          "outputs": [
+                            {
+                              "keyPath": "0/0",
+                              "scriptPubKey": "0014c5e0b07f40b8dbe69b22864d84d83d5b41208353",
+                              "address": "bcrt1qchstql6qhrd7dxezsexcfkpatdqjpq6nntvtrd",
+                              "index": 1,
+                              "value": 100000000
+                            }
+                          ],
+                          "cryptoCode": "BTC"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request. Invalid parameters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2178,15 +2345,79 @@
                     "type": "object",
                     "properties": {
                       "eventId": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "Unique identifier of the event."
                       },
                       "type": {
-                        "type": "string"
+                        "type": "string",
+                        "description": "Type of the event (e.g., 'newblock', 'newtransaction').",
+                        "enum": [
+                          "newblock",
+                          "newtransaction"
+                        ]
                       },
                       "data": {
-                        "type": "object"
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/NewBlockEvent"
+                          },
+                          {
+                            "$ref": "#/components/schemas/NewTransactionEvent"
+                          }
+                        ],
+                        "description": "Details of the event, depending on the type."
                       }
-                    }
+                    },
+                    "required": [
+                      "eventId",
+                      "type",
+                      "data"
+                    ]
+                  }
+                },
+                "examples": {
+                  "sample": {
+                    "summary": "Sample Events",
+                    "value": [
+                      {
+                        "eventId": 1,
+                        "type": "newblock",
+                        "data": {
+                          "height": 104,
+                          "hash": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35",
+                          "previousBlockHash": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
+                          "cryptoCode": "BTC",
+                          "confirmations": 1
+                        }
+                      },
+                      {
+                        "eventId": 2,
+                        "type": "newtransaction",
+                        "data": {
+                          "blockId": null,
+                          "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5Hpv...",
+                          "derivationStrategy": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5Hpv...",
+                          "transactionData": {
+                            "confirmations": 0,
+                            "blockId": null,
+                            "transactionId": "500359d971698c021587ea952bd38bd57dafc2b99615f71f7f978af394682737",
+                            "transaction": "0200000001b8af58c5dbed4bd0ea60ae8ba7e68e6...",
+                            "height": null,
+                            "timestamp": 1542703963
+                          },
+                          "outputs": [
+                            {
+                              "keyPath": "0/0",
+                              "scriptPubKey": "0014c5e0b07f40b8dbe69b22864d84d83d5b41208353",
+                              "address": "bcrt1qchstql6qhrd7dxezsexcfkpatdqjpq6nntvtrd",
+                              "index": 1,
+                              "value": 100000000
+                            }
+                          ],
+                          "cryptoCode": "BTC"
+                        }
+                      }
+                    ]
                   }
                 }
               }
