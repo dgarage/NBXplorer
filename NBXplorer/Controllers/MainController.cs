@@ -335,7 +335,6 @@ namespace NBXplorer.Controllers
 		[Route($"{CommonRoutes.BaseCryptoEndpoint}/connect")]
 		public async Task<IActionResult> ConnectWebSocket(
 			string cryptoCode,
-			bool includeTransaction = true,
 			CancellationToken cancellation = default)
 		{
 			if (!HttpContext.WebSockets.IsWebSocketRequest)
@@ -550,7 +549,11 @@ namespace NBXplorer.Controllers
 			TrackedSourceContext trackedSourceContext,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId = null,
-			bool includeTransaction = true)
+			bool includeTransaction = true,
+			[ModelBinder(BinderType = typeof(DateTimeOffsetModelBinder))]
+			DateTimeOffset? from = null,
+			[ModelBinder(BinderType = typeof(DateTimeOffsetModelBinder))]
+			DateTimeOffset? to = null)
 		{
 			TransactionInformation fetchedTransactionInfo = null;
 			var network = trackedSourceContext.Network;
@@ -560,7 +563,8 @@ namespace NBXplorer.Controllers
 			var response = new GetTransactionsResponse();
 			int currentHeight = (await repo.GetTip()).Height;
 			response.Height = currentHeight;
-			var txs = await GetAnnotatedTransactions(repo, trackedSource, includeTransaction, txId);
+			var query = GetTransactionQuery.Create(trackedSource, txId, from, to);
+			var txs = await GetAnnotatedTransactions(repo, query, includeTransaction);
 			foreach (var item in new[]
 			{
 					new
@@ -784,20 +788,20 @@ namespace NBXplorer.Controllers
 			return Ok();
 		}
 
-		internal async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, TrackedSource trackedSource, bool includeTransaction, uint256 txId = null)
+		internal async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, GetTransactionQuery.TrackedSourceTxId query, bool includeTransaction)
 		{
-			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, this.HttpContext?.RequestAborted ?? default);
+			var transactions = await repo.GetTransactions(query, includeTransaction, this.HttpContext?.RequestAborted ?? default);
 
 			// If the called is interested by only a single txId, we need to fetch the parents as well
-			if (txId != null)
+			if (query.TxId != null)
 			{
 				var spentOutpoints = transactions.SelectMany(t => t.SpentOutpoints.Select(o => o.Outpoint.Hash)).ToHashSet();
-				var gettingParents = spentOutpoints.Select(async h => await repo.GetTransactions(trackedSource, h)).ToList();
+				var gettingParents = spentOutpoints.Select(async h => await repo.GetTransactions(GetTransactionQuery.Create(query.TrackedSource, h))).ToList();
 				await Task.WhenAll(gettingParents);
 				transactions = gettingParents.SelectMany(p => p.GetAwaiter().GetResult()).Concat(transactions).ToArray();
 			}
 
-			return new AnnotatedTransactionCollection(transactions, trackedSource, repo.Network.NBitcoinNetwork);
+			return new AnnotatedTransactionCollection(transactions, query.TrackedSource, repo.Network.NBitcoinNetwork);
 		}
 
 		[HttpPost]
@@ -844,7 +848,7 @@ namespace NBXplorer.Controllers
 				if (trackedSourceContext.TrackedSource != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
 				{
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Trying to broadcast unconfirmed of the wallet");
-					var transactions = await GetAnnotatedTransactions(repo, trackedSourceContext.TrackedSource, true);
+					var transactions = await GetAnnotatedTransactions(repo, GetTransactionQuery.Create(trackedSourceContext.TrackedSource), true);
 					foreach (var existing in transactions.UnconfirmedTransactions)
 					{
 						var t = existing.Record.Transaction ?? (await repo.GetSavedTransactions(existing.Record.TransactionHash)).Select(c => c.Transaction).FirstOrDefault();

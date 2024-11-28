@@ -1798,6 +1798,26 @@
             "description": "Optional. If set to `true`, each transaction in the response will include the raw transaction data in hexadecimal format (`transaction` field). Default is `false`."
           },
           {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1732769702,
+            "description": "Indicates the earliest date from which transactions should be retrieved, (default: null, unix time)"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1732769717,
+            "description": "Indicates the latest date up to which transactions should be retrieved, (default: null, unix time"
+          },
+          {
             "name": "accountedOnly",
             "in": "query",
             "required": false,

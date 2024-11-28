@@ -366,22 +366,32 @@ namespace NBXplorer
 		{
 			return SendAsync<StatusResult>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/status", cancellation);
 		}
-		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, CancellationToken cancellation = default)
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(strategy, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(strategy, from, to, cancellation).GetAwaiter().GetResult();
 		}
-		public GetTransactionsResponse GetTransactions(TrackedSource trackedSource, CancellationToken cancellation = default)
+		public GetTransactionsResponse GetTransactions(TrackedSource trackedSource, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(trackedSource, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(trackedSource, from, to, cancellation).GetAwaiter().GetResult();
 		}
 
-		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, CancellationToken cancellation = default)
+		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(TrackedSource.Create(strategy), cancellation);
+			return GetTransactionsAsync(TrackedSource.Create(strategy), from, to, cancellation);
 		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
+		public Task<GetTransactionsResponse> GetTransactionsAsync(TrackedSource trackedSource, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken cancellation = default)
 		{
-			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/transactions", cancellation);
+			string fromV = string.Empty;
+			string toV = string.Empty;
+			if (from is DateTimeOffset f)
+			{
+				fromV = NBitcoin.Utils.DateTimeToUnixTime(f).ToString();
+			}
+			if (to is DateTimeOffset t)
+			{
+				toV = NBitcoin.Utils.DateTimeToUnixTime(t).ToString();
+			}
+			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/transactions?from={fromV}&to={toV}", cancellation);
 		}
 
 

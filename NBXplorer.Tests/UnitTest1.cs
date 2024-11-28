@@ -2211,7 +2211,7 @@ namespace NBXplorer.Tests
 				var id = tester.SendToAddress(tester.AddressOf(bob, "0/1"), Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(bobPubKey, id);
 				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Network.NetworkSet.CryptoCode);
-				var transactions = await repo.GetTransactions(new DerivationSchemeTrackedSource(bobPubKey), id);
+				var transactions = await repo.GetTransactions(GetTransactionQuery.Create(new DerivationSchemeTrackedSource(bobPubKey), id));
 				var tx = Assert.Single(transactions);
 				var timestamp = tx.FirstSeen;
 				var query = MatchQuery.FromTransactions(new[] { tx.Transaction }, null);
@@ -2219,7 +2219,7 @@ namespace NBXplorer.Tests
 				var tracked = await repo.SaveMatches(query, records);
 				Assert.Single(tracked);
 				Assert.Equal(timestamp, tracked[0].FirstSeen);
-				transactions = await repo.GetTransactions(new DerivationSchemeTrackedSource(bobPubKey), id);
+				transactions = await repo.GetTransactions(GetTransactionQuery.Create(new DerivationSchemeTrackedSource(bobPubKey), id));
 				tx = Assert.Single(transactions);
 				Assert.Equal(timestamp, tx.FirstSeen);
 			}
@@ -2522,6 +2522,16 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation("Check it appear in transaction list");
 				var tx = await tester.Client.GetTransactionsAsync(addressSource);
 				Assert.Equal(tx1, tx.ConfirmedTransactions.Transactions[0].TransactionId);
+
+				Logs.Tester.LogInformation("Check from/to");
+				var beforeTx = tx.ConfirmedTransactions.Transactions[0].Timestamp - TimeSpan.FromSeconds(5.0);
+				var afterTx = tx.ConfirmedTransactions.Transactions[0].Timestamp + TimeSpan.FromSeconds(5.0);
+				tx = await tester.Client.GetTransactionsAsync(addressSource, from: beforeTx, to: afterTx);
+				Assert.Equal(tx1, tx.ConfirmedTransactions.Transactions[0].TransactionId);
+				tx = await tester.Client.GetTransactionsAsync(addressSource, from: afterTx);
+				Assert.Empty(tx.ConfirmedTransactions.Transactions);
+				tx = await tester.Client.GetTransactionsAsync(addressSource, to: beforeTx);
+				Assert.Empty(tx.ConfirmedTransactions.Transactions);
 
 				tx = await tester.Client.GetTransactionsAsync(pubkey);
 				Assert.Equal(tx1, tx.ConfirmedTransactions.Transactions[0].TransactionId);

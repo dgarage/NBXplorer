@@ -99,7 +99,7 @@ namespace NBXplorer.Controllers
 		{
 			var repo = trackedSourceContext.Repository;
 			var ts = trackedSourceContext.TrackedSource;
-			var txs = await repo.GetTransactions(trackedSourceContext.TrackedSource);
+			var txs = await repo.GetTransactions(GetTransactionQuery.Create(trackedSourceContext.TrackedSource));
 			await repo.Prune(txs);
 			return Ok();
 		}
@@ -149,7 +149,7 @@ namespace NBXplorer.Controllers
 			var network = trackedSourceContext.Network;
 			var repo = trackedSourceContext.Repository;
 
-			var transactions = await MainController.GetAnnotatedTransactions(repo, trackedSource, false);
+			var transactions = await MainController.GetAnnotatedTransactions(repo, GetTransactionQuery.Create(trackedSource), false);
 			var state = transactions.ConfirmedState;
 			var prunableIds = new HashSet<uint256>();
 
