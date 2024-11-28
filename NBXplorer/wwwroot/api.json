@@ -144,17 +144,15 @@
             "nullable": true,
             "description": "If present, indicates the transaction ID that replaced this transaction via RBF."
           }
-        },
-        "required": [
-          "transactionId",
-          "confirmations",
-          "inputs",
-          "outputs"
-        ]
+        }
       },
       "TransactionOutput": {
         "type": "object",
         "properties": {
+          "address": {
+            "type": "string",
+            "description": "The address of the output."
+          },
           "scriptPubKey": {
             "type": "string",
             "description": "The scriptPubKey of the output in hexadecimal format."
@@ -191,27 +189,25 @@
             "description": "The index of the output in the previous transaction being referenced.",
             "example": 1
           },
+          "address": {
+            "type": "string",
+            "description": "The address of the output."
+          },
           "scriptPubKey": {
             "type": "string",
             "description": "The scriptPubKey of the output being spent, in hexadecimal format.",
             "example": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac"
           },
+          "keyPath": {
+            "type": "string",
+            "description": "The derivation path if the output is associated with the wallet."
+          },
           "value": {
             "type": "integer",
             "description": "The amount of the output being spent, in satoshis.",
             "example": 100000000
-          },
-          "address": {
-            "type": "string",
-            "description": "The Bitcoin address corresponding to the scriptPubKey of the output being spent.",
-            "example": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
           }
-        },
-        "required": [
-          "inputIndex",
-          "transactionId",
-          "index"
-        ]
+        }
       },
       "UnusedAddress": {
         "type": "object",
@@ -715,12 +711,7 @@
               }
             ]
           }
-        },
-        "required": [
-          "eventId",
-          "type",
-          "data"
-        ]
+        }
       },
       "NewBlockEvent": {
         "type": "object",
@@ -746,16 +737,58 @@
             "description": "Number of confirmations (typically 1 for a new block)."
           }
         },
-        "required": [
-          "height",
-          "hash",
-          "previousBlockHash",
-          "cryptoCode",
-          "confirmations"
-        ]
+        "example": {
+          "height": 104,
+          "hash": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35",
+          "previousBlockHash": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
+          "cryptoCode": "BTC",
+          "confirmations": 1
+        }
       },
       "NewTransactionEvent": {
         "type": "object",
+        "example": {
+          "blockId": null,
+          "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4X2p2D8kx6XV9V5iCJKMBHuBim1BLnZAZC1JobYkdwSrwF8R74V2oUWkJG3H24LwxnXs9wb6Ksivs2gj4RudMteyVai2AsmA-[p2sh]",
+          "derivationStrategy": "tpubD6NzVbkrYhZ4X2p2D8kx6XV9V5iCJKMBHuBim1BLnZAZC1JobYkdwSrwF8R74V2oUWkJG3H24LwxnXs9wb6Ksivs2gj4RudMteyVai2AsmA-[p2sh]",
+          "transactionData": {
+            "confirmations": 0,
+            "blockId": null,
+            "transactionHash": "f135537b40ac7a524273176b60e464b7f279f622031ec53af302d959966d7364",
+            "transaction": "0200000001dd7f53b09438fed83abe25dd6cdc30ee2092ce8c855cb9e7b0faa38aba8bc0f500000000484730440220093a837ff4be4b64b2ed4625abb128966caad0cb7830cac7af4f615bbf6b52ce02206227a3ddec3fac9e49f414eeab1388d0e67829620ac3a8fb2f4bbfc5b67bd02901feffffff0200e1f5050000000017a91476de0c5d07fd202880672bc702162b7f18e13aca87640210240100000017a9147cfa038496438a6d3c95cfac990f4dffc6cb44f28768000000",
+            "height": null,
+            "timestamp": 1540434424
+          },
+          "inputs": [
+            {
+              "inputIndex": 0,
+              "transactionId": "194d6dc4e1c4c983b5235ad2b82cc7c48c36def4960fdcf37697253c9d9854a2",
+              "scriptPubKey": "001409249118830af97a029217f3a8744973c5a4a02e",
+              "index": 4,
+              "value": 90000000,
+              "address": "bcrt1qpyjfzxyrptuh5q5jzle6sazfw0z6fgpwuz2rye"
+            },
+            {
+              "inputIndex": 1,
+              "transactionId": "194d6dc4e1c4c983b5235ad2b82cc7c48c36def4960fdcf37697253c9d9854a2",
+              "scriptPubKey": "0014d83837bd474d799ad4decba4bac561a7356e0371",
+              "index": 1,
+              "value": 50000000,
+              "address": "bcrt1qmqur0028f4ue44x7ewjt43tp5u6kuqm3eqa3ua"
+            }
+          ],
+          "outputs": [
+            {
+              "keyPath": "0/1",
+              "scriptPubKey": "a91476de0c5d07fd202880672bc702162b7f18e13aca87",
+              "address": "2N45jj76a7YjGLDoKs2mnQ4tt5N7t6R9xoM",
+              "index": 0,
+              "value": 100000000
+            }
+          ],
+          "cryptoCode": "BTC",
+          "replacing": [ "25d6bc1b2812670550aca8b2984670203b5ebf00e75f9b2bbf1940c3fa27841e", "81a20eb55ec16b92c65d4e142278fd521caa9e5dcad9d941c8e256dbd917ae84" ]
+        },
         "properties": {
           "blockId": {
             "type": "string",
@@ -780,18 +813,18 @@
             },
             "description": "List of outputs related to the transaction."
           },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TransactionInput"
+            },
+            "description": "List of inputs related to the transaction."
+          },
           "cryptoCode": {
             "type": "string",
             "description": "Cryptocurrency code (e.g., 'BTC')."
           }
-        },
-        "required": [
-          "trackedSource",
-          "derivationStrategy",
-          "transactionData",
-          "outputs",
-          "cryptoCode"
-        ]
+        }
       },
       "UTXOChanges": {
         "type": "object",
@@ -2160,7 +2193,7 @@
     "/v1/cryptos/{cryptoCode}/connect": {
       "get": {
         "summary": "WebSocket connection for events",
-        "description": "Establishes a WebSocket connection to receive real-time events for the specified cryptocurrency.",
+        "description": "Establishes a WebSocket connection to receive real-time events for the specified cryptocurrency. (Check [Query Event Stream for the data format](#tag/Events/operation/EventStream))",
         "tags": [
           "Events"
         ],
@@ -2179,11 +2212,15 @@
     "/v1/cryptos/{cryptoCode}/events": {
       "get": {
         "summary": "Query event stream",
+        "operationId": "EventStream",
         "description": "Retrieves a stream of events for the specified cryptocurrency.",
         "tags": [
           "Events"
         ],
         "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
           {
             "name": "lastEventId",
             "in": "query",
@@ -2224,7 +2261,7 @@
                     "properties": {
                       "eventId": {
                         "type": "integer",
-                        "description": "Unique identifier of the event."
+                        "description": "Unique identifier of the event. (Sequential)"
                       },
                       "type": {
                         "type": "string",
@@ -2245,57 +2282,7 @@
                         ],
                         "description": "Details of the event, depending on the type."
                       }
-                    },
-                    "required": [
-                      "eventId",
-                      "type",
-                      "data"
-                    ]
-                  }
-                },
-                "examples": {
-                  "sample": {
-                    "summary": "Sample Events",
-                    "value": [
-                      {
-                        "eventId": 1,
-                        "type": "newblock",
-                        "data": {
-                          "height": 104,
-                          "hash": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35",
-                          "previousBlockHash": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
-                          "cryptoCode": "BTC",
-                          "confirmations": 1
-                        }
-                      },
-                      {
-                        "eventId": 2,
-                        "type": "newtransaction",
-                        "data": {
-                          "blockId": null,
-                          "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5Hpv...",
-                          "derivationStrategy": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5Hpv...",
-                          "transactionData": {
-                            "confirmations": 0,
-                            "blockId": null,
-                            "transactionId": "500359d971698c021587ea952bd38bd57dafc2b99615f71f7f978af394682737",
-                            "transaction": "0200000001b8af58c5dbed4bd0ea60ae8ba7e68e6...",
-                            "height": null,
-                            "timestamp": 1542703963
-                          },
-                          "outputs": [
-                            {
-                              "keyPath": "0/0",
-                              "scriptPubKey": "0014c5e0b07f40b8dbe69b22864d84d83d5b41208353",
-                              "address": "bcrt1qchstql6qhrd7dxezsexcfkpatdqjpq6nntvtrd",
-                              "index": 1,
-                              "value": 100000000
-                            }
-                          ],
-                          "cryptoCode": "BTC"
-                        }
-                      }
-                    ]
+                    }
                   }
                 }
               }
@@ -2346,7 +2333,7 @@
                     "properties": {
                       "eventId": {
                         "type": "integer",
-                        "description": "Unique identifier of the event."
+                        "description": "Unique identifier of the event. (Sequential)"
                       },
                       "type": {
                         "type": "string",
@@ -2367,57 +2354,7 @@
                         ],
                         "description": "Details of the event, depending on the type."
                       }
-                    },
-                    "required": [
-                      "eventId",
-                      "type",
-                      "data"
-                    ]
-                  }
-                },
-                "examples": {
-                  "sample": {
-                    "summary": "Sample Events",
-                    "value": [
-                      {
-                        "eventId": 1,
-                        "type": "newblock",
-                        "data": {
-                          "height": 104,
-                          "hash": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35",
-                          "previousBlockHash": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
-                          "cryptoCode": "BTC",
-                          "confirmations": 1
-                        }
-                      },
-                      {
-                        "eventId": 2,
-                        "type": "newtransaction",
-                        "data": {
-                          "blockId": null,
-                          "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5Hpv...",
-                          "derivationStrategy": "tpubD6NzVbkrYhZ4XfeFUTn2D4RQ7D5Hpv...",
-                          "transactionData": {
-                            "confirmations": 0,
-                            "blockId": null,
-                            "transactionId": "500359d971698c021587ea952bd38bd57dafc2b99615f71f7f978af394682737",
-                            "transaction": "0200000001b8af58c5dbed4bd0ea60ae8ba7e68e6...",
-                            "height": null,
-                            "timestamp": 1542703963
-                          },
-                          "outputs": [
-                            {
-                              "keyPath": "0/0",
-                              "scriptPubKey": "0014c5e0b07f40b8dbe69b22864d84d83d5b41208353",
-                              "address": "bcrt1qchstql6qhrd7dxezsexcfkpatdqjpq6nntvtrd",
-                              "index": 1,
-                              "value": 100000000
-                            }
-                          ],
-                          "cryptoCode": "BTC"
-                        }
-                      }
-                    ]
+                    }
                   }
                 }
               }
