@@ -677,10 +677,6 @@ namespace NBXplorer.Backend
 				ReplacedBy = tx.replaced_by is null ? null : uint256.Parse(tx.replaced_by)
 			}};
 		}
-
-
-		public Task<TrackedTransaction[]> GetTransactions(TrackedSource trackedSource, uint256 txId = null, bool includeTransactions = true, CancellationToken cancellation = default) =>
-			GetTransactions(GetTransactionQuery.Create(trackedSource, txId), includeTransactions, cancellation);
 		public async Task<TrackedTransaction[]> GetTransactions(GetTransactionQuery query, bool includeTransactions = true, CancellationToken cancellation = default)
 		{
 			await using var connection = await connectionFactory.CreateConnectionHelper(Network);

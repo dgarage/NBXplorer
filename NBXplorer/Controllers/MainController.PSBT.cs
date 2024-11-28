@@ -558,7 +558,7 @@ namespace NBXplorer.Controllers
 				// First, we check for data in our history
 				foreach (var input in update.PSBT.Inputs.Where(psbtInput => NeedUTXO(update, psbtInput)))
 				{
-					txs = txs ?? await GetAnnotatedTransactions(repo, new DerivationSchemeTrackedSource(derivationScheme), NeedNonWitnessUTXO(update, input));
+					txs = txs ?? await GetAnnotatedTransactions(repo, GetTransactionQuery.Create(TrackedSource.Create(derivationScheme)), NeedNonWitnessUTXO(update, input));
 					if (txs.GetByTxId(input.PrevOut.Hash) is AnnotatedTransaction tx)
 					{
 						if (!tx.Record.Key.IsPruned)
