@@ -1195,6 +1195,7 @@
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses/unused": {
       "get": {
         "summary": "Get a new unused address",
+        "operationId": "GetUnused",
         "description": "Retrieves a new unused address from the specified derivation scheme. This endpoint allows you to generate new addresses for receiving funds, ensuring that you do not reuse addresses.",
         "tags": [
           "Derivations"
@@ -1297,6 +1298,7 @@
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/psbt/create": {
       "post": {
         "summary": "Create a PSBT",
+        "operationId": "CreatePSBT",
         "description": "A [Partially Signed Bitcoin Transaction (PSBT)](https://github.com/bitcoin/bips/blob/master/bip-0174.mediawiki) is a standard format to represent a transaction with pending signatures associated to it. A PSBT can be signed independently by many signers, and combined together before broadcast.",
         "tags": [
           "Derivations"
@@ -1441,6 +1443,7 @@
       },
       "post": {
         "summary": "Generate a hot wallet",
+        "operationId": "GenerateWallet",
         "description": "NBXplorer will generate and save a mnemonic and create a derivationScheme.",
         "tags": [
           "Derivations"
@@ -1923,6 +1926,7 @@
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions": {
       "get": {
         "summary": "Get transactions for a derivation scheme",
+        "operationId": "ListTransactionDerivationScheme",
         "description": "Retrieves a list of transactions associated with the specified derivation scheme (wallet).",
         "tags": [
           "Derivations",
@@ -2071,6 +2075,7 @@
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/utxos": {
       "get": {
         "summary": "Get UTXOs for a derivation scheme",
+        "operationId": "ListUTXOsDerivationScheme",
         "description": "Retrieves the list of unspent transaction outputs (UTXOs) associated with the specified derivation scheme.",
         "tags": [
           "Derivations"
@@ -2390,6 +2395,7 @@
     "/v1/cryptos/{cryptoCode}/connect": {
       "get": {
         "summary": "WebSocket connection for events",
+        "operationId": "WebSocket",
         "description": "Establishes a WebSocket connection to receive real-time events for the specified cryptocurrency. (Check [Query Event Stream for the data format](#tag/Events/operation/EventStream))",
         "tags": [
           "Events"
@@ -2501,6 +2507,7 @@
     "/v1/cryptos/{cryptoCode}/events/latest": {
       "get": {
         "summary": "Query event stream from most recent",
+        "operationId": "GetLatest",
         "tags": [
           "Events"
         ],
@@ -3717,6 +3724,7 @@
     "/v1/cryptos/{cryptoCode}/broadcast": {
       "post": {
         "summary": "Broadcast a transaction",
+        "operationId": "Broadcast",
         "description": "Broadcasts a raw transaction to the network for the specified cryptocurrency.",
         "tags": [
           "Transactions"

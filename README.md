@@ -10,7 +10,21 @@ The explorer supports P2SH,P2PKH,P2WPKH,P2WSH and Multi-sig derivation.
 
 This explorer is not meant to be exposed on internet, but should be used as an internal tool for tracking the UTXOs of your own service.
 
-It has a bunch of features:
+## Typical usage
+
+You start by [Creating a wallet (hot wallet)](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/GenerateWallet), or [Tracking a derivation scheme (cold wallet)](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/Track).
+
+Second, [Get the next unused address](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/GetUnused) to get paid.
+
+Listen to events through [Polling](https://dgarage.github.io/NBXplorer/#tag/Events/operation/GetLatest), [Long Polling](https://dgarage.github.io/NBXplorer/#tag/Events/operation/EventStream) or [Web Sockets](https://dgarage.github.io/NBXplorer/#tag/Events/operation/WebSocket).
+
+You can then [List transactions](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/ListTransactionDerivationScheme), [List UTXOs](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/ListUTXOsDerivationScheme), or [Create a PSBT](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/CreatePSBT) for your app to sign.
+
+When the transaction is signed, [Broadcast it](https://dgarage.github.io/NBXplorer/#tag/Transactions/operation/Broadcast).
+
+You can also track multiple derivation schemes or individual addresses by [Creating a group](https://dgarage.github.io/NBXplorer/#tag/Groups/operation/Create).
+
+## General features
 
 * Can pass arguments via environment variable, command line or configuration file
 * Automatically reconnect to your node if the connection goes temporarily down
