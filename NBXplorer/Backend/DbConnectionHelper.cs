@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NBXplorer.Backend
@@ -58,7 +59,7 @@ namespace NBXplorer.Backend
 			dsBuilder.MapComposite<OutpointRaw>("outpoint");
 			dsBuilder.MapComposite<Repository.DescriptorScriptInsert>("nbxv1_ds");
 		}
-		public async Task<bool> FetchMatches(MatchQuery matchQuery)
+		public async Task<bool> FetchMatches(MatchQuery matchQuery, CancellationToken cancellationToken)
 		{
 			var outs = new List<NewOutRaw>(matchQuery.Outs.Count);
 			var ins = new List<NewInRaw>(matchQuery.Ins.Count);
@@ -93,7 +94,14 @@ namespace NBXplorer.Backend
 			parameters.Add("in_outs", outs);
 			parameters.Add("in_ins", ins);
 			parameters.Add("has_match", dbType: System.Data.DbType.Boolean, direction: ParameterDirection.InputOutput);
-			await Connection.QueryAsync<int>("fetch_matches", parameters, commandType: CommandType.StoredProcedure);
+			var command = new CommandDefinition(
+				commandText: "fetch_matches",
+				parameters: parameters,
+				commandType: CommandType.StoredProcedure,
+				commandTimeout: ((NpgsqlConnection)Connection).CommandTimeout * 3,
+				cancellationToken: cancellationToken
+				);
+			await Connection.QueryAsync<int>(command);
 			return parameters.Get<bool>("has_match");
 		}
 
