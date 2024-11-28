@@ -567,8 +567,9 @@ namespace NBXplorer.Controllers
 						}
 						else
 						{
-							input.WitnessUtxo = tx.Record.ReceivedCoins.FirstOrDefault(c => c.Outpoint.N == input.PrevOut.N)
-								?.TxOut;
+							var matchedOutput = tx.Record.MatchedOutputs.FirstOrDefault(c => c.Index == input.PrevOut.N);
+							if (matchedOutput is { Value: Money v })
+								input.WitnessUtxo = new TxOut(v, matchedOutput.ScriptPubKey);
 						}
 					}
 				}

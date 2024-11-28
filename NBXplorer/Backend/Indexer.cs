@@ -464,7 +464,7 @@ namespace NBXplorer.Backend
 			{
 				await conn.NewBlock(slimChainedBlock);
 			}
-			var matches = await Repository.GetMatchesAndSave(conn, transactions, slimChainedBlock, now, true);
+			var matches = await Repository.GetMatches(conn, transactions, slimChainedBlock, now, blockMatch: true, useCache: true);
 			_ = AddressPoolService.GenerateAddresses(Network, matches);
 
 			long confirmations = 0;
@@ -505,8 +505,8 @@ namespace NBXplorer.Backend
 							Transaction = matches[i].Transaction,
 							TransactionHash = matches[i].TransactionHash
 						},
-						Inputs = matches[i].MatchedInputs.OrderBy(m => m.InputIndex).ToList(),
-						Outputs = matches[i].GetReceivedOutputs().ToList(),
+						Inputs = matches[i].MatchedInputs,
+						Outputs = matches[i].MatchedOutputs,
 						Replacing = matches[i].Replacing.ToList()
 					};
 

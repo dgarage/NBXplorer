@@ -1,20 +1,21 @@
 ﻿using NBitcoin;
+using NBXplorer.Models;
 using System.Collections;
 using System.Collections.Generic;
 
 namespace NBXplorer
 {
-	internal class UTXOByOutpoint : IEnumerable<KeyValuePair<OutPoint, ICoin>>
+	internal class UTXOByOutpoint : IEnumerable<KeyValuePair<OutPoint, MatchedOutput>>
 	{
-		Dictionary<OutPoint, ICoin> _Inner;
+		Dictionary<OutPoint, MatchedOutput> _Inner;
 
 		public UTXOByOutpoint(UTXOByOutpoint other)
 		{
-			_Inner = new Dictionary<OutPoint, ICoin>(other._Inner);
+			_Inner = new Dictionary<OutPoint, MatchedOutput>(other._Inner);
 		}
 		public UTXOByOutpoint()
 		{
-			_Inner = new Dictionary<OutPoint, ICoin>();
+			_Inner = new Dictionary<OutPoint, MatchedOutput>();
 		}
 
 		internal bool ContainsKey(OutPoint outpoint)
@@ -27,12 +28,12 @@ namespace NBXplorer
 			return _Inner.Remove(prevOut);
 		}
 		
-		internal bool TryAdd(OutPoint outpoint, ICoin coin)
+		internal bool TryAdd(OutPoint outpoint, MatchedOutput coin)
 		{
 			return _Inner.TryAdd(outpoint, coin);
 		}
 
-		public IEnumerator<KeyValuePair<OutPoint, ICoin>> GetEnumerator()
+		public IEnumerator<KeyValuePair<OutPoint, MatchedOutput>> GetEnumerator()
 		{
 			return _Inner.GetEnumerator();
 		}

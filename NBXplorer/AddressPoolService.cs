@@ -111,7 +111,7 @@ namespace NBXplorer
 				var derivationStrategy = (m.TrackedSource as Models.DerivationSchemeTrackedSource)?.DerivationStrategy;
 				if (derivationStrategy == null)
 					continue;
-				foreach (var feature in m.KnownKeyPathMapping.Select(kv => keyPathTemplates.GetDerivationFeature(kv.Value)))
+				foreach (var feature in m.InOuts.Select(kv => keyPathTemplates.GetDerivationFeature(kv.KeyPath)).Distinct())
 				{
 					refill.Add(GenerateAddresses(network, derivationStrategy, feature));
 				}

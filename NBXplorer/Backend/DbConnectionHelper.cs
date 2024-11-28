@@ -41,7 +41,11 @@ namespace NBXplorer.Backend
 			return Connection.DisposeAsync();
 		}
 
-		public record NewOut(uint256 txId, int idx, Script script, IMoney value);
+		public record NewOut(uint256 txId, int idx, Script script, IMoney value)
+		{
+			public static NewOut FromCoin(ICoin c)
+				=> new(c.Outpoint.Hash, (int)c.Outpoint.N, c.TxOut.ScriptPubKey, c.Amount);
+		}
 		public record NewIn(uint256 txId, int idx, uint256 spentTxId, int spentIdx);
 		public record NewOutRaw(string tx_id, long idx, string script, long value, string asset_id);
 		public record NewInRaw(string tx_id, long idx, string spent_tx_id, long spent_idx);
@@ -92,19 +96,20 @@ namespace NBXplorer.Backend
 			await Connection.QueryAsync<int>("fetch_matches", parameters, commandType: CommandType.StoredProcedure);
 			return parameters.Get<bool>("has_match");
 		}
+
 		public record SaveTransactionRecord(Transaction? Transaction, uint256 Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset SeenAt)
 		{
-			public static SaveTransactionRecord Create(TrackedTransaction t) => new SaveTransactionRecord(t.Transaction, t.TransactionHash, t.BlockHash, t.BlockIndex, t.BlockHeight, t.IsCoinBase, t.FirstSeen);
-			public static SaveTransactionRecord Create(SlimChainedBlock slimBlock, Transaction tx, int? blockIndex, DateTimeOffset now) => new SaveTransactionRecord(
+			public static SaveTransactionRecord Create(Transaction? tx = null, uint256? txHash = null, SlimChainedBlock? slimBlock = null, int? blockIndex = null, DateTimeOffset? seenAt = null) => new SaveTransactionRecord(
 						tx,
-						tx.GetHash(),
+						txHash ?? tx?.GetHash() ?? throw new ArgumentException("tx or txHash is expected"),
 						slimBlock?.Hash,
 						blockIndex,
 						slimBlock?.Height,
-						tx.IsCoinBase,
-						now
+						tx?.IsCoinBase is true,
+						seenAt ?? DateTimeOffset.UtcNow
 					);
 		}
+
 		public async Task SaveTransactions(IEnumerable<SaveTransactionRecord> transactions)
 		{
 			var parameters = transactions
@@ -188,7 +193,6 @@ namespace NBXplorer.Backend
 				return null;
 			return Network.Serializer.ToObject<TMetadata>(result);
 		}
-
 		public async Task<HashSet<uint256>> GetUnconfirmedTxs()
 		{
 			var txs = await Connection.QueryAsync<string>("SELECT tx_id FROM txs WHERE code=@code AND mempool IS TRUE;", new { code = Network.CryptoCode });
