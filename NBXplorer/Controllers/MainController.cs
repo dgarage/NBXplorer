@@ -733,6 +733,57 @@ namespace NBXplorer.Controllers
 			}
 		}
 
+		[HttpPost]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/rescan-utxos")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(false, false, true)]
+		public async Task<IActionResult> ImportUTXOs(TrackedSourceContext trackedSourceContext, [FromBody] ImportUTXORequest request, CancellationToken cancellationToken = default)
+		{
+			var repo = trackedSourceContext.Repository;
+			if (request.Utxos?.Any() is not true)
+				return Ok();
+
+			var rpc = trackedSourceContext.RpcClient;
+
+			var coinToTxOut = await rpc.GetTxOuts(request.Utxos);
+			var bestBlocksToFetch = coinToTxOut.Select(c => c.Value.BestBlock).ToHashSet().ToList();
+			var bestBlocks = await rpc.GetBlockHeadersAsync(bestBlocksToFetch, cancellationToken);
+			var coinsWithHeights = coinToTxOut
+				.Select(c => new
+				{
+					BestBlock = bestBlocks.ByHashes.TryGet(c.Value.BestBlock),
+					Outpoint = c.Key,
+					RPCTxOut = c.Value
+				})
+				.Select(c => new
+				{
+					Height = c.RPCTxOut.Confirmations == 0 ? null : new int?(c.BestBlock.Height - c.RPCTxOut.Confirmations + 1),
+					c.Outpoint,
+					c.RPCTxOut
+				})
+				.ToList();
+			var blocks = coinsWithHeights.Where(c => c.Height.HasValue).Select(c => c.Height.Value).Distinct().ToList();
+			var blockHeaders = await rpc.GetBlockHeadersAsync(blocks, cancellationToken);
+
+			var now = DateTimeOffset.UtcNow;
+			var records = new List<SaveTransactionRecord>();
+			MatchQuery query = new MatchQuery(coinsWithHeights.Select(c => new Coin(c.Outpoint, c.RPCTxOut.TxOut)));
+			foreach (var c in coinsWithHeights)
+			{
+				var block = c.Height is int h ? blockHeaders.ByHeight.TryGet(h) : null;
+				var record = SaveTransactionRecord.Create(
+									txHash: c.Outpoint.Hash,
+									slimBlock: block?.ToSlimChainedBlock(),
+									seenAt: Extensions.MinDate(block?.Time ?? now, now));
+				records.Add(record);
+			}
+			await repo.SaveBlocks(blockHeaders);
+			repo.RemoveFromCache(records.Select(r => r.Id));
+			var trackedTransactions = await repo.SaveMatches(query, records.ToArray());
+			_ = AddressPoolService.GenerateAddresses(trackedSourceContext.Network, trackedTransactions);
+
+			return Ok();
+		}
+
 		internal async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, TrackedSource trackedSource, bool includeTransaction, uint256 txId = null)
 		{
 			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, this.HttpContext?.RequestAborted ?? default);

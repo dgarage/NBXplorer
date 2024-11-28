@@ -2020,6 +2020,45 @@
         }
       }
     },
+    "/v1/cryptos/{cryptoCode}/rescan-utxos": {
+      "post": {
+        "summary": "Rescan utxos",
+        "description": "Verifies that the UTXOs are unspent and save matches to wallets tracked by this server",
+        "tags": [
+          "Blockchain"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "UTXOs": {
+                    "type": "array",
+                    "description": "The outpoints to rescan",
+                    "items": {
+                      "type": "string",
+                      "example": "f3e34c3ae29c79ddf807de0ab3b40da7862adb1b175b7421d89ec78446a52b13-1"
+                    },
+                    "example": [ "f3e34c3ae29c79ddf807de0ab3b40da7862adb1b175b7421d89ec78446a52b13-1", "fd97fb1de63fcdb9fa1614a74775e84818b2dbd79fe36aef9e0c18f9fad03742-2" ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rescan initiated successfully."
+          }
+        }
+      }
+    },
     "/v1/cryptos/{cryptoCode}/psbt/update": {
       "post": {
         "summary": "Update Partially Signed Bitcoin Transaction",

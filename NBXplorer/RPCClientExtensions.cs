@@ -379,5 +379,22 @@ namespace NBXplorer
 			}
 			throw new NotSupportedException($"Bug of NBXplorer (ERR 3083), please notify the developers");
 		}
+		public static async Task<Dictionary<OutPoint, GetTxOutResponse>> GetTxOuts(this RPCClient rpc, IList<OutPoint> outpoints)
+		{
+			var batch = rpc.PrepareBatch();
+			var txOuts = outpoints.Select(o => batch.GetTxOutAsync(o.Hash, (int)o.N, true)).ToArray();
+			await batch.SendBatchAsync();
+			var result = new Dictionary<OutPoint, GetTxOutResponse>();
+			int i = 0;
+			foreach (var txOut in txOuts)
+			{
+				var outpoint = outpoints[i];
+				var r = await txOut;
+				if (r != null)
+					result.TryAdd(outpoint, r);
+				i++;
+			}
+			return result;
+		}
 	}
 }

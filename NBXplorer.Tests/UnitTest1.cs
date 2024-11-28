@@ -4269,5 +4269,127 @@ namespace NBXplorer.Tests
 			group = new GroupTrackedSource((await tester.Client.CreateGroupAsync(Cancel)).GroupId);
 			Assert.True(await tester.Client.IsTrackedAsync(group, Cancel));
 		}
+		[Fact]
+		public async Task CanImportUTXOs()
+		{
+			using var tester = ServerTester.Create();
+
+			var wallet1 = await tester.Client.CreateGroupAsync();
+			var wallet1TS = new GroupTrackedSource(wallet1.GroupId);
+
+			var k = new Key();
+			var kAddress = k.GetAddress(ScriptPubKeyType.Segwit, tester.Network);
+
+			// We use this one because it allows us to use WaitForTransaction later
+			var legacy = new AddressTrackedSource(new Key().GetAddress(ScriptPubKeyType.Legacy, tester.Network));
+			await tester.Client.TrackAsync(legacy);
+
+			var kScript = kAddress.ScriptPubKey;
+
+			// test 1: create a script and send 2 utxos to it(from diff txs), without confirming
+			// import the first one, verify it is unconfirmed, confirm, then the second one and see it is confirmed
+
+			var tx = await tester.RPC.SendToAddressAsync(kAddress, Money.Coins(1.0m));
+			var tx2 = await tester.RPC.SendToAddressAsync(kAddress, Money.Coins(1.0m));
+			var rawTx = await tester.RPC.GetRawTransactionAsync(tx);
+			var rawTx2 = await tester.RPC.GetRawTransactionAsync(tx2);
+			var utxo = rawTx.Outputs.AsIndexedOutputs().First(o => o.TxOut.ScriptPubKey == kScript);
+			var utxo2 = rawTx2.Outputs.AsIndexedOutputs().First(o => o.TxOut.ScriptPubKey == kScript);
+
+			// Making sure that tx and tx2 are processed before continuing
+			var tx3 = await tester.RPC.SendToAddressAsync(legacy.Address, Money.Coins(1.0m));
+			var notif = tester.Notifications.WaitForTransaction(legacy.Address, tx3);
+			Assert.Equal(legacy, notif.TrackedSource);
+
+			await tester.Client.AddGroupAddressAsync("BTC", wallet1.GroupId, new[] { kAddress.ToString() });
+			await tester.Client.ImportUTXOs("BTC", new ImportUTXORequest()
+			{
+				Utxos = [utxo.ToCoin().Outpoint]
+			});
+
+			var utxos = await tester.Client.GetUTXOsAsync(wallet1TS);
+			var matched = Assert.Single(utxos.Unconfirmed.UTXOs);
+			Assert.Equal(kAddress, matched.Address);
+
+			// tx2 didn't matched when it was in the mempool, so the block will not match it either because of the cache.
+			tester.GetService<RepositoryProvider>().GetRepository("BTC").RemoveFromCache(new[] { tx2 });
+			tester.Notifications.WaitForBlocks(await tester.RPC.GenerateAsync(1));
+			utxos = await tester.Client.GetUTXOsAsync(wallet1TS);
+			Assert.Equal(2, utxos.Confirmed.UTXOs.Count);
+			Assert.Contains(tx, utxos.Confirmed.UTXOs.Select(u => u.Outpoint.Hash));
+			Assert.Contains(tx2, utxos.Confirmed.UTXOs.Select(u => u.Outpoint.Hash));
+
+			await tester.Client.ImportUTXOs("BTC", new ImportUTXORequest()
+			{
+				Utxos = [utxo2.ToCoin().Outpoint]
+			});
+
+			utxos = await tester.Client.GetUTXOsAsync(wallet1TS);
+			Assert.Equal(2, utxos.Confirmed.UTXOs.Count);
+			//utxo2 may be confirmed but we should have saved the timestamp based on block time or current date
+			var utxoInfo = utxos.Confirmed.UTXOs.First(u => u.ScriptPubKey == utxo2.TxOut.ScriptPubKey);
+			Assert.NotEqual(NBitcoin.Utils.UnixTimeToDateTime(0), utxoInfo.Timestamp);
+
+			//test2: try adding in fake utxos or spent ones
+			var fakescript = new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, tester.Network).ScriptPubKey;
+			var fakeUtxo = new Coin(new OutPoint(uint256.One, 1), new TxOut(Money.Coins(1.0m), fakescript));
+			var kToSpend = new Key();
+			var kToSpendAddress = kToSpend.GetAddress(ScriptPubKeyType.Segwit, tester.Network);
+			var tospendtx = await tester.RPC.SendToAddressAsync(kToSpendAddress, Money.Coins(1.0m));
+			var tospendrawtx = await tester.RPC.GetRawTransactionAsync(tospendtx);
+			var tospendutxo = tospendrawtx.Outputs.AsIndexedOutputs().First(o => o.TxOut.ScriptPubKey == kToSpendAddress.ScriptPubKey);
+			var validScript = new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, tester.Network).ScriptPubKey;
+			var spendingtx = tester.Network.CreateTransactionBuilder()
+				.AddKeys(kToSpend)
+				.AddCoins(new Coin(tospendutxo))
+				.SendEstimatedFees(new FeeRate(100m))
+				.SendAll(validScript).BuildTransaction(true);
+			await tester.RPC.SendRawTransactionAsync(spendingtx);
+
+			var validScriptUtxo = spendingtx.Outputs.AsIndexedOutputs().First(o => o.TxOut.ScriptPubKey == validScript);
+
+			await tester.Client.ImportUTXOs("BTC", new ImportUTXORequest()
+			{
+				Utxos =
+				[
+					fakeUtxo.Outpoint,
+					tospendutxo.ToCoin().Outpoint,
+					validScriptUtxo.ToCoin().Outpoint
+				]
+			});
+
+			utxos = await tester.Client.GetUTXOsAsync(wallet1TS);
+			Assert.Empty(utxos.Unconfirmed.UTXOs);
+
+			// let's test add an utxo after it has been mined
+			var yoScript = new Key().PubKey.GetAddress(ScriptPubKeyType.Segwit, tester.Network);
+			var yoTxId = await tester.SendToAddressAsync(yoScript, Money.Coins(1.0m));
+			var yoTx = await tester.RPC.GetRawTransactionAsync(yoTxId);
+			var yoUtxo = yoTx.Outputs.AsIndexedOutputs().First(o => o.TxOut.ScriptPubKey == yoScript.ScriptPubKey);
+
+			await tester.Client.ImportUTXOs("BTC", new ImportUTXORequest()
+			{
+				Utxos = [yoUtxo.ToCoin().Outpoint]
+			});
+
+			utxos = await tester.Client.GetUTXOsAsync(wallet1TS);
+			Assert.Empty(utxos.Unconfirmed.UTXOs);
+
+			var aaa = await tester.RPC.GenerateAsync(1);
+			tester.Notifications.WaitForBlocks(aaa);
+			utxos = await tester.Client.GetUTXOsAsync(wallet1TS);
+			Assert.Empty(utxos.Unconfirmed.UTXOs);
+
+			await tester.Client.AddGroupAddressAsync("BTC", wallet1.GroupId, new[] { yoScript.ToString() });
+			await tester.Client.ImportUTXOs("BTC", new ImportUTXORequest()
+			{
+				Utxos = [yoUtxo.ToCoin().Outpoint]
+			});
+
+			utxos = await tester.Client.GetUTXOsAsync(wallet1TS);
+			var confirmedUtxo = utxos.Confirmed.UTXOs.Single(utxo1 => utxo1.ScriptPubKey == yoScript.ScriptPubKey);
+			Assert.Equal(1, confirmedUtxo.Confirmations);
+			Assert.NotEqual(NBitcoin.Utils.UnixTimeToDateTime(0), confirmedUtxo.Timestamp);
+		}
 	}
 }
