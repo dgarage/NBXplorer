@@ -1772,6 +1772,154 @@
         }
       }
     },
+    "/v1/cryptos/{cryptoCode}/groups/{groupId}/transactions": {
+      "get": {
+        "summary": "Get transactions for a group",
+        "description": "Retrieves a list of transactions associated with the specified group.",
+        "tags": [
+          "Groups",
+          "Transactions"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "$ref": "#/components/parameters/GroupId"
+          },
+          {
+            "name": "includeTransaction",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Optional. If set to `true`, each transaction in the response will include the raw transaction data in hexadecimal format (`transaction` field). Default is `false`."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1732769702,
+            "description": "Indicates the earliest date from which transactions should be retrieved, (default: null, unix time)"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "example": 1732769717,
+            "description": "Indicates the latest date up to which transactions should be retrieved, (default: null, unix time"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transactions retrieved successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransactionResponse"
+                  }
+                },
+                "examples": {
+                  "withoutTransaction": {
+                    "summary": "Without raw transaction data",
+                    "value": [
+                      {
+                        "blockHash": "0000000000000000000...",
+                        "confirmations": 3,
+                        "height": 600000,
+                        "transactionId": "abcd1234...",
+                        "outputs": [
+                          {
+                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                            "index": 0,
+                            "value": 5000000000,
+                            "keyPath": "0/0"
+                          }
+                        ],
+                        "inputs": [
+                          {
+                            "inputIndex": 0,
+                            "transactionId": "efgh5678...",
+                            "index": 1,
+                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                            "value": 5000000000,
+                            "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
+                          }
+                        ],
+                        "timestamp": 1638307200,
+                        "balanceChange": 0,
+                        "replaceable": false,
+                        "replacing": null,
+                        "replacedBy": null
+                      }
+                    ]
+                  },
+                  "withTransaction": {
+                    "summary": "With raw transaction data",
+                    "value": [
+                      {
+                        "blockHash": "0000000000000000000...",
+                        "confirmations": 3,
+                        "height": 600000,
+                        "transactionId": "abcd1234...",
+                        "transaction": "0200000001abcd1234...",
+                        "outputs": [
+                          {
+                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                            "index": 0,
+                            "value": 5000000000,
+                            "keyPath": "0/0"
+                          }
+                        ],
+                        "inputs": [
+                          {
+                            "inputIndex": 0,
+                            "transactionId": "efgh5678...",
+                            "index": 1,
+                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
+                            "value": 5000000000,
+                            "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
+                          }
+                        ],
+                        "timestamp": 1638307200,
+                        "balanceChange": 0,
+                        "replaceable": false,
+                        "replacing": null,
+                        "replacedBy": null
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Derivation scheme not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Derivation scheme not found.",
+                  "code": 404
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/transactions": {
       "get": {
         "summary": "Get transactions for a derivation scheme",
@@ -1816,16 +1964,6 @@
             },
             "example": 1732769717,
             "description": "Indicates the latest date up to which transactions should be retrieved, (default: null, unix time"
-          },
-          {
-            "name": "accountedOnly",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
-            },
-            "description": "If true, only returns transactions that affect the wallet's balance."
           }
         ],
         "responses": {
