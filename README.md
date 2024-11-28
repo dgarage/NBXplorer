@@ -4,11 +4,13 @@
 [![Docker Automated buil](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/nicolasdorier/nbxplorer/)
 [![CircleCI](https://circleci.com/gh/dgarage/NBXplorer.svg?style=svg)](https://circleci.com/gh/dgarage/NBXplorer)
 
-A minimalist UTXO tracker for HD Wallets.
-The goal is to have a flexible, .NET based UTXO tracker for HD wallets.
-The explorer supports P2SH,P2PKH,P2WPKH,P2WSH and Multi-sig derivation.
+A minimalist UTXO tracker for HD wallets.
+The goal is to provide a flexible, .NET-based UTXO tracker for HD wallets.
+The explorer supports P2SH, P2PKH, P2WPKH, P2WSH, Taproot and multi-signature derivations.
 
-This explorer is not meant to be exposed on internet, but should be used as an internal tool for tracking the UTXOs of your own service.
+It works on a pruned node and indexes only what you track.
+
+This explorer is not intended to be exposed to the internet; it should be used as an infrastructure tool for tracking the UTXOs of your own service.
 
 ## Typical usage
 
