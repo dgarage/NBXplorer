@@ -201,9 +201,10 @@ namespace NBXplorer.Configuration
 			RabbitMqPassword = config.GetOrDefault<string>("rmqpass", "");
 			RabbitMqTransactionExchange = config.GetOrDefault<string>("rmqtranex", "");
 			RabbitMqBlockExchange = config.GetOrDefault<string>("rmqblockex", "");
+
 			var obsolete = string.Join(", ",
 				new[] { "dbtrie", "automigrate", "nomigrateevts", "nomigraterawtxs", "cachechain", "deleteaftermigration", "dbcache" }
-				.Where(o => config.GetOrDefault<bool>(o, false)));
+				.Where(o => TryGetOrDefault<bool>(config, o, false)));
 
 			if (obsolete != string.Empty)
 			{
@@ -213,6 +214,18 @@ namespace NBXplorer.Configuration
 					Logs.Explorer.LogWarning($"Options '{obsolete}' is obsolete and ignored...");
 			}
 			return this;
+		}
+
+		private T TryGetOrDefault<T>(IConfiguration conf, string key, T defaultValue)
+		{
+			try
+			{
+				return conf.GetOrDefault<T>(key, defaultValue);
+			}
+			catch
+			{
+				return defaultValue;
+			}
 		}
 
 		private int GetPort(EndPoint nodeEndpoint)
