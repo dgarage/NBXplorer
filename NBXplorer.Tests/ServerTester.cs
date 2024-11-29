@@ -152,7 +152,7 @@ namespace NBXplorer.Tests
 				keyValues.Add(("rmqtranex", RabbitMqTestConfig.RabbitMqTransactionExchange));
 				keyValues.Add(("rmqblockex", RabbitMqTestConfig.RabbitMqBlockExchange));
 			}
-			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }
+			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value })
 			.Concat(AdditionalFlags)
 			.Concat(additionalFlags).ToArray();
 			Host = new WebHostBuilder()
