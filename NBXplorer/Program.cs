@@ -7,6 +7,7 @@ using NBXplorer.Logging;
 using Microsoft.Extensions.Configuration;
 using CommandLine;
 using System.Runtime.CompilerServices;
+using System.Reflection;
 
 [assembly: InternalsVisibleTo("NBXplorer.Tests")]
 namespace NBXplorer
@@ -15,8 +16,11 @@ namespace NBXplorer
 	{
 		public static void Main(string[] args)
 		{
+			var version = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
 			var processor = new ConsoleLoggerProcessor();
 			Logs.Configure(new FuncLoggerFactory(i => new CustomerConsoleLogger(i, (a, b) => true, null, processor)));
+			if (version is { InformationalVersion: { } v })
+			Logs.Configuration.LogInformation($"NBXplorer version {v.Split('+')[0]}");
 			IWebHost host = null;
 			try
 			{

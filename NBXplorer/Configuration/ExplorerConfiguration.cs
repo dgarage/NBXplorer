@@ -139,7 +139,6 @@ namespace NBXplorer.Configuration
 						}
 					}
 					
-					chainConfiguration.HasTxIndex = config.GetOrDefault<bool>($"{network.CryptoCode}.hastxindex", false);
 					chainConfiguration.ExposeRPC = config.GetOrDefault<bool>($"{network.CryptoCode}.exposerpc", exposeRPCGlobal);
 					chainConfiguration.NoWarmup = config.GetOrDefault<bool>($"nowarmup", false);
 					ChainConfigurations.Add(chainConfiguration);

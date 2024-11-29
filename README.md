@@ -20,7 +20,7 @@ This explorer is not intended to be exposed to the internet; it should be used a
 4. `Electrum protocol` is cumbersome for HD wallets.
 5. `Bitcoin Core RPC` is inflexible and difficult to use. It also scales poorly when a wallet has too many addresses or UTXOs.
 6. `Bitcoin Core RPC` supports multiple wallets but isn't designed to handle thousands of them. Having too many wallets will not scale.
-7. While NBXplorer exposes an API, it also allows you to query the data using the most expressive and flexible language designed for this purpose: `SQL`.
+7. While NBXplorer exposes an [API](https://dgarage.github.io/NBXplorer/), it also allows you to query the data using the most expressive and flexible language designed for this purpose: [SQL](./docs/docs/Postgres-Schema.md).
 
 ## Typical usage
 

@@ -3844,7 +3844,7 @@
     "/cryptos/{cryptoCode}/node/rpc": {
       "post": {
         "summary": "Proxy RPC call to the underlying node",
-        "description": "Allows you to make RPC calls to the underlying cryptocurrency node (e.g., Bitcoin Core) via NBXplorer. This endpoint acts as a proxy, forwarding your RPC requests to the node and returning the node's responses. Go to https://www.jsonrpc.org/specification and https://developer.bitcoin.org/reference/rpc for more info.",
+        "description": "Allows you to make RPC calls to the underlying cryptocurrency node (e.g., Bitcoin Core) via NBXplorer. This endpoint acts as a proxy, forwarding your RPC requests to the node and returning the node's responses.\n\nBy default, only a handful of RPC methods are authorized. You can use [configuration](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#configuration) `--btcexposerpc` or `NBXPLORER_BTCEXPOSERPC=1` to allow all methods.\n\nGo to [The JSON-RPC specification page](https://www.jsonrpc.org/specification) and the [Bitcoin Core RPC page](https://developer.bitcoin.org/reference/rpc) for more information.",
         "tags": [
           "Blockchain"
         ],
