@@ -21,6 +21,7 @@ This explorer is not intended to be exposed to the internet; it should be used a
 5. `Bitcoin Core RPC` is inflexible and difficult to use. It also scales poorly when a wallet has too many addresses or UTXOs.
 6. `Bitcoin Core RPC` supports multiple wallets but isn't designed to handle thousands of them. Having too many wallets will not scale.
 7. While NBXplorer exposes an [API](https://dgarage.github.io/NBXplorer/), it also allows you to query the data using the most expressive and flexible language designed for this purpose: [SQL](./docs/docs/Postgres-Schema.md).
+8. Alternative SaaS infrastructure providers depend on third parties, forcing you to compromise your privacy by sharing financial information while relinquishing control over API changes and service level agreements (SLAs).
 
 ## Typical usage
 
