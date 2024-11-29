@@ -41,7 +41,13 @@ namespace NBXplorer
 					.UseConfiguration(conf)
 					.ConfigureLogging(l =>
 					{
-						l.SetMinimumLevel(LogLevel.Debug);
+						l.AddFilter("Microsoft", LogLevel.Trace);
+						l.AddFilter("System.Net.Http.HttpClient", LogLevel.Trace);
+						l.AddFilter("NBXplorer.Authentication.BasicAuthenticationHandler", LogLevel.Trace);
+						if (conf.GetOrDefault<bool>("verbose", false))
+						{
+							l.SetMinimumLevel(LogLevel.Trace);
+						}
 						l.AddProvider(new CustomConsoleLogProvider(processor));
 					})
 					.UseStartup<Startup>()
