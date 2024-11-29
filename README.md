@@ -18,9 +18,9 @@ This explorer is not intended to be exposed to the internet; it should be used a
 2. `Electrum wallet` only supports a single cryptocurrency on a single server. If you are an exchange, you would end up running multiple versions of barely maintained Electrum instances.
 3. `Personal Electrum Server` supports only a single wallet.
 4. `Electrum protocol` is cumbersome for HD wallets.
-3. `Bitcoin Core RPC` is inflexible and difficult to use. It also scales poorly when a wallet has too many addresses or UTXOs.
-4. `Bitcoin Core RPC` supports multiple wallets but isn't designed to handle thousands of them. Having too many wallets will not scale.
-5. While NBXplorer exposes an API, it also allows you to query the data using the most expressive and flexible language designed for this purpose: `SQL`.
+5. `Bitcoin Core RPC` is inflexible and difficult to use. It also scales poorly when a wallet has too many addresses or UTXOs.
+6. `Bitcoin Core RPC` supports multiple wallets but isn't designed to handle thousands of them. Having too many wallets will not scale.
+7. While NBXplorer exposes an API, it also allows you to query the data using the most expressive and flexible language designed for this purpose: `SQL`.
 
 ## Typical usage
 
