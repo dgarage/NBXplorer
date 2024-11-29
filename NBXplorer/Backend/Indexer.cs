@@ -420,7 +420,7 @@ namespace NBXplorer.Backend
 		private async Task<BlockLocator> GetDefaultCurrentLocation(CancellationToken token)
 		{
 			if (ChainConfiguration.StartHeight > BlockchainInfo.Headers)
-				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight should not be above the current tip");
+				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight ({ChainConfiguration.StartHeight}) should not be above the current tip ({BlockchainInfo.Headers})");
 			BlockLocator blockLocator = null;
 			if (ChainConfiguration.StartHeight == -1)
 			{
@@ -464,7 +464,7 @@ namespace NBXplorer.Backend
 			{
 				await conn.NewBlock(slimChainedBlock);
 			}
-			var matches = await Repository.GetMatches(conn, transactions, slimChainedBlock, now, blockMatch: true, useCache: true);
+			var matches = await Repository.GetMatches(conn, transactions, slimChainedBlock, now, useCache: true, cancellationToken: cts.Token);
 			_ = AddressPoolService.GenerateAddresses(Network, matches);
 
 			long confirmations = 0;

@@ -13,7 +13,6 @@ using NBitcoin.RPC;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NBitcoin.Altcoins.Elements;
-using NBXplorer.Altcoins.Liquid;
 using NBXplorer.Client;
 using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
@@ -522,7 +521,7 @@ namespace NBXplorer.Backend
 		}
 		record UpdateMatchesOuts(string tx_id, long idx, string asset_id, long value);
 
-		public async Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool blockMatch, bool useCache)
+		public async Task<TrackedTransaction[]> GetMatches(DbConnectionHelper connection, IList<Transaction> txs, SlimChainedBlock slimBlock, DateTimeOffset now, bool useCache, CancellationToken cancellationToken = default)
 		{
 			List<SaveTransactionRecord> records = new(txs.Count);
 			foreach (var tx in txs)
@@ -532,7 +531,7 @@ namespace NBXplorer.Backend
 				int i = 0;
 				foreach (var tx in txs)
 				{
-					var record = SaveTransactionRecord.Create(tx, slimBlock: slimBlock, blockIndex: blockMatch ? i : null, seenAt: now);
+					var record = SaveTransactionRecord.Create(tx, slimBlock: slimBlock, blockIndex: i, seenAt: now);
 					if (!useCache || !noMatchCache.Contains(record.Id))
 						records.Add(record);
 					i++;
@@ -546,9 +545,9 @@ namespace NBXplorer.Backend
 					records.Add(record);
 				}
 			}
-			var query = MatchQuery.FromTransactions(records.Select(r => r.Transaction), MinUtxoValue);
 
-			var matches = await SaveMatches(connection, query, records);
+			var query = MatchQuery.FromTransactions(records.Select(r => r.Transaction), MinUtxoValue);
+			var matches = await SaveMatches(connection, query, records, cancellationToken);
 
 			// Let's remember unconfirmed that didn't match so the processing of a block is faster
 			if (useCache && slimBlock is null)
@@ -561,7 +560,7 @@ namespace NBXplorer.Backend
 			}
 			return matches.TrackedTransactions;
 		}
-		async Task<(TrackedTransaction[] TrackedTransactions, SaveTransactionRecord[] Saved)> SaveMatches(DbConnectionHelper connection, MatchQuery matchQuery, IList<SaveTransactionRecord> records)
+		async Task<(TrackedTransaction[] TrackedTransactions, SaveTransactionRecord[] Saved)> SaveMatches(DbConnectionHelper connection, MatchQuery matchQuery, IList<SaveTransactionRecord> records, CancellationToken cancellationToken = default)
 		{
 			HashSet<uint256> unconfTxs = await connection.GetUnconfirmedTxs();
 			Dictionary<uint256, SaveTransactionRecord> txs = new();
@@ -581,7 +580,7 @@ namespace NBXplorer.Backend
 
 			var elementContext = Network.IsElement ? new ElementMatchContext() : null;
 
-			if (!await connection.FetchMatches(matchQuery))
+			if (!await connection.FetchMatches(matchQuery, cancellationToken))
 				goto end;
 			using (var result = await connection.Connection.QueryMultipleAsync(
 				"SELECT * FROM matched_outs;" +
