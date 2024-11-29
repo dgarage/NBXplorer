@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NBXplorer.Backend;
+using NBXplorer.Logging;
 using Npgsql;
 using System.Collections.Generic;
 using System.Globalization;
@@ -98,6 +99,7 @@ namespace NBXplorer.HostedServices
 
 		public Task StopAsync(CancellationToken cancellationToken)
 		{
+			Logs.Explorer.LogInformation("Clearing all connection pools");
 			Npgsql.NpgsqlConnection.ClearAllPools();
 			return Task.CompletedTask;
 		}

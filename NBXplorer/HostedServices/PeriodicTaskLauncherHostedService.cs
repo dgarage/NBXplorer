@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NBXplorer.Logging;
 using System;
 using System.Linq;
 using System.Threading;
@@ -43,10 +44,13 @@ namespace NBXplorer.HostedServices
 						var t = (IPeriodicTask)ServiceProvider.GetService(job.PeriodicTaskType);
 						try
 						{
+							Logs.Explorer.LogInformation("Running " + t.GetType().Name);
 							await t.Do(token);
+							Logs.Explorer.LogInformation("Done " + t.GetType().Name);
 						}
 						catch when (token.IsCancellationRequested)
 						{
+							Logs.Explorer.LogInformation("Cancelled " + t.GetType().Name);
 							throw;
 						}
 						catch (Exception ex)
@@ -83,10 +87,12 @@ namespace NBXplorer.HostedServices
 
 		public async Task StopAsync(CancellationToken cancellationToken)
 		{
+			Logs.Explorer.LogInformation("Stopping Period task");
 			cts?.Cancel();
 			jobs.Writer.TryComplete();
 			if (loop is not null)
 				await loop;
+			Logs.Explorer.LogInformation("Stopped Period task");
 		}
 	}
 }

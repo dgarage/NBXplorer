@@ -6,6 +6,8 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using NBXplorer.Backend;
+using NBXplorer.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace NBXplorer.HostedServices
 {
@@ -50,6 +52,7 @@ namespace NBXplorer.HostedServices
 
 		public Task StopAsync(CancellationToken cancellationToken)
 		{
+			Logs.Explorer.LogInformation("RPCReadyFile stop");
 			disposable?.Dispose();
 			foreach (var indexer in Indexers.All())
 				EnsureRPCReadyFileDeleted(indexer.Network);
