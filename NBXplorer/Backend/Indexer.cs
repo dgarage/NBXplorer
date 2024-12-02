@@ -328,8 +328,16 @@ namespace NBXplorer.Backend
 				else
 				{
 					var addressStr = peer.Address is IPEndPoint end ? end.Address.ToString() : peer.Address?.ToString();
-					Logger.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
-						$" you should add \"whitelist={addressStr}\" to the configuration file of your node. (Or use whitebind)");
+
+					if (addressStr == "127.0.0.1" || addressStr == "::1")
+					{
+						Logger.LogInformation($"Connection is from localhost, no whitelist needed.");
+					}
+					else 
+					{
+						Logger.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
+						    $" you should add \"whitelist={addressStr}\" to the configuration file of your node. (Or use whitebind)");
+					}
 				}
 
 				int waitTime = 10;
