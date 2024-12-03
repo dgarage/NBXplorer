@@ -850,7 +850,7 @@ namespace NBXplorer.Tests
 			});
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 			Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
-			Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Value.KeyPath == newAddress.KeyPath)));
+			Assert.Single(psbt2.PSBT.Outputs, o => o.HDKeyPaths.Any(h => h.Value.KeyPath == newAddress.KeyPath));
 			foreach (var input in psbt2.PSBT.GetGlobalTransaction().Inputs)
 			{
 				Assert.Equal(Sequence.Final, input.Sequence);
@@ -915,7 +915,7 @@ namespace NBXplorer.Tests
 
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 			Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
-			var selfchange = Assert.Single(psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any(h => h.Key.GetAddress(type, tester.Network).ScriptPubKey == newAddress.ScriptPubKey)));
+			var selfchange = Assert.Single(psbt2.PSBT.Outputs, o => o.HDKeyPaths.Any(h => h.Key.GetAddress(type, tester.Network).ScriptPubKey == newAddress.ScriptPubKey));
 			Assert.All(psbt2.PSBT.Inputs.Concat<PSBTCoin>(new[] { selfchange }).SelectMany(i => i.HDKeyPaths), i =>
 			{
 				Assert.Equal(rootHD, i.Value.MasterFingerprint);
@@ -1151,8 +1151,7 @@ namespace NBXplorer.Tests
 			// Make sure there is no dups events on unconf txs
 			await Task.Delay(100);
 			var evts = await tester.Client.CreateLongPollingNotificationSession().GetEventsAsync();
-			Assert.Single(evts.OfType<NewTransactionEvent>()
-				.Where(t => t.BlockId is null && t.TransactionData.TransactionHash == bp.GetHash()));
+			Assert.Single(evts.OfType<NewTransactionEvent>(), t => t.BlockId is null && t.TransactionData.TransactionHash == bp.GetHash());
 		}
 
 		[TheoryWithTimeout]
@@ -3941,7 +3940,7 @@ namespace NBXplorer.Tests
 
 					var txInfos = tester.Client.GetTransactions(userDerivationScheme).UnconfirmedTransactions.Transactions;
 					var assetMoney2 = Assert.IsType<AssetMoney>(Assert.Single(Assert.IsType<MoneyBag>(txInfos[1].BalanceChange)));
-					Assert.Empty(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange).Where(m => !m.IsUnknown()));
+					Assert.DoesNotContain(Assert.IsType<MoneyBag>(txInfos[0].BalanceChange), m => !m.IsUnknown());
 
 					Assert.Equal(assetMoney, assetMoney2);
 
