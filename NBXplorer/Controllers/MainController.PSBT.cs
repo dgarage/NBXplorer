@@ -450,21 +450,22 @@ namespace NBXplorer.Controllers
 				// * HDTaprootKeyPaths is used instead of HDKeyPaths
 				// * TaprootSighashType is explicitely set to default
 				// * Fill up TaprootInternalKey
-				foreach (var input in update.PSBT.Inputs)
+				foreach (var c in update.PSBT.Inputs.OfType<PSBTCoin>().Concat(update.PSBT.Outputs))
 				{
-					input.TaprootSighashType = TaprootSigHash.Default;
-					if (input.HDKeyPaths.Count != 1)
+					if (c is PSBTInput input)
+						input.TaprootSighashType = TaprootSigHash.Default;
+					if (c.HDKeyPaths.Count != 1)
 						continue;
-					foreach (var keypath in input.HDKeyPaths)
+					foreach (var keypath in c.HDKeyPaths)
 					{
 						var taprootPubKey = keypath.Key.GetTaprootFullPubKey();
-						input.TaprootInternalKey = taprootPubKey.InternalKey;
+						c.TaprootInternalKey = taprootPubKey.InternalKey;
 						// Some consumers expect the internal key to be in the HDTaprootKeyPaths
-						if (!TaprootPubKey.TryCreate(input.TaprootInternalKey.ToBytes(), out var pk))
+						if (!TaprootPubKey.TryCreate(c.TaprootInternalKey.ToBytes(), out var pk))
 							continue;
-						input.HDTaprootKeyPaths.AddOrReplace(pk, new TaprootKeyPath(keypath.Value));
+						c.HDTaprootKeyPaths.AddOrReplace(pk, new TaprootKeyPath(keypath.Value));
 					}
-					input.HDKeyPaths.Clear();
+					c.HDKeyPaths.Clear();
 				}
 			}
 		}

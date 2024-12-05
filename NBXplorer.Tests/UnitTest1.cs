@@ -365,9 +365,9 @@ namespace NBXplorer.Tests
 				Assert.NotNull(spendingPSBT.Inputs[0].WitnessUtxo);
 				///////////////////////////
 
-				//CanCreatePSBTCore(tester, ScriptPubKeyType.SegwitP2SH);
-				//CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
-				//CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
+				CanCreatePSBTCore(tester, ScriptPubKeyType.SegwitP2SH);
+				CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
+				CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
 				CanCreatePSBTCore(tester, ScriptPubKeyType.TaprootBIP86);
 
 				// If we build a list of unconf transaction which is too long, the CreatePSBT should
@@ -471,6 +471,11 @@ namespace NBXplorer.Tests
 					Assert.Empty(input.HDKeyPaths);
 					Assert.Single(input.HDTaprootKeyPaths);
 					Assert.NotNull(input.TaprootInternalKey);
+
+					var output = Assert.Single(minimumInputs.PSBT.Outputs, o => o.ScriptPubKey == minimumInputs.ChangeAddress.ScriptPubKey);
+					Assert.NotNull(output.TaprootInternalKey);
+					Assert.Empty(output.HDKeyPaths);
+					Assert.NotEmpty(output.HDTaprootKeyPaths);
 				}
 				Assert.Equal(2, spendAllOutpoints.PSBT.Inputs.Count);
 			}
@@ -849,8 +854,8 @@ namespace NBXplorer.Tests
 				ReserveChangeAddress = false
 			});
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
-			Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
-			Assert.Single(psbt2.PSBT.Outputs, o => o.HDKeyPaths.Any(h => h.Value.KeyPath == newAddress.KeyPath));
+
+			AssertHasOutput(type, newAddress.KeyPath, psbt2);
 			foreach (var input in psbt2.PSBT.GetGlobalTransaction().Inputs)
 			{
 				Assert.Equal(Sequence.Final, input.Sequence);
@@ -914,8 +919,9 @@ namespace NBXplorer.Tests
 			Assert.Equal(new KeyPath("49'/0'"), globalXPub.KeyPath);
 
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
-			Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
-			var selfchange = Assert.Single(psbt2.PSBT.Outputs, o => o.HDKeyPaths.Any(h => h.Key.GetAddress(type, tester.Network).ScriptPubKey == newAddress.ScriptPubKey));
+
+			var selfchange = AssertHasOutput(type, new KeyPath("49'/0'").Derive(newAddress.KeyPath), psbt2);
+
 			Assert.All(psbt2.PSBT.Inputs.Concat<PSBTCoin>(new[] { selfchange }).SelectMany(i => i.HDKeyPaths), i =>
 			{
 				Assert.Equal(rootHD, i.Value.MasterFingerprint);
@@ -1019,6 +1025,20 @@ namespace NBXplorer.Tests
 				{
 					Assert.NotNull(psbtInput.NonWitnessUtxo);
 				}
+			}
+		}
+
+		private static PSBTOutput AssertHasOutput(ScriptPubKeyType type, KeyPath keyPath, CreatePSBTResponse psbt2)
+		{
+			if (type == ScriptPubKeyType.TaprootBIP86)
+			{
+				Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDTaprootKeyPaths.Any()).Count());
+				return Assert.Single(psbt2.PSBT.Outputs, o => o.HDTaprootKeyPaths.Any(h => h.Value.RootedKeyPath.KeyPath == keyPath));
+			}
+			else
+			{
+				Assert.Equal(2, psbt2.PSBT.Outputs.Where(o => o.HDKeyPaths.Any()).Count());
+				return Assert.Single(psbt2.PSBT.Outputs, o => o.HDKeyPaths.Any(h => h.Value.KeyPath == keyPath));
 			}
 		}
 
@@ -2561,16 +2581,6 @@ namespace NBXplorer.Tests
 				Assert.Null(utxo.Confirmed.UTXOs[0].Feature);
 				Assert.NotNull(utxo2.Confirmed.UTXOs[0].Outpoint);
 			}
-		}
-
-		[Fact]
-		public async Task Test()
-		{
-			var rpc = new RPCClient(new RPCCredentialString()
-			{
-				UserPassword = new NetworkCredential("dashrpc", "PQQgOzs1jN7q2SWQ6TpBNLm9j"),
-			}, "https://dash-testnet.nodes.m3t4c0.xyz", AltNetworkSets.Dash.Testnet);
-			var b1 = await rpc.GetBlockAsync(new uint256("000001f02c1623e0bb12b54ac505cefdfca3f0f664bf333fc73ae5eafe34b830"));
 		}
 
 		[FactWithTimeout]
