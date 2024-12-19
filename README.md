@@ -123,7 +123,7 @@ On Linux:
 Example, if you have ltc node and btc node on regtest (default configuration), and want to connect to them: (see documentation for other options in the [postgres connection string](https://www.npgsql.org/doc/connection-string-parameters.html))
 
 ```bash
-./run.sh --chains=btc,ltc --network=regtest --postgres "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer"
+./run.sh --chains=btc,ltc --network=regtest --postgres "User ID=postgres;Host=127.0.0.1;Port=5432;Database=nbxplorer"
 ```
 
 ## How to use the API?
