@@ -18,6 +18,7 @@ using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
 using Npgsql;
 using static NBXplorer.Backend.DbConnectionHelper;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 
 
 namespace NBXplorer.Backend
@@ -368,32 +369,93 @@ namespace NBXplorer.Backend
 			await using var connection = await connectionFactory.CreateConnection();
 			return await GetKeyInformations(connection, scripts);
 		}
-		async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(DbConnection connection, IList<Script> scripts)
+		abstract class GetKeyInformationsQuery
 		{
-			scripts = scripts.Distinct().ToArray();
-			MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
-			foreach (var s in scripts)
-				result.AddRange(s, Array.Empty<KeyPathInformation>());
-			var command = connection.CreateCommand();
-			if (scripts.Count == 0)
+			public static GetKeyInformationsQuery ByScripts(IList<Script> scripts) => new ByScriptsQuery(scripts);
+			public static GetKeyInformationsQuery ByUnused(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int skip, NBXplorerNetwork network) => new ByUnusedQuery(strategy, derivationFeature, skip, network);
+			public abstract string GetScriptsQuery();
+			public virtual string GetKeyPathInfoPredicate() => string.Empty;
+			public abstract void AddParameters(DynamicParameters parameters);
+			public virtual bool IsEmpty => false;
+			public virtual MultiValueDictionary<Script, KeyPathInformation> CreateResult() => new();
+			class ByUnusedQuery : GetKeyInformationsQuery
+			{
+				private int n;
+				private readonly string descriptorId;
+
+				public ByUnusedQuery(DerivationStrategyBase strategy, DerivationFeature derivationFeature, int n, NBXplorerNetwork network)
+				{
+					this.n = n;
+					descriptorId = DBUtils.nbxv1_get_descriptor_id(network.CryptoCode, strategy.ToString(), derivationFeature.ToString());
+				}
+
+				public override void AddParameters(DynamicParameters parameters)
+				{
+					parameters.Add("skip", n);
+					parameters.Add("descriptor", descriptorId);
+				}
+				public override string GetScriptsQuery()
+				{
+					return $@"
+						(SELECT script FROM descriptors_scripts_unused
+						WHERE code=@code AND descriptor=@descriptor
+						ORDER BY idx
+						LIMIT 1 OFFSET @skip) AS r (script)
+					";
+				}
+				public override string GetKeyPathInfoPredicate() => "AND ki.descriptor=@descriptor";
+			}
+			class ByScriptsQuery : GetKeyInformationsQuery
+			{
+				private readonly Script[] scripts;
+
+				public override bool IsEmpty => scripts.Length is 0;
+
+				public ByScriptsQuery(IList<Script> scripts)
+				{
+					this.scripts = scripts.Distinct().ToArray();
+				}
+				public override string GetScriptsQuery() => "unnest(@records) AS r (script)";
+				public override void AddParameters(DynamicParameters parameters)
+				{
+					parameters.Add("records", scripts.Select(s => s.ToHex()).ToArray());
+				}
+				public override MultiValueDictionary<Script, KeyPathInformation> CreateResult()
+				{
+					MultiValueDictionary<Script, KeyPathInformation> result = new MultiValueDictionary<Script, KeyPathInformation>();
+					foreach (var s in scripts)
+						result.AddRange(s, Array.Empty<KeyPathInformation>());
+					return result;
+				}
+			}
+		}
+		Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(DbConnection connection, IList<Script> scripts)
+			=> GetKeyInformations(connection, GetKeyInformationsQuery.ByScripts(scripts));
+		async Task<MultiValueDictionary<Script, KeyPathInformation>> GetKeyInformations(DbConnection connection, GetKeyInformationsQuery query)
+		{
+			var result = query.CreateResult();
+			if (query.IsEmpty)
 				return result;
+
+			DynamicParameters parameters = new DynamicParameters();
+			parameters.Add("code", Network.CryptoCode);
+			query.AddParameters(parameters);
 			string additionalColumn = Network.IsElement ? ", ts.blinded_addr" : "";
 			var rows = await connection.QueryAsync($@"
-			    SELECT ts.code, ts.script, ts.addr, ts.derivation, ts.keypath, ts.redeem{additionalColumn},
+			    SELECT ts.code, ts.script, ts.addr, ts.derivation, ts.keypath, ts.idx, ts.feature, ts.redeem{additionalColumn},
 				       ts.wallet_id,
 				       w.metadata AS wallet_metadata
-				FROM unnest(@records) AS r (script),
+				FROM {query.GetScriptsQuery()},
 				LATERAL (
 				    SELECT code, script, wallet_id, addr, descriptor_metadata->>'derivation' derivation, 
-				           keypath, descriptors_scripts_metadata->>'redeem' redeem, 
+				           keypath, ki.idx, descriptors_scripts_metadata->>'redeem' redeem, 
 				           descriptors_scripts_metadata->>'blindedAddress' blinded_addr, 
 				           descriptors_scripts_metadata->>'blindingKey' blindingKey, 
-				           descriptor_metadata->>'descriptor' descriptor
-				    FROM nbxv1_keypath_info ki 
-				    WHERE ki.code=@code AND ki.script=r.script
+				           descriptor_metadata->>'feature' feature
+				    FROM nbxv1_keypath_info ki
+				    WHERE ki.code=@code AND ki.script=r.script {query.GetKeyPathInfoPredicate()}
 				) ts
-				JOIN wallets w USING(wallet_id)",
-	new { code = Network.CryptoCode, records = scripts.Select(s => s.ToHex()).ToArray() });
+				JOIN wallets w USING(wallet_id)", parameters);
 			foreach (var r in rows)
 			{
 				// This might be the case for a derivation added by a different indexer
@@ -425,7 +487,12 @@ namespace NBXplorer.Backend
 				ki.KeyPath = keypath;
 				ki.ScriptPubKey = script;
 				ki.TrackedSource = trackedSource;
-				ki.Feature = keypath is null ? DerivationFeature.Deposit : KeyPathTemplates.GetDerivationFeature(keypath);
+				ki.Feature = DerivationFeature.Deposit;
+				if (keypath is not null)
+				{
+					ki.Feature = Enum.Parse<DerivationFeature>(r.feature, true);
+					ki.Index = (int)r.idx;
+				}
 				ki.Redeem = redeem is null ? null : Script.FromHex(redeem);
 				result.Add(script, ki);
 			}
@@ -783,14 +850,8 @@ namespace NBXplorer.Backend
 		{
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
 			var connection = helper.Connection;
-			var key = GetDescriptorKey(strategy, derivationFeature);
-			string additionalColumn = Network.IsElement ? ", ds_metadata->>'blindedAddress' blinded_addr" : string.Empty;
 			retry:
-			var unused = await connection.QueryFirstOrDefaultAsync(
-				$"SELECT script, addr, nbxv1_get_keypath(d_metadata, idx) keypath, ds_metadata->>'redeem' redeem {additionalColumn} FROM descriptors_scripts_unused " +
-				"WHERE code=@code AND descriptor=@descriptor " +
-				"ORDER BY idx " +
-				"LIMIT 1 OFFSET @skip", new { key.code, key.descriptor, skip = n });
+			var unused = (await GetKeyInformations(connection, GetKeyInformationsQuery.ByUnused(strategy, derivationFeature, n, Network))).FirstOrDefault().Value?.FirstOrDefault();
 			if (unused is null)
 			{
 				// If we don't find unused address, then either:
@@ -809,23 +870,12 @@ namespace NBXplorer.Backend
 			}
 			if (reserve)
 			{
-				var updated = await connection.ExecuteAsync("UPDATE descriptors_scripts SET used='t' WHERE code=@code AND script=@script AND descriptor=@descriptor AND used='f'", new { key.code, unused.script, key.descriptor });
+				var updated = await connection.ExecuteAsync("UPDATE descriptors_scripts SET used='t' WHERE code=@code AND script=@script AND descriptor=@descriptor AND used='f'", new { code = Network.CryptoCode, script = unused.ScriptPubKey.ToHex(), descriptor = GetDescriptorKey(strategy, derivationFeature).descriptor });
 				if (updated == 0)
 					goto retry;
 			}
-			var keypath = KeyPath.Parse(unused.keypath);
-			var keyInfo = new KeyPathInformation()
-			{
-				Address = GetAddress(unused),
-				DerivationStrategy = strategy,
-				KeyPath = keypath,
-				ScriptPubKey = Script.FromHex(unused.script),
-				TrackedSource = new DerivationSchemeTrackedSource(strategy),
-				Feature = KeyPathTemplates.GetDerivationFeature(keypath),
-				Redeem = unused.redeem is string s ? Script.FromHex(s) : null
-			};
-			await ImportAddressToRPC(helper, keyInfo.TrackedSource, keyInfo.Address, keyInfo.KeyPath);
-			return keyInfo;
+			await ImportAddressToRPC(helper, unused.TrackedSource, unused.Address, unused.KeyPath);
+			return unused;
 		}
 
 		record SingleAddressInsert(string code, string script, string address, string walletid);
@@ -863,7 +913,7 @@ namespace NBXplorer.Backend
 				{
 					descriptorInsert.Add(new DescriptorScriptInsert(
 						descriptorKey.descriptor,
-						ki.GetIndex(KeyPathTemplates),
+						ki.Index.Value,
 						ki.ScriptPubKey.ToHex(),
 						metadata?.ToString(Formatting.None),
 						addr.ToString(),

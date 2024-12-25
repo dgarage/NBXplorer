@@ -2643,7 +2643,7 @@ namespace NBXplorer.Tests
 				await Task.WhenAll(tasks.ToArray());
 
 				var paths = tasks.Select(t => t.Result).ToDictionary(c => c.KeyPath);
-				Assert.Equal(99, paths.Select(p => p.Value.GetIndex(KeyPathTemplates.Default)).Max());
+				Assert.Equal(99, paths.Select(p => p.Value.Index).Max());
 
 				tester.Client.CancelReservation(bob, new[] { new KeyPath("0/0") });
 				var addr = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit);
@@ -2658,6 +2658,7 @@ namespace NBXplorer.Tests
 				tester.Client.CancelReservation(bob, new[] { new KeyPath("0/0") });
 				addr2 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit);
 				Assert.Equal(new KeyPath("0/100"), addr2.KeyPath);
+				Assert.Equal(100, addr2.Index);
 			}
 		}
 
@@ -2854,12 +2855,15 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Let's check if direct addresses can be tracked by sending to 0");
 				var address = await tester.Client.GetUnusedAsync(pubkey, DerivationFeature.Direct);
+				Assert.Equal(0, address.Index);
 				Assert.Equal(DerivationFeature.Direct, address.Feature);
 				fundingTx = tester.SendToAddress(tester.AddressOf(key, "0"), Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(pubkey, fundingTx);
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(address.ScriptPubKey, utxo.Unconfirmed.UTXOs[0].ScriptPubKey);
 				var address2 = await tester.Client.GetUnusedAsync(pubkey, DerivationFeature.Direct);
+				Logs.Tester.LogInformation("ADDRESS2: " + address2.Address);
+				Assert.Equal(1, address2.Index);
 				Assert.Equal(new KeyPath(1), address2.KeyPath);
 
 				Logs.Tester.LogInformation("Let's check see if an unconf tx can be conf then unconf again");
@@ -3680,7 +3684,7 @@ namespace NBXplorer.Tests
 				// Nothing has been tracked because it is way out of bound and the first address is always unused
 				var transactions = tester.Client.GetTransactions(pubkey);
 				Assert.Empty(transactions.ConfirmedTransactions.Transactions);
-				Assert.Equal(0, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex(KeyPathTemplates.Default));
+				Assert.Equal(0, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).Index);
 
 				// W00t! let's scan and see if it now appear in the UTXO
 				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
@@ -3703,7 +3707,7 @@ namespace NBXplorer.Tests
 #pragma warning restore CS0618 // Type or member is obsolete
 
 				Logs.Tester.LogInformation($"Check that the address pool has been emptied: 0/51 should be the next unused address");
-				Assert.Equal(51, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).GetIndex(KeyPathTemplates.Default));
+				Assert.Equal(51, tester.Client.GetUnused(pubkey, DerivationFeature.Deposit).Index);
 				utxo = tester.Client.GetUTXOs(pubkey);
 				Assert.Equal(txId, utxo.Confirmed.UTXOs[0].TransactionHash);
 

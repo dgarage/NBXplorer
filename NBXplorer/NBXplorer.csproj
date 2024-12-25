@@ -27,6 +27,7 @@
     <None Remove="DBScripts\018.FastWalletRecent.sql" />
     <None Remove="DBScripts\020.ReplacingShouldBeIdempotent.sql" />
     <None Remove="DBScripts\022.WalletsWalletsParentIdIndex.sql" />
+    <None Remove="DBScripts\023.KeyPathInfoReturnsIndex.sql" />
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />
@@ -60,4 +61,5 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+  <ProjectExtensions><VisualStudio><UserProperties wwwroot_4api_1json__JsonSchema="https://raw.githubusercontent.com/OAI/OpenAPI-Specification/refs/tags/3.1.0/schemas/v3.0/schema.json" /></VisualStudio></ProjectExtensions>
 </Project>
