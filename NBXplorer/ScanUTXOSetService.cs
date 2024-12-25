@@ -308,9 +308,19 @@ namespace NBXplorer
 				Enumerable.Range(progress.From, progress.Count)
 						  .Select(index =>
 						  {
+							  var keyPath = keyPathTemplate.GetKeyPath(index, false);
 							  var derivation = lineDerivation.Derive((uint)index);
-							  var info = new KeyPathInformation(derivation, derivationStrategy, feature,
-								  keyPathTemplate.GetKeyPath(index, false), network);
+							  var info = new KeyPathInformation()
+							  {
+								ScriptPubKey = derivation.ScriptPubKey,
+								DerivationStrategy = derivationStrategy.DerivationStrategy,
+								Feature = feature,
+								KeyPath = keyPath,
+								Redeem = derivation.Redeem,
+								TrackedSource = derivationStrategy,
+								Address = network.CreateAddress(derivationStrategy.DerivationStrategy, keyPath, derivation.ScriptPubKey),
+								Index = index
+							  };
 							  items.Descriptors.Add(OutputDescriptor.NewRaw(info.ScriptPubKey, network.NBitcoinNetwork));
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
 							  return info;

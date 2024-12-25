@@ -209,13 +209,14 @@
           }
         }
       },
-      "UnusedAddress": {
+      "KeyInformation": {
         "type": "object",
         "properties": {
           "trackedSource": {
             "type": "string",
             "description": "The tracked source identifier, typically representing the derivation scheme being used.",
-            "example": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuok..."
+            "example": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuok...",
+            "nullable": true
           },
           "feature": {
             "type": "string",
@@ -229,8 +230,15 @@
           },
           "keyPath": {
             "type": "string",
-            "description": "The derivation path used to generate this address, e.g., `0/0`.",
-            "example": "0/0"
+            "description": "The derivation path used to generate this address, e.g., `0/123`.",
+            "example": "0/123",
+            "nullable": true
+          },
+          "index": {
+            "type": "integer",
+            "description": "The derivation path index of this address",
+            "example": "123",
+            "nullable": true
           },
           "scriptPubKey": {
             "type": "string",
@@ -245,7 +253,8 @@
           "redeem": {
             "type": "string",
             "description": "The redeem script associated with the address (if applicable). Returns the SegWit redeem script if the derivation scheme is P2SH-P2WPKH or P2WPKH, or the P2SH redeem script if the script type is P2SH.",
-            "example": "0014e2eb89edba1fe6c6c0863699eeb78f6ec3271b45"
+            "example": "0014e2eb89edba1fe6c6c0863699eeb78f6ec3271b45",
+            "nullable": true
           }
         }
       },
@@ -990,7 +999,7 @@
             "example": []
           }
         },
-        "required": ["jsonrpc", "method", "params"]
+        "required": [ "jsonrpc", "method", "params" ]
       },
       "RpcResponse": {
         "type": "object",
@@ -1250,16 +1259,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UnusedAddress"
-                },
-                "example": {
-                  "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuok...",
-                  "feature": "Deposit",
-                  "derivationStrategy": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuok...",
-                  "keyPath": "0/0",
-                  "scriptPubKey": "001460c25d29559774803f262acf5ee5c922eff52ccd",
-                  "address": "tb1qvrp96224ja6gq0ex9t84aewfythl2txdkpdmu0",
-                  "redeem": null
+                  "$ref": "#/components/schemas/KeyInformation"
                 }
               }
             }
@@ -3321,10 +3321,51 @@
         }
       }
     },
+    "/v1/cryptos/{cryptoCode}/scripts/{script}": {
+      "get": {
+        "summary": "Get scriptPubKey details",
+        "description": "Retrieve details about a specific scriptPubKey. Since a single scriptPubKey can be associated with multiple tracked sources, the response includes an array listing all related sources.",
+        "tags": [
+          "Blockchain"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "$ref": "#/components/parameters/DerivationScheme"
+          },
+          {
+            "name": "script",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The scriptPubKey to get information about"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ScriptPubKey information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/KeyInformation"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/scripts/{script}": {
       "get": {
-        "summary": "Get scriptPubKey information of a Derivation Scheme",
-        "description": "Get information about a specific scriptPubKey for a derivation scheme",
+        "summary": "Get scriptPubKey details",
+        "description": "Retrieve detail about a specific scriptPubKey of a derivationScheme.",
         "tags": [
           "Derivations"
         ],
@@ -3351,47 +3392,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "trackedSource": {
-                      "type": "string",
-                      "description": "The tracked source identifier",
-                      "example": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA"
-                    },
-                    "feature": {
-                      "type": "string",
-                      "description": "The feature type (e.g., Deposit)",
-                      "example": "Deposit"
-                    },
-                    "derivationStrategy": {
-                      "type": "string",
-                      "description": "The derivation strategy",
-                      "example": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA"
-                    },
-                    "keyPath": {
-                      "type": "string",
-                      "description": "The derivation path",
-                      "example": "0/0"
-                    },
-                    "scriptPubKey": {
-                      "type": "string",
-                      "description": "The scriptPubKey",
-                      "example": "001460c25d29559774803f262acf5ee5c922eff52ccd"
-                    },
-                    "address": {
-                      "type": "string",
-                      "description": "The derived address",
-                      "example": "tb1qvrp96224ja6gq0ex9t84aewfythl2txdkpdmu0"
-                    }
-                  }
-                },
-                "example": {
-                  "trackedSource": "DERIVATIONSCHEME:tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
-                  "feature": "Deposit",
-                  "derivationStrategy": "tpubD6NzVbkrYhZ4WcPozSqALNCrJEt4C45sPDhEBBuokoCeDgjX6YTs4QVvhD9kao6f2uZLqZF4qcXprYyRqooSXr1uPp1KPH1o4m6aw9nxbiA",
-                  "keyPath": "0/0",
-                  "scriptPubKey": "001460c25d29559774803f262acf5ee5c922eff52ccd",
-                  "address": "tb1qvrp96224ja6gq0ex9t84aewfythl2txdkpdmu0"
+                  "$ref": "#/components/schemas/KeyInformation"
                 }
               }
             }
