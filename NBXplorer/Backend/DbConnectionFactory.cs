@@ -13,12 +13,10 @@ namespace NBXplorer.Backend
 	{
 		public DbConnectionFactory(ILogger<DbConnectionFactory> logger,
 			IConfiguration configuration,
-			ExplorerConfiguration conf,
-			KeyPathTemplates keyPathTemplates)
+			ExplorerConfiguration conf)
 		{
 			Logger = logger;
 			ExplorerConfiguration = conf;
-			KeyPathTemplates = keyPathTemplates;
 			ConnectionString = configuration.GetRequired("POSTGRES");
 			_DS = CreateDataSourceBuilder(null).Build();
 		}
@@ -43,11 +41,10 @@ namespace NBXplorer.Backend
 		public string ConnectionString { get; }
 		public ILogger<DbConnectionFactory> Logger { get; }
 		public ExplorerConfiguration ExplorerConfiguration { get; }
-		public KeyPathTemplates KeyPathTemplates { get; }
 
 		public async Task<DbConnectionHelper> CreateConnectionHelper(NBXplorerNetwork network)
 		{
-			return new DbConnectionHelper(network, await CreateConnection(), KeyPathTemplates)
+			return new DbConnectionHelper(network, await CreateConnection())
 			{
 				MinPoolSize = ExplorerConfiguration.MinGapSize,
 				MaxPoolSize = ExplorerConfiguration.MaxGapSize

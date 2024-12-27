@@ -28,6 +28,7 @@
     <None Remove="DBScripts\020.ReplacingShouldBeIdempotent.sql" />
     <None Remove="DBScripts\022.WalletsWalletsParentIdIndex.sql" />
     <None Remove="DBScripts\023.KeyPathInfoReturnsIndex.sql" />
+    <None Remove="DBScripts\024.TrackedTxsReturnsFeature.sql" />
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />

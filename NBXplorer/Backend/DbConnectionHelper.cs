@@ -16,19 +16,16 @@ namespace NBXplorer.Backend
 	public class DbConnectionHelper : IDisposable, IAsyncDisposable
 	{
 		public DbConnectionHelper(NBXplorerNetwork network,
-									DbConnection connection,
-									KeyPathTemplates keyPathTemplates)
+									DbConnection connection)
 		{
 			derivationStrategyFactory = new DerivationStrategyFactory(network.NBitcoinNetwork);
 			Network = network;
 			Connection = connection;
-			KeyPathTemplates = keyPathTemplates;
 		}
 		DerivationStrategyFactory derivationStrategyFactory;
 
 		public NBXplorerNetwork Network { get; }
 		public DbConnection Connection { get; }
-		public KeyPathTemplates KeyPathTemplates { get; }
 		public int MinPoolSize { get; set; }
 		public int MaxPoolSize { get; set; }
 
