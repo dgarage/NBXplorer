@@ -161,6 +161,12 @@
             "type": "integer",
             "description": "The index of the output in the transaction."
           },
+          "feature": {
+            "type": "string",
+            "description": "Specifies the type of address generated. Possible values are:\n- `Deposit`: A deposit address from the external chain (`0/x`).\n- `Change`: A change address from the internal chain (`1/x`).\n- `Direct`: An address from the direct chain (`x`).\n- `Custom`: An address using a custom key path template.",
+            "example": "Deposit",
+            "nullable": true
+          },
           "value": {
             "type": "integer",
             "description": "The amount of the output in satoshis."
@@ -188,6 +194,12 @@
             "type": "integer",
             "description": "The index of the output in the previous transaction being referenced.",
             "example": 1
+          },
+          "feature": {
+            "type": "string",
+            "description": "Specifies the type of address generated. Possible values are:\n- `Deposit`: A deposit address from the external chain (`0/x`).\n- `Change`: A change address from the internal chain (`1/x`).\n- `Direct`: An address from the direct chain (`x`).\n- `Custom`: An address using a custom key path template.",
+            "example": "Deposit",
+            "nullable": true
           },
           "address": {
             "type": "string",
@@ -1197,6 +1209,43 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/v1/cryptos/{cryptoCode}/derivations/{derivationScheme}/addresses/cancelreservation": {
+      "post": {
+        "summary": "Cancel address reservation",
+        "description": "Cancel the reservation of this address so [Get a new unused address](#tag/Derivations/operation/GetUnused) will return it again. (if an address has already been used on-chain, the address won't be cancelled)",
+        "tags": [
+          "Derivations"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CryptoCode"
+          },
+          {
+            "$ref": "#/components/parameters/DerivationScheme"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "description": "`keyPath` to cancel",
+                  "example": "0/1"
+                },
+                "example": [ "0/1", "0/2", "1/2" ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Call succeeded"
           }
         }
       }

@@ -71,25 +71,6 @@ namespace NBXplorer
 			return true;
 		}
 
-		public bool TryMatchTemplate(KeyPath keyPath, out uint index)
-		{
-			index = 0;
-			if (keyPath.Length != 1 + PreIndexes.Length + PostIndexes.Length)
-				return false;
-			for (int i = 0; i < PreIndexes.Length; i++)
-			{
-				if (PreIndexes[i] != keyPath[i])
-					return false;
-			}
-			for (int i = 0; i < PostIndexes.Length; i++)
-			{
-				if (PostIndexes[i] != keyPath[i + 1 + PreIndexes.Length])
-					return false;
-			}
-			index = keyPath[PreIndexes.Length];
-			return true;
-		}
-
 		private static bool TryParseCore(string i, out uint index)
 		{
 			if (i.Length == 0)
@@ -146,13 +127,6 @@ namespace NBXplorer
 			if (PostIndexes.Length != 0)
 				builder.Append($"/{PostIndexes}");
 			return builder.ToString();
-		}
-
-		public uint GetIndex(KeyPath keypath)
-		{
-			if (TryMatchTemplate(keypath, out var index))
-				return index;
-			throw new ArgumentException("Impossible to get the index of this keypath", nameof(keypath));
 		}
 	}
 }

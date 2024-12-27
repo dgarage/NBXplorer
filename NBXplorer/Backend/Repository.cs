@@ -52,27 +52,27 @@ namespace NBXplorer.Backend
 
 		public async Task CancelReservation(DerivationStrategyBase strategy, KeyPath[] keyPaths)
 		{
+			var w = GetWalletKey(strategy, Network);
 			await using var conn = await GetConnection();
-			var parameters = keyPaths
-				.Select(o =>
-				{
-					var template = KeyPathTemplates.GetKeyPathTemplate(o);
-					var descriptor = GetDescriptorKey(strategy, KeyPathTemplates.GetDerivationFeature(o));
-					return new
-					{
-						descriptor.code,
-						descriptor.descriptor,
-						idx = (int)template.GetIndex(o)
-					};
-				})
-				.ToList();
 			// We can only set to used='t' descriptors whose scripts haven't been used on chain
-			await conn.Connection.ExecuteAsync(
-					"UPDATE descriptors_scripts ds SET used='f' " +
-					"FROM scripts s " +
-					"WHERE " +
-					"ds.code=@code AND ds.descriptor=@descriptor AND ds.idx=@idx AND " +
-					"s.code=ds.code AND s.script=ds.script AND s.used IS FALSE", parameters);
+			await conn.Connection.ExecuteAsync(@"
+			UPDATE descriptors_scripts
+			SET used = 'f'
+			WHERE (code, descriptor, idx)
+			IN (
+				SELECT ds.code, ds.descriptor, ds.idx FROM wallets w
+				JOIN wallets_descriptors USING (wallet_id)
+				JOIN descriptors d USING (code, descriptor)
+				JOIN descriptors_scripts ds USING(code, descriptor)
+				JOIN scripts s USING(code, script)
+				JOIN unnest(@keypaths) AS k(keypath) ON nbxv1_get_keypath_index(d.metadata, k.keypath) = ds.idx
+				WHERE code=@code AND w.wallet_id=@wid  AND s.used IS FALSE)",
+			new
+			{
+				code = Network.CryptoCode,
+				wid = w.wid,
+				keypaths = keyPaths.Select(k => k.ToString()).ToArray()
+			}) ;
 		}
 
 		public record DescriptorKey(string code, string descriptor);
@@ -242,7 +242,7 @@ namespace NBXplorer.Backend
 
 		private async Task ImportDescriptorToRPCIfNeeded(DbConnection connection, WalletKey walletKey, long fromIndex, long toGenerate, KeyPathTemplate keyTemplate)
 		{
-			var helper = new DbConnectionHelper(Network, connection, KeyPathTemplates);
+			var helper = new DbConnectionHelper(Network, connection);
 			var importAddressToRPC = ImportRPCMode.Parse(await helper.GetMetadata<string>(walletKey.wid, WellknownMetadataKeys.ImportAddressToRPC));
 			if (importAddressToRPC == ImportRPCMode.Descriptors || importAddressToRPC == ImportRPCMode.DescriptorsReadOnly)
 			{
@@ -754,7 +754,7 @@ namespace NBXplorer.Backend
 			var para = new DynamicParameters();
 			var sql = query.GetSql(para, Network);
 			var utxos = await
-				connection.Connection.QueryAsync<(string wallet_id, string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, DateTime seen_at)>(sql, para);
+				connection.Connection.QueryAsync<(string wallet_id, string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, DateTime seen_at, string feature)>(sql, para);
 			utxos.TryGetNonEnumeratedCount(out int c);
 			var trackedById = new Dictionary<(TrackedSource, string), TrackedTransaction>(c);
 			foreach (var utxo in utxos)
@@ -772,6 +772,7 @@ namespace NBXplorer.Backend
 						ScriptPubKey = Script.FromHex(utxo.script),
 						KeyPath = utxo.keypath is string kp ? KeyPath.Parse(kp) : null,
 						Index = (int)utxo.idx,
+						Feature = utxo.feature is string f ? Enum.Parse<DerivationFeature>(f) : null,
 						Address = BitcoinAddress.Create(utxo.addr, this.Network.NBitcoinNetwork)
 					};
 					tracked.MatchedOutputs.Add(matchedOutput);
@@ -783,6 +784,7 @@ namespace NBXplorer.Backend
 					{
 						InputIndex = (int)utxo.idx,
 						Index = (int)utxo.spent_idx,
+						Feature = utxo.feature is string f ? Enum.Parse<DerivationFeature>(f) : null,
 						TransactionId = uint256.Parse(utxo.spent_tx_id),
 						Address = utxo.addr is null ? null : BitcoinAddress.Create(utxo.addr, Network.NBitcoinNetwork),
 						KeyPath = utxo.keypath is string kp ? KeyPath.Parse(kp) : null,

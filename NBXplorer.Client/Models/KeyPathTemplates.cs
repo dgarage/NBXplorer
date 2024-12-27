@@ -55,52 +55,6 @@ namespace NBXplorer
 			}
 		}
 
-		public KeyPathTemplate GetKeyPathTemplate(KeyPath keyPath)
-		{
-			if (keyPath == null)
-				throw new ArgumentNullException(nameof(keyPath));
-
-			if (depositKeyPathTemplate.TryMatchTemplate(keyPath, out _))
-			{
-				return depositKeyPathTemplate;
-			}
-			else if (changeKeyPathTemplate.TryMatchTemplate(keyPath, out _))
-			{
-				return changeKeyPathTemplate;
-			}
-			else if (directKeyPathTemplate.TryMatchTemplate(keyPath, out _))
-			{
-				return directKeyPathTemplate;
-			}
-			else if (customKeyPathTemplate != null && customKeyPathTemplate.TryMatchTemplate(keyPath, out _))
-			{
-				return customKeyPathTemplate;
-			}
-			else
-				throw new ArgumentException(paramName: nameof(keyPath), message: "No template match this keypath");
-		}
-
-		public DerivationFeature GetDerivationFeature(KeyPath keyPath)
-		{
-			if (depositKeyPathTemplate.TryMatchTemplate(keyPath, out _))
-			{
-				return DerivationFeature.Deposit;
-			}
-			else if (changeKeyPathTemplate.TryMatchTemplate(keyPath, out _))
-			{
-				return DerivationFeature.Change;
-			}
-			else if (directKeyPathTemplate.TryMatchTemplate(keyPath, out _))
-			{
-				return DerivationFeature.Direct;
-			}
-			else if (customKeyPathTemplate != null && customKeyPathTemplate.TryMatchTemplate(keyPath, out _))
-			{
-				return DerivationFeature.Custom;
-			}
-			else
-				throw new ArgumentException(paramName: nameof(keyPath), message: "No template match this keypath");
-		}
 		public IEnumerable<DerivationFeature> GetSupportedDerivationFeatures()
 		{
 			return derivationFeatures;

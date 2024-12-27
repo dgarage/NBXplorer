@@ -2659,6 +2659,27 @@ namespace NBXplorer.Tests
 				addr2 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit);
 				Assert.Equal(new KeyPath("0/100"), addr2.KeyPath);
 				Assert.Equal(100, addr2.Index);
+
+				// Cancel the even addresses
+				var toCancel = Enumerable.Range(0, 100).Where(i => i % 2 == 0).Select(i => new KeyPath("0/" + i)).ToArray();
+				await tester.Client.CancelReservationAsync(bob, toCancel);
+				addr2 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/2"), addr2.KeyPath);
+				addr2 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, skip: 1);
+				Assert.Equal(new KeyPath("0/4"), addr2.KeyPath);
+
+				// Cancelling direct derivation doesn't cancel other derivation features
+				addr2 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Direct, reserve: true);
+				Assert.Equal(new KeyPath("0"), addr2.KeyPath);
+				addr2 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Direct, reserve: true);
+				Assert.Equal(new KeyPath("1"), addr2.KeyPath);
+				addr2 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Direct, reserve: true);
+				Assert.Equal(new KeyPath("2"), addr2.KeyPath);
+				await tester.Client.CancelReservationAsync(bob, [new KeyPath("2")]);
+				addr2 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Direct, reserve: true);
+				Assert.Equal(new KeyPath("2"), addr2.KeyPath);
+				addr2 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit);
+				Assert.Equal(new KeyPath("0/2"), addr2.KeyPath);
 			}
 		}
 
