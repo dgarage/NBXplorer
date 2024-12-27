@@ -56,18 +56,18 @@ namespace NBXplorer.Controllers
 			{
 				if (request.Wait)
 				{
-					foreach (var feature in KeyPathTemplates.GetSupportedDerivationFeatures())
+					foreach (var feature in dts.GetDerivationFeatures(KeyPathTemplates))
 					{
 						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
 					}
 				}
 				else
 				{
-					foreach (var feature in KeyPathTemplates.GetSupportedDerivationFeatures())
+					foreach (var feature in dts.GetDerivationFeatures(KeyPathTemplates))
 					{
 						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, new GenerateAddressQuery(minAddresses: 3, null));
 					}
-					foreach (var feature in KeyPathTemplates.GetSupportedDerivationFeatures())
+					foreach (var feature in dts.GetDerivationFeatures(KeyPathTemplates))
 					{
 						_ = AddressPoolService.GenerateAddresses(network, dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
 					}

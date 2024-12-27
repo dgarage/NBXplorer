@@ -148,7 +148,7 @@ namespace NBXplorer
 							From = workItem.Options.From,
 							StartedAt = DateTimeOffset.UtcNow
 						};
-						foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+						foreach (var feature in workItem.DerivationStrategy.GetDerivationFeatures(keyPathTemplates))
 						{
 							workItem.State.Progress.HighestKeyIndexFound.Add(feature, null);
 						}
@@ -301,7 +301,7 @@ namespace NBXplorer
 		{
 			var items = new ScannedItems();
 			var derivationStrategy = workItem.DerivationStrategy;
-			foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+			foreach (var feature in derivationStrategy.GetDerivationFeatures(keyPathTemplates))
 			{
 				var keyPathTemplate = keyPathTemplates.GetKeyPathTemplate(feature);
 				var lineDerivation = workItem.DerivationStrategy.DerivationStrategy.GetLineFor(keyPathTemplate);

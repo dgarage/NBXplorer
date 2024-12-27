@@ -2,6 +2,7 @@
 using NBitcoin.DataEncoders;
 using NBXplorer.DerivationStrategy;
 using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 
 namespace NBXplorer.Models
@@ -245,5 +246,8 @@ namespace NBXplorer.Models
 			}
 			return strategy;
 		}
+
+		public IEnumerable<DerivationFeature> GetDerivationFeatures(KeyPathTemplates keyPathTemplates)
+		=> keyPathTemplates.GetSupportedDerivationFeatures();
 	}
 }

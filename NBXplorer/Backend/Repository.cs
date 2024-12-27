@@ -1137,8 +1137,7 @@ namespace NBXplorer.Backend
 		{
 			await using var conn = await GetConnection();
 
-			var parameters = KeyPathTemplates
-				.GetSupportedDerivationFeatures()
+			var parameters = trackedSource.GetDerivationFeatures(KeyPathTemplates)
 				.Select(p =>
 				{
 					if (highestKeyIndexFound.TryGetValue(p, out var highest) && highest is int h)

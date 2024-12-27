@@ -13,14 +13,7 @@ namespace NBXplorer
 		private readonly KeyPathTemplate customKeyPathTemplate;
 		private static readonly KeyPathTemplates _Default = new KeyPathTemplates();
 		private readonly DerivationFeature[] derivationFeatures;
-
-		public static KeyPathTemplates Default
-		{
-			get
-			{
-				return _Default;
-			}
-		}
+		public static KeyPathTemplates Default => _Default;
 
 		private KeyPathTemplates() : this(null)
 		{
@@ -29,35 +22,27 @@ namespace NBXplorer
 		public KeyPathTemplates(KeyPathTemplate customKeyPathTemplate)
 		{
 			this.customKeyPathTemplate = customKeyPathTemplate;
-			List<DerivationFeature> derivationFeatures = new List<DerivationFeature>();
-			derivationFeatures.Add(DerivationFeature.Deposit);
-			derivationFeatures.Add(DerivationFeature.Change);
-			derivationFeatures.Add(DerivationFeature.Direct);
+			List<DerivationFeature> derivationFeatures = new List<DerivationFeature>
+			{
+				DerivationFeature.Deposit,
+				DerivationFeature.Change,
+				DerivationFeature.Direct
+			};
 			if (customKeyPathTemplate != null)
 				derivationFeatures.Add(DerivationFeature.Custom);
 			this.derivationFeatures = derivationFeatures.ToArray();
 		}
 
 		public KeyPathTemplate GetKeyPathTemplate(DerivationFeature derivationFeature)
-		{
-			switch (derivationFeature)
+			=> derivationFeature switch
 			{
-				case DerivationFeature.Deposit:
-					return depositKeyPathTemplate;
-				case DerivationFeature.Change:
-					return changeKeyPathTemplate;
-				case DerivationFeature.Direct:
-					return directKeyPathTemplate;
-				case DerivationFeature.Custom when customKeyPathTemplate != null:
-					return customKeyPathTemplate;
-				default:
-					throw new NotSupportedException(derivationFeature.ToString());
-			}
-		}
+				DerivationFeature.Deposit => depositKeyPathTemplate,
+				DerivationFeature.Change => changeKeyPathTemplate,
+				DerivationFeature.Direct => directKeyPathTemplate,
+				DerivationFeature.Custom when customKeyPathTemplate != null => customKeyPathTemplate,
+				_ => throw new NotSupportedException(derivationFeature.ToString())
+			};
 
-		public IEnumerable<DerivationFeature> GetSupportedDerivationFeatures()
-		{
-			return derivationFeatures;
-		}
+		public IEnumerable<DerivationFeature> GetSupportedDerivationFeatures() => derivationFeatures;
 	}
 }
