@@ -98,15 +98,18 @@
           },
           "height": {
             "type": "integer",
-            "description": "The block height. Will be `null` if the transaction is unconfirmed."
+            "description": "The block height. Will be `null` if the transaction is unconfirmed.",
+            "example": 876593
           },
           "transactionId": {
             "type": "string",
-            "description": "The transaction ID."
+            "description": "The transaction ID.",
+            "example": "14a679cd743f3d2aa51b998747c58dfa9b31c8c669006fc6c6efe4b4f5f76e5b"
           },
           "transaction": {
             "type": "string",
-            "description": "Raw transaction in hex format. Included only if `includeTransaction` is `true`."
+            "description": "Raw transaction in hex format. Included only if `includeTransaction` is `true`.",
+            "example": "02000000000101b596e23a22ea753251a5da4b7d415604dc05ab7c45ff675e077ed60a0d0a8d277401000000fdffffff0126010000000000001600140e48fd70dbb5af35119bfe7d626944c48c98ed9d0340e6c77a58ede14930d83002f05b8a13320a4140ab40a45b7f677f05c7653479d62b3d121823503563096156429b8fe5d818381812b4854ed3f59ec999b6fca8a94420afd36e561af10735e88f95d9655e5b3f7bc79de0a4781ef99d1e030c0c567422ac0063036f7264510a746578742f706c61696e000d3837363537382e6269746d61706821c0afd36e561af10735e88f95d9655e5b3f7bc79de0a4781ef99d1e030c0c56742200000000"
           },
           "outputs": {
             "type": "array",
@@ -124,7 +127,8 @@
           },
           "timestamp": {
             "type": "integer",
-            "description": "Transaction timestamp."
+            "description": "The UNIX timestamp indicating when the transaction was first seen by NBXplorer.",
+            "example": 1540376171
           },
           "balanceChange": {
             "type": "integer",
@@ -151,15 +155,17 @@
         "properties": {
           "address": {
             "type": "string",
-            "description": "The address of the output."
+            "description": "The address of the output.",
+            "example": "bc1qpey06uxmkkhn2yvmle7ky62ycjxf3mvaa0xf4j"
           },
           "scriptPubKey": {
             "type": "string",
-            "description": "The scriptPubKey of the output in hexadecimal format."
+            "description": "The scriptPubKey of the output in hexadecimal format.",
+            "example": "00140e48fd70dbb5af35119bfe7d626944c48c98ed9d"
           },
           "index": {
             "type": "integer",
-            "description": "The index of the output in the transaction."
+            "description": "The position of the referenced output in the previous transaction's output list'."
           },
           "feature": {
             "type": "string",
@@ -169,11 +175,13 @@
           },
           "value": {
             "type": "integer",
-            "description": "The amount of the output in satoshis."
+            "description": "The amount of the output in satoshis.",
+            "example": 294
           },
           "keyPath": {
             "type": "string",
-            "description": "The derivation path if the output is associated with the wallet."
+            "description": "The derivation path if the output is associated with the wallet.",
+            "example": "0/123"
           }
         }
       },
@@ -182,7 +190,7 @@
         "properties": {
           "inputIndex": {
             "type": "integer",
-            "description": "The index of this input within the transaction's list of inputs.",
+            "description": "The position of this input in the transaction's input list.",
             "example": 0
           },
           "transactionId": {
@@ -192,7 +200,7 @@
           },
           "index": {
             "type": "integer",
-            "description": "The index of the output in the previous transaction being referenced.",
+            "description": "The position of the referenced output in the previous transaction's output list'.",
             "example": 1
           },
           "feature": {
@@ -1880,77 +1888,6 @@
                   "items": {
                     "$ref": "#/components/schemas/TransactionResponse"
                   }
-                },
-                "examples": {
-                  "withoutTransaction": {
-                    "summary": "Without raw transaction data",
-                    "value": [
-                      {
-                        "blockHash": "0000000000000000000...",
-                        "confirmations": 3,
-                        "height": 600000,
-                        "transactionId": "abcd1234...",
-                        "outputs": [
-                          {
-                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                            "index": 0,
-                            "value": 5000000000,
-                            "keyPath": "0/0"
-                          }
-                        ],
-                        "inputs": [
-                          {
-                            "inputIndex": 0,
-                            "transactionId": "efgh5678...",
-                            "index": 1,
-                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                            "value": 5000000000,
-                            "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
-                          }
-                        ],
-                        "timestamp": 1638307200,
-                        "balanceChange": 0,
-                        "replaceable": false,
-                        "replacing": null,
-                        "replacedBy": null
-                      }
-                    ]
-                  },
-                  "withTransaction": {
-                    "summary": "With raw transaction data",
-                    "value": [
-                      {
-                        "blockHash": "0000000000000000000...",
-                        "confirmations": 3,
-                        "height": 600000,
-                        "transactionId": "abcd1234...",
-                        "transaction": "0200000001abcd1234...",
-                        "outputs": [
-                          {
-                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                            "index": 0,
-                            "value": 5000000000,
-                            "keyPath": "0/0"
-                          }
-                        ],
-                        "inputs": [
-                          {
-                            "inputIndex": 0,
-                            "transactionId": "efgh5678...",
-                            "index": 1,
-                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                            "value": 5000000000,
-                            "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
-                          }
-                        ],
-                        "timestamp": 1638307200,
-                        "balanceChange": 0,
-                        "replaceable": false,
-                        "replacing": null,
-                        "replacedBy": null
-                      }
-                    ]
-                  }
                 }
               }
             }
@@ -2028,77 +1965,6 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/TransactionResponse"
-                  }
-                },
-                "examples": {
-                  "withoutTransaction": {
-                    "summary": "Without raw transaction data",
-                    "value": [
-                      {
-                        "blockHash": "0000000000000000000...",
-                        "confirmations": 3,
-                        "height": 600000,
-                        "transactionId": "abcd1234...",
-                        "outputs": [
-                          {
-                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                            "index": 0,
-                            "value": 5000000000,
-                            "keyPath": "0/0"
-                          }
-                        ],
-                        "inputs": [
-                          {
-                            "inputIndex": 0,
-                            "transactionId": "efgh5678...",
-                            "index": 1,
-                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                            "value": 5000000000,
-                            "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
-                          }
-                        ],
-                        "timestamp": 1638307200,
-                        "balanceChange": 0,
-                        "replaceable": false,
-                        "replacing": null,
-                        "replacedBy": null
-                      }
-                    ]
-                  },
-                  "withTransaction": {
-                    "summary": "With raw transaction data",
-                    "value": [
-                      {
-                        "blockHash": "0000000000000000000...",
-                        "confirmations": 3,
-                        "height": 600000,
-                        "transactionId": "abcd1234...",
-                        "transaction": "0200000001abcd1234...",
-                        "outputs": [
-                          {
-                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                            "index": 0,
-                            "value": 5000000000,
-                            "keyPath": "0/0"
-                          }
-                        ],
-                        "inputs": [
-                          {
-                            "inputIndex": 0,
-                            "transactionId": "efgh5678...",
-                            "index": 1,
-                            "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                            "value": 5000000000,
-                            "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
-                          }
-                        ],
-                        "timestamp": 1638307200,
-                        "balanceChange": 0,
-                        "replaceable": false,
-                        "replacing": null,
-                        "replacedBy": null
-                      }
-                    ]
                   }
                 }
               }
