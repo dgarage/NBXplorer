@@ -255,7 +255,7 @@ namespace NBXplorer
 				{
 					foreach (var keyInfo in o.KeyPathInformations)
 					{
-						var index = keyInfo.KeyPath.Indexes.Last();
+						var index = keyInfo.Index.Value;
 						var highest = progressObj.HighestKeyIndexFound[keyInfo.Feature];
 						if (highest == null || index > highest.Value)
 						{
@@ -272,7 +272,7 @@ namespace NBXplorer
 					var highest = progressObj.HighestKeyIndexFound[p.Feature];
 					if (highest == null)
 						return false;
-					return p.KeyPath.Indexes.Last() <= highest.Value;
+					return p.Index.Value <= highest.Value;
 				}).ToArray());
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
 			DateTimeOffset now = DateTimeOffset.UtcNow;
