@@ -229,6 +229,17 @@ namespace NBXplorer
 			await session.ConnectAsync(cancellation).ConfigureAwait(false);
 			return session;
 		}
+		public WebsocketNotificationSessionLegacy CreateWebsocketNotificationSessionLegacy(CancellationToken cancellation = default)
+		{
+			return CreateWebsocketNotificationSessionLegacyAsync(cancellation).GetAwaiter().GetResult();
+		}
+
+		public async Task<WebsocketNotificationSessionLegacy> CreateWebsocketNotificationSessionLegacyAsync(CancellationToken cancellation = default)
+		{
+			var session = new WebsocketNotificationSessionLegacy(this);
+			await session.ConnectAsync(cancellation).ConfigureAwait(false);
+			return session;
+		}
 
 		public UTXOChanges GetUTXOs(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
