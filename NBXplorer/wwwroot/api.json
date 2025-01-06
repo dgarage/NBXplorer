@@ -2307,7 +2307,7 @@
         }
       }
     },
-    "/v1/cryptos/{cryptoCode}/connect": {
+    "/v1/cryptos/connect": {
       "get": {
         "summary": "WebSocket connection for events",
         "operationId": "WebSocket",
@@ -2317,7 +2317,14 @@
         ],
         "parameters": [
           {
-            "$ref": "#/components/parameters/CryptoCode"
+            "name": "cryptoCode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "BTC",
+            "description": "Filter event for this cryptoCode. If unspecified or `*`, all events will be published to this websocket."
           }
         ],
         "responses": {

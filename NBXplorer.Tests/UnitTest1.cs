@@ -2015,8 +2015,10 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[FactWithTimeout]
-		public async Task CanUseWebSockets()
+		[TheoryWithTimeout]
+		[InlineData(false)]
+		[InlineData(true)]
+		public async Task CanUseWebSockets(bool legacyAPI)
 		{
 			using (var tester = ServerTester.Create())
 			{
@@ -2024,15 +2026,12 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter(), true);
 				await tester.Client.TrackAsync(pubkey);
-				using (var connected = tester.Client.CreateWebsocketNotificationSession())
+				using (var connected = CreateNotificationSession(tester, legacyAPI))
 				{
-					connected.ListenNewBlock();
+					var legacy = connected as WebsocketNotificationSessionLegacy;
+					legacy?.ListenNewBlock();
 					var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
-					var blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
-					// Sometimes Postgres backend emit one more block during warmup. That's not a bug,
-					// but make test flaky.
-					if (blockEvent.Hash != expectedBlockId)
-						blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
+					var blockEvent = await WaitBlock(connected, expectedBlockId, Cancel);
 
 					Assert.True(blockEvent.EventId != 0);
 					Assert.Equal(expectedBlockId, blockEvent.Hash);
@@ -2040,14 +2039,14 @@ namespace NBXplorer.Tests
 
 					Assert.Equal(1, blockEvent.Confirmations);
 
-					connected.ListenDerivationSchemes(new[] { pubkey });
+					legacy?.ListenDerivationSchemes(new[] { pubkey });
 					await tester.SendToAddressAsync(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
 
 					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
 				}
 
-				using (var connected = tester.Client.CreateWebsocketNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSessionLegacy())
 				{
 					connected.ListenAllDerivationSchemes();
 					await tester.SendToAddressAsync(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
@@ -2056,7 +2055,7 @@ namespace NBXplorer.Tests
 					Assert.Equal(txEvent.DerivationStrategy, pubkey);
 				}
 
-				using (var connected = tester.Client.CreateWebsocketNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSessionLegacy())
 				{
 					connected.ListenAllTrackedSource();
 					await tester.SendToAddressAsync(tester.AddressOf(pubkey, "0/1"), Money.Coins(1.0m));
@@ -2123,7 +2122,7 @@ namespace NBXplorer.Tests
 
 				(var pubkey, var pubkey2) = (wLegacy.DerivationScheme, wSegwit.DerivationScheme);
 
-				using (var connected = tester.Client.CreateWebsocketNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSessionLegacy())
 				{
 					connected.ListenAllDerivationSchemes();
 					tester.Explorer.CreateRPCClient().SendCommand(RPCOperations.sendmany, "",
@@ -2313,7 +2312,7 @@ namespace NBXplorer.Tests
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
 				await tester.Client.TrackAsync(pubkey);
-				var events = tester.Client.CreateWebsocketNotificationSession();
+				var events = tester.Client.CreateWebsocketNotificationSessionLegacy();
 				events.ListenDerivationSchemes(new[] { pubkey });
 
 				Logs.Tester.LogInformation("Let's send to 0/0, 0/1, 0/2, 0, 1");
@@ -2418,35 +2417,37 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[FactWithTimeout]
-		public async void CanUseWebSocketsOnAddress()
+		[TheoryWithTimeout]
+		[InlineData(false)]
+		[InlineData(true)]
+		public async Task CanUseWebSocketsOnAddress(bool legacyAPI)
 		{
 			using (var tester = ServerTester.Create())
 			{
 				tester.Client.WaitServerStarted();
-				await Task.Delay(500);
 				var key = new Key();
 				var pubkey = TrackedSource.Create(key.PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network));
 				tester.Client.Track(pubkey);
-				using (var connected = tester.Client.CreateWebsocketNotificationSession())
+				using (var connected = CreateNotificationSession(tester, legacyAPI))
 				{
-					connected.ListenNewBlock();
-					var expectedBlockId = tester.Explorer.CreateRPCClient().Generate(1)[0];
-					var blockEvent = (Models.NewBlockEvent)connected.NextEvent(Cancel);
+					var legacy = connected as WebsocketNotificationSessionLegacy;
+					legacy?.ListenNewBlock();
+					var expectedBlockId = (await tester.Explorer.CreateRPCClient().GenerateAsync(1))[0];
+					var blockEvent = await WaitBlock(connected, expectedBlockId, Cancel);
 					Assert.Equal(expectedBlockId, blockEvent.Hash);
 					Assert.NotEqual(0, blockEvent.Height);
 
-					connected.ListenTrackedSources(new[] { pubkey });
+					legacy?.ListenTrackedSources(new[] { pubkey });
 					tester.SendToAddress(pubkey.Address, Money.Coins(1.0m));
 
-					var txEvent = (Models.NewTransactionEvent)connected.NextEvent(Cancel);
+					var txEvent = (Models.NewTransactionEvent)await connected.NextEventAsync(Cancel);
 					Assert.NotEmpty(txEvent.Outputs);
 					Assert.Equal(pubkey.Address.ScriptPubKey, txEvent.Outputs[0].ScriptPubKey);
 					Assert.Equal(pubkey.Address, txEvent.Outputs[0].Address);
 					Assert.Equal(txEvent.TrackedSource, pubkey);
 				}
 
-				using (var connected = tester.Client.CreateWebsocketNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSessionLegacy())
 				{
 					connected.ListenAllTrackedSource();
 					tester.SendToAddress(pubkey.Address, Money.Coins(1.0m));
@@ -2455,6 +2456,19 @@ namespace NBXplorer.Tests
 					Assert.Equal(txEvent.TrackedSource, pubkey);
 				}
 			}
+		}
+
+		private WebsocketNotificationSession CreateNotificationSession(ServerTester tester, bool legacyAPI)
+		=> legacyAPI ? tester.Client.CreateWebsocketNotificationSessionLegacy() : tester.Client.CreateWebsocketNotificationSession();
+
+		private async Task<Models.NewBlockEvent> WaitBlock(WebsocketNotificationSession connected, uint256 expectedBlockId, CancellationToken cancel)
+		{
+			var evt = await connected.NextEventAsync(Cancel);
+			while (evt is not Models.NewBlockEvent b || b.Hash != expectedBlockId)
+			{
+				evt = await connected.NextEventAsync(Cancel);
+			}
+			return (Models.NewBlockEvent)evt;
 		}
 
 		[FactWithTimeout]
@@ -2471,7 +2485,7 @@ namespace NBXplorer.Tests
 
 				await tester.Client.TrackAsync(pubkey);
 				await tester.Client.TrackAsync(pubkey2);
-				using (var connected = tester.Client.CreateWebsocketNotificationSession())
+				using (var connected = tester.Client.CreateWebsocketNotificationSessionLegacy())
 				{
 					connected.ListenAllTrackedSource();
 					tester.Explorer.CreateRPCClient().SendCommand(RPCOperations.sendmany, "",
@@ -2920,7 +2934,7 @@ namespace NBXplorer.Tests
 				var txId3 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				var txId4 = tester.SendToAddress(tester.AddressOf(key, "0/0"), Money.Coins(1.0m));
 				var tx4 = tester.RPC.GetRawTransaction(txId4);
-				var notify = tester.Client.CreateWebsocketNotificationSession();
+				var notify = tester.Client.CreateWebsocketNotificationSessionLegacy();
 				notify.ListenNewBlock();
 				var blockId = tester.RPC.Generate(1)[0];
 				var blockId2 = tester.RPC.Generate(1)[0];
@@ -3916,7 +3930,7 @@ namespace NBXplorer.Tests
 						DerivationFeature.Deposit).Address);
 
 				Assert.IsType<BitcoinBlindedAddress>(tester.Client.GetKeyInformation(userDerivationScheme, address.ScriptPubKey).Address);
-				using (var session = await tester.Client.CreateWebsocketNotificationSessionAsync(Timeout))
+				using (var session = await tester.Client.CreateWebsocketNotificationSessionLegacyAsync(Timeout))
 				{
 					await session.ListenAllTrackedSourceAsync(cancellation: Timeout);
 

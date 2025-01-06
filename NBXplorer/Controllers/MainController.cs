@@ -19,16 +19,11 @@ using Newtonsoft.Json.Linq;
 using NBXplorer.Configuration;
 using System.Net.WebSockets;
 using Newtonsoft.Json;
-using System.Collections.Concurrent;
 using System.Reflection;
 using NBXplorer.Analytics;
 using NBXplorer.Backend;
-using NBitcoin.Scripting;
-using System.Globalization;
-
-using Dapper;
 using static NBXplorer.Backend.DbConnectionHelper;
-using System.Diagnostics;
+using static NBXplorer.ListenEventsRequest;
 
 namespace NBXplorer.Controllers
 {
@@ -333,108 +328,151 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route($"{CommonRoutes.BaseCryptoEndpoint}/connect")]
-		public async Task<IActionResult> ConnectWebSocket(
+		public Task<IActionResult> ConnectWebSocketLegacy(
 			string cryptoCode,
+			CancellationToken cancellation = default)
+		=> ConnectWebSocketCore(new ListenEventsRequest()
+		{
+			DefaultAction = RuleAction.Reject,
+			Rules = []
+		}, cryptoCode, cancellation);
+
+		[HttpGet]
+		[Route($"cryptos/connect")]
+		public Task<IActionResult> ConnectWebSocket(
+			string cryptoCode = null,
+			CancellationToken cancellation = default)
+		=> ConnectWebSocketCore(new ListenEventsRequest()
+		{
+			DefaultAction = RuleAction.Allow,
+			Rules = cryptoCode is (null or "*") ? []
+					: [new() { CryptoCode = cryptoCode, Action = RuleAction.Reject, Inverse = true }]
+		}, cryptoCode, cancellation);
+
+		[NonAction]
+		async Task<IActionResult> ConnectWebSocketCore(
+			ListenEventsRequest policy,
+			string defaultCryptoCode,
 			CancellationToken cancellation = default)
 		{
 			if (!HttpContext.WebSockets.IsWebSocketRequest)
 				return NotFound();
 
-			GetNetwork(cryptoCode, false); // Internally check if cryptoCode is correct
-
-			string listenAllDerivationSchemes = null;
-			string listenAllTrackedSource = null;
-			var listenedBlocks = new ConcurrentDictionary<string, string>();
-			var listenedDerivations = new ConcurrentDictionary<(Network, DerivationStrategyBase), DerivationStrategyBase>();
-			var listenedTrackedSource = new ConcurrentDictionary<(Network, TrackedSource), TrackedSource>();
-
 			WebsocketMessageListener server = new WebsocketMessageListener(await HttpContext.WebSockets.AcceptWebSocketAsync(), _SerializerSettings);
+			async Task ForwardEvent<T>(T o, string cryptoCode) where T : NewEventBase
+			{
+				var action = policy.DefaultAction;
+				foreach (var rule in policy.Rules)
+				{
+					Func<bool, bool> maybeInverse = rule.Inverse ? a => !a : a => a;
+					if (rule.CryptoCode is not (null or "*"))
+					{
+						if (maybeInverse(rule.CryptoCode != cryptoCode))
+							continue;
+					}
+					var typeMatch = (rule.Type, o) switch
+					{
+						(null, _) => true,
+						(ListenRule.EventType.NewBlock, Models.NewBlockEvent) => maybeInverse(true),
+						(ListenRule.EventType.NewTransaction, Models.NewTransactionEvent) => maybeInverse(true),
+						_ => false
+					};
+					if (!typeMatch)
+						continue;
+					if (o is Models.NewTransactionEvent nte)
+					{
+						if (rule.TrackedSource is { } trackedSource)
+						{
+							if (maybeInverse(trackedSource != nte.TrackedSource.ToString()))
+								continue;
+						}
+						if (rule.DerivationScheme is { } derivationScheme)
+						{
+							if (maybeInverse(derivationScheme != (nte.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy?.ToString()))
+								continue;
+						}
+					}
+					action = rule.Action;
+					break;
+				}
+
+				if (action == RuleAction.Allow)
+				{
+					await server.Send(o, GetSerializerSettings(cryptoCode));
+				}
+			}
+
 			CompositeDisposable subscriptions = new CompositeDisposable();
-			subscriptions.Add(_EventAggregator.Subscribe<Models.NewBlockEvent>(async o =>
-			{
-				if (listenedBlocks.ContainsKey(o.CryptoCode))
-				{
-					await server.Send(o, GetSerializerSettings(o.CryptoCode));
-				}
-			}));
-			subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(async o =>
-			{
-				var network = GetNetwork(o.CryptoCode, false);
-				if (network == null)
-					return;
-
-				bool forward = false;
-				var derivationScheme = (o.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-				if (derivationScheme != null)
-				{
-					forward |= listenAllDerivationSchemes == "*" ||
-								listenAllDerivationSchemes == o.CryptoCode ||
-								listenedDerivations.ContainsKey((network.NBitcoinNetwork, derivationScheme));
-				}
-
-				forward |= listenAllTrackedSource == "*" || listenAllTrackedSource == o.CryptoCode ||
-							listenedTrackedSource.ContainsKey((network.NBitcoinNetwork, o.TrackedSource));
-
-				if (forward)
-				{
-					var derivation = (o.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-					await server.Send(o, GetSerializerSettings(o.CryptoCode));
-				}
-			}));
+			subscriptions.Add(_EventAggregator.Subscribe<Models.NewBlockEvent>(o => ForwardEvent(o, o.CryptoCode)));
+			subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(o => ForwardEvent(o, o.CryptoCode)));
 			try
 			{
 				while (server.Socket.State == WebSocketState.Open)
 				{
+					var rules = policy.Rules.ToList();
 					object message = await server.NextMessageAsync(cancellation);
 					switch (message)
 					{
 						case Models.NewBlockEventRequest r:
-							r.CryptoCode = r.CryptoCode ?? cryptoCode;
-							listenedBlocks.TryAdd(r.CryptoCode, r.CryptoCode);
+							r.CryptoCode ??= defaultCryptoCode;
+							rules.Add(new ListenRule()
+							{
+								CryptoCode = r.CryptoCode,
+								Type = ListenRule.EventType.NewBlock,
+								Action = RuleAction.Allow
+							});
 							break;
 						case Models.NewTransactionEventRequest r:
-							var network = GetNetwork(r.CryptoCode, false);
+							r.CryptoCode ??= defaultCryptoCode;
 							if (r.DerivationSchemes != null)
 							{
-								r.CryptoCode = r.CryptoCode ?? cryptoCode;
-								if (network != null)
+								foreach (var derivation in r.DerivationSchemes)
 								{
-									foreach (var derivation in r.DerivationSchemes)
+									rules.Add(new()
 									{
-										var parsed = network.DerivationStrategyFactory.Parse(derivation);
-										listenedDerivations.TryAdd((network.NBitcoinNetwork, parsed), parsed);
-									}
+										CryptoCode = r.CryptoCode,
+										Type = ListenRule.EventType.NewTransaction,
+										DerivationScheme = derivation
+									});
 								}
 							}
 							else if (
 								// Back compat: If no derivation scheme precised and ListenAllDerivationSchemes not set, we listen all
 								(r.TrackedSources == null && r.ListenAllDerivationSchemes == null) ||
-								(r.ListenAllDerivationSchemes != null && r.ListenAllDerivationSchemes.Value))
+								(r.ListenAllDerivationSchemes is true))
 							{
-								listenAllDerivationSchemes = r.CryptoCode;
+								rules.Add(new()
+								{
+									CryptoCode = r.CryptoCode,
+									Type = ListenRule.EventType.NewTransaction
+								});
 							}
 
-							if (r.ListenAllTrackedSource != null && r.ListenAllTrackedSource.Value)
+							if (r.ListenAllTrackedSource is true)
 							{
-								listenAllTrackedSource = r.CryptoCode;
+								rules.Add(new()
+								{
+									CryptoCode = r.CryptoCode,
+									Type = ListenRule.EventType.NewTransaction
+								});
 							}
 							else if (r.TrackedSources != null)
 							{
-								r.CryptoCode = r.CryptoCode ?? cryptoCode;
-								if (network != null)
+								foreach (var trackedSource in r.TrackedSources)
 								{
-									foreach (var trackedSource in r.TrackedSources)
+									rules.Add(new()
 									{
-										if (TrackedSource.TryParse(trackedSource, out var parsed, network))
-											listenedTrackedSource.TryAdd((network.NBitcoinNetwork, parsed), parsed);
-									}
+										CryptoCode = r.CryptoCode,
+										Type = ListenRule.EventType.NewTransaction,
+										TrackedSource = trackedSource
+									});
 								}
 							}
-
 							break;
 						default:
 							break;
 					}
+					policy.Rules = rules.ToArray();
 				}
 			}
 			catch when (server.Socket.State != WebSocketState.Open)
