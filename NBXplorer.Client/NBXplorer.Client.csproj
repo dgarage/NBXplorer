@@ -27,8 +27,8 @@
 		  <NoWarn>$(NoWarn);1591;1573;1572;1584;1570;3021</NoWarn>
         </PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="7.0.49" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.32" />
+		<PackageReference Include="NBitcoin" Version="7.0.50" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.33" />
 	</ItemGroup>
   <ItemGroup>
 	<None Include="..\README.md" Pack="true" PackagePath="\" />
