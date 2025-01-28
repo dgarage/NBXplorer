@@ -206,7 +206,6 @@ namespace NBXplorer.Tests
 		public HttpClient HttpClient { get; internal set; }
 
 		string datadir;
-
 		public void ResetExplorer(bool deleteAll = true)
 		{
 			Host.Dispose();

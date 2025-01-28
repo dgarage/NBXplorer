@@ -108,20 +108,17 @@ namespace NBXplorer
 			return result;
 		}
 
-		public static TransactionResult ToTransactionResult(long height, SavedTransaction[] result)
-		{
-			var noDate = NBitcoin.Utils.UnixTimeToDateTime(0);
-			var oldest = result
-						.Where(o => o.Timestamp != noDate)
-						.OrderBy(o => o.Timestamp).FirstOrDefault() ?? result.First();
-
-			var confBlock = result
-					 .Select(r => (r.BlockHash, r.BlockHeight))
-					 .FirstOrDefault(r => r.BlockHeight.HasValue);
-
-			var conf = confBlock.BlockHash is null ? 0 : height - confBlock.BlockHeight.Value + 1;
-
-			return new TransactionResult() { Confirmations = conf, BlockId = confBlock.BlockHash, Transaction = oldest.Transaction, TransactionHash = oldest.Transaction.GetHash(), Height = confBlock.BlockHeight, Timestamp = oldest.Timestamp, ReplacedBy = oldest.ReplacedBy };
-		}
+		public static TransactionResult ToTransactionResult(long height, SavedTransaction result)
+		=> new TransactionResult()
+			{
+				Confirmations = result.BlockHeight is long bh ? height - bh + 1 : 0,
+				BlockId = result.BlockHash,
+				Transaction = result.Transaction,
+				TransactionHash = result.Transaction.GetHash(),
+				Height = result.BlockHeight,
+				Timestamp = result.Timestamp,
+				ReplacedBy = result.ReplacedBy,
+				Metadata = result.Metadata
+			};
 	}
 }

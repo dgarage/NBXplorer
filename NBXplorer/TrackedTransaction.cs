@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using NBitcoin;
 using NBXplorer.Models;
+using Newtonsoft.Json.Linq;
 using static NBXplorer.Backend.DbConnectionHelper;
 
 namespace NBXplorer
@@ -146,15 +147,10 @@ namespace NBXplorer
 		}
 
 		public IEnumerable<MatchedOutput> InOuts => MatchedInputs.Concat(MatchedOutputs);
+
+		public TransactionMetadata Metadata { get; set; }
 	}
 
 
-	public record TrackedTransactionKey(uint256 TxId, uint256 BlockHash, bool IsPruned)
-	{
-		public override string ToString()
-		{
-			var prunedSuffix = IsPruned ? ":P" : string.Empty;
-			return $"{TxId}:{BlockHash}{prunedSuffix}";
-		}
-	}
+	public record TrackedTransactionKey(uint256 TxId, uint256 BlockHash, bool IsPruned);
 }

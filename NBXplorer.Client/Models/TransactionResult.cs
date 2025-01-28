@@ -55,5 +55,7 @@ namespace NBXplorer.Models
 			set;
 		}
 		public uint256 ReplacedBy { get; set; }
+
+		public TransactionMetadata Metadata { get; set; }
 	}
 }

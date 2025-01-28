@@ -503,7 +503,8 @@ namespace NBXplorer.Backend
 							Confirmations = confirmations,
 							Timestamp = now,
 							Transaction = matches[i].Transaction,
-							TransactionHash = matches[i].TransactionHash
+							TransactionHash = matches[i].TransactionHash,
+							Metadata = matches[i].Metadata
 						},
 						Inputs = matches[i].MatchedInputs,
 						Outputs = matches[i].MatchedOutputs,

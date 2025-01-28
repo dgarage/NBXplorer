@@ -16,6 +16,7 @@ using System.Net.Http.Headers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using NBitcoin.Crypto;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
@@ -142,6 +143,51 @@ namespace NBXplorer
 				}
 				return false;
 			}
+		}
+
+		static FeeRate GetFeeRate(Money feePaid, int size) =>
+							(feePaid, size) is (Money f, not 0) ? new FeeRate(f, size) : null;
+		public static TransactionMetadata ToTransactionMetadata(this MempoolEntry entry)
+		=> new()
+		{
+			Fees = entry.BaseFee,
+			VirtualSize = entry.VirtualSizeBytes,
+			FeeRate = GetFeeRate(entry.BaseFee, entry.VirtualSizeBytes)
+		};
+
+		// This method fetch some information from getmempoolentry which may be useful for analysis, it's not critical to have it, so we don't want to fail the whole thing if it fails.
+		public static async Task<Dictionary<uint256, MempoolEntry>> FetchMempoolInfo(this RPCClient rpc,  IEnumerable<uint256> txHashes, CancellationToken cancellationToken)
+		{
+			var batch = rpc.PrepareBatch();
+			var tasks = new List<(uint256 Id, Task<MempoolEntry> MempoolEntry)>();
+			var metadatas = new Dictionary<uint256, MempoolEntry>();
+			foreach (var id in txHashes)
+			{
+				tasks.Add((id, batch.GetMempoolEntryAsync(id, false, cancellationToken)));
+			}
+			if (tasks.Count == 0)
+				return metadatas;
+			try
+			{
+				await batch.SendBatchAsync(cancellationToken);
+				foreach (var t in tasks)
+				{
+					try
+					{
+						var entry = await t.MempoolEntry;
+						if (entry is null) continue;
+						metadatas.TryAdd(t.Id, entry);
+					}
+					catch
+					{
+					}
+				}
+			}
+			// If it fails, that's OK, we don't care about the mempool entry information that much
+			catch
+			{
+			}
+			return metadatas;
 		}
 		public static bool IsWhitelisted(this PeerInfo peer)
 		{

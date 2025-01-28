@@ -584,8 +584,8 @@ namespace NBXplorer.Controllers
 								// If this is not segwit, or we are unsure of it, let's try to grab from our saved transactions
 								if (input.NonWitnessUtxo == null)
 								{
-									var prev = await repo.GetSavedTransactions(input.PrevOut.Hash);
-									if (prev.FirstOrDefault() is SavedTransaction saved)
+									var prev = await repo.GetSavedTransaction(input.PrevOut.Hash);
+									if (prev is SavedTransaction saved)
 									{
 										input.NonWitnessUtxo = saved.Transaction;
 									}

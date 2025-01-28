@@ -85,11 +85,82 @@
           }
         }
       },
+      "TransactionMetadata": {
+        "type": "object",
+        "description": "Additional metadata related to the transaction. This may be null if the transaction had been indexed when it wasn't in the mempool anymore.'",
+        "nullable": true,
+        "properties": {
+          "vsize": {
+            "type": "integer",
+            "description": "Virtual size of the transaction. Only available if the transaction has been indexed when it was in the mempool.",
+            "example": 141,
+            "nullable": true
+          },
+          "fees": {
+            "type": "integer",
+            "description": "Total fee of this transaction in satoshi. Only available if the transaction has been indexed when it was in the mempool.",
+            "example": 2820,
+            "nullable": true
+          },
+          "feeRate": {
+            "type": "number",
+            "description": "The estimated fee rate in satoshis per vByte. Only available if the transaction has been indexed when it was in the mempool.",
+            "example": 20.0,
+            "nullable": true
+          }
+        }
+      },
+      "TransactionResult": {
+        "type": "object",
+        "properties": {
+          "blockHash": {
+            "type": "string",
+            "example": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
+            "description": "The hash of the block containing this transaction. Will be `null` if the transaction is unconfirmed."
+          },
+          "confirmations": {
+            "type": "integer",
+            "description": "Number of confirmations the transaction has.",
+            "example": 1
+          },
+          "height": {
+            "type": "integer",
+            "description": "The block height. Will be `null` if the transaction is unconfirmed.",
+            "example": 876593
+          },
+          "transactionId": {
+            "type": "string",
+            "description": "The transaction ID.",
+            "example": "14a679cd743f3d2aa51b998747c58dfa9b31c8c669006fc6c6efe4b4f5f76e5b"
+          },
+          "transaction": {
+            "type": "string",
+            "description": "Raw transaction in hex format. Included only if `includeTransaction` is `true`.",
+            "example": "02000000000101b596e23a22ea753251a5da4b7d415604dc05ab7c45ff675e077ed60a0d0a8d277401000000fdffffff0126010000000000001600140e48fd70dbb5af35119bfe7d626944c48c98ed9d0340e6c77a58ede14930d83002f05b8a13320a4140ab40a45b7f677f05c7653479d62b3d121823503563096156429b8fe5d818381812b4854ed3f59ec999b6fca8a94420afd36e561af10735e88f95d9655e5b3f7bc79de0a4781ef99d1e030c0c567422ac0063036f7264510a746578742f706c61696e000d3837363537382e6269746d61706821c0afd36e561af10735e88f95d9655e5b3f7bc79de0a4781ef99d1e030c0c56742200000000"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/TransactionMetadata"
+          },
+          "timestamp": {
+            "type": "integer",
+            "description": "The UNIX timestamp indicating when the transaction was first seen by NBXplorer.",
+            "example": 1540376171
+          },
+          "replacedBy": {
+            "type": "string",
+            "nullable": true,
+            "example": "8fdac258458f9216b035b30a62ca0400697d76a83f50cd7dc18eb8352e936cf2",
+            "description": "If present, indicates the transaction ID that replaced this transaction via RBF."
+          }
+        }
+      },
+
       "TransactionResponse": {
         "type": "object",
         "properties": {
           "blockHash": {
             "type": "string",
+            "example": "3cdb91b426822f15ad3ca223654db914dc487fa73393532b089689b8e38efbf3",
             "description": "The hash of the block containing this transaction. Will be `null` if the transaction is unconfirmed."
           },
           "confirmations": {
@@ -110,6 +181,9 @@
             "type": "string",
             "description": "Raw transaction in hex format. Included only if `includeTransaction` is `true`.",
             "example": "02000000000101b596e23a22ea753251a5da4b7d415604dc05ab7c45ff675e077ed60a0d0a8d277401000000fdffffff0126010000000000001600140e48fd70dbb5af35119bfe7d626944c48c98ed9d0340e6c77a58ede14930d83002f05b8a13320a4140ab40a45b7f677f05c7653479d62b3d121823503563096156429b8fe5d818381812b4854ed3f59ec999b6fca8a94420afd36e561af10735e88f95d9655e5b3f7bc79de0a4781ef99d1e030c0c567422ac0063036f7264510a746578742f706c61696e000d3837363537382e6269746d61706821c0afd36e561af10735e88f95d9655e5b3f7bc79de0a4781ef99d1e030c0c56742200000000"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/TransactionMetadata"
           },
           "outputs": {
             "type": "array",
@@ -146,6 +220,7 @@
           "replacedBy": {
             "type": "string",
             "nullable": true,
+            "example": "8fdac258458f9216b035b30a62ca0400697d76a83f50cd7dc18eb8352e936cf2",
             "description": "If present, indicates the transaction ID that replaced this transaction via RBF."
           }
         }
@@ -747,31 +822,29 @@
         "properties": {
           "height": {
             "type": "integer",
-            "description": "Height of the new block."
+            "description": "Height of the new block.",
+            "example": 104
           },
           "hash": {
             "type": "string",
-            "description": "Hash of the new block."
+            "description": "Hash of the new block.",
+            "example": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35"
           },
           "previousBlockHash": {
             "type": "string",
-            "description": "Hash of the previous block."
+            "description": "Hash of the previous block.",
+            "example": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c"
           },
           "cryptoCode": {
             "type": "string",
+            "example": "BTC",
             "description": "Cryptocurrency code (e.g., 'BTC')."
           },
           "confirmations": {
             "type": "integer",
-            "description": "Number of confirmations (typically 1 for a new block)."
+            "description": "Number of confirmations (typically 1 for a new block).",
+            "example": 1
           }
-        },
-        "example": {
-          "height": 104,
-          "hash": "1f31c605c0a5d54b65fa39dc8cb4db025be63c66280279ade9338571a9e63d35",
-          "previousBlockHash": "7639350b31f3ce07ff976ebae772fef1602b30a10ccb8ca69047fe0fe8b9083c",
-          "cryptoCode": "BTC",
-          "confirmations": 1
         }
       },
       "NewTransactionEvent": {
@@ -833,7 +906,7 @@
             "description": "The derivation strategy used."
           },
           "transactionData": {
-            "$ref": "#/components/schemas/TransactionResponse"
+            "$ref": "#/components/schemas/TransactionResult"
           },
           "outputs": {
             "type": "array",
@@ -1743,74 +1816,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TransactionResponse"
-                },
-                "examples": {
-                  "withoutTransaction": {
-                    "summary": "Without raw transaction data",
-                    "value": {
-                      "blockHash": "0000000000000000000...",
-                      "confirmations": 3,
-                      "height": 600000,
-                      "transactionId": "abcd1234...",
-                      "outputs": [
-                        {
-                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                          "index": 0,
-                          "value": 5000000000,
-                          "keyPath": "0/0"
-                        }
-                      ],
-                      "inputs": [
-                        {
-                          "inputIndex": 0,
-                          "transactionId": "efgh5678...",
-                          "index": 1,
-                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                          "value": 5000000000,
-                          "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
-                        }
-                      ],
-                      "timestamp": 1638307200,
-                      "balanceChange": 0,
-                      "replaceable": false,
-                      "replacing": null,
-                      "replacedBy": null
-                    }
-                  },
-                  "withTransaction": {
-                    "summary": "With raw transaction data",
-                    "value": {
-                      "blockHash": "0000000000000000000...",
-                      "confirmations": 3,
-                      "height": 600000,
-                      "transactionId": "abcd1234...",
-                      "transaction": "0200000001abcd1234...",
-                      "outputs": [
-                        {
-                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                          "index": 0,
-                          "value": 5000000000,
-                          "keyPath": "0/0"
-                        }
-                      ],
-                      "inputs": [
-                        {
-                          "inputIndex": 0,
-                          "transactionId": "efgh5678...",
-                          "index": 1,
-                          "scriptPubKey": "76a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac",
-                          "value": 5000000000,
-                          "address": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"
-                        }
-                      ],
-                      "timestamp": 1638307200,
-                      "balanceChange": 0,
-                      "replaceable": false,
-                      "replacing": null,
-                      "replacedBy": null
-                    }
-                  }
+                  "$ref": "#/components/schemas/TransactionResult"
                 }
               }
             }
