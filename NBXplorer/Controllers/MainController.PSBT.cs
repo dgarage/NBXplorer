@@ -240,7 +240,7 @@ namespace NBXplorer.Controllers
 			bool sweepAll = false;
 			foreach (var dest in request.Destinations)
 			{
-				if (dest.Amount < Money.Zero)
+				if (dest.Amount is not null && dest.Amount < Money.Zero)
 					throw new NBXplorerException(new NBXplorerError(400, "output-too-small", "Amount can't be negative", reason: OutputTooSmallException.ErrorType.TooSmallBeforeSubtractedFee.ToString()));
 				if (dest.SweepAll)
 				{

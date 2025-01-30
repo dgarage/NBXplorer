@@ -2169,6 +2169,8 @@ namespace NBXplorer.Tests
 
 					txEvent = (Models.NewTransactionEvent)await connected.NextEventAsync(Cancel);
 					Assert.Equal(2, txEvent.Outputs.Count);
+					Assert.Contains(txEvent.Outputs.Select(o => o.Feature), f => f == DerivationFeature.Deposit);
+					Assert.Contains(txEvent.Outputs.Select(o => o.Feature), f => f == DerivationFeature.Change);
 					Assert.Contains(txEvent.DerivationStrategy.ToString(), new[] { pubkey.ToString(), pubkey2.ToString() });
 					Assert.Empty(txEvent.Inputs);
 
@@ -2204,12 +2206,14 @@ namespace NBXplorer.Tests
 									Assert.Equal(i, input.InputIndex);
 									if (input.KeyPath == new KeyPath("0/2"))
 									{
+										Assert.Equal(DerivationFeature.Deposit, input.Feature);
 										Assert.Equal(Money.Coins(0.9m), input.Value);
 										Assert.Equal(tester.AddressOf(pubkey2, "0/2"), input.Address);
 										Assert.Equal(input.Address.ScriptPubKey, input.ScriptPubKey);
 									}
 									else if (input.KeyPath == new KeyPath("1/2"))
 									{
+										Assert.Equal(DerivationFeature.Change, input.Feature);
 										Assert.Equal(Money.Coins(0.5m), input.Value);
 										Assert.Equal(tester.AddressOf(pubkey2, "1/2"), input.Address);
 										Assert.Equal(input.Address.ScriptPubKey, input.ScriptPubKey);
