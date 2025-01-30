@@ -604,7 +604,7 @@ namespace NBXplorer.Tests
 						{
 							new CreatePSBTDestination()
 							{
-								Destination = dest,
+								Destination = dest.ScriptPubKey,
 								Amount = Money.Coins(0.3m),
 							}
 						},
