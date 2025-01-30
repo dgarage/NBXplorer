@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<TargetFrameworks>netstandard2.1</TargetFrameworks>
 		<Company>Digital Garage</Company>
-		<Version>4.3.6</Version>
+		<Version>4.3.7</Version>
 		<Copyright>Copyright © Digital Garage 2017</Copyright>
 		<Description>Client API for the minimalist HD Wallet Tracker NBXplorer</Description>
 		<PackageIcon>Bitcoin.png</PackageIcon>
