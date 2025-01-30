@@ -242,14 +242,16 @@ namespace NBXplorer.Controllers
 			{
 				if (dest.Amount is not null && dest.Amount < Money.Zero)
 					throw new NBXplorerException(new NBXplorerError(400, "output-too-small", "Amount can't be negative", reason: OutputTooSmallException.ErrorType.TooSmallBeforeSubtractedFee.ToString()));
+				if (dest.Destination is null)
+					throw new NBXplorerException(new NBXplorerError(400, "missing-parameter", "`destination` is missing"));
 				if (dest.SweepAll)
 				{
 					sweepAll = true;
-					txBuilder.SendAll(dest.Destination);
+					txBuilder.SendAll(dest.Destination.ScriptPubKey);
 				}
 				else
 				{
-					txBuilder.Send(dest.Destination, dest.Amount);
+					txBuilder.Send(dest.Destination.ScriptPubKey, dest.Amount);
 					if (dest.SubstractFees)
 					{
 						try

@@ -478,7 +478,7 @@
               "properties": {
                 "destination": {
                   "type": "string",
-                  "description": "Required. The destination address where to send funds."
+                  "description": "Required. The destination as an address or a script. (in hex)"
                 },
                 "amount": {
                   "type": "integer",
