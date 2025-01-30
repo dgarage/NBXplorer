@@ -27,7 +27,6 @@ using NBitcoin.Tests;
 using System.Globalization;
 using System.Net;
 using NBXplorer.HostedServices;
-using NBitcoin.Altcoins;
 using static NBXplorer.Backend.DbConnectionHelper;
 
 namespace NBXplorer.Tests
@@ -1179,8 +1178,12 @@ namespace NBXplorer.Tests
 		[InlineData(false)]
 		public async Task ShowRBFedTransaction3(bool cancelB)
 		{
-			// Let's do a chain of two transactions implicating Bob A and B.
-			// Then B get replaced by B'.
+			// Let's do a chain of two transactions
+			// A: Cashcow sends money to Bob (100K sats)
+			// B: Cashcow spends the change to another address of Bob (200K sats)
+			// Cashcow then create B' which will double spend B.
+			// If `cancelB==true`: B' cancel the 200K output of B and send it back to himself
+			// Else, B' just bump the fees.
 			// We should make sure that B' is still saved in the database, and B properly marked as replaced.
 			// If cancelB is true, then B' output shouldn't be related to Bob.
 			using var tester = ServerTester.Create();
@@ -1191,6 +1194,7 @@ namespace NBXplorer.Tests
 			var bobAddr = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, 0);
 			var bobAddr1 = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, 1);
 
+			// A: Cashcow sends money to Bob (100K sats)
 			var aId = tester.RPC.SendToAddress(bobAddr.ScriptPubKey, Money.Satoshis(100_000), new SendToAddressParameters() { Replaceable = true });
 			var a = tester.Notifications.WaitForTransaction(bob, aId).TransactionData.Transaction;
 			Logs.Tester.LogInformation("a: " + aId);
@@ -1199,6 +1203,7 @@ namespace NBXplorer.Tests
 			var changeAddr = a.Outputs.Where(o => o.ScriptPubKey != bobAddr.ScriptPubKey).First().ScriptPubKey;
 			LockTestCoins(tester.RPC, new HashSet<Script>() { changeAddr });
 
+			// B: Cashcow spends the change to another address of Bob (200K sats)
 			var bId = tester.RPC.SendToAddress(bobAddr1.ScriptPubKey, Money.Satoshis(200_000), new SendToAddressParameters() { Replaceable = true });
 			var b = tester.Notifications.WaitForTransaction(bob, bId).TransactionData.Transaction;
 			Logs.Tester.LogInformation("b: " + bId);
@@ -1206,6 +1211,8 @@ namespace NBXplorer.Tests
 			// b' shouldn't have any output belonging to our wallets.
 			var bp = b.Clone();
 			var o = bp.Outputs.First(o => o.ScriptPubKey == bobAddr1.ScriptPubKey);
+
+			// If `cancelB==true`: B' cancel the 200K output of B and send it back to himself
 			if (cancelB)
 				o.ScriptPubKey = changeAddr;
 			o.Value -= Money.Satoshis(5000); // Add some fee to bump the tx
@@ -1218,17 +1225,28 @@ namespace NBXplorer.Tests
 			await tester.RPC.SendRawTransactionAsync(bp);
 			Logs.Tester.LogInformation("bp: " + bp.GetHash());
 
-			// If not a cancellation, B' should send an event, and replacing B
+			// If not a cancellation, B' should send an event to bob wallet, and replacing B
 			if (!cancelB)
 			{
 				var evt = tester.Notifications.WaitForTransaction(bob, bp.GetHash());
 				Assert.Equal(bId, Assert.Single(evt.Replacing));
+				Assert.NotNull(evt.TransactionData.Metadata.VirtualSize);
+				Assert.NotNull(evt.TransactionData.Metadata.FeeRate);
+				Assert.NotNull(evt.TransactionData.Metadata.Fees);
 			}
 
 			tester.Notifications.WaitForBlocks(tester.RPC.EnsureGenerate(1));
+
 			var bpr = await tester.Client.GetTransactionAsync(bp.GetHash());
 			Assert.NotNull(bpr?.Transaction);
 			Assert.Equal(1, bpr.Confirmations);
+
+			// We are sure that bpr passed by the mempool before being mined
+			if (!cancelB)
+			{
+				Assert.NotNull(bpr.Metadata);
+			}
+
 			var br = await tester.Client.GetTransactionAsync(b.GetHash());
 			Assert.NotNull(br?.Transaction);
 			Assert.Equal(bp.GetHash(), br.ReplacedBy);
@@ -2857,6 +2875,11 @@ namespace NBXplorer.Tests
 				Assert.Equal(Money.Coins(-0.8m), result.UnconfirmedTransactions.Transactions[0].BalanceChange);
 				var tx3 = await tester.Client.GetTransactionAsync(pubkey, txId3);
 				Assert.Equal(Money.Coins(-0.8m), tx3.BalanceChange);
+
+				var metadata = result.UnconfirmedTransactions.Transactions[0].Metadata;
+				Assert.NotNull(metadata.Fees);
+				Assert.NotNull(metadata.FeeRate);
+				Assert.NotNull(metadata.VirtualSize);
 			}
 		}
 
@@ -3082,6 +3105,9 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Let's check that we can query the UTXO with 2 confirmations");
 				tx = tester.Client.GetTransaction(tx.Transaction.GetHash());
+				Assert.Equal(tx.Transaction.GetVirtualSize(), tx.Metadata.VirtualSize);
+				Assert.NotNull(tx.Metadata.Fees);
+				Assert.NotNull(tx.Metadata.FeeRate);
 				Assert.Equal(2, tx.Confirmations);
 				Assert.NotNull(tx.BlockId);
 

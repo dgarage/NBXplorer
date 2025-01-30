@@ -1,6 +1,7 @@
 ﻿#nullable enable
 using Dapper;
 using NBitcoin;
+using NBitcoin.RPC;
 using NBXplorer.DerivationStrategy;
 using Npgsql;
 using System;
@@ -115,7 +116,7 @@ namespace NBXplorer.Backend
 					);
 		}
 
-		public async Task SaveTransactions(IEnumerable<SaveTransactionRecord> transactions)
+		public async Task SaveTransactions(IEnumerable<SaveTransactionRecord> transactions, Dictionary<uint256, MempoolEntry> mempoolEntries)
 		{
 			var parameters = transactions
 				.DistinctBy(o => o.Id)
@@ -124,19 +125,26 @@ namespace NBXplorer.Backend
 			{
 				code = Network.CryptoCode,
 				blk_id = tx.BlockId?.ToString(),
-				id = tx.Id?.ToString() ?? tx.Transaction?.GetHash()?.ToString(),
+				id = tx.Id.ToString(),
 				raw = tx.Transaction?.ToBytes(),
 				mempool = tx.BlockId is null,
 				seen_at = tx.SeenAt,
 				blk_idx = tx.BlockIndex is int i ? i : 0,
 				blk_height = tx.BlockHeight,
-				immature = tx.Immature
+				immature = tx.Immature,
+				metadata = mempoolEntries.TryGetValue(tx.Id, out var meta) ? meta.ToTransactionMetadata().ToString(false) : null
 			})
 			.Where(o => o.id is not null)
 			.ToArray();
-			await Connection.ExecuteAsync("INSERT INTO txs(code, tx_id, raw, immature, seen_at) VALUES (@code, @id, @raw, @immature, COALESCE(@seen_at, CURRENT_TIMESTAMP)) " +
-										  " ON CONFLICT (code, tx_id) " +
-										  " DO UPDATE SET seen_at=LEAST(COALESCE(@seen_at, CURRENT_TIMESTAMP), txs.seen_at), raw = COALESCE(@raw, txs.raw), immature=EXCLUDED.immature", parameters);
+			await Connection.ExecuteAsync("""
+				INSERT INTO txs(code, tx_id, raw, immature, seen_at, metadata) VALUES (@code, @id, @raw, @immature, COALESCE(@seen_at, CURRENT_TIMESTAMP), @metadata::JSONB)
+				ON CONFLICT (code, tx_id)
+				DO UPDATE SET
+					seen_at=LEAST(COALESCE(@seen_at, CURRENT_TIMESTAMP), txs.seen_at),
+					raw = COALESCE(@raw, txs.raw),
+					immature=EXCLUDED.immature,
+					metadata=COALESCE(@metadata::JSONB, txs.metadata);
+				""", parameters);
 			await Connection.ExecuteAsync("INSERT INTO blks_txs VALUES (@code, @blk_id, @id, @blk_idx) ON CONFLICT DO NOTHING", parameters.Where(p => p.blk_id is not null).AsList());
 		}
 

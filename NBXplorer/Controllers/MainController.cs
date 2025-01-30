@@ -79,6 +79,7 @@ namespace NBXplorer.Controllers
 			"gettxout",
 			"estimatesmartfee",
 			"getmempoolinfo",
+			"getmempoolentry",
 			"gettxoutproof",
 			"verifytxoutproof",
 			"getblockchaininfo",
@@ -546,16 +547,26 @@ namespace NBXplorer.Controllers
 			string cryptoCode = null, CancellationToken cancellationToken = default)
 		{
 			var network = GetNetwork(cryptoCode, false);
+			var rpc = GetAvailableRPC(network);
 			var repo = RepositoryProvider.GetRepository(network);
-			var result = await repo.GetSavedTransactions(txId);
-			if (result.Length == 0)
+			var result = await repo.GetSavedTransaction(txId);
+			if (result is null)
 			{
-				var rpc = GetAvailableRPC(network);
 				if (rpc is not null &&
-					HasTxIndex(cryptoCode) &&
 					await rpc.TryGetRawTransaction(txId, cancellationToken) is SavedTransaction savedTransaction)
 				{
-					result = new[] { savedTransaction };
+					result = savedTransaction;
+					if (result.BlockHash is null)
+					{
+						try
+						{
+							var entry = await rpc.GetMempoolEntryAsync(txId, false, cancellationToken);
+							if (result.Metadata is null)
+								result.Metadata = entry.ToTransactionMetadata();
+						}
+						// Not essential data, we can ignore if we can't get it
+						catch { }
+					}
 				}
 				else
 				{
@@ -641,6 +652,7 @@ namespace NBXplorer.Controllers
 						Inputs = tx.Record.MatchedInputs,
 						Outputs = tx.Record.MatchedOutputs,
 						Replaceable = tx.Replaceable,
+						Metadata = tx.Record.Metadata,
 						ReplacedBy = tx.ReplacedBy == NBXplorerNetwork.UnknownTxId ? null : tx.ReplacedBy,
 						Replacing = tx.Replacing
 					};
@@ -889,7 +901,7 @@ namespace NBXplorer.Controllers
 					var transactions = await GetAnnotatedTransactions(repo, GetTransactionQuery.Create(trackedSourceContext.TrackedSource), true);
 					foreach (var existing in transactions.UnconfirmedTransactions)
 					{
-						var t = existing.Record.Transaction ?? (await repo.GetSavedTransactions(existing.Record.TransactionHash)).Select(c => c.Transaction).FirstOrDefault();
+						var t = existing.Record.Transaction ?? (await repo.GetSavedTransaction(existing.Record.TransactionHash))?.Transaction;
 						if (t == null)
 							continue;
 						try

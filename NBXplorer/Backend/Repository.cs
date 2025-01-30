@@ -18,7 +18,6 @@ using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
 using Npgsql;
 using static NBXplorer.Backend.DbConnectionHelper;
-using Microsoft.AspNetCore.DataProtection.KeyManagement;
 
 
 namespace NBXplorer.Backend
@@ -72,7 +71,7 @@ namespace NBXplorer.Backend
 				code = Network.CryptoCode,
 				wid = w.wid,
 				keypaths = keyPaths.Select(k => k.ToString()).ToArray()
-			}) ;
+			});
 		}
 
 		public record DescriptorKey(string code, string descriptor);
@@ -629,7 +628,7 @@ namespace NBXplorer.Backend
 		}
 		async Task<(TrackedTransaction[] TrackedTransactions, SaveTransactionRecord[] Saved)> SaveMatches(DbConnectionHelper connection, MatchQuery matchQuery, IList<SaveTransactionRecord> records, CancellationToken cancellationToken = default)
 		{
-			HashSet<uint256> unconfTxs = await connection.GetUnconfirmedTxs();
+			HashSet<uint256> unconfTxs = null;;
 			Dictionary<uint256, SaveTransactionRecord> txs = new();
 			HashSet<uint256> savedTxs = new();
 			List<dynamic> matchedConflicts = new List<dynamic>();
@@ -637,11 +636,17 @@ namespace NBXplorer.Backend
 			foreach (var record in records)
 			{
 				txs.TryAdd(record.Id, record);
-				if (record.BlockId is not null && unconfTxs.Contains(record.Id))
-					// If a block has been found, and we have some unconf transactions
-					// then we want to add an entry in blks_txs, even if the unconf tx isn't matching
-					// any wallet. So we add record.
-					savedTxs.Add(record.Id);
+				if (record.BlockId is not null)
+				{
+					unconfTxs ??= await connection.GetUnconfirmedTxs();
+					if (unconfTxs.Contains(record.Id))
+					{
+						// If a block has been found, and we have some unconf transactions
+						// then we want to add an entry in blks_txs, even if the unconf tx isn't matching
+						// any wallet. So we add record.
+						savedTxs.Add(record.Id);
+					}
+				}
 			}
 			SaveTransactionRecord[] GetSavedTxs() => txs.Values.Where(r => savedTxs.Contains(r.Id)).ToArray();
 
@@ -681,7 +686,11 @@ namespace NBXplorer.Backend
 			end:
 			if (savedTxs.Count is 0)
 				return (Array.Empty<TrackedTransaction>(), GetSavedTxs());
-			await connection.SaveTransactions(savedTxs.Select(h => txs[h]).ToArray());
+			
+			var metadata = await rpc.FetchMempoolInfo(GetSavedTxs().Where(tx => tx.BlockId is null).Select(tx => tx.Id), cancellationToken);
+			await connection.SaveTransactions(GetSavedTxs(), metadata);
+			
+
 			if (scripts.Count is 0)
 				return (Array.Empty<TrackedTransaction>(), GetSavedTxs());
 			var allKeyInfos = await GetKeyInformations(connection.Connection, scripts);
@@ -727,21 +736,22 @@ namespace NBXplorer.Backend
 		public Task CommitMatches(DbConnection connection)
 		=> connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
 
-		record SavedTransactionRow(byte[] raw, string blk_id, long? blk_height, string replaced_by, DateTime seen_at);
-		public async Task<SavedTransaction[]> GetSavedTransactions(uint256 txid)
+		record SavedTransactionRow(byte[] raw, string metadata, string blk_id, long? blk_height, string replaced_by, DateTime seen_at);
+		public async Task<SavedTransaction> GetSavedTransaction(uint256 txid)
 		{
 			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
-			var tx = await connection.Connection.QueryFirstOrDefaultAsync<SavedTransactionRow>("SELECT raw, blk_id, blk_height, replaced_by, seen_at FROM txs WHERE code=@code AND tx_id=@tx_id", new { code = Network.CryptoCode, tx_id = txid.ToString() });
+			var tx = await connection.Connection.QueryFirstOrDefaultAsync<SavedTransactionRow>("SELECT raw, metadata, blk_id, blk_height, replaced_by, seen_at FROM txs WHERE code=@code AND tx_id=@tx_id", new { code = Network.CryptoCode, tx_id = txid.ToString() });
 			if (tx?.raw is null)
-				return Array.Empty<SavedTransaction>();
-			return new[] { new SavedTransaction()
+				return null;
+			return new SavedTransaction()
 			{
 				BlockHash = tx.blk_id is null ? null : uint256.Parse(tx.blk_id),
 				BlockHeight = tx.blk_height,
 				Timestamp = new DateTimeOffset(tx.seen_at),
 				Transaction = Transaction.Load(tx.raw, Network.NBitcoinNetwork),
-				ReplacedBy = tx.replaced_by is null ? null : uint256.Parse(tx.replaced_by)
-			}};
+				ReplacedBy = tx.replaced_by is null ? null : uint256.Parse(tx.replaced_by),
+				Metadata = tx.metadata is null ? null : TransactionMetadata.Parse(tx.metadata)
+			};
 		}
 		public async Task<TrackedTransaction[]> GetTransactions(GetTransactionQuery query, bool includeTransactions = true, CancellationToken cancellation = default)
 		{
@@ -794,26 +804,32 @@ namespace NBXplorer.Backend
 				}
 			}
 
-			var txsToFetch = (includeTransactions ? trackedById.Keys.Select(t => t.Item2).AsList() :
-												  // For double spend detection, we need the full transactions from unconfs
-												  trackedById.Where(t => t.Value.BlockHash is null).Select(t => t.Key.Item2).AsList()).ToHashSet();
-			var txRaws = txsToFetch.Count > 0
-				? await connection.Connection.QueryAsync<(string tx_id, byte[] raw)>(
-					"SELECT	t.tx_id, t.raw FROM unnest(@txId) i " +
-					"JOIN txs t ON t.code=@code AND t.tx_id=i " +
-					"WHERE t.raw IS NOT NULL;", new { code = Network.CryptoCode, txId = txsToFetch.ToArray() })
-				: Array.Empty<(string tx_id, byte[] raw)>();
+			var txsToFetch = trackedById.Keys.Select(t => t.Item2).ToHashSet();
 
-			var txRawsById = txRaws.ToDictionary(t => t.tx_id);
+			var txMetadata = await connection.Connection.QueryAsync<(string tx_id, byte[] raw, string metadata)>(
+					$"SELECT t.tx_id, t.raw, t.metadata FROM unnest(@txId) i " +
+					"JOIN txs t ON t.code=@code AND t.tx_id=i;", new { code = Network.CryptoCode, txId = txsToFetch.ToArray() });
+
+			var txMetadataByIds = txMetadata.ToDictionary(t => t.tx_id);
 			foreach (var tracked in trackedById.Values)
 			{
 				tracked.Sort();
-				if (!txRawsById.TryGetValue(tracked.Key.TxId.ToString(), out var row))
+				if (!txMetadataByIds.TryGetValue(tracked.Key.TxId.ToString(), out var row))
 					continue;
-				tracked.Transaction = Transaction.Load(row.raw, Network.NBitcoinNetwork);
-				tracked.Key = tracked.Key with { IsPruned = false };
-				if (tracked.BlockHash is null) // Only need the spend outpoint for double spend detection on unconf txs
-					tracked.SpentOutpoints.AddInputs(tracked.Transaction);
+				Transaction tx = (includeTransactions || tracked.BlockHash is null) && row.raw is not null ? Transaction.Load(row.raw, Network.NBitcoinNetwork) : null;
+				if (tx is not null)
+				{
+					tracked.Transaction = tx;
+					tracked.Key = tracked.Key with { IsPruned = false };
+				}
+				if (row.metadata is not null)
+				{
+					tracked.Metadata = TransactionMetadata.Parse(row.metadata);
+				}
+				if (tracked.BlockHash is null && tx is not null) // Only need the spend outpoint for double spend detection on unconf txs
+				{
+					tracked.SpentOutpoints.AddInputs(tx);
+				}
 			}
 
 			if (Network.IsElement)
@@ -824,7 +840,7 @@ namespace NBXplorer.Backend
 
 		private async Task UnblindTrackedTransactions(DbConnectionHelper connection, IEnumerable<TrackedTransaction> trackedTransactions, GetTransactionQuery query)
 		{
-			var keyInfos = ((query as GetTransactionQuery.ScriptsTxIds)?.KeyInfos)?.ToMultiValueDictionary(k => k.ScriptPubKey); 
+			var keyInfos = ((query as GetTransactionQuery.ScriptsTxIds)?.KeyInfos)?.ToMultiValueDictionary(k => k.ScriptPubKey);
 			if (keyInfos is null)
 				keyInfos = (await this.GetKeyInformations(connection.Connection, trackedTransactions.SelectMany(t => t.InOuts).Select(s => s.ScriptPubKey).ToList()));
 			foreach (var tracked in trackedTransactions)
@@ -1063,12 +1079,6 @@ namespace NBXplorer.Backend
 			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
 			var walletKey = GetWalletKey(source);
 			return await helper.GetMetadata<TMetadata>(walletKey.wid, key);
-		}
-
-		public async Task SaveTransactions(SaveTransactionRecord[] records)
-		{
-			await using var helper = await connectionFactory.CreateConnectionHelper(Network);
-			await helper.SaveTransactions(records);
 		}
 
 		public async Task SetIndexProgress(BlockLocator locator)
