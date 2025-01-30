@@ -74,7 +74,7 @@ namespace NBXplorer.Models
 		/// <summary>
 		/// Use a specific change address (Optional, default: null, mutually exclusive with ReserveChangeAddress)
 		/// </summary>
-		public BitcoinAddress ExplicitChangeAddress { get; set; }
+		public PSBTDestination ExplicitChangeAddress { get; set; }
 
 		/// <summary>
 		/// Rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about)

@@ -446,7 +446,7 @@
           },
           "explicitChangeAddress": {
             "type": "string",
-            "description": "Optional. Use a specific change address. Mutually exclusive with 'reserveChangeAddress'. Default is null."
+            "description": "Optional. Use a specific change address or script (in hex format). Mutually exclusive with 'reserveChangeAddress'. Default is null."
           },
           "minConfirmations": {
             "type": "integer",
