@@ -561,7 +561,7 @@ namespace NBXplorer.Controllers
 						try
 						{
 							var entry = await rpc.GetMempoolEntryAsync(txId, false, cancellationToken);
-							if (result.Metadata is null)
+							if (result.Metadata is null && entry is not null)
 								result.Metadata = entry.ToTransactionMetadata();
 						}
 						// Not essential data, we can ignore if we can't get it
