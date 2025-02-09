@@ -1025,6 +1025,18 @@ namespace NBXplorer.Tests
 					Assert.NotNull(psbtInput.NonWitnessUtxo);
 				}
 			}
+
+			// Can we send to no destination?
+			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
+			{
+				SpendAllMatchingOutpoints = true,
+				IncludeOnlyOutpoints = psbt2.PSBT.Inputs.Select(t => t.PrevOut).ToList(),
+				FeePreference = new FeePreference()
+				{
+					FallbackFeeRate = new FeeRate(1.0m)
+				},
+				AlwaysIncludeNonWitnessUTXO = true
+			});
 		}
 
 		private static PSBTOutput AssertHasOutput(ScriptPubKeyType type, KeyPath keyPath, CreatePSBTResponse psbt2)

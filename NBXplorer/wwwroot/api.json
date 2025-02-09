@@ -504,19 +504,19 @@
             "properties": {
               "explicitFeeRate": {
                 "type": "integer",
-                "description": "Optional. An explicit fee rate for the transaction in satoshis per virtual byte (vByte). Mutually exclusive with 'blockTarget', 'explicitFee', and 'fallbackFeeRate'."
+                "description": "Optional. An explicit fee rate for the transaction in satoshis per virtual byte (vByte). Mutually exclusive with 'blockTarget', and 'fallbackFeeRate'."
               },
               "explicitFee": {
                 "type": "integer",
-                "description": "Optional. An explicit total fee for the transaction in satoshis. Mutually exclusive with 'blockTarget', 'explicitFeeRate', and 'fallbackFeeRate'."
+                "description": "Optional. An explicit total fee for the transaction in satoshis."
               },
               "blockTarget": {
                 "type": "integer",
-                "description": "Optional. The target number of blocks within which the user expects the transaction to be confirmed. Mutually exclusive with 'explicitFeeRate' and 'explicitFee'."
+                "description": "Optional. The target number of blocks within which the user expects the transaction to be confirmed. Mutually exclusive with 'explicitFeeRate'."
               },
               "fallbackFeeRate": {
                 "type": "integer",
-                "description": "Optional. A fallback fee rate in satoshis per vByte to use if fee estimation is unavailable. Ensures 'fee-estimation-unavailable' error is not sent. Mutually exclusive with 'explicitFeeRate' and 'explicitFee'."
+                "description": "Optional. A fallback fee rate in satoshis per vByte to use if fee estimation is unavailable. Ensures 'fee-estimation-unavailable' error is not sent. Mutually exclusive with 'explicitFeeRate'."
               }
             },
             "description": "Optional. Preferences for how transaction fees are calculated."

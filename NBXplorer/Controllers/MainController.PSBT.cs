@@ -303,10 +303,6 @@ namespace NBXplorer.Controllers
 						txBuilder.SendEstimatedFees(fallbackFeeRate);
 					}
 				}
-				else if (request.FeePreference?.ExplicitFee is Money explicitFee)
-				{
-					txBuilder.SendFees(explicitFee);
-				}
 				else
 				{
 					try
@@ -318,6 +314,10 @@ namespace NBXplorer.Controllers
 					{
 						txBuilder.SendEstimatedFees(fallbackFeeRate);
 					}
+				}
+				if (request.FeePreference?.ExplicitFee is Money explicitFee)
+				{
+					txBuilder.SendFees(explicitFee);
 				}
 				if (request.SpendAllMatchingOutpoints is true)
 					txBuilder.SendAllRemainingToChange();
