@@ -303,7 +303,7 @@ namespace NBXplorer.Controllers
 						txBuilder.SendEstimatedFees(fallbackFeeRate);
 					}
 				}
-				else
+				else if (request.FeePreference?.ExplicitFee is null)
 				{
 					try
 					{
