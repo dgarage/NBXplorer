@@ -28,7 +28,7 @@
         </PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="NBitcoin" Version="7.0.50" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.33" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.34" />
 	</ItemGroup>
   <ItemGroup>
 	<None Include="..\README.md" Pack="true" PackagePath="\" />
