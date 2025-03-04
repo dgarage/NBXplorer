@@ -338,9 +338,12 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		[FactWithTimeout]
-		public async Task CanCreatePSBT()
+		[TheoryWithTimeout]
+		[InlineData(PSBTVersion.PSBTv0)]
+		[InlineData(PSBTVersion.PSBTv2)]
+		public async Task CanCreatePSBT(PSBTVersion v)
 		{
+			var version = v == PSBTVersion.PSBTv0 ? 0 : 2;
 			using (var tester = ServerTester.Create())
 			{
 				// We need to check if we can get utxo information of segwit utxos
@@ -359,15 +362,15 @@ namespace NBXplorer.Tests
 					.BuildTransaction(false);
 				var spendingPSBT = (await tester.Client.UpdatePSBTAsync(new UpdatePSBTRequest()
 				{
-					PSBT = PSBT.FromTransaction(spending, tester.Network)
+					PSBT = PSBT.FromTransaction(spending, tester.Network, v)
 				})).PSBT;
 				Assert.NotNull(spendingPSBT.Inputs[0].WitnessUtxo);
 				///////////////////////////
 
-				CanCreatePSBTCore(tester, ScriptPubKeyType.SegwitP2SH);
-				CanCreatePSBTCore(tester, ScriptPubKeyType.Segwit);
-				CanCreatePSBTCore(tester, ScriptPubKeyType.Legacy);
-				CanCreatePSBTCore(tester, ScriptPubKeyType.TaprootBIP86);
+				CanCreatePSBTCore(tester, version, ScriptPubKeyType.SegwitP2SH);
+				CanCreatePSBTCore(tester, version, ScriptPubKeyType.Segwit);
+				CanCreatePSBTCore(tester, version, ScriptPubKeyType.Legacy);
+				CanCreatePSBTCore(tester, version, ScriptPubKeyType.TaprootBIP86);
 
 				// If we build a list of unconf transaction which is too long, the CreatePSBT should
 				// fail rather than create a transaction that can't be broadcasted.
@@ -389,6 +392,7 @@ namespace NBXplorer.Tests
 					{
 						var psbt = await tester.Client.CreatePSBTAsync(userDerivationScheme, new CreatePSBTRequest()
 						{
+							PSBTVersion = version,
 							Destinations = {
 							new CreatePSBTDestination()
 							{
@@ -415,7 +419,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		private static void CanCreatePSBTCore(ServerTester tester, ScriptPubKeyType type)
+		private static void CanCreatePSBTCore(ServerTester tester, int psbtVersion, ScriptPubKeyType type)
 		{
 			var userExtKey = new ExtKey();
 			var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
@@ -447,6 +451,7 @@ namespace NBXplorer.Tests
 			{
 				var req = new CreatePSBTRequest()
 				{
+					PSBTVersion = psbtVersion,
 					Destinations =
 					{
 						new CreatePSBTDestination()
@@ -487,6 +492,7 @@ namespace NBXplorer.Tests
 				var explicitFee = i == 2;
 				var psbt = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
+					PSBTVersion = psbtVersion,
 					Destinations =
 						{
 							new CreatePSBTDestination()
@@ -525,6 +531,7 @@ namespace NBXplorer.Tests
 			var balance = tester.Client.GetUTXOs(userDerivationScheme).GetUnspentCoins().Select(c => c.Amount).Sum();
 			var psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -544,6 +551,7 @@ namespace NBXplorer.Tests
 			Logs.Tester.LogInformation("Let's check that if ReserveChangeAddress is false, all call to CreatePSBT send the same change address");
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -562,6 +570,7 @@ namespace NBXplorer.Tests
 
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -580,6 +589,7 @@ namespace NBXplorer.Tests
 			Logs.Tester.LogInformation("Let's check that if ReserveChangeAddress is true, next call to CreatePSBT will create a new change address");
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -598,6 +608,7 @@ namespace NBXplorer.Tests
 			var dest = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, tester.Network);
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				RBF = false,
 				Seed = 0,
 				Destinations =
@@ -620,6 +631,7 @@ namespace NBXplorer.Tests
 			Logs.Tester.LogInformation("Let's check that we can use the reserved change as explicit change and end up with the same psbt");
 			var psbt3 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				RBF = false,
 				Seed = 0,
 				Destinations =
@@ -641,6 +653,7 @@ namespace NBXplorer.Tests
 			Logs.Tester.LogInformation("Let's change that if ReserveChangeAddress is true, but the transaction fails to build, no address get reserverd");
 			var ex = Assert.Throws<NBXplorerException>(() => psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -655,10 +668,11 @@ namespace NBXplorer.Tests
 				},
 				ReserveChangeAddress = true
 			}));
-			Assert.False(psbt2.PSBT.GetOriginalTransaction().RBF);
+			Assert.False(psbt2.PSBT.GetGlobalTransaction().RBF);
 			Assert.Equal("not-enough-funds", ex.Error.Code);
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				RBF = true,
 				Destinations =
 						{
@@ -674,7 +688,7 @@ namespace NBXplorer.Tests
 				},
 				ReserveChangeAddress = false
 			});
-			Assert.True(psbt2.PSBT.GetOriginalTransaction().RBF);
+			Assert.True(psbt2.PSBT.GetGlobalTransaction().RBF);
 			Assert.Equal(changeAddress, psbt2.ChangeAddress);
 			foreach (var input in psbt2.PSBT.GetGlobalTransaction().Inputs)
 			{
@@ -685,6 +699,7 @@ namespace NBXplorer.Tests
 			Logs.Tester.LogInformation("We have no confirmation, so we should not have enough money if asking for min 1 conf");
 			ex = Assert.Throws<NBXplorerException>(() => psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -707,6 +722,7 @@ namespace NBXplorer.Tests
 			tester.WaitSynchronized();
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -730,6 +746,7 @@ namespace NBXplorer.Tests
 			tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -744,11 +761,12 @@ namespace NBXplorer.Tests
 				},
 				ReserveChangeAddress = false
 			});
-			var outpoints = psbt2.PSBT.GetOriginalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
+			var outpoints = psbt2.PSBT.GetGlobalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
 			Assert.Equal(2, outpoints.Length);
 
 			var request = new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				IncludeOnlyOutpoints = new List<OutPoint>() { outpoints[0] },
 				Destinations =
 						{
@@ -767,7 +785,7 @@ namespace NBXplorer.Tests
 			};
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, request);
 
-			var actualOutpoints = psbt2.PSBT.GetOriginalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
+			var actualOutpoints = psbt2.PSBT.GetGlobalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
 			Assert.Single(actualOutpoints);
 			Assert.Equal(outpoints[0], actualOutpoints[0]);
 			request.MinValue = Money.Coins(0.1m);
@@ -776,6 +794,7 @@ namespace NBXplorer.Tests
 
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				ExcludeOutpoints = new List<OutPoint>() { outpoints[0] },
 				Destinations =
 						{
@@ -792,7 +811,7 @@ namespace NBXplorer.Tests
 				ReserveChangeAddress = false
 			});
 
-			actualOutpoints = psbt2.PSBT.GetOriginalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
+			actualOutpoints = psbt2.PSBT.GetGlobalTransaction().Inputs.Select(i => i.PrevOut).ToArray();
 			Assert.Single(actualOutpoints);
 			Assert.Equal(outpoints[1], actualOutpoints[0]);
 
@@ -800,6 +819,7 @@ namespace NBXplorer.Tests
 
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Version = 2,
 				RBF = false,
 				LockTime = new LockTime(1_000_000),
@@ -818,7 +838,7 @@ namespace NBXplorer.Tests
 				},
 				ReserveChangeAddress = false
 			});
-			var txx = psbt2.PSBT.GetOriginalTransaction();
+			var txx = psbt2.PSBT.GetGlobalTransaction();
 			Assert.Equal(new LockTime(1_000_000), txx.LockTime);
 			Assert.Equal(2U, txx.Version);
 			Assert.False(txx.RBF);
@@ -831,6 +851,7 @@ namespace NBXplorer.Tests
 
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -886,6 +907,7 @@ namespace NBXplorer.Tests
 			var rootHD = new HDFingerprint(new byte[] { 0x04, 0x01, 0x02, 0x04 });
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -931,6 +953,7 @@ namespace NBXplorer.Tests
 			Logs.Tester.LogInformation("Let's check that if the explicit change is one of the destination, fee are calculated correctly");
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				Destinations =
 						{
 							new CreatePSBTDestination()
@@ -955,6 +978,7 @@ namespace NBXplorer.Tests
 			{
 				ex = Assert.Throws<NBXplorerException>(() => tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
+					PSBTVersion = psbtVersion,
 					Destinations =
 					{
 					  new CreatePSBTDestination()
@@ -1004,6 +1028,7 @@ namespace NBXplorer.Tests
 				Logs.Tester.LogInformation("Let's check that if we can create or update a psbt with non_witness_utxo filled even for segwit inputs");
 				psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 				{
+					PSBTVersion = psbtVersion,
 					Destinations =
 					{
 						new CreatePSBTDestination()
@@ -1029,6 +1054,7 @@ namespace NBXplorer.Tests
 			// Can we send to no destination?
 			psbt2 = tester.Client.CreatePSBT(userDerivationScheme, new CreatePSBTRequest()
 			{
+				PSBTVersion = psbtVersion,
 				SpendAllMatchingOutpoints = true,
 				IncludeOnlyOutpoints = psbt2.PSBT.Inputs.Select(t => t.PrevOut).ToList(),
 				FeePreference = new FeePreference()
@@ -1037,6 +1063,8 @@ namespace NBXplorer.Tests
 				},
 				AlwaysIncludeNonWitnessUTXO = true
 			});
+			var expectedPSBTVersion = psbtVersion == 0 ? PSBTVersion.PSBTv0 : PSBTVersion.PSBTv2;
+			Assert.Equal(expectedPSBTVersion, psbt2.PSBT.Version);
 		}
 
 		private static PSBTOutput AssertHasOutput(ScriptPubKeyType type, KeyPath keyPath, CreatePSBTResponse psbt2)
@@ -1163,6 +1191,7 @@ namespace NBXplorer.Tests
 			// b' shouldn't have any output belonging to our wallets.
 			var bp = b.Clone();
 			bp.Outputs[0].Value -= Money.Satoshis(5000); // Add some fee to bump the tx
+			bp.RemoveSignatures();
 			var psbt2 = PSBT.FromTransaction(bp, tester.Network);
 			psbt2.UpdateFrom(preSignedPsbt);
 			psbt2.SignAll(ScriptPubKeyType.Segwit, bobW.AccountHDKey, bobW.AccountKeyPath);

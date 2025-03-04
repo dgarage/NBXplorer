@@ -8,6 +8,8 @@ namespace NBXplorer.Models
 {
 	public class CreatePSBTRequest
 	{
+		[JsonProperty("PSBTVersion")]
+		public int? PSBTVersion { get; set; }
 		/// <summary>
 		/// A seed to specific to get a deterministic PSBT (useful for tests)
 		/// </summary>

@@ -411,6 +411,11 @@
       "PSBTRequest": {
         "type": "object",
         "properties": {
+          "PSBTVersion": {
+            "type": "integer",
+            "description": "Optional. The format of the PSBT. (0 or 2). Default is 1.",
+            "default": 0
+          },
           "seed": {
             "type": "integer",
             "description": "Optional. A seed specific to get a deterministic PSBT, useful for testing purposes. Default is null."
