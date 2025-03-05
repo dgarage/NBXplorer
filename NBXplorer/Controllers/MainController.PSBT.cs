@@ -29,6 +29,12 @@ namespace NBXplorer.Controllers
 			var network = trackedSourceContext.Network;
 			CreatePSBTRequest request = network.ParseJObject<CreatePSBTRequest>(body);
 
+			var psbtVersion = request.PSBTVersion switch
+			{
+				2 => PSBTVersion.PSBTv2,
+				_ => PSBTVersion.PSBTv0
+			};
+
 			var repo = RepositoryProvider.GetRepository(network);
 			var txBuilder = request.Seed is int s ? network.NBitcoinNetwork.CreateTransactionBuilder(s)
 												: network.NBitcoinNetwork.CreateTransactionBuilder();
@@ -321,7 +327,7 @@ namespace NBXplorer.Controllers
 				}
 				if (request.SpendAllMatchingOutpoints is true)
 					txBuilder.SendAllRemainingToChange();
-				psbt = txBuilder.BuildPSBT(false);
+				psbt = txBuilder.BuildPSBT(false, psbtVersion);
 				hasChange = psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
 			}
 			catch (OutputTooSmallException ex) when (ex.Reason == OutputTooSmallException.ErrorType.TooSmallAfterSubtractedFee)
@@ -356,15 +362,15 @@ namespace NBXplorer.Controllers
 				{
 					change = (derivation.ScriptPubKey, derivation.KeyPath);
 					txBuilder.SetChange(change.ScriptPubKey);
-					psbt = txBuilder.BuildPSBT(false);
+					psbt = txBuilder.BuildPSBT(false, psbtVersion);
 				}
 			}
 
-			var tx = psbt.GetOriginalTransaction();
+			var tx = psbt.GetGlobalTransaction();
 			if (request.Version is uint v)
 				tx.Version = v;
 			txBuilder.SetSigningOptions(SigHash.All);
-			psbt = txBuilder.CreatePSBTFrom(tx, false);
+			psbt = txBuilder.CreatePSBTFrom(tx, psbtVersion, false);
 
 			var update = new UpdatePSBTRequest()
 			{
@@ -481,7 +487,7 @@ namespace NBXplorer.Controllers
 			var keyInfosByScriptPubKey = new Dictionary<Script, KeyPathInformation>();
 			var scriptPubKeys = update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs)
 											.Where(o => !o.HDKeyPaths.Any())
-											.Select(o => o.GetCoin()?.ScriptPubKey)
+											.Select(o => o.GetTxOut()?.ScriptPubKey)
 											.Where(s => s != null).ToArray();
 			foreach (var keyInfos in (await repo.GetKeyInformations(scriptPubKeys)))
 			{
@@ -503,7 +509,7 @@ namespace NBXplorer.Controllers
 			List<Script> redeems = new List<Script>();
 			foreach (var c in update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs.Where(o => !o.IsFinalized())))
 			{
-				var script = c.GetCoin()?.ScriptPubKey;
+				var script = c.GetTxOut()?.ScriptPubKey;
 				if (script != null &&
 					keyInfosByScriptPubKey.TryGetValue(script, out var keyInfo))
 				{
