@@ -159,7 +159,7 @@ namespace NBXplorer.Backend
 			List<OutpointRaw> rawOutpoints = new List<OutpointRaw>(outpointCount);
 			foreach (var o in outPoints)
 				rawOutpoints.Add(new OutpointRaw(o.Hash.ToString(), o.N));
-			Dictionary <OutPoint, TxOut> result = new Dictionary<OutPoint, TxOut>();
+			var result = new Dictionary<OutPoint, TxOut>();
 			foreach (var r in await Connection.QueryAsync<(string tx_id, long idx, string script, long value, string asset_id)>(
 				"SELECT o.tx_id, o.idx, o.script, o.value, o.asset_id FROM unnest(@outpoints) outpoints " +
 				"JOIN outs o ON code=@code AND o.tx_id=outpoints.tx_id AND o.idx=outpoints.idx",

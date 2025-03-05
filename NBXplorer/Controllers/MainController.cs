@@ -24,6 +24,7 @@ using NBXplorer.Analytics;
 using NBXplorer.Backend;
 using static NBXplorer.Backend.DbConnectionHelper;
 using static NBXplorer.ListenEventsRequest;
+using NBXplorer.HostedServices;
 
 namespace NBXplorer.Controllers
 {
@@ -36,6 +37,7 @@ namespace NBXplorer.Controllers
 		public RepositoryProvider RepositoryProvider { get; }
 		public Indexers Indexers { get; }
 		public CommonRoutesController CommonRoutesController { get; }
+		public UTXOFetcherService UtxoFetcherService { get; }
 
 		JsonSerializerSettings _SerializerSettings;
 		public MainController(
@@ -48,7 +50,8 @@ namespace NBXplorer.Controllers
 			NBXplorerNetworkProvider networkProvider,
 			Analytics.FingerprintHostedService fingerprintService,
 			Indexers indexers,
-			CommonRoutesController commonRoutesController
+			CommonRoutesController commonRoutesController,
+			UTXOFetcherService utxoFetcherService
 			)
 		{
 			ExplorerConfiguration = explorerConfiguration;
@@ -61,6 +64,7 @@ namespace NBXplorer.Controllers
 			RepositoryProvider = repositoryProvider;
 			Indexers = indexers;
 			CommonRoutesController = commonRoutesController;
+			UtxoFetcherService = utxoFetcherService;
 		}
 		EventAggregator _EventAggregator;
 		private readonly FingerprintHostedService fingerprintService;
@@ -550,7 +554,21 @@ namespace NBXplorer.Controllers
 			var rpc = GetAvailableRPC(network);
 			var repo = RepositoryProvider.GetRepository(network);
 			var result = await repo.GetSavedTransaction(txId);
-			if (result is null)
+			if (result is not null && result.Transaction is null)
+			{
+				var dummy = Transaction.Create(network.NBitcoinNetwork);
+				dummy.Inputs.Add(new OutPoint(txId, 0));
+				var update = new UpdatePSBTRequest()
+				{
+					PSBT = PSBT.FromTransaction(dummy, network.NBitcoinNetwork),
+					AlwaysIncludeNonWitnessUTXO = true
+				};
+				await this.UtxoFetcherService.UpdateUTXO(update);
+				result.Transaction = (await UtxoFetcherService.FetchTransactions([txId], network)).Select(kv => kv.Value).FirstOrDefault();
+				if (result.Transaction is null)
+					return null;
+			}
+			else if (result is null)
 			{
 				if (rpc is not null &&
 					await rpc.TryGetRawTransaction(txId, cancellationToken) is SavedTransaction savedTransaction)
@@ -578,16 +596,6 @@ namespace NBXplorer.Controllers
 			if (!includeTransaction)
 				tx.Transaction = null;
 			return Json(tx, network.Serializer.Settings);
-		}
-
-		private bool HasTxIndex(NBXplorerNetwork network)
-		{
-			return HasTxIndex(network.CryptoCode);
-		}
-		private bool HasTxIndex(string cryptoCode)
-		{
-			var chainConfig = this.ExplorerConfiguration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode.Equals(cryptoCode.Trim(), StringComparison.OrdinalIgnoreCase));
-			return chainConfig?.HasTxIndex is true;
 		}
 
 		[HttpGet]
@@ -710,12 +718,11 @@ namespace NBXplorer.Controllers
 			{
 				TrackedSourceContext.TrackedSourceContextModelBinder.ThrowRpcUnavailableException();
 			}
-
 			var repo = trackedSourceContext.Repository;
 			var rpc = trackedSourceContext.RpcClient!.PrepareBatch();
 			var fetchingTransactions = rescanRequest
 				.Transactions
-				.Select(t => FetchTransaction(rpc, HasTxIndex(network), t))
+				.Select(t => FetchTransaction(rpc, network, t))
 				.ToArray();
 
 			await rpc.SendBatchAsync();
@@ -740,8 +747,9 @@ namespace NBXplorer.Controllers
 			return Ok();
 		}
 
-		async Task<(uint256 BlockId, Transaction Transaction, DateTimeOffset BlockTime)> FetchTransaction(RPCClient rpc, bool hasTxIndex, RescanRequest.TransactionToRescan transaction)
+		async Task<(uint256 BlockId, Transaction Transaction, DateTimeOffset BlockTime)> FetchTransaction(RPCClient rpc, NBXplorerNetwork network, RescanRequest.TransactionToRescan transaction)
 		{
+			var hasTxIndex = this.Indexers.GetIndexer(network)?.HasTxIndex is true;
 			if (transaction.Transaction != null)
 			{
 				if (transaction.BlockId == null)

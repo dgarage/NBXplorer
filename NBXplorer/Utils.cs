@@ -114,7 +114,7 @@ namespace NBXplorer
 				Confirmations = result.BlockHeight is long bh ? height - bh + 1 : 0,
 				BlockId = result.BlockHash,
 				Transaction = result.Transaction,
-				TransactionHash = result.Transaction.GetHash(),
+				TransactionHash = result.TxId,
 				Height = result.BlockHeight,
 				Timestamp = result.Timestamp,
 				ReplacedBy = result.ReplacedBy,

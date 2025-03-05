@@ -193,7 +193,7 @@ namespace NBXplorer
 
 			services.TryAddSingleton<CookieRepository>();
 			services.TryAddSingleton<Broadcaster>();
-
+			services.AddSingleton<UTXOFetcherService>();
 			services.AddHostedService<HostedServices.DatabaseSetupHostedService>();
 			services.AddSingleton<IHostedService, RepositoryProvider>(o => o.GetRequiredService<RepositoryProvider>());
 			services.TryAddSingleton<RepositoryProvider, RepositoryProvider>();

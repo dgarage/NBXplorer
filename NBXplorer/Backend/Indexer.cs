@@ -303,11 +303,8 @@ namespace NBXplorer.Backend
 				await node.SendMessageAsync(new SendHeadersPayload());
 
 				await RPCArgs.TestRPCAsync(Network, RPCClient, token, Logger);
-				if (await RPCClient.SupportTxIndex() is bool txIndex)
-				{
-					ChainConfiguration.HasTxIndex = txIndex;
-				}
-				if (ChainConfiguration.HasTxIndex)
+				HasTxIndex = await RPCClient.SupportTxIndex() is true;
+				if (HasTxIndex)
 				{
 					Logger.LogInformation($"Has txindex support");
 				}
@@ -616,6 +613,7 @@ namespace NBXplorer.Backend
 		public ChainConfiguration ChainConfiguration { get; }
 		public EventAggregator EventAggregator { get; }
 		public GetBlockchainInfoResponse BlockchainInfo { get; private set; }
+		public bool HasTxIndex { get; private set; }
 
 		NBXplorerNetwork network;
 		private int maxinflight = 10;

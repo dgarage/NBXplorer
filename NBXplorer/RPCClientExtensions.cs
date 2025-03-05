@@ -376,6 +376,85 @@ namespace NBXplorer
 			}
 			return null;
 		}
+
+		public async static Task<Dictionary<uint256, Transaction>> GetTransactionFromBlocks(this RPCClient rpc, HashSet<(uint256 BlockId, uint256 TransactionId)> txBlockIds, CancellationToken cancellationToken = default)
+		{
+			async Task<Dictionary<uint256, Transaction>> GetTransactionFromStoredBlocks(HashSet<(uint256 BlockId, uint256 TransactionId)> txBlockIds)
+			{
+				var result = new Dictionary<uint256, Transaction>();
+				if (txBlockIds.Count == 0)
+					return result;
+				var batch = rpc.PrepareBatch();
+				var fetching = txBlockIds.Select(b => (b.TransactionId, Fetching: batch.GetRawTransactionAsync(b.TransactionId, b.BlockId, false, cancellationToken))).ToArray();
+				await batch.SendBatchAsync(cancellationToken);
+				foreach (var f in fetching)
+				{
+					Transaction tx = null;
+					try
+					{
+						tx = await f.Fetching;
+					}
+					catch
+					{
+					}
+					if (tx is not null)
+						result.TryAdd(f.TransactionId, tx);
+				}
+				return result;
+			}
+			async Task<HashSet<uint256>> FetchFromPeers(HashSet<uint256> blocks)
+			{
+				var downloaded = new HashSet<uint256>();
+				if (blocks.Count == 0)
+					return downloaded;
+				var peers = (await rpc.GetPeersInfoAsync(cancellationToken))
+									.Where(p => p.ServicesNames?.Contains("NETWORK") is true)
+									.ToArray();
+				NBitcoin.Utils.Shuffle(peers);
+				foreach (var block in blocks)
+				{
+					foreach (var peer in peers)
+					{
+						try
+						{
+							var result = await rpc.GetBlockFromPeer(block, peer.Id, cancellationToken);
+							if (result is GetBlockFromPeerResult.BlockHeaderMissing or GetBlockFromPeerResult.NeverSynched)
+								goto end;
+							if (result is GetBlockFromPeerResult.Fetched or GetBlockFromPeerResult.AlreadyDownloaded)
+							{
+								downloaded.Add(block);
+								goto nextBlock;
+							}
+						}
+						catch (RPCException e) when (e.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND) { return downloaded; }
+						catch { }
+					}
+					nextBlock:;
+				}
+				end:;
+				return downloaded;
+			}
+
+			var result = await GetTransactionFromStoredBlocks(txBlockIds);
+			if (rpc.Capabilities?.CanGetBlockFromPeer is not true || result.Count == txBlockIds.Count)
+				return result;
+
+			int retryCount = 10;
+			retry:
+			var blockNotFound = txBlockIds.Where(t => !result.ContainsKey(t.TransactionId)).Select(t => t.BlockId).ToHashSet();
+			var fetchedBlocks = await FetchFromPeers(blockNotFound);
+			var newlyAvailable = txBlockIds.Where(t => !result.ContainsKey(t.TransactionId) && fetchedBlocks.Contains(t.BlockId)).ToHashSet();
+			foreach (var kv in await GetTransactionFromStoredBlocks(newlyAvailable))
+				result.Add(kv.Key, kv.Value);
+			if (result.Count != txBlockIds.Count && retryCount > 0)
+			{
+				// Somehow, sometimes, we need to fetch more than once, or the block is not available during a short delay
+				await Task.Delay(1000, cancellationToken);
+				retryCount--;
+				goto retry;
+			}
+			return result;
+		}
 		static Regex RangeRegex = new Regex("\\[\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]", RegexOptions.ECMAScript);
 		public async static Task ImportDescriptors(this RPCClient rpc, string descriptor, long from, long to, CancellationToken cancellationToken)
 		{
@@ -424,6 +503,22 @@ namespace NBXplorer
 				goto retry;
 			}
 			throw new NotSupportedException($"Bug of NBXplorer (ERR 3083), please notify the developers");
+		}
+		public static async Task<Dictionary<uint256, Transaction>> GetRawTransactions(this RPCClient rpc, HashSet<uint256> txIds)
+		{
+			if (txIds.Count == 0)
+				return new();
+			var batch = rpc.PrepareBatch();
+			var txs = txIds.Select(t => (Id: t, Tx: batch.GetRawTransactionAsync(t, false))).ToArray();
+			await batch.SendBatchAsync();
+			var res = new Dictionary<uint256, Transaction>();
+			foreach (var txAsync in txs)
+			{
+				var tx = await txAsync.Tx;
+				if (tx is not null)
+					res.TryAdd(txAsync.Id, tx);
+			}
+			return res;
 		}
 		public static async Task<Dictionary<OutPoint, GetTxOutResponse>> GetTxOuts(this RPCClient rpc, IList<OutPoint> outpoints)
 		{

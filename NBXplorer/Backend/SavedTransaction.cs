@@ -6,6 +6,7 @@ namespace NBXplorer.Backend
 {
 	public class SavedTransaction
 	{
+		public uint256 TxId { get; set; }
 		public NBitcoin.Transaction Transaction
 		{
 			get; set;
