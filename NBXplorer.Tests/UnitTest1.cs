@@ -365,6 +365,7 @@ namespace NBXplorer.Tests
 					PSBT = PSBT.FromTransaction(spending, tester.Network, v)
 				})).PSBT;
 				Assert.NotNull(spendingPSBT.Inputs[0].WitnessUtxo);
+				Assert.Null(spendingPSBT.Inputs[0].NonWitnessUtxo);
 				///////////////////////////
 
 				CanCreatePSBTCore(tester, version, ScriptPubKeyType.SegwitP2SH);
@@ -969,6 +970,17 @@ namespace NBXplorer.Tests
 				},
 				ReserveChangeAddress = true
 			});
+			if (type == ScriptPubKeyType.Segwit || type == ScriptPubKeyType.SegwitP2SH || type == ScriptPubKeyType.TaprootBIP86)
+			{
+				Assert.NotNull(psbt2.PSBT.Inputs[0].WitnessUtxo);
+				Assert.Null(psbt2.PSBT.Inputs[0].NonWitnessUtxo);
+			}
+			else if (type == ScriptPubKeyType.Legacy)
+			{
+				Assert.Null(psbt2.PSBT.Inputs[0].WitnessUtxo);
+				Assert.NotNull(psbt2.PSBT.Inputs[0].NonWitnessUtxo);
+			}
+
 			Assert.True(psbt2.PSBT.TryGetEstimatedFeeRate(out var feeRate));
 			Assert.Equal(new FeeRate(1.0m), feeRate);
 
@@ -3898,6 +3910,36 @@ namespace NBXplorer.Tests
 				tester.Client.ScanUTXOSet(pubkey, batchsize, gaplimit);
 				info = WaitScanFinish(tester.Client, pubkey);
 				Assert.Single(tester.Client.GetTransactions(pubkey).ConfirmedTransactions.Transactions);
+
+				// Calling GetSavedTransaction should cache the transaction in the DB
+				var rawTxId = utxo.Confirmed.UTXOs[0].Outpoint.Hash;
+				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.NBXplorerNetwork);
+				var savedTx = await repo.GetSavedTransaction(rawTxId);
+				Assert.NotNull(savedTx);
+				Assert.Null(savedTx.Transaction);
+				var rawTx = await tester.Client.GetTransactionAsync(utxo.Confirmed.UTXOs[0].Outpoint.Hash);
+				Assert.NotNull(rawTx);
+				Assert.NotNull(rawTx.TransactionHash);
+				Assert.NotNull(rawTx.Transaction);
+				savedTx = await repo.GetSavedTransaction(rawTxId);
+				Assert.NotNull(savedTx);
+				Assert.NotNull(savedTx.Transaction);
+
+				var someAddr = new Key().GetScriptPubKey(ScriptPubKeyType.Legacy);
+				// It should be possible to complete the PSBT, as we fetch from the node
+				var psbt = await tester.Client.CreatePSBTAsync(pubkey, new()
+				{
+					AlwaysIncludeNonWitnessUTXO = true,
+					Destinations =
+					{
+						new() { Destination = PSBTDestination.Create(someAddr), SweepAll = true }
+					},
+					FeePreference = new FeePreference() { ExplicitFee = Money.Satoshis(1000) }
+				});
+				foreach (var input in psbt.PSBT.Inputs)
+				{
+					Assert.NotNull(input.NonWitnessUtxo);
+				}
 			}
 		}
 

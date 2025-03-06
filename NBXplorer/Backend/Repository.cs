@@ -736,22 +736,95 @@ namespace NBXplorer.Backend
 		public Task CommitMatches(DbConnection connection)
 		=> connection.ExecuteAsync("CALL save_matches(@code)", new { code = Network.CryptoCode });
 
-		record SavedTransactionRow(byte[] raw, string metadata, string blk_id, long? blk_height, string replaced_by, DateTime seen_at);
-		public async Task<SavedTransaction> GetSavedTransaction(uint256 txid)
+		record SavedTransactionRow(string tx_id, byte[] raw, string metadata, string blk_id, long? blk_height, string replaced_by, DateTime seen_at);
+
+		public async Task<Dictionary<OutPoint, TxOut>> GetUTXOs(HashSet<OutPoint> outPoints)
 		{
+			if (outPoints.Count == 0)
+				return new();
 			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
-			var tx = await connection.Connection.QueryFirstOrDefaultAsync<SavedTransactionRow>("SELECT raw, metadata, blk_id, blk_height, replaced_by, seen_at FROM txs WHERE code=@code AND tx_id=@tx_id", new { code = Network.CryptoCode, tx_id = txid.ToString() });
-			if (tx?.raw is null)
-				return null;
-			return new SavedTransaction()
+			return await connection.GetOutputs(outPoints);
+		}
+
+		public abstract class SavedTransactionsQuery
+		{
+			class Single : SavedTransactionsQuery
 			{
-				BlockHash = tx.blk_id is null ? null : uint256.Parse(tx.blk_id),
-				BlockHeight = tx.blk_height,
-				Timestamp = new DateTimeOffset(tx.seen_at),
-				Transaction = Transaction.Load(tx.raw, Network.NBitcoinNetwork),
-				ReplacedBy = tx.replaced_by is null ? null : uint256.Parse(tx.replaced_by),
-				Metadata = tx.metadata is null ? null : TransactionMetadata.Parse(tx.metadata)
-			};
+				private uint256 txid;
+				public Single(uint256 txid)
+				{
+					this.txid = txid;
+				}
+
+				public override string GetSql(DynamicParameters parameters, NBXplorerNetwork network)
+				{
+					parameters.Add("@tx_id", txid.ToString());
+					parameters.Add("@code", network.CryptoCode);
+					return "SELECT tx_id, raw, metadata, blk_id, blk_height, replaced_by, seen_at FROM txs WHERE code=@code AND tx_id=@tx_id";
+				}
+			}
+			internal class Many : SavedTransactionsQuery
+			{
+				HashSet<uint256> txids;
+				public bool Empty => txids is null || txids.Count is 0;
+				public Many(HashSet<uint256> txids)
+				{
+					this.txids = txids;
+				}
+
+				public override string GetSql(DynamicParameters parameters, NBXplorerNetwork network)
+				{
+					parameters.Add("@tx_ids", txids.Select(t => t.ToString()).ToArray());
+					parameters.Add("@code", network.CryptoCode);
+					return """
+						SELECT t.tx_id, t.raw, t.metadata, t.blk_id, t.blk_height, t.replaced_by, t.seen_at
+						FROM unnest(@tx_ids) i
+						JOIN txs t ON t.code=@code AND t.tx_id=i
+						""";
+				}
+			}
+			public static SavedTransactionsQuery GetSingle(uint256 txid) => new Single(txid);
+			public static SavedTransactionsQuery GetMany(HashSet<uint256> txids) => new Many(txids);
+			public abstract string GetSql(DynamicParameters parameters, NBXplorerNetwork network);
+		}
+		public async Task<SavedTransaction> GetSavedTransaction(uint256 txId)
+		{
+			var res = await GetSavedTransactions(SavedTransactionsQuery.GetSingle(txId));
+			return res.Select(r => r.Value).FirstOrDefault();
+		}
+		public async Task<Dictionary<uint256, SavedTransaction>> GetSavedTransactions(SavedTransactionsQuery query)
+		{
+			if (query is SavedTransactionsQuery.Many { Empty: true })
+				return new();
+			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
+			var parameters = new DynamicParameters();
+			var sql = query.GetSql(parameters, Network);
+			var rows = await connection.Connection.QueryAsync<SavedTransactionRow>(sql, parameters);
+			var result = new Dictionary<uint256, SavedTransaction>();
+			foreach (var tx in rows)
+			{
+				var savedTx = new SavedTransaction()
+				{
+					TxId = uint256.Parse(tx.tx_id),
+					BlockHash = tx.blk_id is null ? null : uint256.Parse(tx.blk_id),
+					BlockHeight = tx.blk_height,
+					Timestamp = new DateTimeOffset(tx.seen_at),
+					Transaction = tx.raw is null ? null : Transaction.Load(tx.raw, Network.NBitcoinNetwork),
+					ReplacedBy = tx.replaced_by is null ? null : uint256.Parse(tx.replaced_by),
+					Metadata = tx.metadata is null ? null : TransactionMetadata.Parse(tx.metadata)
+				};
+				result.Add(savedTx.TxId, savedTx);
+			}
+			return result;
+		}
+
+		internal async Task SaveTransactionRaw(List<Transaction> txs)
+		{
+			if (txs.Count == 0)
+				return;
+			await using var connection = await connectionFactory.CreateConnectionHelper(Network);
+			await connection.Connection.ExecuteAsync("UPDATE txs SET raw=@raw WHERE code=@code AND tx_id=@tx_id AND raw is NULL",
+				txs.Select(tx => new { code = Network.CryptoCode, tx_id = tx.GetHash().ToString(), raw = tx.ToBytes() }).ToArray());
 		}
 		public async Task<TrackedTransaction[]> GetTransactions(GetTransactionQuery query, bool includeTransactions = true, CancellationToken cancellation = default)
 		{

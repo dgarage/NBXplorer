@@ -408,8 +408,7 @@ namespace NBXplorer.Controllers
 		private async Task UpdatePSBTCore(UpdatePSBTRequest update, NBXplorerNetwork network)
 		{
 			var repo = RepositoryProvider.GetRepository(network);
-			var rpc = GetAvailableRPC(network);
-			await UpdateUTXO(update, repo, rpc);
+			await this.UtxoFetcherService.UpdateUTXO(update);
 			if (update.DerivationScheme is DerivationStrategyBase derivationScheme)
 			{
 				if (update.IncludeGlobalXPub is true)
@@ -421,13 +420,6 @@ namespace NBXplorer.Controllers
 				}
 				await UpdateHDKeyPathsWitnessAndRedeem(update, repo);
 			}
-			if (!update.AlwaysIncludeNonWitnessUTXO)
-			{
-				foreach (var input in update.PSBT.Inputs)
-					input.TrySlimUTXO();
-			}
-
-
 			HashSet<PubKey> rebased = new HashSet<PubKey>();
 			if (update.RebaseKeyPaths != null)
 			{
@@ -524,102 +516,6 @@ namespace NBXplorer.Controllers
 			}
 			if (redeems.Count != 0)
 				update.PSBT.AddScripts(redeems.ToArray());
-		}
-
-
-		static bool NeedUTXO(UpdatePSBTRequest request, PSBTInput input)
-		{
-			if (input.IsFinalized())
-				return false;
-			if (request.AlwaysIncludeNonWitnessUTXO && input.NonWitnessUtxo is null)
-				return true;
-			var needNonWitnessUTXO = NeedNonWitnessUTXO(request, input);
-			if (needNonWitnessUTXO)
-				return input.NonWitnessUtxo == null;
-			else
-				return input.WitnessUtxo == null && input.NonWitnessUtxo == null;
-		}
-
-		private static bool NeedNonWitnessUTXO(UpdatePSBTRequest request, PSBTInput input)
-		{
-			return request.AlwaysIncludeNonWitnessUTXO || (!input.PSBT.Network.Consensus.NeverNeedPreviousTxForSigning &&
-												!((input.GetSignableCoin() ?? input.GetCoin())?.IsMalleable is false));
-		}
-
-		private async Task UpdateUTXO(UpdatePSBTRequest update, Repository repo, RPCClient rpc)
-		{
-			if (rpc is not null)
-			{
-				try
-				{
-					update.PSBT = await rpc.UTXOUpdatePSBT(update.PSBT);
-				}
-				// Best effort
-				catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND)
-				{
-				}
-				catch
-				{
-				}
-			}
-
-			if (update.DerivationScheme is DerivationStrategyBase derivationScheme)
-			{
-				AnnotatedTransactionCollection txs = null;
-				// First, we check for data in our history
-				foreach (var input in update.PSBT.Inputs.Where(psbtInput => NeedUTXO(update, psbtInput)))
-				{
-					txs = txs ?? await GetAnnotatedTransactions(repo, GetTransactionQuery.Create(TrackedSource.Create(derivationScheme)), NeedNonWitnessUTXO(update, input));
-					if (txs.GetByTxId(input.PrevOut.Hash) is AnnotatedTransaction tx)
-					{
-						if (!tx.Record.Key.IsPruned)
-						{
-							input.NonWitnessUtxo = tx.Record.Transaction;
-						}
-						else
-						{
-							var matchedOutput = tx.Record.MatchedOutputs.FirstOrDefault(c => c.Index == input.PrevOut.N);
-							if (matchedOutput is { Value: Money v })
-								input.WitnessUtxo = new TxOut(v, matchedOutput.ScriptPubKey);
-						}
-					}
-				}
-			}
-
-			// then, we search data in the saved transactions
-			await Task.WhenAll(update.PSBT.Inputs
-							.Where(psbtInput => NeedUTXO(update, psbtInput))
-							.Select(async (input) =>
-							{
-								// If this is not segwit, or we are unsure of it, let's try to grab from our saved transactions
-								if (input.NonWitnessUtxo == null)
-								{
-									var prev = await repo.GetSavedTransaction(input.PrevOut.Hash);
-									if (prev is SavedTransaction saved)
-									{
-										input.NonWitnessUtxo = saved.Transaction;
-									}
-								}
-							}).ToArray());
-
-			// finally, we check with rpc's txindex
-			if (rpc is not null && HasTxIndex(repo.Network))
-			{
-				var batch = rpc.PrepareBatch();
-				var getTransactions = Task.WhenAll(update.PSBT.Inputs
-					.Where(psbtInput => NeedUTXO(update, psbtInput))
-					.Where(input => input.NonWitnessUtxo == null && NeedNonWitnessUTXO(update, input))
-					.Select(async input =>
-					{
-						var tx = await batch.GetRawTransactionAsync(input.PrevOut.Hash, false);
-						if (tx != null)
-						{
-							input.NonWitnessUtxo = tx;
-						}
-					}).ToArray());
-				await batch.SendBatchAsync();
-				await getTransactions;
-			}
 		}
 	}
 }

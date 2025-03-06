@@ -49,7 +49,6 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public bool NoWarmup { get; set; }
-		public bool HasTxIndex { get; set; }
 		public bool ExposeRPC { get; set; }
 	}
 	public class ExplorerConfiguration
