@@ -17,9 +17,6 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
     RETURN QUERY
-    WITH filtered_wallets AS MATERIALIZED (
-      SELECT * FROM wallets_scripts WHERE wallets_scripts.code = input_code AND wallets_scripts.script = input_script
-    )
     SELECT ws.code,
       ws.script,
       s.addr,
@@ -30,7 +27,7 @@ BEGIN
       ds.idx,
       ds.used,
       d.descriptor
-    FROM ((filtered_wallets ws
+    FROM (((SELECT * FROM wallets_scripts WHERE wallets_scripts.code = input_code AND wallets_scripts.script = input_script) ws
        JOIN scripts s ON (((s.code = ws.code) AND (s.script = ws.script))))
        LEFT JOIN ((wallets_descriptors wd
        JOIN descriptors_scripts ds ON (((ds.code = wd.code) AND (ds.descriptor = wd.descriptor))))
