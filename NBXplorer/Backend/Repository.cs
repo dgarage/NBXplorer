@@ -402,7 +402,7 @@ namespace NBXplorer.Backend
 						LIMIT 1 OFFSET @skip) AS r (script)
 					";
 				}
-				public override string GetKeyPathInfoPredicate() => "ki.descriptor=@descriptor";
+				public override string GetKeyPathInfoPredicate() => "WHERE ki.descriptor=@descriptor";
 			}
 			class ByScriptsQuery : GetKeyInformationsQuery
 			{
@@ -452,7 +452,7 @@ namespace NBXplorer.Backend
 				           descriptors_scripts_metadata->>'blindingKey' blindingKey, 
 				           descriptor_metadata->>'feature' feature
 				    FROM get_nbxv1_keypath_info(@code, r.script) ki
-				    WHERE {query.GetKeyPathInfoPredicate()}
+				    {query.GetKeyPathInfoPredicate()}
 				) ts
 				JOIN wallets w USING(wallet_id)", parameters);
 			foreach (var r in rows)
