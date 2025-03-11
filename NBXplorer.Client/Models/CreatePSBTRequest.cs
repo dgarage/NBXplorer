@@ -187,11 +187,11 @@ namespace NBXplorer.Models
 	public class FeePreference
 	{
 		/// <summary>
-		/// An explicit fee rate for the transaction in Satoshi per vBytes (Mutually exclusive with: BlockTarget, ExplicitFee, FallbackFeeRate)
+		/// An explicit fee rate for the transaction in Satoshi per vBytes (Mutually exclusive with: BlockTarget, FallbackFeeRate)
 		/// </summary>
 		public FeeRate ExplicitFeeRate { get; set; }
 		/// <summary>
-		/// An explicit fee for the transaction in Satoshi (Mutually exclusive with: BlockTarget, ExplicitFeeRate, FallbackFeeRate)
+		/// An explicit fee for the transaction in Satoshi (Mutually exclusive with: BlockTarget, FallbackFeeRate)
 		/// </summary>
 		public Money ExplicitFee { get; set; }
 		/// <summary>
