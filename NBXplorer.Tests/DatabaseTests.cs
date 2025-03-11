@@ -47,7 +47,7 @@ namespace NBXplorer.Tests
 				" LATERAL(" +
 				"	SELECT script, addr, descriptor_metadata->>'derivation' derivation, keypath, descriptors_scripts_metadata->>'redeem' redeem, descriptor_metadata->>'blindedAddress' blinded_addr " +
 				"	FROM get_nbxv1_keypath_info(@code, r.script) ki " +
-				"	WHERE ki.code=r.code AND ki.script=r.script) ts;", 50);
+				"	) ts;", 50);
 			await Benchmark(conn, "SELECT o.tx_id, o.idx, o.value, o.script FROM (VALUES ('BTC', 'hash', 5), ('BTC', 'hash', 5), ('BTC', 'hash', 5))  r (code, tx_id, idx) JOIN outs o USING (code, tx_id, idx);", 50);
 			await Benchmark(conn, "SELECT blk_height, tx_id, wu.idx, value, script, nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, d.metadata->>'feature' feature, mempool, input_mempool, seen_at FROM wallets_utxos wu JOIN descriptors_scripts ds USING (code, script) JOIN descriptors d USING (code, descriptor) WHERE code='BTC' AND wallet_id='WHALE' AND immature IS FALSE ", 50);
 			await Benchmark(conn, "SELECT * FROM get_wallets_histogram('WHALE', 'BTC', '', '2022-01-01'::timestamptz, '2022-02-01'::timestamptz, interval '1 day');", 50);
