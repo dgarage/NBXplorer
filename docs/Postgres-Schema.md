@@ -12,6 +12,8 @@ There are additional comments there about the meaning of columns and views.
 Here is a diagram:
 ![NBXplorer Database Schema](./images/nxplorer-schema.png)
 
+Or look it interactively on [LiamERD](https://liambx.com/erd/p/github.com/dgarage/NBXplorer/blob/master/NBXplorer/DBScripts/FullSchema.sql?showMode=ALL_FIELDS).
+
 The SQL Schema of NBXplorer is multi-tenant, multi-asset, multi-chain.
 It is divided in several parts:
 
