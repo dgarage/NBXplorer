@@ -29,6 +29,7 @@ using Npgsql;
 using NBitcoin.Altcoins;
 using System.Threading;
 using Newtonsoft.Json.Linq;
+using static NBXplorer.Backend.Repository;
 
 namespace NBXplorer
 {
@@ -102,13 +103,14 @@ namespace NBXplorer
 			return default;
 		}
 
-		public static async Task<ElementsTransaction> UnblindTransaction(this RPCClient rpc, DerivationStrategyBase ts, ElementsTransaction tx, IEnumerable<KeyPathInformation> keyInfos)
+		public static async Task<ElementsTransaction> UnblindTransaction(this RPCClient rpc, DerivationStrategyBase ts, ElementsTransaction tx, IEnumerable<LiquidKeyPathInformation> keyInfos)
 		{
 			if (!ts.Unblinded())
 			{
 				var keys = keyInfos
 					.Select(kv => (Address: kv.Address as BitcoinBlindedAddress,
-								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts, kv.KeyPath, kv.ScriptPubKey, rpc.Network)))
+								   // Note that the code after ?? should never be reached... but I kept it in case. We can probably remove it later
+								   BlindingKey: kv.BlindingKey ?? NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts, kv.KeyPath, kv.ScriptPubKey, rpc.Network)))
 					.Where(o => o.Address != null)
 					.Select(o => new UnblindTransactionBlindingAddressKey()
 					{

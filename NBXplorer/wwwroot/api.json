@@ -350,6 +350,12 @@
             "description": "The redeem script associated with the address (if applicable). Returns the SegWit redeem script if the derivation scheme is P2SH-P2WPKH or P2WPKH, or the P2SH redeem script if the script type is P2SH.",
             "example": "0014e2eb89edba1fe6c6c0863699eeb78f6ec3271b45",
             "nullable": true
+          },
+          "blindingKey": {
+            "type": "string",
+            "description": "The blinding private key (Liquid Only)",
+            "example": "9b73aab73a972485defe9d1d27217267eb17541a393e19d820549acf3fe69308",
+            "nullable": true
           }
         }
       },

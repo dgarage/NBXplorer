@@ -18,6 +18,7 @@ using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
 using Npgsql;
 using static NBXplorer.Backend.DbConnectionHelper;
+using NBitcoin.DataEncoders;
 
 
 namespace NBXplorer.Backend
@@ -439,7 +440,7 @@ namespace NBXplorer.Backend
 			DynamicParameters parameters = new DynamicParameters();
 			parameters.Add("code", Network.CryptoCode);
 			query.AddParameters(parameters);
-			string additionalColumn = Network.IsElement ? ", ts.blinded_addr" : "";
+			string additionalColumn = Network.IsElement ? ", ts.blinded_addr, ts.blinding_key" : "";
 			var rows = await connection.QueryAsync($@"
 			    SELECT ts.code, ts.script, ts.addr, ts.derivation, ts.keypath, ts.idx, ts.feature, ts.redeem{additionalColumn},
 				       ts.wallet_id,
@@ -449,7 +450,7 @@ namespace NBXplorer.Backend
 				    SELECT code, script, wallet_id, addr, descriptor_metadata->>'derivation' derivation, 
 				           keypath, ki.idx, descriptors_scripts_metadata->>'redeem' redeem, 
 				           descriptors_scripts_metadata->>'blindedAddress' blinded_addr, 
-				           descriptors_scripts_metadata->>'blindingKey' blindingKey, 
+				           descriptors_scripts_metadata->>'blindingPrivateKey' blinding_key,
 				           descriptor_metadata->>'feature' feature
 				    FROM nbxv1_keypath_info ki
 				    WHERE ki.code=@code AND ki.script=r.script {query.GetKeyPathInfoPredicate()}
@@ -475,12 +476,15 @@ namespace NBXplorer.Backend
 				var trackedSource = TryGetTrackedSource(walletKey);
 				if (trackedSource is null)
 					continue;
-				var ki = Network.IsElement && r.blindingKey is not null
-					? new LiquidKeyPathInformation()
+				KeyPathInformation ki = (Network.IsElement, r.blinding_key as string) switch
 					{
-						BlindingKey = Key.Parse(r.blindingKey, Network.NBitcoinNetwork)
-					}
-					: new KeyPathInformation();
+						(true, { } blindingKey) => new LiquidKeyPathInformation()
+						{
+							BlindingKey = new Key(Encoders.Hex.DecodeData(blindingKey))
+						},
+						(true, _) => new LiquidKeyPathInformation(),
+						_ => new KeyPathInformation()
+					};
 				ki.Address = addr;
 				ki.DerivationStrategy = r.derivation is not null ? derivationStrategy : null;
 				ki.KeyPath = keypath;
@@ -540,7 +544,8 @@ namespace NBXplorer.Backend
 					var keyInfos = tx.Outputs.AsCoins()
 									.Where(o => utxoToUnblind.Contains(o.Outpoint))
 									.Where(o => allKeyInfos.ContainsKey(o.ScriptPubKey))
-									.SelectMany(o => allKeyInfos[o.ScriptPubKey]).ToArray();
+									.SelectMany(o => allKeyInfos[o.ScriptPubKey])
+									.OfType<LiquidKeyPathInformation>().ToArray();
 					foreach (var g in keyInfos.GroupBy(o => o.TrackedSource))
 					{
 						if (g.Key is DerivationSchemeTrackedSource { DerivationStrategy: { } ts })
@@ -556,7 +561,7 @@ namespace NBXplorer.Backend
 				}
 			}
 
-			public async Task Unblind(RPCClient rpc, DerivationStrategyBase ts, ElementsTransaction tx, KeyPathInformation[] keyInfos)
+			public async Task Unblind(RPCClient rpc, DerivationStrategyBase ts, ElementsTransaction tx, LiquidKeyPathInformation[] keyInfos)
 			{
 				var txHash = tx.GetHash();
 				if (txsToUnblind.Contains(txHash))

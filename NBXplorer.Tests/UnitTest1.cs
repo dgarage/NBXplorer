@@ -28,6 +28,7 @@ using System.Globalization;
 using System.Net;
 using NBXplorer.HostedServices;
 using static NBXplorer.Backend.DbConnectionHelper;
+using NBitcoin.Altcoins;
 
 namespace NBXplorer.Tests
 {
@@ -1907,6 +1908,7 @@ namespace NBXplorer.Tests
 		}
 
 		PruneRequest PruneTheMost = new PruneRequest() { DaysToKeep = 0.0 };
+
 		[FactWithTimeout]
 		public async Task CanPrune()
 		{
@@ -4015,7 +4017,6 @@ namespace NBXplorer.Tests
 			Assert.True(xpub.AdditionalOptions.ContainsKey("test1"));
 			Assert.True(xpub.AdditionalOptions.ContainsKey("test2"));
 		}
-
 		[FactWithTimeout]
 		public async Task ElementsTests()
 		{
@@ -4038,9 +4039,14 @@ namespace NBXplorer.Tests
 				}).DerivationScheme;
 				var blindedDerivationScheme = userDerivationScheme;
 				//test: Elements shouldgenerate blinded addresses by default
+
+				var unused = tester.Client.GetUnused(userDerivationScheme,
+						DerivationFeature.Deposit);
 				var address =
-					Assert.IsType<BitcoinBlindedAddress>(tester.Client.GetUnused(userDerivationScheme,
-						DerivationFeature.Deposit).Address);
+					Assert.IsType<BitcoinBlindedAddress>(unused.Address);
+				Assert.Equal(
+					NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(userDerivationScheme, unused.KeyPath, unused.ScriptPubKey, tester.Network).ToHex(),
+					unused.AdditionalData["blindingKey"].ToString());
 
 				Assert.IsType<BitcoinBlindedAddress>(tester.Client.GetKeyInformation(userDerivationScheme, address.ScriptPubKey).Address);
 				using (var session = await tester.Client.CreateWebsocketNotificationSessionLegacyAsync(Timeout))

@@ -1,6 +1,8 @@
 ﻿using NBitcoin;
 using NBXplorer.DerivationStrategy;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
 
 namespace NBXplorer.Models
 {
@@ -35,5 +37,8 @@ namespace NBXplorer.Models
 		}
 		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public int? Index { get; set; }
+
+		[JsonExtensionData]
+		public IDictionary<string, JToken> AdditionalData { get; set; } = new Dictionary<string, JToken>();
 	}
 }
