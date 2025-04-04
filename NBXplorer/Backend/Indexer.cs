@@ -211,7 +211,7 @@ namespace NBXplorer.Backend
 						await SaveProgress(conn);
 						await UpdateState(connection.Node);
 					}
-					if (connection.Node.State != NodeState.HandShaked)
+					if (connection.Node.State == NodeState.HandShaked)
 						await AskNextHeaders(connection.Node, token);
 				}
 				if (item is Transaction tx)
