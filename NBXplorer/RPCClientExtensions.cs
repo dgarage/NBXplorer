@@ -306,7 +306,6 @@ namespace NBXplorer
 
 			return new BlockHeaders(headers.Select(h => h.GetAwaiter().GetResult()).Where(h => h is not null).ToList());
 		}
-
 		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<uint256> hashes, CancellationToken cancellationToken)
 		{
 			var batch = rpc.PrepareBatch();

@@ -151,6 +151,8 @@ namespace NBXplorer.Backend
 				if (item is PullBlocks pb)
 				{
 					var headers = ConsolidatePullBlocks(connection.Events.Reader, pb);
+					var slimChainedBlocks = await RPCClient.GetBlockHeadersAsync(headers.Select(b => b.GetHash()).ToList(), token);
+					headers = headers.Where(b => slimChainedBlocks.ByHashes.ContainsKey(b.GetHash())).ToList();
 					foreach (var batch in headers.Chunk(maxinflight))
 					{
 						_ = connection.Node.SendMessageAsync(
@@ -165,9 +167,7 @@ namespace NBXplorer.Backend
 								continue;
 							if (lastIndexedBlock is null || block.Header.HashPrevBlock == lastIndexedBlock.Hash)
 							{
-								SlimChainedBlock slimChainedBlock = lastIndexedBlock is null ?
-									(await RPCClient.GetBlockHeaderAsyncEx(block.Header.GetHash(), token))?.ToSlimChainedBlock() :
-									new SlimChainedBlock(block.Header.GetHash(), lastIndexedBlock.Hash, lastIndexedBlock.Height + 1);
+								SlimChainedBlock slimChainedBlock = slimChainedBlocks.ByHashes[block.Header.GetHash()].ToSlimChainedBlock();
 								await SaveMatches(conn, block, slimChainedBlock);
 							}
 							else
@@ -181,22 +181,15 @@ namespace NBXplorer.Backend
 								//   2. Node decides to send headers without asking.
 								if (unorderedBlocks.Count > 0)
 								{
-									Task<RPCBlockHeader>[] slimChainedBlocks = new Task<RPCBlockHeader>[unorderedBlocks.Count];
-									var rpcBatch = RPCClient.PrepareBatch();
-									for (int i = 0; i < unorderedBlocks.Count; i++)
-									{
-										slimChainedBlocks[i] = rpcBatch.GetBlockHeaderAsyncEx(unorderedBlocks[i].GetHash(), token);
-									}
-									await rpcBatch.SendBatchAsync();
 									// If there is a fork, we should index the unordered blocks
 									bool unconfedBlocks = false;
 									bool fork = await RPCClient.GetBlockHeaderAsyncEx(lastIndexedBlock.Hash, token) == null;
 									foreach (var b in Enumerable.Zip(unorderedBlocks, slimChainedBlocks)
-													.Where(b => fork || b.Second.Result.Height > lastIndexedBlock.Height)
-													.OrderBy(b => b.Second.Result.Height)
+													.Where(b => fork || b.Second.Height > lastIndexedBlock.Height)
+													.OrderBy(b => b.Second.Height)
 													.ToList())
 									{
-										var slimBlock = await b.Second;
+										var slimBlock = b.Second;
 										if (fork && !unconfedBlocks)
 										{
 											await conn.MakeOrphanFrom(slimBlock.Height);
