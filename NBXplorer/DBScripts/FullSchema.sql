@@ -1391,6 +1391,7 @@ INSERT INTO nbxv1_migrations VALUES ('021.KeyPathInfoReturnsWalletId');
 INSERT INTO nbxv1_migrations VALUES ('022.WalletsWalletsParentIdIndex');
 INSERT INTO nbxv1_migrations VALUES ('023.KeyPathInfoReturnsIndex');
 INSERT INTO nbxv1_migrations VALUES ('024.TrackedTxsReturnsFeature');
+INSERT INTO nbxv1_migrations VALUES ('025.GetKeyPathInfoFunction');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);
