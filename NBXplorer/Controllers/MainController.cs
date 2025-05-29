@@ -36,6 +36,7 @@ namespace NBXplorer.Controllers
 		public RPCClientProvider RPCClients { get; }
 		public RepositoryProvider RepositoryProvider { get; }
 		public Indexers Indexers { get; }
+		public KeyPathTemplates KeyPathTemplates { get; }
 		public CommonRoutesController CommonRoutesController { get; }
 		public UTXOFetcherService UtxoFetcherService { get; }
 
@@ -50,6 +51,7 @@ namespace NBXplorer.Controllers
 			NBXplorerNetworkProvider networkProvider,
 			Analytics.FingerprintHostedService fingerprintService,
 			Indexers indexers,
+			KeyPathTemplates keyPathTemplates,
 			CommonRoutesController commonRoutesController,
 			UTXOFetcherService utxoFetcherService
 			)
@@ -63,6 +65,7 @@ namespace NBXplorer.Controllers
 			RPCClients = rpcClients;
 			RepositoryProvider = repositoryProvider;
 			Indexers = indexers;
+			KeyPathTemplates = keyPathTemplates;
 			CommonRoutesController = commonRoutesController;
 			UtxoFetcherService = utxoFetcherService;
 		}
@@ -200,7 +203,10 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> GetUnusedAddress(
 			TrackedSourceContext trackedSourceContext, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false, bool autoTrack = false)
 		{
-			var strategy = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
+			var ts = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource);
+			if (!ts.GetDerivationFeatures(KeyPathTemplates).Contains(feature))
+				throw new NBXplorerError(400, "derivation-feature-not-supported", $"The derivation feature {feature} is not supported by this derivation scheme").AsException();
+			var strategy = ts.DerivationStrategy;
 			var network = trackedSourceContext.Network;
 			var repository = trackedSourceContext.Repository;
 			if (skip >= repository.MinPoolSize)

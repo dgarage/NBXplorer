@@ -4,40 +4,31 @@ using NBitcoin;
 
 namespace NBXplorer.DerivationStrategy
 {
-	public class P2WSHDerivationStrategy : DerivationStrategyBase
+	public class P2WSHDerivationStrategy : StandardDerivationStrategyBase
 	{
-		internal P2WSHDerivationStrategy(DerivationStrategyBase inner):base(inner.AdditionalOptions)
+		internal P2WSHDerivationStrategy(StandardDerivationStrategyBase inner):base(inner.AdditionalOptions)
 		{
 			if(inner == null)
 				throw new ArgumentNullException(nameof(inner));
 			Inner = inner;
 		}
 
-		public DerivationStrategyBase Inner
+		public StandardDerivationStrategyBase Inner
 		{
 			get; set;
 		}
 
 		protected internal override string StringValueCore => Inner.ToString();
 
-		public override Derivation GetDerivation()
-		{
-			var derivation = Inner.GetDerivation();
-			return new Derivation()
-			{
-				ScriptPubKey = derivation.ScriptPubKey.WitHash.ScriptPubKey,
-				Redeem = derivation.ScriptPubKey
-			};
-		}
-
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()
 		{
 			return Inner.GetExtPubKeys();
 		}
 
-		public override DerivationStrategyBase GetChild(KeyPath keyPath)
+		public override Derivation GetDerivation(KeyPath keyPath)
 		{
-			return new P2WSHDerivationStrategy(Inner.GetChild(keyPath));
+			var redeem = Inner.GetDerivation(keyPath).ScriptPubKey;
+			return new Derivation(redeem.WitHash.ScriptPubKey, redeem);
 		}
 	}
 }

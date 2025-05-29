@@ -4,6 +4,9 @@ using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using NBXplorer.DerivationStrategy;
+#if !NO_RECORD
+using NBitcoin.WalletPolicies;
+#endif
 
 namespace NBXplorer.Models
 {
@@ -90,7 +93,7 @@ namespace NBXplorer.Models
 
 		public Key[] GetKeys(ExtKey extKey, bool excludeUnconfirmedUTXOs = false)
 		{
-			return GetUnspentUTXOs(excludeUnconfirmedUTXOs).Select(u => extKey.Derive(u.KeyPath).PrivateKey).ToArray();
+			return GetUnspentUTXOs(excludeUnconfirmedUTXOs).Where(u => u.KeyPath is not null).Select(u => extKey.Derive(u.KeyPath).PrivateKey).ToArray();
 		}
 	}
 	public class UTXOChange
@@ -156,16 +159,31 @@ namespace NBXplorer.Models
 			if (Value is Money v)
 			{
 				var coin = new Coin(Outpoint, new TxOut(v, ScriptPubKey));
-				if (derivationStrategy != null)
+				if (Redeem is not null)
 				{
-					var derivation = derivationStrategy.GetDerivation(KeyPath);
-					if (derivation.ScriptPubKey != coin.ScriptPubKey)
-						throw new InvalidOperationException($"This Derivation Strategy does not own this coin");
-					if (derivation.Redeem != null)
-						coin = coin.ToScriptCoin(derivation.Redeem);
-				}
-				else if (Redeem is not null)
 					coin = coin.ToScriptCoin(Redeem);
+				}
+				else
+				{
+					DerivationStrategy.Derivation derivation = null;
+					if (derivationStrategy is StandardDerivationStrategyBase kd && KeyPath is not null)
+					{
+						derivation = kd.GetDerivation(KeyPath);
+					}
+#if !NO_RECORD
+					else if (derivationStrategy is PolicyDerivationStrategy md && Feature is { } f)
+					{
+						derivation = md.GetDerivation(f, (uint)KeyIndex);
+					}
+#endif
+					if (derivation is not null)
+					{
+						if (derivation.ScriptPubKey != coin.ScriptPubKey)
+							throw new InvalidOperationException($"This Derivation Strategy does not own this coin");
+						if (derivation.Redeem != null)
+							coin = coin.ToScriptCoin(derivation.Redeem);
+					}
+				}
 				return coin;
 			}
 			return null;
@@ -259,5 +277,7 @@ namespace NBXplorer.Models
 				_Confirmations = checked((long)value);
 			}
 		}
+
+		public int KeyIndex { get; set; }
 	}
 }

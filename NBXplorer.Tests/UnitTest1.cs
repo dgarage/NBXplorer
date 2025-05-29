@@ -29,6 +29,8 @@ using System.Net;
 using NBXplorer.HostedServices;
 using static NBXplorer.Backend.DbConnectionHelper;
 using NBitcoin.Altcoins;
+using NBitcoin.WalletPolicies;
+using System.Diagnostics.Metrics;
 
 namespace NBXplorer.Tests
 {
@@ -195,7 +197,7 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		private static async Task RepositoryCanTrackAddressesCore(RepositoryTester tester, DerivationStrategyBase dummy)
+		private static async Task RepositoryCanTrackAddressesCore(RepositoryTester tester, StandardDerivationStrategyBase dummy)
 		{
 			Assert.Equal(2, await tester.Repository.GenerateAddresses(dummy, DerivationFeature.Deposit, 2));
 			var keyInfo = tester.Repository.GetKeyInformation(dummy.GetLineFor(DerivationFeature.Deposit).Derive(0).ScriptPubKey);
@@ -269,7 +271,7 @@ namespace NBXplorer.Tests
 			Assert.Null(keyInfo);
 		}
 
-		private static void MarkAsUsed(Repository repository, DerivationStrategyBase strat, KeyPath keyPath)
+		private static void MarkAsUsed(Repository repository, StandardDerivationStrategyBase strat, KeyPath keyPath)
 		{
 			var script = strat.GetDerivation(keyPath).ScriptPubKey.ToHex();
 			using var conn = repository.ConnectionFactory.CreateConnection().GetAwaiter().GetResult();
@@ -340,9 +342,82 @@ namespace NBXplorer.Tests
 		}
 
 		[TheoryWithTimeout]
-		[InlineData(PSBTVersion.PSBTv0)]
-		[InlineData(PSBTVersion.PSBTv2)]
-		public async Task CanCreatePSBT(PSBTVersion v)
+		[InlineData("sh(wpkh(@0/**))", 0, 1)]
+		[InlineData("wpkh(@0/<0;1>/*)", 0, 1)]
+		[InlineData("pkh(@0/**)", 0, 1)]
+		[InlineData("sh(pkh(@0/<2;3>/*))", 2, 3)]
+		[InlineData("tr(@0/**)", 0, 1)]
+		public async Task CanCreatePSBTInMiniscript(string template, int depositIndex, int changeIndex)
+		{
+			using var tester = ServerTester.Create();
+			
+			var root = new ExtKey();
+			var path = new KeyPath("86'/1'/0'");
+			var fp = root.GetPublicKey().GetHDFingerPrint();
+			var account = root.Derive(path).Neuter().GetWif(tester.Network);
+
+			var accountKey = new MiniscriptNode.HDKeyNode(new(fp, path), account);
+			var miniscript = Miniscript.Parse(template, new MiniscriptParsingSettings(tester.Network) { AllowedParameters = ParameterTypeFlags.KeyPlaceholder, Dialect = MiniscriptDialect.BIP388 });
+			miniscript = miniscript.ReplaceKeyPlaceholdersByHDKeys(new[] { accountKey });
+			var derivation = tester.Client.Network.DerivationStrategyFactory.Parse(miniscript.ToString());
+			await tester.Client.TrackAsync(derivation);
+			var unusedDeposit = await tester.Client.GetUnusedAsync(derivation, DerivationFeature.Deposit, reserve: true);
+			unusedDeposit = await tester.Client.GetUnusedAsync(derivation, DerivationFeature.Deposit);
+
+			var addr = await tester.RPC.GetNewAddressAsync();
+
+			var txid = await tester.RPC.SendToAddressAsync(unusedDeposit.Address, Money.Coins(0.01m));
+			tester.Notifications.WaitForTransaction(derivation, txid);
+
+			var psbt = await tester.Client.CreatePSBTAsync(derivation, new()
+			{
+				Destinations = new()
+				{
+					new()
+					{
+						Destination = addr,
+						Amount = Money.Coins(0.005m)
+					}
+				},
+				FeePreference = new()
+				{
+					ExplicitFee = Money.Satoshis(1000)
+				}
+			});
+			var input = psbt.PSBT.Inputs[0];
+			var change = psbt.PSBT.Outputs.First(o => o.ScriptPubKey == psbt.ChangeAddress.ScriptPubKey);
+			Assert.Null(unusedDeposit.KeyPath);
+			Assert.Equal(1, unusedDeposit.Index);
+
+			if (template.StartsWith("tr"))
+			{
+				Assert.NotNull(input.TaprootInternalKey);
+				Assert.Empty(input.HDKeyPaths);
+				Assert.Equal(new RootedKeyPath(fp, path.Derive($"{depositIndex}/1")), input.HDTaprootKeyPaths.First().Value.RootedKeyPath);
+				Assert.Equal(root.Derive(path.Derive($"{depositIndex}/1")).GetPublicKey().TaprootInternalKey.AsTaprootPubKey(), input.HDTaprootKeyPaths.First().Key);
+
+				Assert.NotNull(change.TaprootInternalKey);
+				Assert.Empty(change.HDKeyPaths);
+				Assert.Equal(new RootedKeyPath(fp, path.Derive($"{changeIndex}/0")), change.HDTaprootKeyPaths.First().Value.RootedKeyPath);
+				Assert.Equal(root.Derive(path.Derive($"{changeIndex}/0")).GetPublicKey().TaprootInternalKey.AsTaprootPubKey(), change.HDTaprootKeyPaths.First().Key);
+			}
+			else
+			{
+				Assert.Empty(input.HDTaprootKeyPaths);
+				Assert.Equal(new RootedKeyPath(fp, path.Derive($"{depositIndex}/1")), input.HDKeyPaths.First().Value);
+				Assert.Equal(root.Derive(path.Derive($"{depositIndex}/1")).GetPublicKey(), input.HDKeyPaths.First().Key);
+
+				Assert.Empty(change.HDTaprootKeyPaths);
+				Assert.Equal(new RootedKeyPath(fp, path.Derive($"{changeIndex}/0")), change.HDKeyPaths.First().Value);
+				Assert.Equal(root.Derive(path.Derive($"{changeIndex}/0")).GetPublicKey(), change.HDKeyPaths.First().Key);
+			}
+		}
+
+		[TheoryWithTimeout]
+		[InlineData(PSBTVersion.PSBTv0, false)]
+		[InlineData(PSBTVersion.PSBTv2, false)]
+		[InlineData(PSBTVersion.PSBTv0, true)]
+		public async Task CanCreatePSBT(PSBTVersion v, bool useMiniscript)
 		{
 			var version = v == PSBTVersion.PSBTv0 ? 0 : 2;
 			using (var tester = ServerTester.Create())
@@ -369,10 +444,10 @@ namespace NBXplorer.Tests
 				Assert.Null(spendingPSBT.Inputs[0].NonWitnessUtxo);
 				///////////////////////////
 
-				CanCreatePSBTCore(tester, version, ScriptPubKeyType.SegwitP2SH);
-				CanCreatePSBTCore(tester, version, ScriptPubKeyType.Segwit);
-				CanCreatePSBTCore(tester, version, ScriptPubKeyType.Legacy);
-				CanCreatePSBTCore(tester, version, ScriptPubKeyType.TaprootBIP86);
+				CanCreatePSBTCore(tester, version, ScriptPubKeyType.SegwitP2SH, useMiniscript);
+				CanCreatePSBTCore(tester, version, ScriptPubKeyType.Segwit, useMiniscript);
+				CanCreatePSBTCore(tester, version, ScriptPubKeyType.Legacy, useMiniscript);
+				CanCreatePSBTCore(tester, version, ScriptPubKeyType.TaprootBIP86, useMiniscript);
 
 				// If we build a list of unconf transaction which is too long, the CreatePSBT should
 				// fail rather than create a transaction that can't be broadcasted.
@@ -406,7 +481,7 @@ namespace NBXplorer.Tests
 						});
 						if (i == 25)
 							Assert.Fail("CreatePSBT shouldn't have created a PSBT with a UTXO having too many ancestors");
-						psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
+						psbt.PSBT.SignAll(userDerivationScheme as IHDScriptPubKey, userExtKey);
 						psbt.PSBT.Finalize();
 						Assert.True((await tester.Client.BroadcastAsync(psbt.PSBT.ExtractTransaction())).Success);
 					}
@@ -421,24 +496,41 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		private static void CanCreatePSBTCore(ServerTester tester, int psbtVersion, ScriptPubKeyType type)
+		private static void CanCreatePSBTCore(ServerTester tester, int psbtVersion, ScriptPubKeyType type, bool useMiniscript = false)
 		{
+
 			var userExtKey = new ExtKey();
-			var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
-			{
-				ScriptPubKeyType = type
-			});
-			tester.Client.Track(userDerivationScheme);
 			var userExtKey2 = new ExtKey();
-			var userDerivationScheme2 = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey2.Neuter(), new DerivationStrategyOptions()
+
+			DerivationStrategyBase userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
 			{
 				ScriptPubKeyType = type
 			});
+			// Safety check: Miniscript should generate same address as other derivation strategies
+			var miniscriptDerivationScheme = GetMiniscriptDerivationScheme(tester, userExtKey, type);
+			var miniScriptDerivation = miniscriptDerivationScheme.GetDerivation(DerivationFeature.Deposit, 0);
+			var nonMiniScriptDerivation = ((StandardDerivationStrategyBase)userDerivationScheme).GetDerivation(new KeyPath(0, 0));
+			Assert.Equal(nonMiniScriptDerivation.Redeem, miniScriptDerivation.Redeem);
+			Assert.Equal(nonMiniScriptDerivation.ScriptPubKey, miniScriptDerivation.ScriptPubKey);
+
+			var alls = Enumerable.Range(0, 5).Select(i => miniscriptDerivationScheme.GetDerivation(DerivationFeature.Deposit, (uint)i)).ToArray();
+			var alls2 = Enumerable.Range(0, 5).Select(i => ((StandardDerivationStrategyBase)userDerivationScheme).GetDerivation(new KeyPath(0U, (uint)i))).ToArray();
+
+			if (useMiniscript)
+				userDerivationScheme = miniscriptDerivationScheme;
+			tester.Client.Track(userDerivationScheme);
+
+			DerivationStrategyBase userDerivationScheme2 = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey2.Neuter(), new DerivationStrategyOptions()
+			{
+				ScriptPubKeyType = type
+			});
+			if (useMiniscript)
+				userDerivationScheme2 = GetMiniscriptDerivationScheme(tester, userExtKey2, type);
 			tester.Client.Track(userDerivationScheme2);
 			var newAddress2 = tester.Client.GetUnused(userDerivationScheme2, DerivationFeature.Deposit, skip: 2);
 
 			// Send 1 BTC
-			var newAddress = tester.Client.GetUnused(userDerivationScheme, DerivationFeature.Direct);
+			var newAddress = tester.Client.GetUnused(userDerivationScheme, useMiniscript ? DerivationFeature.Deposit : DerivationFeature.Direct);
 			var txId = tester.SendToAddress(newAddress.ScriptPubKey, Money.Coins(1.0m));
 			tester.Notifications.WaitForTransaction(userDerivationScheme, txId);
 			var utxos = tester.Client.GetUTXOs(userDerivationScheme);
@@ -514,11 +606,11 @@ namespace NBXplorer.Tests
 				Assert.Empty(psbt.PSBT.GlobalXPubs);
 				Assert.Null(psbt.Suggestions);
 				Assert.NotEqual(LockTime.Zero, psbt.PSBT.GetGlobalTransaction().LockTime);
-				psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
+				psbt.PSBT.SignAll(userDerivationScheme as IHDScriptPubKey, userExtKey);
 				Assert.True(psbt.PSBT.TryGetFee(out var fee));
 				if (explicitFee)
 					Assert.Equal(Money.Coins(0.00001m), fee);
-				Assert.Equal(-(Money.Coins(0.5m) + (substractFee ? Money.Zero : fee)), psbt.PSBT.GetBalance(userDerivationScheme, userExtKey));
+				Assert.Equal(-(Money.Coins(0.5m) + (substractFee ? Money.Zero : fee)), psbt.PSBT.GetBalance(userDerivationScheme as IHDScriptPubKey, userExtKey));
 				psbt.PSBT.Finalize();
 				var tx = psbt.PSBT.ExtractTransaction();
 				Assert.True(tester.Client.Broadcast(tx).Success);
@@ -547,7 +639,7 @@ namespace NBXplorer.Tests
 					ExplicitFee = Money.Coins(0.00001m),
 				}
 			});
-			Assert.Equal(-balance, psbt2.PSBT.GetBalance(userDerivationScheme, userExtKey));
+			Assert.Equal(-balance, psbt2.PSBT.GetBalance(userDerivationScheme as IHDScriptPubKey, userExtKey));
 			Assert.Null(psbt2.ChangeAddress);
 
 			Logs.Tester.LogInformation("Let's check that if ReserveChangeAddress is false, all call to CreatePSBT send the same change address");
@@ -877,7 +969,7 @@ namespace NBXplorer.Tests
 			});
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 
-			AssertHasOutput(type, newAddress.KeyPath, psbt2);
+			AssertHasOutput(type, GetKeyPath(newAddress), psbt2);
 			foreach (var input in psbt2.PSBT.GetGlobalTransaction().Inputs)
 			{
 				Assert.Equal(Sequence.Final, input.Sequence);
@@ -943,7 +1035,7 @@ namespace NBXplorer.Tests
 
 			Assert.Equal(3, psbt2.PSBT.Outputs.Count);
 
-			var selfchange = AssertHasOutput(type, new KeyPath("49'/0'").Derive(newAddress.KeyPath), psbt2);
+			var selfchange = AssertHasOutput(type, new KeyPath("49'/0'").Derive(GetKeyPath(newAddress)), psbt2);
 
 			Assert.All(psbt2.PSBT.Inputs.Concat<PSBTCoin>(new[] { selfchange }).SelectMany(i => i.HDKeyPaths), i =>
 			{
@@ -1078,6 +1170,39 @@ namespace NBXplorer.Tests
 			});
 			var expectedPSBTVersion = psbtVersion == 0 ? PSBTVersion.PSBTv0 : PSBTVersion.PSBTv2;
 			Assert.Equal(expectedPSBTVersion, psbt2.PSBT.Version);
+		}
+
+		private static KeyPath GetKeyPath(KeyPathInformation ki)
+		{
+			if (ki.KeyPath is not null)
+				return ki.KeyPath;
+			// Miniscript key path info don't have keypath, but our test always uses
+			// the standard derivation path
+			var type = ki.Feature is DerivationFeature.Deposit ? 0 : 1;
+			return new KeyPath($"{type}/{ki.Index}");
+		}
+
+		private static PolicyDerivationStrategy GetMiniscriptDerivationScheme(ServerTester tester, ExtKey userExtKey, ScriptPubKeyType type)
+		{
+			var script = type switch
+			{
+				ScriptPubKeyType.Legacy => "pkh(A)",
+				ScriptPubKeyType.Segwit => "wpkh(A)",
+				ScriptPubKeyType.SegwitP2SH => "sh(wpkh(A))",
+				ScriptPubKeyType.TaprootBIP86 => "tr(A)",
+				_ => throw new NotSupportedException()
+			};
+			var min = Miniscript.Parse(script, new MiniscriptParsingSettings(tester.Network)
+			{
+				Dialect = MiniscriptDialect.BIP388,
+				AllowedParameters = ParameterTypeFlags.NamedParameter
+			});
+			var rootKeyPath = new RootedKeyPath(userExtKey, new KeyPath());
+			min = min.ReplaceParameters(new Dictionary<string, MiniscriptNode>()
+				{
+					{ "A", new MiniscriptNode.MultipathNode(0, 1, new MiniscriptNode.HDKeyNode(rootKeyPath, userExtKey.Neuter().GetWif(tester.Network)), true) },
+				});
+			return new PolicyDerivationStrategy(new WalletPolicy(min));
 		}
 
 		private static PSBTOutput AssertHasOutput(ScriptPubKeyType type, KeyPath keyPath, CreatePSBTResponse psbt2)
@@ -2212,7 +2337,7 @@ namespace NBXplorer.Tests
 						var txOut = txEvent.TransactionData.Transaction.Outputs[output.Index];
 						Assert.Equal(txOut.ScriptPubKey, output.ScriptPubKey);
 						Assert.Equal(txOut.Value, output.Value);
-						var derived = ((DerivationSchemeTrackedSource)txEvent.TrackedSource).DerivationStrategy.GetDerivation(output.KeyPath);
+						var derived = ((StandardDerivationStrategyBase)((DerivationSchemeTrackedSource)txEvent.TrackedSource).DerivationStrategy).GetDerivation(output.KeyPath);
 						Assert.Equal(derived.ScriptPubKey, txOut.ScriptPubKey);
 					}
 					var fundingTx = txEvent.TransactionData.TransactionHash;
@@ -2648,7 +2773,7 @@ namespace NBXplorer.Tests
 
 				Logs.Tester.LogInformation("Trying to send to a single address from a tracked extkey");
 				var extkey2 = new BitcoinExtKey(new ExtKey(), tester.Network);
-				var pubkey2 = tester.NBXplorerNetwork.DerivationStrategyFactory.Parse($"{extkey.Neuter()}-[legacy]");
+				var pubkey2 = (StandardDerivationStrategyBase)tester.NBXplorerNetwork.DerivationStrategyFactory.Parse($"{extkey.Neuter()}-[legacy]");
 				await tester.Client.TrackAsync(pubkey2);
 				var txId = tester.SendToAddress(pubkey2.GetDerivation(new KeyPath("0/0")).ScriptPubKey, Money.Coins(1.0m));
 				tester.Notifications.WaitForTransaction(pubkey2, txId);
@@ -2841,13 +2966,8 @@ namespace NBXplorer.Tests
 			Assert.IsType<TaprootPubKey>(generated.ScriptPubKey.GetDestination());
 		}
 
-		private static Derivation Generate(DerivationStrategyBase strategy)
-		{
-			var derivation = strategy.GetLineFor(KeyPathTemplates.Default.GetKeyPathTemplate(DerivationFeature.Deposit)).Derive(1U);
-			var derivation2 = strategy.GetDerivation(KeyPathTemplates.Default.GetKeyPathTemplate(DerivationFeature.Deposit).GetKeyPath(1U));
-			Assert.Equal(derivation.Redeem, derivation2.Redeem);
-			return derivation;
-		}
+		private static NBXplorer.DerivationStrategy.Derivation Generate(DerivationStrategyBase strategy)
+		=> strategy.GetLineFor(KeyPathTemplates.Default, DerivationFeature.Deposit).Derive(1U);
 
 		[FactWithTimeout]
 		public async Task CanGetStatus()
@@ -4120,7 +4240,7 @@ namespace NBXplorer.Tests
 
 					Assert.DoesNotContain("-[unblinded]", userDerivationScheme.ToString());
 					//test: setting up unblinded tracking
-					userDerivationScheme = tester.NBXplorerNetwork.DerivationStrategyFactory.Parse(userDerivationScheme.ToString() + "-[unblinded]");
+					userDerivationScheme = (StandardDerivationStrategyBase)tester.NBXplorerNetwork.DerivationStrategyFactory.Parse(userDerivationScheme.ToString() + "-[unblinded]");
 
 					Assert.Contains("-[unblinded]", userDerivationScheme.ToString());
 
@@ -4288,7 +4408,7 @@ namespace NBXplorer.Tests
 				var repo = tester.GetService<RepositoryProvider>().GetRepository(tester.Client.Network);
 				Assert.Equal(wallet.DerivationScheme.GetExtPubKeys().Single().PubKey, wallet.AccountHDKey.GetPublicKey());
 				Logs.Tester.LogInformation("Let's assert it is tracked");
-				var firstKeyInfo = repo.GetKeyInformation(wallet.DerivationScheme.GetChild(new KeyPath("0/0")).GetDerivation().ScriptPubKey);
+				var firstKeyInfo = repo.GetKeyInformation(((StandardDerivationStrategyBase)wallet.DerivationScheme).GetDerivation(new KeyPath("0/0")).ScriptPubKey);
 				Assert.NotNull(firstKeyInfo);
 				var firstGenerated = await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
 				Assert.Equal(firstKeyInfo.ScriptPubKey, firstGenerated.ScriptPubKey);
