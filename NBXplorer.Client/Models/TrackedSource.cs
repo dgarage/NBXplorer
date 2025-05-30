@@ -246,8 +246,12 @@ namespace NBXplorer.Models
 			}
 			return strategy;
 		}
-
+#if !NO_RECORD
+		public IEnumerable<DerivationFeature> GetDerivationFeatures(KeyPathTemplates keyPathTemplates)
+		=> DerivationStrategy is PolicyDerivationStrategy ? new[] { DerivationFeature.Deposit, DerivationFeature.Change } : keyPathTemplates.GetSupportedDerivationFeatures();
+#else
 		public IEnumerable<DerivationFeature> GetDerivationFeatures(KeyPathTemplates keyPathTemplates)
 		=> keyPathTemplates.GetSupportedDerivationFeatures();
+#endif
 	}
 }

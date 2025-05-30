@@ -120,7 +120,7 @@ namespace NBXplorer.Backend
 		public string Type { get; set; }
 		[JsonProperty]
 		public DerivationStrategyBase Derivation { get; set; }
-		[JsonProperty]
+		[JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
 		public KeyPathTemplate KeyPathTemplate { get; set; }
 		[JsonConverter(typeof(StringEnumConverter))]
 		public DerivationFeature Feature { get; set; }

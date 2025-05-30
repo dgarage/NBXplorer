@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using NBitcoin.RPC;
 using NBXplorer.Analytics;
 using NBXplorer.Backend;
+using NBitcoin.WalletPolicies;
 
 namespace NBXplorer.Controllers
 {
@@ -224,18 +225,15 @@ namespace NBXplorer.Controllers
 			}
 
 			ICoin[] coins = null;
-			if (strategy.GetDerivation().Redeem != null)
+			if (strategy.GetLineFor(KeyPathTemplates, DerivationFeature.Deposit).Derive(0).Redeem != null)
 			{
 				// We need to add the redeem script to the coins
-				var hdKeys = strategy.AsHDRedeemScriptPubKey().AsHDKeyCache();
 				var arr = availableCoinsByOutpoint.Values.ToArray();
 				coins = new ICoin[arr.Length];
 				// Can be very intense CPU wise
 				Parallel.For(0, coins.Length, i =>
 				{
-					coins[i] = arr[i].AsCoin();
-					if (coins[i] is not ScriptCoin)
-						coins[i] = ((Coin)coins[i]).ToScriptCoin(hdKeys.Derive(arr[i].KeyPath).ScriptPubKey);
+					coins[i] = arr[i].AsCoin(strategy);
 				});
 			}
 			else
@@ -271,12 +269,12 @@ namespace NBXplorer.Controllers
 					}
 				}
 			}
-			(Script ScriptPubKey, KeyPath KeyPath) change = (null, null);
+			Script change = null;
 			bool hasChange = false;
 			if (request.ExplicitChangeAddress == null)
 			{
 				var keyInfo = (await GetUnusedAddress(trackedSourceContext, DerivationFeature.Change, autoTrack: true)).As<KeyPathInformation>();
-				change = (keyInfo.ScriptPubKey, keyInfo.KeyPath);
+				change = keyInfo.ScriptPubKey;
 			}
 			else
 			{
@@ -287,9 +285,9 @@ namespace NBXplorer.Controllers
 				{
 					keyPath = kis.FirstOrDefault(k => k.DerivationStrategy == strategy)?.KeyPath;
 				}
-				change = (request.ExplicitChangeAddress.ScriptPubKey, keyPath);
+				change = request.ExplicitChangeAddress.ScriptPubKey;
 			}
-			txBuilder.SetChange(change.ScriptPubKey);
+			txBuilder.SetChange(change);
 			PSBT psbt = null;
 			try
 			{
@@ -328,7 +326,7 @@ namespace NBXplorer.Controllers
 				if (request.SpendAllMatchingOutpoints is true)
 					txBuilder.SendAllRemainingToChange();
 				psbt = txBuilder.BuildPSBT(false, psbtVersion);
-				hasChange = psbt.Outputs.Any(o => o.ScriptPubKey == change.ScriptPubKey);
+				hasChange = psbt.Outputs.Any(o => o.ScriptPubKey == change);
 			}
 			catch (OutputTooSmallException ex) when (ex.Reason == OutputTooSmallException.ErrorType.TooSmallAfterSubtractedFee)
 			{
@@ -358,10 +356,10 @@ namespace NBXplorer.Controllers
 			{
 				var derivation = (await GetUnusedAddress(trackedSourceContext, DerivationFeature.Change, reserve: true, autoTrack: true)).As<KeyPathInformation>();
 				// In most of the time, this is the same as previously, so no need to rebuild PSBT
-				if (derivation.ScriptPubKey != change.ScriptPubKey)
+				if (derivation.ScriptPubKey != change)
 				{
-					change = (derivation.ScriptPubKey, derivation.KeyPath);
-					txBuilder.SetChange(change.ScriptPubKey);
+					change = derivation.ScriptPubKey;
+					txBuilder.SetChange(change);
 					psbt = txBuilder.BuildPSBT(false, psbtVersion);
 				}
 			}
@@ -384,7 +382,7 @@ namespace NBXplorer.Controllers
 			var resp = new CreatePSBTResponse()
 			{
 				PSBT = update.PSBT,
-				ChangeAddress = hasChange ? change.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : null,
+				ChangeAddress = hasChange ? change.GetDestinationAddress(network.NBitcoinNetwork) : null,
 				Suggestions = suggestions
 			};
 			return Json(resp, network.JsonSerializerSettings);
@@ -445,37 +443,12 @@ namespace NBXplorer.Controllers
 					}
 				}
 			}
-
-			if (update.DerivationScheme is TaprootDerivationStrategy taprootDerivation)
-			{
-				// Adapt the create PSBT for Taproot...
-				// * HDTaprootKeyPaths is used instead of HDKeyPaths
-				// * TaprootSighashType is explicitely set to default
-				// * Fill up TaprootInternalKey
-				foreach (var c in update.PSBT.Inputs.OfType<PSBTCoin>().Concat(update.PSBT.Outputs))
-				{
-					if (c is PSBTInput input)
-						input.TaprootSighashType = TaprootSigHash.Default;
-					if (c.HDKeyPaths.Count != 1)
-						continue;
-					foreach (var keypath in c.HDKeyPaths)
-					{
-						var taprootPubKey = keypath.Key.GetTaprootFullPubKey();
-						c.TaprootInternalKey = taprootPubKey.InternalKey;
-						// Some consumers expect the internal key to be in the HDTaprootKeyPaths
-						if (!TaprootPubKey.TryCreate(c.TaprootInternalKey.ToBytes(), out var pk))
-							continue;
-						c.HDTaprootKeyPaths.AddOrReplace(pk, new TaprootKeyPath(keypath.Value));
-					}
-					c.HDKeyPaths.Clear();
-				}
-			}
 		}
 
 		private static async Task UpdateHDKeyPathsWitnessAndRedeem(UpdatePSBTRequest update, Repository repo)
 		{
 			var strategy = update.DerivationScheme;
-			var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
+			
 			var keyInfosByScriptPubKey = new Dictionary<Script, KeyPathInformation>();
 			var scriptPubKeys = update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs)
 											.Where(o => !o.HDKeyPaths.Any())
@@ -489,33 +462,88 @@ namespace NBXplorer.Controllers
 					keyInfosByScriptPubKey.TryAdd(keyInfo.ScriptPubKey, keyInfo);
 				}
 			}
-
-			var fps = new Dictionary<PubKey, HDFingerprint>();
-			foreach (var pubkey in pubkeys)
-			{
-				// We derive everything the fastest way possible on multiple cores
-				pubkey.Derive(keyInfosByScriptPubKey.Select(s => s.Value.KeyPath).ToArray());
-				fps.TryAdd(pubkey.GetPublicKey(), pubkey.GetPublicKey().GetHDFingerPrint());
-			}
-
 			List<Script> redeems = new List<Script>();
-			foreach (var c in update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs.Where(o => !o.IsFinalized())))
+			if (strategy is StandardDerivationStrategyBase)
 			{
-				var script = c.GetTxOut()?.ScriptPubKey;
-				if (script != null &&
-					keyInfosByScriptPubKey.TryGetValue(script, out var keyInfo))
+				var pubkeys = strategy.GetExtPubKeys().Select(p => p.AsHDKeyCache()).ToArray();
+				foreach (var pubkey in pubkeys)
 				{
-					foreach (var pubkey in pubkeys)
+					// We derive everything the fastest way possible on multiple cores
+					pubkey.Derive(keyInfosByScriptPubKey.Select(s => s.Value.KeyPath).ToArray());
+				}
+				foreach (var c in NonFinalizedCoins(update))
+				{
+					var script = c.GetTxOut()?.ScriptPubKey;
+					if (script != null &&
+						keyInfosByScriptPubKey.TryGetValue(script, out var keyInfo))
 					{
-						var childPubKey = pubkey.Derive(keyInfo.KeyPath);
-						NBitcoin.Extensions.AddOrReplace(c.HDKeyPaths, childPubKey.GetPublicKey(), new RootedKeyPath(fps[pubkey.GetPublicKey()], keyInfo.KeyPath));
-						if (keyInfo.Redeem != null && c.RedeemScript is null && c.WitnessScript is null)
-							redeems.Add(keyInfo.Redeem);
+						foreach (var pubkey in pubkeys)
+						{
+							var childPubKey = pubkey.Derive(keyInfo.KeyPath);
+							var rootKeyPath = new RootedKeyPath(pubkey.GetPublicKey().GetHDFingerPrint(), keyInfo.KeyPath);
+							if (strategy is TaprootDerivationStrategy)
+							{
+								if (c is PSBTInput input)
+									input.TaprootSighashType = TaprootSigHash.Default;
+								c.TaprootInternalKey = childPubKey.GetPublicKey().GetTaprootFullPubKey().InternalKey;
+								// Some consumers expect the internal key to be in the HDTaprootKeyPaths
+								if (!TaprootPubKey.TryCreate(c.TaprootInternalKey.ToBytes(), out var pk))
+									continue;
+								NBitcoin.Extensions.AddOrReplace(c.HDTaprootKeyPaths, pk, new TaprootKeyPath(rootKeyPath));
+							}
+							else
+							{
+								NBitcoin.Extensions.AddOrReplace(c.HDKeyPaths, childPubKey.GetPublicKey(), rootKeyPath);
+							}
+							if (keyInfo.Redeem != null && c.RedeemScript is null && c.WitnessScript is null)
+								redeems.Add(keyInfo.Redeem);
+						}
+					}
+				}
+			}
+			else if (strategy is PolicyDerivationStrategy miniscriptDerivation)
+			{
+				foreach (var c in NonFinalizedCoins(update))
+				{
+					var script = c.GetTxOut()?.ScriptPubKey;
+					if (script != null &&
+						keyInfosByScriptPubKey.TryGetValue(script, out var keyInfo))
+					{
+						var derivation = (PolicyDerivation)miniscriptDerivation.GetDerivation(keyInfo.Feature, (uint)keyInfo.Index);
+						var trInfo = derivation.Details.Miniscript.GetTaprootInfo();
+						if (trInfo is not null)
+						{
+							c.TaprootInternalKey = trInfo.InternalPubKey;
+							if (c is PSBTInput input)
+							{
+								input.TaprootSighashType = TaprootSigHash.Default;
+								input.TaprootMerkleRoot = trInfo.MerkleRoot;
+							}
+						}
+						foreach (var publicKey in derivation.Details.DerivedKeys)
+						{
+							if (publicKey.Pubkey is MiniscriptNode.Value.PubKeyValue pk)
+							{
+								NBitcoin.Extensions.AddOrReplace(c.HDKeyPaths, pk.PubKey, publicKey.Source.RootedKeyPath.Derive(publicKey.KeyPath));
+							}
+							else if (publicKey.Pubkey is MiniscriptNode.Value.TaprootPubKeyValue tpk)
+							{
+								uint256[] leaf = publicKey.TaprootBranch is null ? null : [new TapScript(publicKey.TaprootBranch.GetScript(), TapLeafVersion.C0).LeafHash];
+								NBitcoin.Extensions.AddOrReplace(c.HDTaprootKeyPaths, tpk.PubKey, new(publicKey.Source.RootedKeyPath.Derive(publicKey.KeyPath), leaf));
+							}
+							if (derivation.Redeem != null && c.RedeemScript is null && c.WitnessScript is null)
+								redeems.Add(derivation.Redeem);
+						}
 					}
 				}
 			}
 			if (redeems.Count != 0)
 				update.PSBT.AddScripts(redeems.ToArray());
+		}
+
+		private static IEnumerable<PSBTCoin> NonFinalizedCoins(UpdatePSBTRequest update)
+		{
+			return update.PSBT.Outputs.OfType<PSBTCoin>().Concat(update.PSBT.Inputs.Where(o => !o.IsFinalized()));
 		}
 	}
 }

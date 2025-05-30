@@ -125,11 +125,11 @@ namespace NBXplorer.Controllers
 			}
 
 			string descriptorJoin = string.Empty;
-			string descriptorColumns = "NULL as redeem, NULL as keypath, NULL as feature";
+			string descriptorColumns = "NULL as redeem, NULL as keypath, NULL as keyindex, NULL as feature";
 			if (derivationScheme is not null)
 			{
 				descriptorJoin = " JOIN descriptors_scripts ds USING (code, script) JOIN descriptors d USING (code, descriptor)";
-				descriptorColumns = "ds.metadata->>'redeem' redeem, nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, d.metadata->>'feature' feature";
+				descriptorColumns = "ds.metadata->>'redeem' redeem, nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, ds.idx, d.metadata->>'feature' feature";
 			}
 
 			var utxos = (await conn.QueryAsync<(
@@ -141,6 +141,7 @@ namespace NBXplorer.Controllers
 				string address,
 				string redeem,
 				string keypath,
+				int keyIndex,
 				string feature,
 				bool mempool,
 				bool input_mempool,
@@ -162,7 +163,8 @@ namespace NBXplorer.Controllers
 					Value = Money.Satoshis(utxo.value),
 					ScriptPubKey = Script.FromHex(utxo.script),
 					Redeem = utxo.redeem is null ? null : Script.FromHex(utxo.redeem),
-					TransactionHash = uint256.Parse(utxo.tx_id)
+					TransactionHash = uint256.Parse(utxo.tx_id),
+					KeyIndex = utxo.keyIndex
 				};
 				u.Outpoint = new OutPoint(u.TransactionHash, u.Index);
 				if (utxo.blk_height is long)
@@ -171,10 +173,9 @@ namespace NBXplorer.Controllers
 				}
 
 				if (utxo.keypath is not null)
-				{
 					u.KeyPath = KeyPath.Parse(utxo.keypath);
+				if (utxo.feature is not null)
 					u.Feature = Enum.Parse<DerivationFeature>(utxo.feature);
-				}
 				u.Address = utxo.address is null ? u.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : BitcoinAddress.Create(utxo.address, network.NBitcoinNetwork);
 				if (!utxo.mempool)
 				{

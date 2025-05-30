@@ -6,7 +6,7 @@ using NBitcoin;
 
 namespace NBXplorer.DerivationStrategy
 {
-	public class TaprootDerivationStrategy : DerivationStrategyBase
+	public class TaprootDerivationStrategy : StandardDerivationStrategyBase
 	{
 		BitcoinExtPubKey _Root;
 
@@ -35,19 +35,14 @@ namespace NBXplorer.DerivationStrategy
 				throw new ArgumentNullException(nameof(root));
 			_Root = root;
 		}
-		public override Derivation GetDerivation()
+		public override Derivation GetDerivation(KeyPath keyPath)
 		{
 #if NO_SPAN
 			throw new NotSupportedException("Deriving taproot address is not supported on this platform.");
 #else
-			var pubKey = _Root.ExtPubKey.PubKey.GetTaprootFullPubKey();
-			return new Derivation() { ScriptPubKey = pubKey.ScriptPubKey };
+			var pubKey = _Root.ExtPubKey.Derive(keyPath).PubKey.GetTaprootFullPubKey();
+			return new Derivation(pubKey.ScriptPubKey);
 #endif
-		}
-
-		public override DerivationStrategyBase GetChild(KeyPath keyPath)
-		{
-			return new TaprootDerivationStrategy(_Root.ExtPubKey.Derive(keyPath).GetWif(_Root.Network), AdditionalOptions);
 		}
 
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()

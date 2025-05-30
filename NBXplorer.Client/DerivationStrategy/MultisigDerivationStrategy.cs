@@ -9,7 +9,7 @@ using System.Collections.ObjectModel;
 
 namespace NBXplorer.DerivationStrategy
 {
-	public class MultisigDerivationStrategy : DerivationStrategyBase
+	public class MultisigDerivationStrategy : StandardDerivationStrategyBase
 	{
 		public bool LexicographicOrder
 		{
@@ -62,29 +62,19 @@ namespace NBXplorer.DerivationStrategy
 			get;
 		}
 
-		private void WriteBytes(MemoryStream ms, byte[] v)
-		{
-			ms.Write(v, 0, v.Length);
-		}
-
-		public override Derivation GetDerivation()
+		public override Derivation GetDerivation(KeyPath keyPath)
 		{
 			var pubKeys = new PubKey[this.Keys.Count];
 			Parallel.For(0, pubKeys.Length, i =>
 			{
-				pubKeys[i] = this.Keys[i].ExtPubKey.PubKey;
+				pubKeys[i] = this.Keys[i].ExtPubKey.Derive(keyPath).PubKey;
 			});
 			if(LexicographicOrder)
 			{
 				Array.Sort(pubKeys, LexicographicComparer);
 			}
 			var redeem = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(RequiredSignatures, pubKeys);
-			return new Derivation() { ScriptPubKey = redeem };
-		}
-
-		public override DerivationStrategyBase GetChild(KeyPath keyPath)
-		{
-			return new MultisigDerivationStrategy(RequiredSignatures, Keys.Select(k => k.ExtPubKey.Derive(keyPath).GetWif(k.Network)).ToArray(), IsLegacy, LexicographicOrder, AdditionalOptions);
+			return new Derivation(redeem);
 		}
 
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()

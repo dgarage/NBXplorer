@@ -57,7 +57,7 @@ namespace NBXplorer.Tests
 
 		public static DerivationLine GetLineFor(this DerivationStrategyBase strategy, DerivationFeature feature)
 		{
-			return strategy.GetLineFor(KeyPathTemplates.Default.GetKeyPathTemplate(feature));
+			return strategy.GetLineFor(KeyPathTemplates.Default, feature);
 		}
 
 		static BitcoinAddress Dummy = new Key().PubKey.GetAddress(ScriptPubKeyType.Legacy, Network.Main);

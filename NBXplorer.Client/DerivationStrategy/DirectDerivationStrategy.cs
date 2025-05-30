@@ -6,7 +6,7 @@ using NBitcoin;
 
 namespace NBXplorer.DerivationStrategy
 {
-	public class DirectDerivationStrategy : DerivationStrategyBase
+	public class DirectDerivationStrategy : StandardDerivationStrategyBase
 	{
 		BitcoinExtPubKey _Root;
 
@@ -44,15 +44,11 @@ namespace NBXplorer.DerivationStrategy
 			_Root = root;
 			Segwit = segwit;
 		}
-		public override Derivation GetDerivation()
-		{
-			var pubKey = _Root.ExtPubKey.PubKey;
-			return new Derivation() { ScriptPubKey = Segwit ? pubKey.WitHash.ScriptPubKey : pubKey.Hash.ScriptPubKey };
-		}
 
-		public override DerivationStrategyBase GetChild(KeyPath keyPath)
+		public override Derivation GetDerivation(KeyPath keyPath)
 		{
-			return new DirectDerivationStrategy(_Root.ExtPubKey.Derive(keyPath).GetWif(_Root.Network), Segwit, AdditionalOptions);
+			var pubKey = _Root.ExtPubKey.Derive(keyPath).PubKey;
+			return new Derivation(Segwit ? pubKey.WitHash.ScriptPubKey : pubKey.Hash.ScriptPubKey);
 		}
 
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()

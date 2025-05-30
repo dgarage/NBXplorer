@@ -40,7 +40,7 @@ namespace NBXplorer
 				DerivationFeature.Change => changeKeyPathTemplate,
 				DerivationFeature.Direct => directKeyPathTemplate,
 				DerivationFeature.Custom when customKeyPathTemplate != null => customKeyPathTemplate,
-				_ => throw new NotSupportedException(derivationFeature.ToString())
+				_ => throw new NotSupportedException($"The derivation feature {derivationFeature} is not supported by the key path templates.")
 			};
 
 		public IEnumerable<DerivationFeature> GetSupportedDerivationFeatures() => derivationFeatures;

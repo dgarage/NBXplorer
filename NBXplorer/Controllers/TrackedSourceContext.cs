@@ -125,7 +125,7 @@ public class TrackedSourceContext
 			if (address != null)
 				return new AddressTrackedSource(BitcoinAddress.Create(address, network.NBitcoinNetwork));
 			if (derivationScheme != null)
-				return new DerivationSchemeTrackedSource(network.DerivationStrategyFactory.Parse(derivationScheme));
+				return new DerivationSchemeTrackedSource(network.DerivationStrategyFactory.Parse(derivationScheme.Replace("%2f","/", StringComparison.OrdinalIgnoreCase)));
 			if (groupId != null)
 				return new GroupTrackedSource(groupId);
 			return null;
