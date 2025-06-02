@@ -43,7 +43,7 @@ namespace NBXplorer.DerivationStrategy
 
 		PolicyDerivationStrategy(WalletPolicy policy, bool check) : base(null)
 		{
-			if (check && IsValidPolicy(policy, out var error))
+			if (check && !IsValidPolicy(policy, out var error))
 				throw new ArgumentException(paramName: nameof(policy), message: error);
 			Policy = policy;
 		}
