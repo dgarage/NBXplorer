@@ -82,6 +82,8 @@ namespace NBXplorer.DerivationStrategy
 				if (!Extensions.TryAdd(optionsDictionary, key, value))
 					throw new FormatException($"The option '{key}' is duplicated");
 			}
+
+			var hasOptions = optionsDictionary.Count != 0;
 			str = _OptionRegex.Replace(str, string.Empty);
 			if (optionsDictionary.Remove("legacy"))
 			{
@@ -145,31 +147,19 @@ namespace NBXplorer.DerivationStrategy
 									.ToArray();
 				return CreateMultiSigDerivationStrategy(pubKeys, sigCount, options);
 			}
-			else if (TryParseMiniscript(str, out var node))
+			#if !NO_RECORD
+			else if (PolicyDerivationStrategy._MaybeMiniscript.IsMatch(str))
 			{
-				return node;
+				if (hasOptions)
+					throw new FormatException("The derivation scheme should not contain any option (such as -[legacy])");
+				return PolicyDerivationStrategy.Parse(str, _Network);
 			}
+			#endif
 			else
 			{
 				var key = _Network.Parse<BitcoinExtPubKey>(str);
 				return CreateDirectDerivationStrategy(key, options);
 			}
-		}
-
-		static readonly Regex _MaybeMiniscript = new("^(wsh|sh|pkh|tr|wpkh)\\(");
-		private bool TryParseMiniscript(string str, out DerivationStrategyBase node)
-		{
-			node = null;
-#if NO_RECORD
-			return false;
-#else
-			if (!_MaybeMiniscript.IsMatch(str))
-				return false;
-			if (!WalletPolicy.TryParse(str, _Network, out var policy))
-				return false;
-			node = new PolicyDerivationStrategy(policy);
-			return true;
-#endif
 		}
 
 		/// <summary>

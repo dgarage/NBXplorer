@@ -10,9 +10,11 @@ This document describes the concepts, while the [API endpoints are documented he
 
 * [Configuration](#configuration)
 * [Tracked Sources](#tracked-sources)
-  * [Derivation schemes](#derivation-scheme)
+  * [Derivation scheme](#derivation-scheme)
+    * [Standard Derivation schemes](#standardDerivationScheme)
+    * [Policy Derivation scheme](#policyDerivationScheme)
   * [Groups](#groups)
-  * [Addresses](#addresses)
+  * [Standalone addresses](#addresses)
 * [Authentication](#authentication)
 
 ## Configuration
@@ -48,6 +50,8 @@ Else, launch profiles, which are settings meant to be used only for debugging ti
 ## <a name="tracked-source"></a>Tracked Sources
 
 A tracked source is a generic way to track a set of scripts (addresses) and its UTXOs, transactions, and balances.
+
+And there are three different types: `Derivation Schemes`, `Groups` and `Standalone addresses`.
 
 ### <a name="derivationScheme"></a>Derivation scheme
 
@@ -162,7 +166,7 @@ A group tracked source's format is `GROUP:groupid`.
 
 You can create a new group by calling [Create a group](https://dgarage.github.io/NBXplorer/#tag/Groups/operation/Create).
 
-### <a name="addresses"></a>Addresses
+### <a name="addresses"></a>Standalone addresses
 
 This refers to a tracked source that monitors a single address. It functions similarly to a group, but with only one specific address to it.
 

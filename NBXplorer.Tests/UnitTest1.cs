@@ -2964,6 +2964,15 @@ namespace NBXplorer.Tests
 			Assert.Equal($"{toto}-[taproot]", taproot.ToString());
 			generated = Generate(taproot);
 			Assert.IsType<TaprootPubKey>(generated.ScriptPubKey.GetDestination());
+			
+			var policy = factory.Parse($"tr(musig([aaaaaaaa]{toto}/**))");
+			Assert.IsType<PolicyDerivationStrategy>(policy);
+			// Format should be musig([aaaaaaaa]{toto}/**)
+			Assert.Throws<FormatException>(() => factory.Parse($"tr(musig({toto}))"));
+			// This should be OK, because there is at least one **
+			policy = factory.Parse($"tr(musig({toto}), {{ pkh([aaaaaaaa]{tata}/**), pkh([aaaaaaaa]{toto}/**) }})");
+			var err = Assert.Throws<FormatException>(() => factory.Parse($"tr(musig({toto}), {{ pkh([aaaaaaaa]{tata}/**), pkh([aaaaaaaa]{toto}/**) }})-[legacy]"));
+			Assert.Contains("The derivation scheme should not contain any option", err.Message);
 		}
 
 		private static NBXplorer.DerivationStrategy.Derivation Generate(DerivationStrategyBase strategy)
