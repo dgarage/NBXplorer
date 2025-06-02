@@ -46,6 +46,7 @@ namespace NBXplorer.DerivationStrategy
 			AdditionalOptions = additionalOptions ?? Empty;
 		}
 
+		public DerivationLine GetLineFor(DerivationFeature feature) => GetLineFor(KeyPathTemplates.Default, feature);
 		public abstract DerivationLine GetLineFor(KeyPathTemplates keyPathTemplates, DerivationFeature feature);
 
 		protected internal abstract string StringValueCore
