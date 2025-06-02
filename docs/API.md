@@ -11,8 +11,8 @@ This document describes the concepts, while the [API endpoints are documented he
 * [Configuration](#configuration)
 * [Tracked Sources](#tracked-sources)
   * [Derivation scheme](#derivation-scheme)
-    * [Standard Derivation schemes](#standardDerivationScheme)
-    * [Policy Derivation scheme](#policyDerivationScheme)
+    * [Standard Derivation schemes](#standard-derivation-scheme)
+    * [Policy Derivation scheme](#policy-derivation-scheme)
   * [Groups](#groups)
   * [Standalone addresses](#addresses)
 * [Authentication](#authentication)
@@ -61,10 +61,10 @@ A derivation scheme tracked source's format is `DERIVATIONSCHEME:derivationSchem
 You can create one by calling [Tracking derivation scheme](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/Track).
 
 There are two types of derivation schemes:
-* [Standard](#standardDerivationScheme), for simple and standard use cases (single sig, or multi sig)
-* [Policy](#policyDerivationScheme), for supporting more complex spending conditions through [Wallet policies (BIP0388)](https://github.com/bitcoin/bips/blob/master/bip-0388.mediawiki). 
+* [Standard](#standard-derivation-scheme), for simple and standard use cases (single sig, or multi sig)
+* [Policy](#policy-derivation-scheme), for supporting more complex spending conditions through [Wallet policies (BIP0388)](https://github.com/bitcoin/bips/blob/master/bip-0388.mediawiki). 
 
-#### <a name="standardDerivationScheme"></a>Standard Derivation scheme
+#### <a name="standard-derivation-scheme"></a>Standard Derivation scheme
 
 A `Standard Derivation Scheme` defines how wallet addresses and keys are generated from a master public key (xpub) using standard hierarchical deterministic (HD) derivation paths. These schemes typically follow BIP standards (like BIP44, BIP49, BIP84, BIP86) and use predefined formats to produce addresses.
 
@@ -89,7 +89,7 @@ You can use more than one options at same time, example: `2-of-xpub1-xpub2-[lega
 
 Most of routes asks for a `cryptoCode`. This identify the crypto currency to request data from. (eg. `BTC`, `LTC`...)
 
-#### <a name="policyDerivationScheme"></a>Policy Derivation scheme
+#### <a name="policy-derivation-scheme"></a>Policy Derivation scheme
 
 A `Policy Derivation Scheme` extends the standard approach. Instead of generating addresses using simple key derivation paths, it defines flexible spending policies using [Miniscript (BIP0379)](https://github.com/bitcoin/bips/blob/master/bip-0379.md) or [Output Descriptors (BIP0380)](https://github.com/bitcoin/bips/blob/master/bip-0380.mediawiki).
 
