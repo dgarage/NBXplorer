@@ -12,17 +12,6 @@ It works on a pruned node and indexes only what you track.
 
 This explorer is not intended to be exposed to the internet; it should be used as an infrastructure tool for tracking the UTXOs of your own service.
 
-## What about alternatives to NBXplorer?
-
-1. `Electrum wallet` requires an unpruned node with indexing, which is space-intensive and may be difficult to sync.
-2. `Electrum wallet` only supports a single cryptocurrency on a single server. If you are an exchange, you would end up running multiple versions of barely maintained Electrum instances.
-3. `Personal Electrum Server` supports only a single wallet.
-4. `Electrum protocol` is cumbersome for HD wallets.
-5. `Bitcoin Core RPC` is inflexible and difficult to use. It also scales poorly when a wallet has too many addresses or UTXOs.
-6. `Bitcoin Core RPC` supports multiple wallets but isn't designed to handle thousands of them. Having too many wallets will not scale.
-7. While NBXplorer exposes an [API](https://dgarage.github.io/NBXplorer/), it also allows you to query the data using the most expressive and flexible language designed for this purpose: [SQL](./docs/docs/Postgres-Schema.md).
-8. Alternative SaaS infrastructure providers depend on third parties, forcing you to compromise your privacy by sharing financial information while relinquishing control over API changes and service level agreements (SLAs).
-
 ## Typical usage
 
 You start by [Creating a wallet (hot wallet)](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/GenerateWallet), or [Tracking a derivation scheme (cold wallet)](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/Track).
@@ -39,9 +28,10 @@ You can also track multiple derivation schemes or individual addresses by [Creat
 
 ## General features
 
+* Miniscript support via [Wallet Policies (BIP0388)](https://github.com/bitcoin/bips/blob/master/bip-0388.mediawiki).
 * Can pass arguments via environment variable, command line or configuration file
 * Automatically reconnect to your node if the connection goes temporarily down
-* An easy to use [REST API](https://dgarage.github.io/NBXplorer/)
+* An easy to use [REST API](https://dgarage.github.io/NBXplorer/) ([Overview](./docs/API.md).)
 * Persistence via [Postgres](./docs/docs/Postgres-Schema.md)
 * Connect via RPC to broadcast transaction instead of using the P2P protocol like this example
 * Connect via RPC to your trusted node to get the proper fee rate.
@@ -377,6 +367,17 @@ Once this is done and `NBXplorer` updated to use the last version of `NBitcoin.A
 If you want to test if everything is working, modify [ServerTester.Environment.cs](NBXplorer.Tests/ServerTester.Environment.cs) to match your altcoin.
 
 Then run the tests.
+
+## What about alternatives to NBXplorer?
+
+1. `Electrum wallet` requires an unpruned node with indexing, which is space-intensive and may be difficult to sync.
+2. `Electrum wallet` only supports a single cryptocurrency on a single server. If you are an exchange, you would end up running multiple versions of barely maintained Electrum instances.
+3. `Personal Electrum Server` supports only a single wallet.
+4. `Electrum protocol` is cumbersome for HD wallets.
+5. `Bitcoin Core RPC` is inflexible and difficult to use. It also scales poorly when a wallet has too many addresses or UTXOs.
+6. `Bitcoin Core RPC` supports multiple wallets but isn't designed to handle thousands of them. Having too many wallets will not scale.
+7. While NBXplorer exposes an [API](https://dgarage.github.io/NBXplorer/), it also allows you to query the data using the most expressive and flexible language designed for this purpose: [SQL](./docs/docs/Postgres-Schema.md).
+8. Alternative SaaS infrastructure providers depend on third parties, forcing you to compromise your privacy by sharing financial information while relinquishing control over API changes and service level agreements (SLAs).
 
 ## Licence
 

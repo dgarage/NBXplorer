@@ -255,7 +255,7 @@
           },
           "keyPath": {
             "type": "string",
-            "description": "The derivation path if the output is associated with the wallet.",
+            "description": "The derivation path if the output is associated with the wallet. (Only for standard derivation schemes)",
             "example": "0/123"
           }
         }
@@ -295,7 +295,7 @@
           },
           "keyPath": {
             "type": "string",
-            "description": "The derivation path if the output is associated with the wallet."
+            "description": "The derivation path if the output is associated with the wallet. (Only for standard derivation schemes)"
           },
           "value": {
             "type": "integer",
@@ -325,7 +325,7 @@
           },
           "keyPath": {
             "type": "string",
-            "description": "The derivation path used to generate this address, e.g., `0/123`.",
+            "description": "The derivation path used to generate this address, e.g., `0/123`. (Only for standard derivation schemes)",
             "example": "0/123",
             "nullable": true
           },
@@ -399,8 +399,13 @@
           },
           "keyPath": {
             "type": "string",
-            "description": "The derivation path used to derive the address for this UTXO from the master public key. For example, `0/0`.",
-            "example": "0/0"
+            "description": "The derivation path used to derive the address for this UTXO from the master public key. For example, `0/0`. (Only for standard derivation schemes)",
+            "example": "0/123"
+          },
+          "keyIndex": {
+            "type": "string",
+            "description": "This index of this key in the `feature`.",
+            "example": "123"
           },
           "timestamp": {
             "type": "integer",

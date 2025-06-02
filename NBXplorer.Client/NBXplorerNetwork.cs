@@ -50,6 +50,7 @@ namespace NBXplorer
 			internal set;
 		}
 
+		[Obsolete]
 		public virtual BitcoinAddress CreateAddress(DerivationStrategyBase derivationStrategy, KeyPath keyPath, Script scriptPubKey)
 		{
 			return scriptPubKey.GetDestinationAddress(NBitcoinNetwork);
