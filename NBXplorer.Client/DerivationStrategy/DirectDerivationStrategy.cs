@@ -48,7 +48,7 @@ namespace NBXplorer.DerivationStrategy
 		public override Derivation GetDerivation(KeyPath keyPath)
 		{
 			var pubKey = _Root.ExtPubKey.Derive(keyPath).PubKey;
-			return new Derivation(Segwit ? pubKey.WitHash.ScriptPubKey : pubKey.Hash.ScriptPubKey);
+			return new KeyPathDerivation(keyPath, Segwit ? pubKey.WitHash.ScriptPubKey : pubKey.Hash.ScriptPubKey);
 		}
 
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()

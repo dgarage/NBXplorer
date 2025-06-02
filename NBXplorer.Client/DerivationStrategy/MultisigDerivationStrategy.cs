@@ -74,7 +74,7 @@ namespace NBXplorer.DerivationStrategy
 				Array.Sort(pubKeys, LexicographicComparer);
 			}
 			var redeem = PayToMultiSigTemplate.Instance.GenerateScriptPubKey(RequiredSignatures, pubKeys);
-			return new Derivation(redeem);
+			return new KeyPathDerivation(keyPath, redeem);
 		}
 
 		public override IEnumerable<ExtPubKey> GetExtPubKeys()

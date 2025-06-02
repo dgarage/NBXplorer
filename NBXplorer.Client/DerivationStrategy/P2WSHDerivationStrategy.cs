@@ -28,7 +28,7 @@ namespace NBXplorer.DerivationStrategy
 		public override Derivation GetDerivation(KeyPath keyPath)
 		{
 			var redeem = Inner.GetDerivation(keyPath).ScriptPubKey;
-			return new Derivation(redeem.WitHash.ScriptPubKey, redeem);
+			return new KeyPathDerivation(keyPath, redeem.WitHash.ScriptPubKey, redeem);
 		}
 	}
 }

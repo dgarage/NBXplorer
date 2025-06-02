@@ -23,6 +23,17 @@ namespace NBXplorer.DerivationStrategy
 			get; set;
 		}
 	}
+
+	public class KeyPathDerivation : Derivation
+	{
+		public KeyPathDerivation(KeyPath keyPath, Script scriptPubKey, Script? redeem = null)
+			: base(scriptPubKey, redeem)
+		{
+			KeyPath = keyPath;
+		}
+
+		public KeyPath KeyPath { get; }
+	}
 #if !NO_RECORD
 	public class PolicyDerivation : Derivation
 	{

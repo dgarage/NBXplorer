@@ -41,7 +41,7 @@ namespace NBXplorer.DerivationStrategy
 			throw new NotSupportedException("Deriving taproot address is not supported on this platform.");
 #else
 			var pubKey = _Root.ExtPubKey.Derive(keyPath).PubKey.GetTaprootFullPubKey();
-			return new Derivation(pubKey.ScriptPubKey);
+			return new KeyPathDerivation(keyPath, pubKey.ScriptPubKey);
 #endif
 		}
 
