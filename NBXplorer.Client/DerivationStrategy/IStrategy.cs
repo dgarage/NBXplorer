@@ -1,5 +1,5 @@
-﻿using NBitcoin;
-using NBitcoin.Altcoins;
+﻿#nullable enable
+using NBitcoin;
 #if !NO_RECORD
 using NBitcoin.WalletPolicies;
 #endif
@@ -27,21 +27,19 @@ namespace NBXplorer.DerivationStrategy
 		public override DerivationLine GetLineFor(KeyPathTemplates keyPathTemplates, DerivationFeature feature)
 		=> new KeyPathTemplateDerivationLine(this, keyPathTemplates, feature);
 		Script IHDScriptPubKey.ScriptPubKey => GetDerivation(KeyPath.Empty).ScriptPubKey;
-		bool IHDScriptPubKey.CanDeriveHardenedPath() => false;
-		IHDScriptPubKey IHDScriptPubKey.Derive(KeyPath keyPath) => new HDScriptPubKey(this, keyPath);
+		IHDScriptPubKey? IHDScriptPubKey.Derive(KeyPath keyPath) => keyPath.IsHardenedPath ? null : new HDScriptPubKey(this, keyPath);
 		class HDScriptPubKey(StandardDerivationStrategyBase Parent, KeyPath KeyPath) : IHDScriptPubKey
 		{
 			public Script ScriptPubKey => Parent.GetDerivation(KeyPath).ScriptPubKey;
-			public bool CanDeriveHardenedPath() => false;
-			public IHDScriptPubKey Derive(KeyPath keyPath) => new HDScriptPubKey(Parent, KeyPath.Derive(keyPath));
+			public IHDScriptPubKey? Derive(KeyPath keyPath) => KeyPath.IsHardenedPath ? null : new HDScriptPubKey(Parent, KeyPath.Derive(keyPath));
 		}
 	}
 	public abstract class DerivationStrategyBase
 	{
-		ReadOnlyDictionary<string, string> Empty = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(0));
+		readonly ReadOnlyDictionary<string, string> Empty = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(0));
 		public ReadOnlyDictionary<string, string> AdditionalOptions { get; }
 
-		internal DerivationStrategyBase(ReadOnlyDictionary<string,string> additionalOptions)
+		internal DerivationStrategyBase(ReadOnlyDictionary<string,string>? additionalOptions)
 		{
 			AdditionalOptions = additionalOptions ?? Empty;
 		}
@@ -54,7 +52,7 @@ namespace NBXplorer.DerivationStrategy
 			get;
 		}
 
-		string _StringValue;
+		string? _StringValue;
 		string StringValue
 		{
 			get

@@ -481,7 +481,7 @@ namespace NBXplorer.Tests
 						});
 						if (i == 25)
 							Assert.Fail("CreatePSBT shouldn't have created a PSBT with a UTXO having too many ancestors");
-						psbt.PSBT.SignAll(userDerivationScheme as IHDScriptPubKey, userExtKey);
+						psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
 						psbt.PSBT.Finalize();
 						Assert.True((await tester.Client.BroadcastAsync(psbt.PSBT.ExtractTransaction())).Success);
 					}
@@ -606,7 +606,7 @@ namespace NBXplorer.Tests
 				Assert.Empty(psbt.PSBT.GlobalXPubs);
 				Assert.Null(psbt.Suggestions);
 				Assert.NotEqual(LockTime.Zero, psbt.PSBT.GetGlobalTransaction().LockTime);
-				psbt.PSBT.SignAll(userDerivationScheme as IHDScriptPubKey, userExtKey);
+				psbt.PSBT.SignAll(userDerivationScheme, userExtKey);
 				Assert.True(psbt.PSBT.TryGetFee(out var fee));
 				if (explicitFee)
 					Assert.Equal(Money.Coins(0.00001m), fee);
@@ -639,7 +639,7 @@ namespace NBXplorer.Tests
 					ExplicitFee = Money.Coins(0.00001m),
 				}
 			});
-			Assert.Equal(-balance, psbt2.PSBT.GetBalance(userDerivationScheme as IHDScriptPubKey, userExtKey));
+			Assert.Equal(-balance, psbt2.PSBT.GetBalance(userDerivationScheme, userExtKey));
 			Assert.Null(psbt2.ChangeAddress);
 
 			Logs.Tester.LogInformation("Let's check that if ReserveChangeAddress is false, all call to CreatePSBT send the same change address");
@@ -2965,14 +2965,26 @@ namespace NBXplorer.Tests
 			generated = Generate(taproot);
 			Assert.IsType<TaprootPubKey>(generated.ScriptPubKey.GetDestination());
 			
-			var policy = factory.Parse($"tr(musig([aaaaaaaa]{toto}/**))");
+			var policy = (PolicyDerivationStrategy)factory.Parse($"tr(musig([aaaaaaaa]{toto}/**))");
 			Assert.IsType<PolicyDerivationStrategy>(policy);
 			// Format should be musig([aaaaaaaa]{toto}/**)
 			Assert.Throws<FormatException>(() => factory.Parse($"tr(musig({toto}))"));
 			// This should be OK, because there is at least one **
-			policy = factory.Parse($"tr(musig({toto}), {{ pkh([aaaaaaaa]{tata}/**), pkh([aaaaaaaa]{toto}/**) }})");
+			policy = (PolicyDerivationStrategy)factory.Parse($"tr(musig({toto}), {{ pkh([aaaaaaaa]{tata}/**), pkh([aaaaaaaa]{toto}/**) }})");
 			var err = Assert.Throws<FormatException>(() => factory.Parse($"tr(musig({toto}), {{ pkh([aaaaaaaa]{tata}/**), pkh([aaaaaaaa]{toto}/**) }})-[legacy]"));
 			Assert.Contains("The derivation scheme should not contain any option", err.Message);
+			Assert.Null(policy.GetHDScriptPubKey(new ExtKey()));
+			var hd = policy.GetHDScriptPubKey(toto);
+			Assert.NotNull(hd);
+			Assert.NotNull(hd.Derive(new KeyPath("0/1")));
+			Assert.NotNull(hd.Derive(new KeyPath("1/1")));
+			Assert.NotNull(hd.Derive(new KeyPath("1")));
+			Assert.NotNull(hd.Derive(new KeyPath("1"))?.Derive(new KeyPath("1")));
+			Assert.NotNull(hd.Derive(new KeyPath("0")));
+			Assert.Null(hd.Derive(new KeyPath("3")));
+			Assert.Null(hd.Derive(new KeyPath("0/1/2")));
+			Assert.Null(hd.Derive(new KeyPath("0/1'")));
+			Assert.Null(hd.Derive(new KeyPath("1"))?.Derive(new KeyPath("1/2")));
 		}
 
 		private static NBXplorer.DerivationStrategy.Derivation Generate(DerivationStrategyBase strategy)

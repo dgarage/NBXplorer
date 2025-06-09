@@ -117,6 +117,96 @@ namespace NBXplorer.DerivationStrategy
 		}
 
 		public override DerivationLine GetLineFor(KeyPathTemplates keyPathTemplates, DerivationFeature feature) => new MiniscriptDerivationLine(this, feature);
+
+		// Extract the multipath node from the hdkey
+		class MultipathNodeVisitor : MiniscriptVisitor
+		{
+			private readonly ExtPubKey _target;
+			public MiniscriptNode.MultipathNode? Result { get; set; }
+			public MultipathNodeVisitor(IHDKey target)
+			{
+				ArgumentNullException.ThrowIfNull(target);
+				_target = Normalize(target);
+			}
+
+			private static ExtPubKey Normalize(IHDKey target)
+				=> target switch
+				{
+					BitcoinExtKey extKey => extKey.Neuter().ExtPubKey,
+					ExtKey extKey => extKey.Neuter(),
+					BitcoinExtPubKey bitcoinExtPubKey => bitcoinExtPubKey.ExtPubKey,
+					ExtPubKey a => a, 
+					_ => throw new NotSupportedException(target.GetType().ToString())
+				};
+
+			public override void Visit(MiniscriptNode node)
+			{
+				if (Result is not null)
+					return;
+				if (node is MiniscriptNode.MultipathNode { Target: MiniscriptNode.HDKeyNode hd } mp)
+				{
+					if (Normalize(hd.Key).Equals(_target))
+						Result = mp;
+				}
+				else
+					base.Visit(node);
+			}
+		}
+		
+		class MiniscriptScriptPubKey : IHDScriptPubKey
+		{
+			private readonly PolicyDerivationStrategy _policyDerivationStrategy;
+			private readonly MiniscriptNode.MultipathNode _multipathNode;
+			private readonly KeyPath _keyPath;
+
+			public MiniscriptScriptPubKey(
+				PolicyDerivationStrategy policyDerivationStrategy,
+				MiniscriptNode.MultipathNode multipathNode,
+				KeyPath? keyPath = null,
+				DerivationCache? cache = null)
+			{
+				_policyDerivationStrategy = policyDerivationStrategy;
+				_multipathNode = multipathNode;
+				_keyPath = keyPath ?? KeyPath.Empty;
+				_cache = cache ?? new();
+			}
+
+			private readonly DerivationCache _cache;
+			public IHDScriptPubKey? Derive(KeyPath keyPath) =>
+				_keyPath.Derive(keyPath) is { Length: <= 2 } kp
+					&& (kp.Length == 0 || GetAddressIntent(kp.Indexes[0]) is not null)
+					&& !kp.IsHardenedPath
+					? new MiniscriptScriptPubKey(_policyDerivationStrategy, _multipathNode, kp, _cache) : null;
+
+			public Script ScriptPubKey
+			{
+				get
+				{
+					if (_keyPath is not { Indexes: [var intentIdx, var index], IsHardenedPath: false } 
+					    || GetAddressIntent(intentIdx) is not {} intent)
+						throw new InvalidOperationException("Invalid keypath (it should be non hardened with two component)");
+					var derived = _policyDerivationStrategy.Policy.FullDescriptor.Derive(new(intent, new[] { (int)index })
+					{
+						DervivationCache = _cache
+					});
+					return derived[0].Miniscript.ToScripts().ScriptPubKey;
+				}
+			}
+
+			private AddressIntent? GetAddressIntent(uint intentIdx)
+			=> intentIdx == _multipathNode.DepositIndex ? AddressIntent.Deposit :
+				intentIdx == _multipathNode.ChangeIndex ? AddressIntent.Change : null;
+		}
+
+		public IHDScriptPubKey? GetHDScriptPubKey(IHDKey accountKey)
+		{
+			ArgumentNullException.ThrowIfNull(accountKey);
+			var visitor = new MultipathNodeVisitor(accountKey);
+			visitor.Visit(Policy.FullDescriptor.RootNode);
+			if (visitor.Result is null)
+				return null;
+			return new MiniscriptScriptPubKey(this, visitor.Result);
+		}
 	}
 }
 #endif
