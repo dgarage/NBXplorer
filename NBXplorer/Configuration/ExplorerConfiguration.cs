@@ -28,6 +28,11 @@ namespace NBXplorer.Configuration
 			get;
 			internal set;
 		}
+		public string RPCCertFile
+		{
+			get;
+			internal set;
+		}
 		public EndPoint NodeEndpoint
 		{
 			get;
@@ -117,6 +122,7 @@ namespace NBXplorer.Configuration
 					var args = RPCArgs.Parse(config, network.NBitcoinNetwork, network.CryptoCode);
 
 					chainConfiguration.RPC = args.ConfigureRPCClient(network);
+					chainConfiguration.RPCCertFile = config.GetOrDefault<string>($"{network.CryptoCode}.rpc.certfile", null);
 					if (chainConfiguration.RPC.Address.Port == network.NBitcoinNetwork.DefaultPort)
 					{
 						Logs.Configuration.LogWarning($"{network.CryptoCode}: It seems that the RPC port ({chainConfiguration.RPC.Address.Port}) is equal to the default P2P port ({network.NBitcoinNetwork.DefaultPort}), this is probably a misconfiguration.");

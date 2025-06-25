@@ -36,6 +36,7 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}rpcpassword", $"RPC authentication method 1: The RPC password (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpccookiefile", $"RPC authentication method 2: The RPC cookiefile (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpcauth", $"RPC authentication method 3: user:password or cookiefile=path (default: using cookie auth from default network folder)", CommandOptionType.SingleValue);
+				app.Option($"--{crypto}rpccertfile", $"The tls cert file for connecting to the RPC server, if required", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}rpcurl", $"The RPC server url (default: default rpc server depended on the network)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}startheight", $"The height where starting the scan (default: where your rpc server was synched when you first started this program)", CommandOptionType.SingleValue);
 				app.Option($"--{crypto}minutxovalue", $"The minimum value of tracked UTXOs, any UTXO with value less than this is ignored. (default: 1 (satoshi))", CommandOptionType.SingleValue);
@@ -133,6 +134,8 @@ namespace NBXplorer.Configuration
 				var cryptoCode = network.CryptoCode.ToLowerInvariant();
 				builder.AppendLine("## This is the RPC Connection to your node");
 				builder.AppendLine($"#{cryptoCode}.rpc.url=http://127.0.0.1:" + network.NBitcoinNetwork.RPCPort + "/");
+				builder.AppendLine("## TLS cert file path, if required");
+				builder.AppendLine($"#{cryptoCode}.rpc.certfile=yournodefolder/rpc.cert");
 				builder.AppendLine("#By user name and password");
 				builder.AppendLine($"#{cryptoCode}.rpc.user=bitcoinuser");
 				builder.AppendLine($"#{cryptoCode}.rpc.password=bitcoinpassword");

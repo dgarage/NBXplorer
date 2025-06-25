@@ -132,6 +132,7 @@ namespace NBXplorer.Tests
 			keyValues.Add(("verbose", "1"));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcauth", Explorer.GetRPCAuth()));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpcurl", Explorer.CreateRPCClient().Address.AbsoluteUri));
+			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}rpccertfile", Explorer.TLSCertFilePath));
 			keyValues.Add(("exposerpc", "1"));
 			keyValues.Add(("rpcnotest", "1"));
 			keyValues.Add(("trimevents", TrimEvents.ToString()));

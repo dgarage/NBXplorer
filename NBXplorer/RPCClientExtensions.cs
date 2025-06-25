@@ -301,6 +301,11 @@ namespace NBXplorer
 			await batch.SendBatchAsync(cancellationToken);
 
 			batch = rpc.PrepareBatch();
+			if (rpc.Network.IsDecred)
+			{
+				// Decred node may not support batching.
+				batch.AllowBatchFallback = true;
+			}
 			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(await h, cancellationToken)).ToArray();
 			await batch.SendBatchAsync(cancellationToken);
 
@@ -312,6 +317,11 @@ namespace NBXplorer
 			await batch.SendBatchAsync(cancellationToken);
 
 			batch = rpc.PrepareBatch();
+			if (rpc.Network.IsDecred)
+			{
+				// Decred node may not support batching.
+				batch.AllowBatchFallback = true;
+			}
 			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(h, cancellationToken)).ToArray();
 			await batch.SendBatchAsync(cancellationToken);
 
@@ -522,7 +532,7 @@ namespace NBXplorer
 		public static async Task<Dictionary<OutPoint, GetTxOutResponse>> GetTxOuts(this RPCClient rpc, IList<OutPoint> outpoints)
 		{
 			var batch = rpc.PrepareBatch();
-			var txOuts = outpoints.Select(o => batch.GetTxOutAsync(o.Hash, (int)o.N, true)).ToArray();
+			var txOuts = outpoints.Select(o => batch.GetTxOutAsync(o.Hash, (int)o.N, 0, true)).ToArray();
 			await batch.SendBatchAsync();
 			var result = new Dictionary<OutPoint, GetTxOutResponse>();
 			int i = 0;

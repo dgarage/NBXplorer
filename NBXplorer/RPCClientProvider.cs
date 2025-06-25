@@ -10,12 +10,16 @@ namespace NBXplorer
 		Dictionary<string, RPCClient> _ChainConfigurations = new Dictionary<string, RPCClient>();
 		public RPCClientProvider(ExplorerConfiguration configuration, IHttpClientFactory httpClientFactory)
 		{
-			foreach(var config in configuration.ChainConfigurations)
+			foreach (var config in configuration.ChainConfigurations)
 			{
 				var rpc = config?.RPC;
 				if (rpc != null)
 				{
-					rpc.HttpClient = httpClientFactory.CreateClient(nameof(RPCClientProvider));
+					if (config.RPCCertFile != null && config.RPCCertFile != "")
+						rpc.UseCustomTLSCert(config.RPCCertFile);
+					else
+						rpc.HttpClient = httpClientFactory.CreateClient(nameof(RPCClientProvider));
+
 					_ChainConfigurations.Add(config.CryptoCode, rpc);
 				}
 			}
