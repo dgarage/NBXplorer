@@ -301,25 +301,31 @@ namespace NBXplorer.Backend
 				{
 					Logger.LogInformation($"Has txindex support");
 				}
-				var peer = (await RPCClient.GetPeersInfoAsync())
-									.FirstOrDefault(p => p.SubVersion == userAgent);
-				if (peer.IsWhitelisted())
+				// Decred runs separate node (dcrd) and wallet (dcrwallet)
+				// processes, so the P2P peer won't appear in the wallet's
+				// peer list. Skip the peer validation for Decred.
+				if (network.NBitcoinNetwork.Consensus.ConsensusFactory.SupportsBatchRPC)
 				{
-					if (firstConnect)
+					var peer = (await RPCClient.GetPeersInfoAsync())
+										.FirstOrDefault(p => p.SubVersion == userAgent);
+					if (peer.IsWhitelisted())
 					{
-						firstConnect = false;
+						if (firstConnect)
+						{
+							firstConnect = false;
+						}
+						Logger.LogInformation($"NBXplorer is correctly whitelisted by the node");
 					}
-					Logger.LogInformation($"NBXplorer is correctly whitelisted by the node");
-				}
-				else if (peer is null)
-				{
-					Logger.LogWarning($"{Network.CryptoCode}: The RPC server you are connecting to, doesn't seem to be the same server as the one providing the P2P connection. This is an untested setup and may have non-obvious side effects.");
-				}
-				else
-				{
-					var addressStr = peer.Address is IPEndPoint end ? end.Address.ToString() : peer.Address?.ToString();
-					Logger.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
-						$" you should add \"whitelist={addressStr}\" to the configuration file of your node. (Or use whitebind)");
+					else if (peer is null)
+					{
+						Logger.LogWarning($"{Network.CryptoCode}: The RPC server you are connecting to, doesn't seem to be the same server as the one providing the P2P connection. This is an untested setup and may have non-obvious side effects.");
+					}
+					else
+					{
+						var addressStr = peer.Address is IPEndPoint end ? end.Address.ToString() : peer.Address?.ToString();
+						Logger.LogWarning($"{Network.CryptoCode}: Your NBXplorer server is not whitelisted by your node," +
+							$" you should add \"whitelist={addressStr}\" to the configuration file of your node. (Or use whitebind)");
+					}
 				}
 
 				int waitTime = 10;

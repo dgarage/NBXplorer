@@ -160,6 +160,8 @@ namespace NBXplorer
 		public static async Task<Dictionary<uint256, MempoolEntry>> FetchMempoolInfo(this RPCClient rpc,  IEnumerable<uint256> txHashes, CancellationToken cancellationToken)
 		{
 			var batch = rpc.PrepareBatch();
+			if (!rpc.Network.Consensus.ConsensusFactory.SupportsBatchRPC)
+				batch.AllowBatchFallback = true;
 			var tasks = new List<(uint256 Id, Task<MempoolEntry> MempoolEntry)>();
 			var metadatas = new Dictionary<uint256, MempoolEntry>();
 			foreach (var id in txHashes)
@@ -318,10 +320,14 @@ namespace NBXplorer
 		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<int> blockHeights, CancellationToken cancellationToken)
 		{
 			var batch = rpc.PrepareBatch();
+			if (!rpc.Network.Consensus.ConsensusFactory.SupportsBatchRPC)
+				batch.AllowBatchFallback = true;
 			var hashes = blockHeights.Select(h => batch.GetBlockHashAsync(h, cancellationToken)).ToArray();
 			await WithRetry(() => batch.SendBatchAsync(cancellationToken), cancellationToken);
 
 			batch = rpc.PrepareBatch();
+			if (!rpc.Network.Consensus.ConsensusFactory.SupportsBatchRPC)
+				batch.AllowBatchFallback = true;
 			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(await h, cancellationToken)).ToArray();
 			await WithRetry(() => batch.SendBatchAsync(cancellationToken), cancellationToken);
 
@@ -330,9 +336,13 @@ namespace NBXplorer
 		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<uint256> hashes, CancellationToken cancellationToken)
 		{
 			var batch = rpc.PrepareBatch();
+			if (!rpc.Network.Consensus.ConsensusFactory.SupportsBatchRPC)
+				batch.AllowBatchFallback = true;
 			await WithRetry(() => batch.SendBatchAsync(cancellationToken), cancellationToken);
 
 			batch = rpc.PrepareBatch();
+			if (!rpc.Network.Consensus.ConsensusFactory.SupportsBatchRPC)
+				batch.AllowBatchFallback = true;
 			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(h, cancellationToken)).ToArray();
 			await WithRetry(()=> batch.SendBatchAsync(cancellationToken), cancellationToken);
 
@@ -405,6 +415,8 @@ namespace NBXplorer
 				if (txBlockIds.Count == 0)
 					return result;
 				var batch = rpc.PrepareBatch();
+				if (!rpc.Network.Consensus.ConsensusFactory.SupportsBatchRPC)
+					batch.AllowBatchFallback = true;
 				var fetching = txBlockIds.Select(b => (b.TransactionId, Fetching: batch.GetRawTransactionAsync(b.TransactionId, b.BlockId, false, cancellationToken))).ToArray();
 				await WithRetry(()=> batch.SendBatchAsync(cancellationToken), cancellationToken);
 				foreach (var f in fetching)
@@ -529,6 +541,8 @@ namespace NBXplorer
 			if (txIds.Count == 0)
 				return new();
 			var batch = rpc.PrepareBatch();
+			if (!rpc.Network.Consensus.ConsensusFactory.SupportsBatchRPC)
+				batch.AllowBatchFallback = true;
 			var txs = txIds.Select(t => (Id: t, Tx: batch.GetRawTransactionAsync(t, false, cancellationToken))).ToArray();
 			await WithRetry(() => batch.SendBatchAsync(cancellationToken), cancellationToken);
 			var res = new Dictionary<uint256, Transaction>();
@@ -543,6 +557,8 @@ namespace NBXplorer
 		public static async Task<Dictionary<OutPoint, GetTxOutResponse>> GetTxOuts(this RPCClient rpc, IList<OutPoint> outpoints, CancellationToken cancellationToken = default)
 		{
 			var batch = rpc.PrepareBatch();
+			if (!rpc.Network.Consensus.ConsensusFactory.SupportsBatchRPC)
+				batch.AllowBatchFallback = true;
 			var txOuts = outpoints.Select(o => batch.GetTxOutAsync(o.Hash, (int)o.N, true, cancellationToken)).ToArray();
 			await WithRetry(() => batch.SendBatchAsync(cancellationToken), cancellationToken);
 			var result = new Dictionary<OutPoint, GetTxOutResponse>();
