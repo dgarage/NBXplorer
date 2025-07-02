@@ -842,7 +842,7 @@ namespace NBXplorer.Backend
 			var para = new DynamicParameters();
 			var sql = query.GetSql(para, Network);
 			var utxos = await
-				connection.Connection.QueryAsync<(string wallet_id, string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, DateTime seen_at, string feature)>(sql, para);
+				connection.Connection.QueryAsync<(string wallet_id, string tx_id, long idx, string blk_id, long? blk_height, int? blk_idx, bool is_out, string spent_tx_id, long spent_idx, string script, string addr, long value, string asset_id, bool immature, string keypath, int key_idx, DateTime seen_at, string feature)>(sql, para);
 			utxos.TryGetNonEnumeratedCount(out int c);
 			var trackedById = new Dictionary<(TrackedSource, string), TrackedTransaction>(c);
 			foreach (var utxo in utxos)
@@ -859,6 +859,7 @@ namespace NBXplorer.Backend
 												  : Money.Satoshis(utxo.value),
 						ScriptPubKey = Script.FromHex(utxo.script),
 						KeyPath = utxo.keypath is string kp ? KeyPath.Parse(kp) : null,
+						KeyIndex = utxo.key_idx,
 						Index = (int)utxo.idx,
 						Feature = utxo.feature is string f ? Enum.Parse<DerivationFeature>(f) : null,
 						Address = BitcoinAddress.Create(utxo.addr, this.Network.NBitcoinNetwork)
@@ -876,6 +877,7 @@ namespace NBXplorer.Backend
 						TransactionId = uint256.Parse(utxo.spent_tx_id),
 						Address = utxo.addr is null ? null : BitcoinAddress.Create(utxo.addr, Network.NBitcoinNetwork),
 						KeyPath = utxo.keypath is string kp ? KeyPath.Parse(kp) : null,
+						KeyIndex = utxo.key_idx,
 						ScriptPubKey = Script.FromHex(utxo.script),
 						Value = Money.Satoshis(utxo.value)
 					});

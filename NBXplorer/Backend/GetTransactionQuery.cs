@@ -38,7 +38,7 @@ namespace NBXplorer.Backend
 				parameters.Add("@code", network.CryptoCode);
 
 				return $"""
-				SELECT wallet_id, tx_id, idx, blk_id, blk_height, blk_idx, is_out, spent_tx_id, spent_idx, script, s.addr, value, asset_id, immature, keypath, seen_at, feature
+				SELECT wallet_id, tx_id, idx, blk_id, blk_height, blk_idx, is_out, spent_tx_id, spent_idx, script, s.addr, value, asset_id, immature, keypath, key_idx, seen_at, feature
 				FROM nbxv1_tracked_txs LEFT JOIN scripts s USING (code, script)
 				WHERE code=@code AND wallet_id=@walletId{txIdCond}{fromCond}{toCond}
 				""";
@@ -59,7 +59,7 @@ namespace NBXplorer.Backend
 				parameters.Add("@code", network.CryptoCode);
 				parameters.Add("@tx_ids", TxIds.Select(t => t.ToString()).ToArray());
 				return """
-				SELECT wallet_id, t.tx_id, idx, blk_id, blk_height, blk_idx, is_out, spent_tx_id, spent_idx, script, s.addr, value, asset_id, immature, keypath, seen_at, feature
+				SELECT wallet_id, t.tx_id, idx, blk_id, blk_height, blk_idx, is_out, spent_tx_id, spent_idx, script, s.addr, value, asset_id, immature, keypath, key_idx, seen_at, feature
 				FROM nbxv1_tracked_txs LEFT JOIN scripts s USING (code, script)
 				JOIN unnest(@tx_ids) t(tx_id) USING (tx_id)
 				WHERE code=@code

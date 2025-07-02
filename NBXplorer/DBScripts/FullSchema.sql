@@ -1019,7 +1019,9 @@ CREATE VIEW nbxv1_tracked_txs AS
     io.replaced_by,
     io.seen_at,
     nbxv1_get_keypath(d.metadata, ds.idx) AS keypath,
-    (d.metadata ->> 'feature'::text) AS feature
+    (d.metadata ->> 'feature'::text) AS feature,
+    d.metadata AS descriptor_metadata,
+    ds.idx AS key_idx
    FROM ((wallets_scripts ws
      JOIN ins_outs io ON (((io.code = ws.code) AND (io.script = ws.script))))
      LEFT JOIN ((wallets_descriptors wd
@@ -1391,6 +1393,7 @@ INSERT INTO nbxv1_migrations VALUES ('021.KeyPathInfoReturnsWalletId');
 INSERT INTO nbxv1_migrations VALUES ('022.WalletsWalletsParentIdIndex');
 INSERT INTO nbxv1_migrations VALUES ('023.KeyPathInfoReturnsIndex');
 INSERT INTO nbxv1_migrations VALUES ('024.TrackedTxsReturnsFeature');
+INSERT INTO nbxv1_migrations VALUES ('025.TrackedTxReturnsDescriptorMetadata');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);

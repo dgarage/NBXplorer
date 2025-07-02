@@ -2386,6 +2386,7 @@ namespace NBXplorer.Tests
 									Assert.Equal(i, input.InputIndex);
 									if (input.KeyPath == new KeyPath("0/2"))
 									{
+										Assert.Equal(2, input.KeyIndex);
 										Assert.Equal(DerivationFeature.Deposit, input.Feature);
 										Assert.Equal(Money.Coins(0.9m), input.Value);
 										Assert.Equal(tester.AddressOf(pubkey2, "0/2"), input.Address);
@@ -2395,6 +2396,7 @@ namespace NBXplorer.Tests
 									{
 										Assert.Equal(DerivationFeature.Change, input.Feature);
 										Assert.Equal(Money.Coins(0.5m), input.Value);
+										Assert.Equal(2, input.KeyIndex);
 										Assert.Equal(tester.AddressOf(pubkey2, "1/2"), input.Address);
 										Assert.Equal(input.Address.ScriptPubKey, input.ScriptPubKey);
 									}
