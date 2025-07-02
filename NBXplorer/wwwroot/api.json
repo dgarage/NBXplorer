@@ -257,6 +257,11 @@
             "type": "string",
             "description": "The derivation path if the output is associated with the wallet. (Only for standard derivation schemes)",
             "example": "0/123"
+          },
+          "keyIndex": {
+            "type": "integer",
+            "description" : "The index of the key in the descriptor (For example, if the keyPath is 0/123, then it is 123)",
+            "example" : 123
           }
         }
       },
@@ -295,7 +300,13 @@
           },
           "keyPath": {
             "type": "string",
-            "description": "The derivation path if the output is associated with the wallet. (Only for standard derivation schemes)"
+            "description": "The derivation path if the output is associated with the wallet. (Only for standard derivation schemes)",
+            "example": "1/2"
+          },
+          "keyIndex": {
+            "type": "integer",
+            "description" : "The index of the key in the descriptor (For example, if the keyPath is 1/2, then it is 2)",
+            "example" : 2
           },
           "value": {
             "type": "integer",

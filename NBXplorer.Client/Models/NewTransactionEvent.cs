@@ -66,6 +66,7 @@ namespace NBXplorer.Models
 		public KeyPath KeyPath { get; set; }
 		public Script ScriptPubKey { get; set; }
 		public int Index { get; set; }
+		public int KeyIndex { get; set; }
 		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
 		public DerivationFeature? Feature { get; set; }
 		public IMoney Value { get; set; }
