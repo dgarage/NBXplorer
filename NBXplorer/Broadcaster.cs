@@ -4,6 +4,7 @@ using NBitcoin.RPC;
 using NBXplorer.Backend;
 using System;
 using System.Threading.Tasks;
+using NBXplorer.Logging;
 
 namespace NBXplorer
 {
@@ -60,15 +61,21 @@ namespace NBXplorer
 			var logger = LoggerFactory.CreateLogger($"NBXplorer.Broadcaster.{network.CryptoCode}");
 			var rpc = indexer.GetConnectedClient();
 			if (rpc is null)
+			{
+				Logs.Explorer.LogInformation($"NO RPC");
 				return result;
+			}
+
 			bool broadcast = true;
 			try
 			{
 				try
 				{
 					var accepted = await rpc.TestMempoolAcceptAsync(tx);
+					Logs.Explorer.LogInformation($"Tested");
 					if (!accepted.IsAllowed)
 					{
+						Logs.Explorer.LogInformation($"Not allowed for reason {accepted.RejectReason}");
 						var rejectReason = GetRejectReason(accepted.RejectReason);
 						SetResult(rejectReason, result);
 						broadcast = rejectReason is Reject.Unknown;

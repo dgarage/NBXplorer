@@ -5,6 +5,8 @@ using NBXplorer.Backend;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using NBXplorer.Logging;
 
 namespace NBXplorer.HostedServices
 {
@@ -42,15 +44,19 @@ namespace NBXplorer.HostedServices
 				}
 			}
 
+			Logs.Explorer.LogInformation($"Tx to broadcast: {txs.Count}");
 			foreach (var tx in txs)
 			{
+				Logs.Explorer.LogInformation($"Broadcast: {tx.Id}");
 				var result = await Broadcaster.Broadcast(tx.Network, tx.Tx, tx.Id);
 				if (result.MempoolConflict)
 				{
+					Logs.Explorer.LogInformation($"Conflict");
 					await conn.ExecuteAsync("UPDATE txs SET replaced_by=@unk_tx_id WHERE code=@code AND tx_id=@tx_id AND mempool IS TRUE AND replaced_by IS NULL", new { code = tx.Network.CryptoCode, tx_id = tx.Id.ToString(), unk_tx_id = NBXplorerNetwork.UnknownTxId.ToString() });
 				}
 				else if (result.MissingInput || result.UnknownError)
 				{
+					Logs.Explorer.LogInformation($"Missing input");
 					await conn.ExecuteAsync("UPDATE txs SET mempool='f' WHERE code=@code AND tx_id=@tx_id AND mempool IS TRUE", new { code = tx.Network.CryptoCode, tx_id = tx.Id.ToString() });
 				}
 			}
