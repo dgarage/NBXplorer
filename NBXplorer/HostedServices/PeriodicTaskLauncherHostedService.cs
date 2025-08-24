@@ -6,6 +6,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using NBitcoin.Logging;
+using Logs = NBXplorer.Logging.Logs;
 
 namespace NBXplorer.HostedServices
 {
@@ -28,18 +30,21 @@ namespace NBXplorer.HostedServices
 			foreach (var task in ServiceProvider.GetServices<ScheduledTask>())
 				jobs.Writer.TryWrite(task);
 
-			loop = Task.WhenAll(Enumerable.Range(0, 3).Select(_ => Loop(cts.Token)).ToArray());
+			loop = Task.WhenAll(Enumerable.Range(0, 3).Select(i => Loop(cts.Token, i)).ToArray());
 			return Task.CompletedTask;
 		}
 		Task loop;
-		private async Task Loop(CancellationToken token)
+		private async Task Loop(CancellationToken token, int i)
 		{
 			try
 			{
+				Logs.Explorer.LogInformation($"Starting loop {i}");
 				await foreach (var job in jobs.Reader.ReadAllAsync(token))
 				{
+					Logs.Explorer.LogInformation($"{i}: Run job {job.PeriodicTaskType}");
 					if (job.NextScheduled <= DateTimeOffset.UtcNow)
 					{
+						Logs.Explorer.LogInformation($"{i}: GO! {job.PeriodicTaskType}");
 						var t = (IPeriodicTask)ServiceProvider.GetService(job.PeriodicTaskType);
 						try
 						{
@@ -56,9 +61,11 @@ namespace NBXplorer.HostedServices
 						finally
 						{
 							job.NextScheduled = DateTimeOffset.UtcNow + job.Every;
+							Logs.Explorer.LogInformation($"{i}: Rescheduled for {job.NextScheduled:u}");
 						}
 					}
 					_ = Wait(job, token);
+					Logs.Explorer.LogInformation($"{i}: NEEXT");
 				}
 			}
 			catch when (token.IsCancellationRequested)
@@ -71,13 +78,19 @@ namespace NBXplorer.HostedServices
 			var timeToWait = job.NextScheduled - DateTimeOffset.UtcNow;
 			try
 			{
+				Logs.Explorer.LogInformation($"Wait for {job.PeriodicTaskType} for {timeToWait.TotalMinutes} minutes");
 				await Task.Delay(timeToWait, token);
 			}
 			catch { }
+			Logs.Explorer.LogInformation($"Wait to write");
 			while (await jobs.Writer.WaitToWriteAsync())
 			{
+				Logs.Explorer.LogInformation($"Writing");
 				if (jobs.Writer.TryWrite(job))
+				{
+					Logs.Explorer.LogInformation($"Write!");
 					break;
+				}
 			}
 		}
 
