@@ -353,6 +353,12 @@ namespace NBXplorer
 		{
 			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/balance", cancellation);
 		}
+		
+		public async Task<BitcoinAddress[]> GetAddresses(TrackedSource trackedSource, CancellationToken cancellation = default)
+		{
+			var addresses =  await SendAsync<string[]>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/addresses", cancellation);
+			return addresses.Select(s => BitcoinAddress.Create(s, Network.NBitcoinNetwork)).ToArray();
+		}
 		public async Task<bool> IsTrackedAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
 			

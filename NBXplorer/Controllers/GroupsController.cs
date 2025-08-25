@@ -155,13 +155,6 @@ namespace NBXplorer.Controllers
 			}
 			return Ok();
 		}
-		[HttpGet($"{CommonRoutes.BaseCryptoEndpoint}/{CommonRoutes.GroupEndpoint}/addresses")]
-		public async Task<IActionResult> GetGroupAddresses(TrackedSourceContext trackedSourceContext)
-		{
-			var addresses =  await trackedSourceContext.Repository.GetAddresses(trackedSourceContext.TrackedSource,
-				trackedSourceContext.Network);
-			return Ok(addresses);
-		}
 
 		private string GetWid(GroupChild c)
 		{

@@ -58,6 +58,14 @@ namespace NBXplorer.Controllers
 				throw new NBXplorerError(409, "scanutxoset-in-progress", "ScanUTXOSet has already been called for this derivationScheme").AsException();
 			return Ok();
 		}
+		
+		[HttpGet($"addresses")]
+		public async Task<IActionResult> GetAddresses(TrackedSourceContext trackedSourceContext)
+		{
+			var addresses =  await trackedSourceContext.Repository.GetAddresses(trackedSourceContext.TrackedSource,
+				trackedSourceContext.Network);
+			return Ok(addresses);
+		}
 
 		[HttpGet($"utxos/scan")]
 		[TrackedSourceContext.TrackedSourceContextRequirement()]
