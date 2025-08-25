@@ -182,10 +182,17 @@ namespace NBXplorer
 			public override string ToString() => str;
 		};
 		internal static RawStr Raw(string str) => new RawStr(str);
-		public async Task ScanUTXOSetAsync(DerivationStrategyBase extKey, int? batchSize = null, int? gapLimit = null, int? fromIndex = null, CancellationToken cancellation = default)
+
+		public async Task ScanUTXOSetAsync(DerivationStrategyBase extKey, int? batchSize = null, int? gapLimit = null,
+			int? fromIndex = null, CancellationToken cancellation = default)
 		{
-			if (extKey == null)
-				throw new ArgumentNullException(nameof(extKey));
+			await ScanUTXOSetAsync(new DerivationSchemeTrackedSource(extKey), batchSize, gapLimit, fromIndex,
+				cancellation);
+		}
+		public async Task ScanUTXOSetAsync(TrackedSource trackedSource, int? batchSize = null, int? gapLimit = null, int? fromIndex = null, CancellationToken cancellation = default)
+		{
+			if (trackedSource == null)
+				throw new ArgumentNullException(nameof(trackedSource));
 			List<string> args = new List<string>();
 			if (batchSize != null)
 				args.Add($"batchsize={batchSize.Value}");
@@ -196,16 +203,24 @@ namespace NBXplorer
 			var argsString = string.Join("&", args.ToArray());
 			if (argsString != string.Empty)
 				argsString = $"?{argsString}";
-			await SendAsync<bool>(HttpMethod.Post, null, $"v1/cryptos/{CryptoCode}/derivations/{extKey}/utxos/scan{Raw(argsString)}", cancellation).ConfigureAwait(false);
+			
+			
+			await SendAsync<bool>(HttpMethod.Post, null, $"{GetBasePath(trackedSource)}/utxos/scan{Raw(argsString)}", cancellation).ConfigureAwait(false);
 		}
 		public void ScanUTXOSet(DerivationStrategyBase extKey, int? batchSize = null, int? gapLimit = null, int? fromIndex = null, CancellationToken cancellation = default)
 		{
 			ScanUTXOSetAsync(extKey, batchSize, gapLimit, fromIndex, cancellation).GetAwaiter().GetResult();
 		}
 
-		public async Task<ScanUTXOInformation> GetScanUTXOSetInformationAsync(DerivationStrategyBase extKey, CancellationToken cancellation = default)
+		public async Task<ScanUTXOInformation> GetScanUTXOSetInformationAsync(DerivationStrategyBase extKey,
+			CancellationToken cancellation = default)
 		{
-			return await SendAsync<ScanUTXOInformation>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/derivations/{extKey}/utxos/scan", cancellation).ConfigureAwait(false);
+			return await GetScanUTXOSetInformationAsync(new DerivationSchemeTrackedSource(extKey), cancellation);
+		}
+
+		public async Task<ScanUTXOInformation> GetScanUTXOSetInformationAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
+		{
+			return await SendAsync<ScanUTXOInformation>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/utxos/scan", cancellation).ConfigureAwait(false);
 		}
 
 		public ScanUTXOInformation GetScanUTXOSetInformation(DerivationStrategyBase extKey, CancellationToken cancellation = default)
@@ -337,6 +352,12 @@ namespace NBXplorer
 		public Task<GetBalanceResponse> GetBalanceAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
 			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/balance", cancellation);
+		}
+		
+		public async Task<BitcoinAddress[]> GetAddresses(TrackedSource trackedSource, CancellationToken cancellation = default)
+		{
+			var addresses =  await SendAsync<string[]>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/addresses", cancellation);
+			return addresses.Select(s => BitcoinAddress.Create(s, Network.NBitcoinNetwork)).ToArray();
 		}
 		public async Task<bool> IsTrackedAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
