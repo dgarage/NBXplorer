@@ -262,13 +262,16 @@ namespace NBXplorer
 				.Select(o => (Coins: o.Select(c => c.Coin).ToList(),
 							  BlockHeader: blockHeaders.ByHeight.TryGet(o.First().Height),
 							  TxId: o.Select(c => c.Coin.Outpoint.Hash).FirstOrDefault(),
-							  KeyPathInformations: o.Select(c => scannedItems.KeyPathInformations[c.Coin.ScriptPubKey]).ToList()))
+							  KeyPathInformations: o
+								  .Select(c => scannedItems.KeyPathInformations.TryGet(c.Coin.ScriptPubKey))
+								  .Where(information => information is not null)
+								  .ToList()))
 				.Where(o => o.BlockHeader != null)
 				.Select(o =>
 				{
 					foreach (var keyInfo in o.KeyPathInformations)
 					{
-						var index = keyInfo.Index.Value;
+						var index = keyInfo!.Index!.Value;
 						var highest = progressObj.HighestKeyIndexFound[keyInfo.Feature];
 						if (highest == null || index > highest.Value)
 						{
