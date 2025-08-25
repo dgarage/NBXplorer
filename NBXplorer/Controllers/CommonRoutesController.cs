@@ -22,16 +22,53 @@ namespace NBXplorer.Controllers
 	[Authorize]
 	public class CommonRoutesController : Controller
 	{
+		public ScanUTXOSetService ScanUTXOSetService { get; }
 		public GroupsController GroupsController{ get; }
 		public AddressPoolService AddressPoolService{ get; }
 		public DbConnectionFactory ConnectionFactory { get; }
-		public CommonRoutesController(DbConnectionFactory connectionFactory, AddressPoolService addressPoolService, GroupsController groupsController)
+		public CommonRoutesController(
+			DbConnectionFactory connectionFactory, 
+			AddressPoolService addressPoolService, 
+			GroupsController groupsController,
+			ScanUTXOSetServiceAccessor scanUTXOSetService)
 		{
+			ScanUTXOSetService = scanUTXOSetService.Instance;
 			GroupsController = groupsController;
 			AddressPoolService = addressPoolService;
 			ConnectionFactory = connectionFactory;
 		}
 		
+		[HttpPost("utxos/scan")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(requireRPC: true)]
+		public IActionResult ScanUTXOSet(TrackedSourceContext trackedSourceContext, int? batchSize = null, int? gapLimit = null, int? from = null)
+		{
+			var network = trackedSourceContext.Network;
+			var rpc = trackedSourceContext.RpcClient;
+			if (!rpc.Capabilities.SupportScanUTXOSet)
+				throw new NBXplorerError(405, "scanutxoset-not-suported", "ScanUTXOSet is not supported for this currency").AsException();
+
+			ScanUTXOSetOptions options = new ScanUTXOSetOptions();
+			if (batchSize != null)
+				options.BatchSize = batchSize.Value;
+			if (gapLimit != null)
+				options.GapLimit = gapLimit.Value;
+			if (from != null)
+				options.From = from.Value;
+			if (!ScanUTXOSetService.EnqueueScan(network, trackedSourceContext.TrackedSource, options))
+				throw new NBXplorerError(409, "scanutxoset-in-progress", "ScanUTXOSet has already been called for this derivationScheme").AsException();
+			return Ok();
+		}
+
+		[HttpGet($"utxos/scan")]
+		[TrackedSourceContext.TrackedSourceContextRequirement()]
+		public IActionResult GetScanUTXOSetInformation(TrackedSourceContext trackedSourceContext)
+		{
+			var network = trackedSourceContext.Network;
+			var info = ScanUTXOSetService.GetInformation(network, trackedSourceContext.TrackedSource);
+			if (info == null)
+				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
+			return Json(info, network.Serializer.Settings);
+		}
 		
 		[HttpGet("")]
 		public async Task<IActionResult> IsTracked(TrackedSourceContext trackedSourceContext)

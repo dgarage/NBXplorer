@@ -19,7 +19,6 @@ namespace NBXplorer.Controllers
 	[Route($"v1/{CommonRoutes.BaseDerivationEndpoint}")]
 	public class DerivationSchemesController : Controller
 	{
-		public ScanUTXOSetService ScanUTXOSetService { get; }
 		public MainController MainController { get; }
 		public RepositoryProvider RepositoryProvider { get; }
 		public KeyPathTemplates KeyPathTemplates { get; }
@@ -27,13 +26,11 @@ namespace NBXplorer.Controllers
 		public AddressPoolService AddressPoolService { get; }
 		public DerivationSchemesController(
 			MainController mainController,
-			ScanUTXOSetServiceAccessor scanUTXOSetService,
 			RepositoryProvider repositoryProvider,
 			KeyPathTemplates keyPathTemplates,
 			Indexers indexers,
 			AddressPoolService addressPoolService)
 		{
-			ScanUTXOSetService = scanUTXOSetService.Instance;
 			MainController = mainController;
 			RepositoryProvider = repositoryProvider;
 			KeyPathTemplates = keyPathTemplates;
@@ -102,41 +99,6 @@ namespace NBXplorer.Controllers
 			var txs = await repo.GetTransactions(GetTransactionQuery.Create(trackedSourceContext.TrackedSource));
 			await repo.Prune(txs);
 			return Ok();
-		}
-
-		[HttpPost("utxos/scan")]
-		[HttpPost($"~/v1/{CommonRoutes.DerivationEndpoint}/utxos/scan")]
-		[TrackedSourceContext.TrackedSourceContextRequirement(requireRPC: true, allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
-		public IActionResult ScanUTXOSet(TrackedSourceContext trackedSourceContext, int? batchSize = null, int? gapLimit = null, int? from = null)
-		{
-			var network = trackedSourceContext.Network;
-			var rpc = trackedSourceContext.RpcClient;
-			var derivationScheme = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
-			if (!rpc.Capabilities.SupportScanUTXOSet)
-				throw new NBXplorerError(405, "scanutxoset-not-suported", "ScanUTXOSet is not supported for this currency").AsException();
-
-			ScanUTXOSetOptions options = new ScanUTXOSetOptions();
-			if (batchSize != null)
-				options.BatchSize = batchSize.Value;
-			if (gapLimit != null)
-				options.GapLimit = gapLimit.Value;
-			if (from != null)
-				options.From = from.Value;
-			if (!ScanUTXOSetService.EnqueueScan(network, derivationScheme, options))
-				throw new NBXplorerError(409, "scanutxoset-in-progress", "ScanUTXOSet has already been called for this derivationScheme").AsException();
-			return Ok();
-		}
-
-		[HttpGet($"~/v1/{CommonRoutes.DerivationEndpoint}/utxos/scan")]
-		[TrackedSourceContext.TrackedSourceContextRequirement(allowedTrackedSourceTypes: typeof(DerivationSchemeTrackedSource))]
-		public IActionResult GetScanUTXOSetInformation(TrackedSourceContext trackedSourceContext)
-		{
-			var network = trackedSourceContext.Network;
-			var derivationScheme = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
-			var info = ScanUTXOSetService.GetInformation(network, derivationScheme);
-			if (info == null)
-				throw new NBXplorerError(404, "scanutxoset-info-not-found", "ScanUTXOSet has not been called with this derivationScheme of the result has expired").AsException();
-			return Json(info, network.Serializer.Settings);
 		}
 
 		[HttpPost($"~/v1/{CommonRoutes.DerivationEndpoint}/prune")]
