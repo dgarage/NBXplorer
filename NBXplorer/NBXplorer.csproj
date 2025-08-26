@@ -3,7 +3,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework Condition="'$(TargetFrameworkOverride)' == ''">net8.0</TargetFramework>
     <TargetFramework Condition="'$(TargetFrameworkOverride)' != ''">$(TargetFrameworkOverride)</TargetFramework>
-    <Version>2.5.2</Version>
+    <Version>2.5.29</Version>
 	  <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\NBXplorer.xml</DocumentationFile>
 	  <NoWarn>1701;1702;1705;1591;CS1591</NoWarn>
 	  <LangVersion>12</LangVersion>
@@ -27,20 +27,22 @@
     <None Remove="DBScripts\018.FastWalletRecent.sql" />
     <None Remove="DBScripts\020.ReplacingShouldBeIdempotent.sql" />
     <None Remove="DBScripts\022.WalletsWalletsParentIdIndex.sql" />
+    <None Remove="DBScripts\023.KeyPathInfoReturnsIndex.sql" />
+    <None Remove="DBScripts\024.TrackedTxsReturnsFeature.sql" />
   </ItemGroup>
   <ItemGroup>
 	<EmbeddedResource Include="DBScripts\*.sql" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dapper" Version="2.1.28" />
+    <PackageReference Include="Dapper" Version="2.1.35" />
     <PackageReference Include="Microsoft.Azure.ServiceBus" Version="4.2.1" />
-    <PackageReference Include="Npgsql" Version="8.0.2" />
+    <PackageReference Include="Npgsql" Version="8.0.6" />
     <PackageReference Include="RabbitMQ.Client" Version="5.1.2" />
 	  <PackageReference Include="NicolasDorier.CommandLine" Version="2.0.0" />
 	  <PackageReference Include="NicolasDorier.CommandLine.Configuration" Version="2.0.0" />
 	<PackageReference Include="NicolasDorier.StandardConfiguration" Version="2.0.0" />
-	<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.1"></PackageReference>
+	<PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.11"></PackageReference>
     <ProjectReference Include="..\NBXplorer.Client\NBXplorer.Client.csproj" />
   </ItemGroup>
 
@@ -60,4 +62,5 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>
+  <ProjectExtensions><VisualStudio><UserProperties wwwroot_4api_1json__JsonSchema="https://raw.githubusercontent.com/OAI/OpenAPI-Specification/refs/tags/3.1.0/schemas/v3.0/schema.json" /></VisualStudio></ProjectExtensions>
 </Project>

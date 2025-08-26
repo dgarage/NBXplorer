@@ -4,18 +4,35 @@
 [![Docker Automated buil](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/nicolasdorier/nbxplorer/)
 [![CircleCI](https://circleci.com/gh/dgarage/NBXplorer.svg?style=svg)](https://circleci.com/gh/dgarage/NBXplorer)
 
-A minimalist UTXO tracker for HD Wallets.
-The goal is to have a flexible, .NET based UTXO tracker for HD wallets.
-The explorer supports P2SH,P2PKH,P2WPKH,P2WSH and Multi-sig derivation.
+A minimalist UTXO tracker for HD wallets.
+The goal is to provide a flexible, .NET-based UTXO tracker for HD wallets.
+The explorer supports P2SH, P2PKH, P2WPKH, P2WSH, Taproot and multi-signature derivations.
 
-This explorer is not meant to be exposed on internet, but should be used as an internal tool for tracking the UTXOs of your own service.
+It works on a pruned node and indexes only what you track.
 
-It has a bunch of features:
+This explorer is not intended to be exposed to the internet; it should be used as an infrastructure tool for tracking the UTXOs of your own service.
 
+## Typical usage
+
+You start by [Creating a wallet (hot wallet)](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/GenerateWallet), or [Tracking a derivation scheme (cold wallet)](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/Track).
+
+Second, [Get the next unused address](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/GetUnused) to get paid.
+
+Listen to events through [Polling](https://dgarage.github.io/NBXplorer/#tag/Events/operation/GetLatest), [Long Polling](https://dgarage.github.io/NBXplorer/#tag/Events/operation/EventStream) or [Web Sockets](https://dgarage.github.io/NBXplorer/#tag/Events/operation/WebSocket).
+
+You can then [List transactions](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/ListTransactionDerivationScheme), [List UTXOs](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/ListUTXOsDerivationScheme), or [Create a PSBT](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/CreatePSBT) for your app to sign.
+
+When the transaction is signed, [Broadcast it](https://dgarage.github.io/NBXplorer/#tag/Transactions/operation/Broadcast).
+
+You can also track multiple derivation schemes or individual addresses by [Creating a group](https://dgarage.github.io/NBXplorer/#tag/Groups/operation/Create).
+
+## General features
+
+* Miniscript support via [Wallet Policies (BIP0388)](https://github.com/bitcoin/bips/blob/master/bip-0388.mediawiki).
 * Can pass arguments via environment variable, command line or configuration file
 * Automatically reconnect to your node if the connection goes temporarily down
-* An easy to use REST API
-* Persistence (via in-file no-SQL datbase called DBreeze or Postgres)
+* An easy to use [REST API](https://dgarage.github.io/NBXplorer/) ([Overview](./docs/API.md).)
+* Persistence via [Postgres](./docs/docs/Postgres-Schema.md)
 * Connect via RPC to broadcast transaction instead of using the P2P protocol like this example
 * Connect via RPC to your trusted node to get the proper fee rate.
 * Altcoin support
@@ -49,7 +66,7 @@ It currently supports the following altcoins:
 * Ufo
 * Viacoin
 
-Read our [API Specification](./docs/API.md).
+Read our [API Specification](https://dgarage.github.io/NBXplorer/).
 
 ## Prerequisite
 
@@ -96,12 +113,12 @@ On Linux:
 Example, if you have ltc node and btc node on regtest (default configuration), and want to connect to them: (see documentation for other options in the [postgres connection string](https://www.npgsql.org/doc/connection-string-parameters.html))
 
 ```bash
-./run.sh --chains=btc,ltc --network=regtest --postgres "User ID=postgres;Host=127.0.0.1;Port=39382;Database=nbxplorer"
+./run.sh --chains=btc,ltc --network=regtest --postgres "User ID=postgres;Host=127.0.0.1;Port=5432;Database=nbxplorer"
 ```
 
 ## How to use the API?
 
-Check [the API documentation](./docs/API.md), you can then use any client library:
+Check [the API documentation](https://dgarage.github.io/NBXplorer/), you can then use any client library:
 
 * [NBXplorer.NodeJS](https://github.com/junderw/NBXplorer.NodeJS) for NodeJS clients.
 * [NBXplorer.Client](https://www.nuget.org/packages/NBxplorer.Client) for .NET clients.
@@ -198,7 +215,7 @@ If you need to see old payments, you need to configure `--[crypto]startheight` t
 
 [Postman](https://www.getpostman.com) is a useful tool for testing and experimenting with REST API's.
 
-You can test the [NBXplorer API](./docs/API.md) quickly and easily using Postman.
+You can test the [NBXplorer API](https://dgarage.github.io/NBXplorer/) quickly and easily using Postman.
 
 If you use cookie authentication (enabled by default) in your locally run NBXplorer, you need to set that up in Postman:
 
@@ -214,7 +231,7 @@ If you use cookie authentication (enabled by default) in your locally run NBXplo
 
 You can also disable authentication in NBXplorer for testing with the `--noauth` parameter. This makes testing quicker:
 
-* Run NBXplorer with the `--noauth` parameter
+* Run NBXplorer with the `--noauth` command line argument or the environment variable `NBXPLORER_NOAUTH=1`
 * In Postman create a new GET API test
 * In Authorization select *No Auth*
 * Enter the API URL you are going to test
@@ -351,14 +368,17 @@ If you want to test if everything is working, modify [ServerTester.Environment.c
 
 Then run the tests.
 
+## What about alternatives to NBXplorer?
+
+1. `Electrum wallet` requires an unpruned node with indexing, which is space-intensive and may be difficult to sync.
+2. `Electrum wallet` only supports a single cryptocurrency on a single server. If you are an exchange, you would end up running multiple versions of barely maintained Electrum instances.
+3. `Personal Electrum Server` supports only a single wallet.
+4. `Electrum protocol` is cumbersome for HD wallets.
+5. `Bitcoin Core RPC` is inflexible and difficult to use. It also scales poorly when a wallet has too many addresses or UTXOs.
+6. `Bitcoin Core RPC` supports multiple wallets but isn't designed to handle thousands of them. Having too many wallets will not scale.
+7. While NBXplorer exposes an [API](https://dgarage.github.io/NBXplorer/), it also allows you to query the data using the most expressive and flexible language designed for this purpose: [SQL](./docs/docs/Postgres-Schema.md).
+8. Alternative SaaS infrastructure providers depend on third parties, forcing you to compromise your privacy by sharing financial information while relinquishing control over API changes and service level agreements (SLAs).
+
 ## Licence
 
 This project is under MIT License.
-
-## Special thanks
-
-Special thanks to Digital Garage for allowing me to open source the project, which is based on an internal work I have done on Elements.
-
-Thanks to the DG Lab Blockchain Team who had to fight with lots of bugs. (in particular kallewoof :p)
-
-Thanks to Metaco SA, whose constant challenging projects refine my taste on what a perfect Bitcoin API should be.

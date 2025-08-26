@@ -22,6 +22,7 @@ namespace NBXplorer.HostedServices
 
 		Channel<ScheduledTask> jobs = Channel.CreateBounded<ScheduledTask>(100);
 		CancellationTokenSource cts;
+
 		public Task StartAsync(CancellationToken cancellationToken)
 		{
 			cts = new CancellationTokenSource();
@@ -31,33 +32,29 @@ namespace NBXplorer.HostedServices
 			loop = Task.WhenAll(Enumerable.Range(0, 3).Select(_ => Loop(cts.Token)).ToArray());
 			return Task.CompletedTask;
 		}
+
 		Task loop;
+
 		private async Task Loop(CancellationToken token)
 		{
 			try
 			{
 				await foreach (var job in jobs.Reader.ReadAllAsync(token))
 				{
-					if (job.NextScheduled <= DateTimeOffset.UtcNow)
+					var t = (IPeriodicTask)ServiceProvider.GetService(job.PeriodicTaskType);
+					try
 					{
-						var t = (IPeriodicTask)ServiceProvider.GetService(job.PeriodicTaskType);
-						try
-						{
-							await t.Do(token);
-						}
-						catch when (token.IsCancellationRequested)
-						{
-							throw;
-						}
-						catch (Exception ex)
-						{
-							Logger.LogError(ex, $"Unhandled error in job {job.PeriodicTaskType.Name}");
-						}
-						finally
-						{
-							job.NextScheduled = DateTimeOffset.UtcNow + job.Every;
-						}
+						await t.Do(token);
 					}
+					catch when (token.IsCancellationRequested)
+					{
+						throw;
+					}
+					catch (Exception ex)
+					{
+						Logger.LogError(ex, $"Unhandled error in job {job.PeriodicTaskType.Name}");
+					}
+
 					_ = Wait(job, token);
 				}
 			}
@@ -68,16 +65,17 @@ namespace NBXplorer.HostedServices
 
 		private async Task Wait(ScheduledTask job, CancellationToken token)
 		{
-			var timeToWait = job.NextScheduled - DateTimeOffset.UtcNow;
 			try
 			{
-				await Task.Delay(timeToWait, token);
+				await Task.Delay(job.Every, token);
+				while (await jobs.Writer.WaitToWriteAsync(token))
+				{
+					if (jobs.Writer.TryWrite(job))
+						break;
+				}
 			}
-			catch { }
-			while (await jobs.Writer.WaitToWriteAsync())
+			catch when (token.IsCancellationRequested)
 			{
-				if (jobs.Writer.TryWrite(job))
-					break;
 			}
 		}
 

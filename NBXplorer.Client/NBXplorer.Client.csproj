@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFrameworks>netstandard2.1</TargetFrameworks>
+		<TargetFrameworks>net8.0;netstandard2.1</TargetFrameworks>
 		<Company>Digital Garage</Company>
-		<Version>4.3.0</Version>
+		<Version>5.0.5</Version>
 		<Copyright>Copyright © Digital Garage 2017</Copyright>
 		<Description>Client API for the minimalist HD Wallet Tracker NBXplorer</Description>
 		<PackageIcon>Bitcoin.png</PackageIcon>
@@ -13,10 +13,10 @@
 		<RepositoryUrl>https://github.com/dgarage/NBXplorer</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<LangVersion>10.0</LangVersion>
+		<LangVersion>12</LangVersion>
 	</PropertyGroup>
-  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.0' ">
-    <DefineConstants>$(DefineConstants);NO_SPAN</DefineConstants>
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'netstandard2.1' ">
+    <DefineConstants>$(DefineConstants);NO_RECORD</DefineConstants>
   </PropertyGroup>
         <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
 		  <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -27,9 +27,8 @@
 		  <NoWarn>$(NoWarn);1591;1573;1572;1584;1570;3021</NoWarn>
         </PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="7.0.34" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="3.0.23" />
-		<PackageReference Include="System.Net.WebSockets.Client" Version="4.3.2" />
+		<PackageReference Include="NBitcoin" Version="9.0.0" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="5.0.0" />
 	</ItemGroup>
   <ItemGroup>
 	<None Include="..\README.md" Pack="true" PackagePath="\" />

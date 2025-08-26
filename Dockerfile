@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0.101-bookworm-slim AS builder
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0.404-bookworm-slim AS builder
 WORKDIR /source
 COPY NBXplorer/NBXplorer.csproj NBXplorer/NBXplorer.csproj
 COPY NBXplorer.Client/NBXplorer.Client.csproj NBXplorer.Client/NBXplorer.Client.csproj
@@ -8,7 +8,7 @@ COPY . .
 RUN cd NBXplorer && \
     dotnet publish --output /app/ --configuration Release
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.1-bookworm-slim
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.11-bookworm-slim
 WORKDIR /app
 
 RUN mkdir /datadir

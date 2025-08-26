@@ -28,6 +28,10 @@ namespace NBXplorer.Models
 			get; set;
 		}
 
+		public List<MatchedInput> Inputs
+		{
+			get; set;
+		} = new List<MatchedInput>();
 		public List<MatchedOutput> Outputs
 		{
 			get; set;
@@ -62,6 +66,9 @@ namespace NBXplorer.Models
 		public KeyPath KeyPath { get; set; }
 		public Script ScriptPubKey { get; set; }
 		public int Index { get; set; }
+		public int KeyIndex { get; set; }
+		[JsonConverter(typeof(Newtonsoft.Json.Converters.StringEnumConverter))]
+		public DerivationFeature? Feature { get; set; }
 		public IMoney Value { get; set; }
 		public BitcoinAddress Address { get; set; }
 	}
@@ -69,5 +76,9 @@ namespace NBXplorer.Models
 	public class MatchedInput : MatchedOutput
 	{
 		public int InputIndex { get; set; }
+		public uint256 TransactionId
+		{
+			get; set;
+		}
 	}
 }

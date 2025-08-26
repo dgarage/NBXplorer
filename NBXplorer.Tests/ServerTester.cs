@@ -152,8 +152,7 @@ namespace NBXplorer.Tests
 				keyValues.Add(("rmqtranex", RabbitMqTestConfig.RabbitMqTransactionExchange));
 				keyValues.Add(("rmqblockex", RabbitMqTestConfig.RabbitMqBlockExchange));
 			}
-			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value }
-			.Concat(new[] { $"--{CryptoCode.ToLowerInvariant()}hastxindex" }))
+			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value })
 			.Concat(AdditionalFlags)
 			.Concat(additionalFlags).ToArray();
 			Host = new WebHostBuilder()
@@ -172,7 +171,7 @@ namespace NBXplorer.Tests
 				.Build();
 			NBXplorer.Logging.Logs.Configure(Host.Services.GetRequiredService<ILoggerFactory>());
 			NBXplorerNetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
-			RPC = ((IRPCClients)Host.Services.GetService(typeof(IRPCClients))).Get(NBXplorerNetwork);
+			RPC = ((RPCClientProvider)Host.Services.GetService(typeof(RPCClientProvider))).Get(NBXplorerNetwork);
 			var conf = (ExplorerConfiguration)Host.Services.GetService(typeof(ExplorerConfiguration));
 			Host.Start();
 			Configuration = conf;
@@ -207,7 +206,6 @@ namespace NBXplorer.Tests
 		public HttpClient HttpClient { get; internal set; }
 
 		string datadir;
-
 		public void ResetExplorer(bool deleteAll = true)
 		{
 			Host.Dispose();
@@ -419,7 +417,7 @@ namespace NBXplorer.Tests
 				return key.ExtKey.Derive(new KeyPath(path)).Neuter().PubKey.Hash.GetAddress(Network);
 		}
 
-		public BitcoinAddress AddressOf(DerivationStrategyBase scheme, string path)
+		public BitcoinAddress AddressOf(StandardDerivationStrategyBase scheme, string path)
 		{
 			return scheme.GetDerivation(KeyPath.Parse(path)).ScriptPubKey.GetDestinationAddress(Network);
 		}
@@ -428,14 +426,14 @@ namespace NBXplorer.Tests
 		{
 			return (DirectDerivationStrategy)CreateDerivationStrategy(pubKey, false);
 		}
-		public DerivationStrategyBase CreateDerivationStrategy(ExtPubKey pubKey, bool p2sh)
+		public StandardDerivationStrategyBase CreateDerivationStrategy(ExtPubKey pubKey, bool p2sh)
 		{
 			key = key ?? new ExtKey();
 			pubKey = pubKey ?? key.Neuter();
 			string suffix = this.RPC.Capabilities.SupportSegwit ? "" : "-[legacy]";
 			suffix += p2sh ? "-[p2sh]" : "";
 			scriptPubKeyType = p2sh ? ScriptPubKeyType.SegwitP2SH : ScriptPubKeyType.Segwit;
-			return NBXplorerNetwork.DerivationStrategyFactory.Parse($"{pubKey.ToString(this.Network)}{suffix}");
+			return (StandardDerivationStrategyBase)NBXplorerNetwork.DerivationStrategyFactory.Parse($"{pubKey.ToString(this.Network)}{suffix}");
 		}
 		ExtKey key;
 		ScriptPubKeyType scriptPubKeyType;

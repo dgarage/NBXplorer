@@ -229,6 +229,17 @@ namespace NBXplorer
 			await session.ConnectAsync(cancellation).ConfigureAwait(false);
 			return session;
 		}
+		public WebsocketNotificationSessionLegacy CreateWebsocketNotificationSessionLegacy(CancellationToken cancellation = default)
+		{
+			return CreateWebsocketNotificationSessionLegacyAsync(cancellation).GetAwaiter().GetResult();
+		}
+
+		public async Task<WebsocketNotificationSessionLegacy> CreateWebsocketNotificationSessionLegacyAsync(CancellationToken cancellation = default)
+		{
+			var session = new WebsocketNotificationSessionLegacy(this);
+			await session.ConnectAsync(cancellation).ConfigureAwait(false);
+			return session;
+		}
 
 		public UTXOChanges GetUTXOs(TrackedSource trackedSource, CancellationToken cancellation = default)
 		{
@@ -327,6 +338,21 @@ namespace NBXplorer
 		{
 			return SendAsync<GetBalanceResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/balance", cancellation);
 		}
+		public async Task<bool> IsTrackedAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
+		{
+			
+			var responseMessage = await  SendAsync(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}", cancellation);
+			switch (responseMessage.StatusCode)
+			{
+				case HttpStatusCode.OK:
+					return true;
+				case HttpStatusCode.NotFound:
+					return false;
+				default:
+					await ParseResponse(responseMessage);
+					return false;
+			}
+		}
 		public Task CancelReservationAsync(DerivationStrategyBase strategy, KeyPath[] keyPaths, CancellationToken cancellation = default)
 		{
 			return SendAsync<string>(HttpMethod.Post, keyPaths, $"v1/cryptos/{CryptoCode}/derivations/{strategy}/addresses/cancelreservation", cancellation);
@@ -351,22 +377,32 @@ namespace NBXplorer
 		{
 			return SendAsync<StatusResult>(HttpMethod.Get, null, $"v1/cryptos/{CryptoCode}/status", cancellation);
 		}
-		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, CancellationToken cancellation = default)
+		public GetTransactionsResponse GetTransactions(DerivationStrategyBase strategy, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(strategy, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(strategy, from, to, cancellation).GetAwaiter().GetResult();
 		}
-		public GetTransactionsResponse GetTransactions(TrackedSource trackedSource, CancellationToken cancellation = default)
+		public GetTransactionsResponse GetTransactions(TrackedSource trackedSource, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(trackedSource, cancellation).GetAwaiter().GetResult();
+			return GetTransactionsAsync(trackedSource, from, to, cancellation).GetAwaiter().GetResult();
 		}
 
-		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, CancellationToken cancellation = default)
+		public Task<GetTransactionsResponse> GetTransactionsAsync(DerivationStrategyBase strategy, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken cancellation = default)
 		{
-			return GetTransactionsAsync(TrackedSource.Create(strategy), cancellation);
+			return GetTransactionsAsync(TrackedSource.Create(strategy), from, to, cancellation);
 		}
-		public Task<GetTransactionsResponse> GetTransactionsAsync(TrackedSource trackedSource, CancellationToken cancellation = default)
+		public Task<GetTransactionsResponse> GetTransactionsAsync(TrackedSource trackedSource, DateTimeOffset? from = null, DateTimeOffset? to = null, CancellationToken cancellation = default)
 		{
-			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/transactions", cancellation);
+			string fromV = string.Empty;
+			string toV = string.Empty;
+			if (from is DateTimeOffset f)
+			{
+				fromV = NBitcoin.Utils.DateTimeToUnixTime(f).ToString();
+			}
+			if (to is DateTimeOffset t)
+			{
+				toV = NBitcoin.Utils.DateTimeToUnixTime(t).ToString();
+			}
+			return SendAsync<GetTransactionsResponse>(HttpMethod.Get, null, $"{GetBasePath(trackedSource)}/transactions?from={fromV}&to={toV}", cancellation);
 		}
 
 
@@ -572,6 +608,15 @@ namespace NBXplorer
 		{
 			return SendAsync<GroupInformation>(HttpMethod.Post, addresses, $"v1/cryptos/{cryptoCode}/groups/{groupId}/addresses", cancellationToken);
 		}
+		
+		public async Task ImportUTXOs(string cryptoCode, ImportUTXORequest request, CancellationToken cancellation = default)
+		{
+			if (request == null)
+				throw new ArgumentNullException(nameof(request));
+			if (cryptoCode == null)
+				throw new ArgumentNullException(nameof(cryptoCode));
+			await SendAsync(HttpMethod.Post, request, $"v1/cryptos/{cryptoCode}/rescan-utxos", cancellation);
+		}
 
 		private static readonly HttpClient SharedClient = new HttpClient();
 		internal HttpClient Client = SharedClient;
@@ -668,7 +713,7 @@ namespace NBXplorer
 			}
 			return await ParseResponse<T>(result).ConfigureAwait(false);
 		}
-		internal async Task SendAsync(HttpMethod method, object body, FormattableString relativePath, CancellationToken cancellation)
+		internal async Task<HttpResponseMessage> SendAsync(HttpMethod method, object body, FormattableString relativePath, CancellationToken cancellation)
 		{
 			var message = CreateMessage(method, body, relativePath);
 			var result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
@@ -685,7 +730,7 @@ namespace NBXplorer
 					result = await Client.SendAsync(message, cancellation).ConfigureAwait(false);
 				}
 			}
-			await ParseResponse(result).ConfigureAwait(false);
+			return result;
 		}
 
 		internal HttpRequestMessage CreateMessage(HttpMethod method, object body, FormattableString relativePath)

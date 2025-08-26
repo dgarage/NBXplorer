@@ -48,11 +48,6 @@ namespace NBXplorer.Models
 		{
 			get; set;
 		}
-		public double RepositoryPingTime
-		{
-			get;
-			set;
-		}
 		public bool IsFullySynched
 		{
 			get; set;

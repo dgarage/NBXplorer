@@ -14,6 +14,9 @@ using NBXplorer.Models;
 using NBXplorer.Logging;
 using NBitcoin.Scripting;
 using NBXplorer.Backend;
+using NBitcoin.Altcoins;
+using static NBXplorer.Backend.DbConnectionHelper;
+using NBitcoin.Altcoins.Elements;
 
 namespace NBXplorer
 {
@@ -62,7 +65,7 @@ namespace NBXplorer
 		}
 
 		public ScanUTXOSetService(ScanUTXOSetServiceAccessor accessor,
-								  IRPCClients rpcClients,
+								  RPCClientProvider rpcClients,
 								  KeyPathTemplates keyPathTemplates,
 								  RepositoryProvider repositories)
 		{
@@ -115,7 +118,7 @@ namespace NBXplorer
 		CancellationTokenSource _Cts = new CancellationTokenSource();
 		private readonly KeyPathTemplates keyPathTemplates;
 
-		public IRPCClients RpcClients { get; }
+		public RPCClientProvider RpcClients { get; }
 		public RepositoryProvider Repositories { get; }
 
 		public Task StartAsync(CancellationToken cancellationToken)
@@ -146,7 +149,7 @@ namespace NBXplorer
 							From = workItem.Options.From,
 							StartedAt = DateTimeOffset.UtcNow
 						};
-						foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+						foreach (var feature in workItem.DerivationStrategy.GetDerivationFeatures(keyPathTemplates))
 						{
 							workItem.State.Progress.HighestKeyIndexFound.Add(feature, null);
 						}
@@ -253,7 +256,7 @@ namespace NBXplorer
 				{
 					foreach (var keyInfo in o.KeyPathInformations)
 					{
-						var index = keyInfo.KeyPath.Indexes.Last();
+						var index = keyInfo.Index.Value;
 						var highest = progressObj.HighestKeyIndexFound[keyInfo.Feature];
 						if (highest == null || index > highest.Value)
 						{
@@ -270,46 +273,50 @@ namespace NBXplorer
 					var highest = progressObj.HighestKeyIndexFound[p.Feature];
 					if (highest == null)
 						return false;
-					return p.KeyPath.Indexes.Last() <= highest.Value;
+					return p.Index.Value <= highest.Value;
 				}).ToArray());
 			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
 			DateTimeOffset now = DateTimeOffset.UtcNow;
 
-			await repo.SaveBlocks(blockHeaders.Select(b => b.ToSlimChainedBlock()).ToList());
-			await repo.SaveMatches(data.Select(o =>
-			{
-				var trackedTransaction = repo.CreateTrackedTransaction(trackedSource, new TrackedTransactionKey(o.TxId, o.BlockHeader.Hash, true), o.Coins, ToDictionary(o.KeyPathInformations));
-				trackedTransaction.Inserted = now;
-				trackedTransaction.FirstSeen = o.BlockHeader.Time;
-				return trackedTransaction;
-			}).ToArray());
-		}
-		private static Dictionary<Script, KeyPath> ToDictionary(IEnumerable<KeyPathInformation> knownScriptMapping)
-		{
-			if (knownScriptMapping == null)
-				return null;
-			var result = new Dictionary<Script, KeyPath>();
-			foreach (var keypathInfo in knownScriptMapping)
-			{
-				result.TryAdd(keypathInfo.ScriptPubKey, keypathInfo.KeyPath);
-			}
-			return result;
+			var records = data.Select(d => SaveTransactionRecord.Create(
+						txHash: d.TxId,
+						slimBlock: d.BlockHeader.ToSlimChainedBlock(),
+						seenAt: Extensions.MinDate(d.BlockHeader.Time, now))).ToArray();
+			var query = new MatchQuery(data.SelectMany(d => d.Coins));
+			await repo.SaveBlocks(blockHeaders);
+			await repo.SaveMatches(query, records.ToArray());
 		}
 
 		private ScannedItems GetScannedItems(ScanUTXOWorkItem workItem, ScanUTXOProgress progress, NBXplorerNetwork network)
 		{
 			var items = new ScannedItems();
 			var derivationStrategy = workItem.DerivationStrategy;
-			foreach (var feature in keyPathTemplates.GetSupportedDerivationFeatures())
+			foreach (var feature in derivationStrategy.GetDerivationFeatures(keyPathTemplates))
 			{
-				var keyPathTemplate = keyPathTemplates.GetKeyPathTemplate(feature);
-				var lineDerivation = workItem.DerivationStrategy.DerivationStrategy.GetLineFor(keyPathTemplate);
+				var lineDerivation = workItem.DerivationStrategy.DerivationStrategy.GetLineFor(keyPathTemplates, feature);
 				Enumerable.Range(progress.From, progress.Count)
 						  .Select(index =>
 						  {
+							  var keyPath = (lineDerivation as KeyPathTemplateDerivationLine)?.KeyPathTemplate.GetKeyPath(index, false);
 							  var derivation = lineDerivation.Derive((uint)index);
-							  var info = new KeyPathInformation(derivation, derivationStrategy, feature,
-								  keyPathTemplate.GetKeyPath(index, false), network);
+							  var info = new KeyPathInformation()
+							  {
+								ScriptPubKey = derivation.ScriptPubKey,
+								DerivationStrategy = derivationStrategy.DerivationStrategy,
+								Feature = feature,
+								KeyPath = keyPath,
+								Redeem = derivation.Redeem,
+								TrackedSource = derivationStrategy,
+								Address = derivation.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork),
+								Index = index
+							  };
+							  if (network.IsElement && !workItem.DerivationStrategy.DerivationStrategy.Unblinded())
+							  {
+								  var blindingPubKey = 
+								  NBXplorer.NBXplorerNetworkProvider.LiquidNBXplorerNetwork
+								  .GenerateBlindingKey(derivationStrategy.DerivationStrategy, keyPath, derivation.ScriptPubKey, network.NBitcoinNetwork).PubKey;
+								  info.Address = new BitcoinBlindedAddress(blindingPubKey, info.Address);
+							  }
 							  items.Descriptors.Add(OutputDescriptor.NewRaw(info.ScriptPubKey, network.NBitcoinNetwork));
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
 							  return info;

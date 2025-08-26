@@ -1,6 +1,7 @@
 ﻿#nullable enable
 using Dapper;
 using NBitcoin;
+using NBitcoin.RPC;
 using NBXplorer.DerivationStrategy;
 using Npgsql;
 using System;
@@ -8,6 +9,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NBXplorer.Backend
@@ -15,19 +17,16 @@ namespace NBXplorer.Backend
 	public class DbConnectionHelper : IDisposable, IAsyncDisposable
 	{
 		public DbConnectionHelper(NBXplorerNetwork network,
-									DbConnection connection,
-									KeyPathTemplates keyPathTemplates)
+									DbConnection connection)
 		{
 			derivationStrategyFactory = new DerivationStrategyFactory(network.NBitcoinNetwork);
 			Network = network;
 			Connection = connection;
-			KeyPathTemplates = keyPathTemplates;
 		}
 		DerivationStrategyFactory derivationStrategyFactory;
 
 		public NBXplorerNetwork Network { get; }
 		public DbConnection Connection { get; }
-		public KeyPathTemplates KeyPathTemplates { get; }
 		public int MinPoolSize { get; set; }
 		public int MaxPoolSize { get; set; }
 
@@ -41,7 +40,11 @@ namespace NBXplorer.Backend
 			return Connection.DisposeAsync();
 		}
 
-		public record NewOut(uint256 txId, int idx, Script script, IMoney value);
+		public record NewOut(uint256 txId, int idx, Script script, IMoney value)
+		{
+			public static NewOut FromCoin(ICoin c)
+				=> new(c.Outpoint.Hash, (int)c.Outpoint.N, c.TxOut.ScriptPubKey, c.Amount);
+		}
 		public record NewIn(uint256 txId, int idx, uint256 spentTxId, int spentIdx);
 		public record NewOutRaw(string tx_id, long idx, string script, long value, string asset_id);
 		public record NewInRaw(string tx_id, long idx, string spent_tx_id, long spent_idx);
@@ -54,46 +57,11 @@ namespace NBXplorer.Backend
 			dsBuilder.MapComposite<OutpointRaw>("outpoint");
 			dsBuilder.MapComposite<Repository.DescriptorScriptInsert>("nbxv1_ds");
 		}
-
-		public Task<bool> FetchMatches(IEnumerable<Transaction> txs, SlimChainedBlock slimBlock, Money? minUtxoValue)
+		public async Task<bool> FetchMatches(MatchQuery matchQuery, CancellationToken cancellationToken)
 		{
-			var outCount = txs.Select(t => t.Outputs.Count).Sum();
-			List<DbConnectionHelper.NewOut> outs = new List<DbConnectionHelper.NewOut>(outCount);
-			var inCount = txs.Select(t => t.Inputs.Count).Sum();
-			List<DbConnectionHelper.NewIn> ins = new List<DbConnectionHelper.NewIn>(inCount);
-			foreach (var tx in txs)
-			{
-				if (!tx.IsCoinBase)
-				{
-					int i = 0;
-					foreach (var input in tx.Inputs)
-					{
-						ins.Add(new DbConnectionHelper.NewIn(tx.GetHash(), i, input.PrevOut.Hash, (int)input.PrevOut.N));
-						i++;
-					}
-				}
-				int io = -1;
-				foreach (var output in tx.Outputs)
-				{
-					io++;
-					if (minUtxoValue != null && output.Value < minUtxoValue)
-						continue;
-					outs.Add(new DbConnectionHelper.NewOut(tx.GetHash(), io, output.ScriptPubKey, output.Value));
-				}
-			}
-
-			return FetchMatches(outs, ins);
-		}
-		public async Task<bool> FetchMatches(IEnumerable<NewOut>? newOuts, IEnumerable<NewIn>? newIns)
-		{
-			newOuts ??= Array.Empty<NewOut>();
-			newIns ??= Array.Empty<NewIn>();
-			newOuts.TryGetNonEnumeratedCount(out int outCount);
-			newIns.TryGetNonEnumeratedCount(out int inCount);
-
-			var outs = new List<NewOutRaw>(outCount);
-			var ins = new List<NewInRaw>(inCount);
-			foreach (var o in newOuts)
+			var outs = new List<NewOutRaw>(matchQuery.Outs.Count);
+			var ins = new List<NewInRaw>(matchQuery.Ins.Count);
+			foreach (var o in matchQuery.Outs)
 			{
 				long value;
 				string assetId;
@@ -114,7 +82,7 @@ namespace NBXplorer.Backend
 				}
 				outs.Add(new NewOutRaw(o.txId.ToString(), o.idx, o.script.ToHex(), value, assetId));
 			}
-			foreach (var ni in newIns)
+			foreach (var ni in matchQuery.Ins)
 			{
 				ins.Add(new NewInRaw(ni.txId.ToString(), ni.idx, ni.spentTxId.ToString(), ni.spentIdx));
 			}
@@ -124,23 +92,31 @@ namespace NBXplorer.Backend
 			parameters.Add("in_outs", outs);
 			parameters.Add("in_ins", ins);
 			parameters.Add("has_match", dbType: System.Data.DbType.Boolean, direction: ParameterDirection.InputOutput);
-			await Connection.QueryAsync<int>("fetch_matches", parameters, commandType: CommandType.StoredProcedure);
+			var command = new CommandDefinition(
+				commandText: "fetch_matches",
+				parameters: parameters,
+				commandType: CommandType.StoredProcedure,
+				commandTimeout: ((NpgsqlConnection)Connection).CommandTimeout * 3,
+				cancellationToken: cancellationToken
+				);
+			await Connection.QueryAsync<int>(command);
 			return parameters.Get<bool>("has_match");
 		}
-		public record SaveTransactionRecord(Transaction? Transaction, uint256? Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset? SeenAt)
+
+		public record SaveTransactionRecord(Transaction? Transaction, uint256 Id, uint256? BlockId, int? BlockIndex, long? BlockHeight, bool Immature, DateTimeOffset SeenAt)
 		{
-			public static SaveTransactionRecord Create(TrackedTransaction t) => new SaveTransactionRecord(t.Transaction, t.TransactionHash, t.BlockHash, t.BlockIndex, t.BlockHeight, t.IsCoinBase, new DateTimeOffset?(t.FirstSeen));
-			public static SaveTransactionRecord Create(SlimChainedBlock slimBlock, Transaction tx, int? blockIndex, DateTimeOffset now) => new SaveTransactionRecord(
+			public static SaveTransactionRecord Create(Transaction? tx = null, uint256? txHash = null, SlimChainedBlock? slimBlock = null, int? blockIndex = null, DateTimeOffset? seenAt = null) => new SaveTransactionRecord(
 						tx,
-						tx.GetHash(),
+						txHash ?? tx?.GetHash() ?? throw new ArgumentException("tx or txHash is expected"),
 						slimBlock?.Hash,
 						blockIndex,
 						slimBlock?.Height,
-						tx.IsCoinBase,
-						now
+						tx?.IsCoinBase is true,
+						seenAt ?? DateTimeOffset.UtcNow
 					);
 		}
-		public async Task SaveTransactions(IEnumerable<SaveTransactionRecord> transactions)
+
+		public async Task SaveTransactions(IEnumerable<SaveTransactionRecord> transactions, Dictionary<uint256, MempoolEntry> mempoolEntries)
 		{
 			var parameters = transactions
 				.DistinctBy(o => o.Id)
@@ -149,19 +125,26 @@ namespace NBXplorer.Backend
 			{
 				code = Network.CryptoCode,
 				blk_id = tx.BlockId?.ToString(),
-				id = tx.Id?.ToString() ?? tx.Transaction?.GetHash()?.ToString(),
+				id = tx.Id.ToString(),
 				raw = tx.Transaction?.ToBytes(),
 				mempool = tx.BlockId is null,
 				seen_at = tx.SeenAt,
 				blk_idx = tx.BlockIndex is int i ? i : 0,
 				blk_height = tx.BlockHeight,
-				immature = tx.Immature
+				immature = tx.Immature,
+				metadata = mempoolEntries.TryGetValue(tx.Id, out var meta) ? meta.ToTransactionMetadata().ToString(false) : null
 			})
 			.Where(o => o.id is not null)
 			.ToArray();
-			await Connection.ExecuteAsync("INSERT INTO txs(code, tx_id, raw, immature, seen_at) VALUES (@code, @id, @raw, @immature, COALESCE(@seen_at, CURRENT_TIMESTAMP)) " +
-										  " ON CONFLICT (code, tx_id) " +
-										  " DO UPDATE SET seen_at=LEAST(COALESCE(@seen_at, CURRENT_TIMESTAMP), txs.seen_at), raw = COALESCE(@raw, txs.raw), immature=EXCLUDED.immature", parameters);
+			await Connection.ExecuteAsync("""
+				INSERT INTO txs(code, tx_id, raw, immature, seen_at, metadata) VALUES (@code, @id, @raw, @immature, COALESCE(@seen_at, CURRENT_TIMESTAMP), @metadata::JSONB)
+				ON CONFLICT (code, tx_id)
+				DO UPDATE SET
+					seen_at=LEAST(COALESCE(@seen_at, CURRENT_TIMESTAMP), txs.seen_at),
+					raw = COALESCE(@raw, txs.raw),
+					immature=EXCLUDED.immature,
+					metadata=COALESCE(@metadata::JSONB, txs.metadata);
+				""", parameters);
 			await Connection.ExecuteAsync("INSERT INTO blks_txs VALUES (@code, @blk_id, @id, @blk_idx) ON CONFLICT DO NOTHING", parameters.Where(p => p.blk_id is not null).AsList());
 		}
 
@@ -176,7 +159,7 @@ namespace NBXplorer.Backend
 			List<OutpointRaw> rawOutpoints = new List<OutpointRaw>(outpointCount);
 			foreach (var o in outPoints)
 				rawOutpoints.Add(new OutpointRaw(o.Hash.ToString(), o.N));
-			Dictionary <OutPoint, TxOut> result = new Dictionary<OutPoint, TxOut>();
+			var result = new Dictionary<OutPoint, TxOut>();
 			foreach (var r in await Connection.QueryAsync<(string tx_id, long idx, string script, long value, string asset_id)>(
 				"SELECT o.tx_id, o.idx, o.script, o.value, o.asset_id FROM unnest(@outpoints) outpoints " +
 				"JOIN outs o ON code=@code AND o.tx_id=outpoints.tx_id AND o.idx=outpoints.idx",
@@ -223,7 +206,6 @@ namespace NBXplorer.Backend
 				return null;
 			return Network.Serializer.ToObject<TMetadata>(result);
 		}
-
 		public async Task<HashSet<uint256>> GetUnconfirmedTxs()
 		{
 			var txs = await Connection.QueryAsync<string>("SELECT tx_id FROM txs WHERE code=@code AND mempool IS TRUE;", new { code = Network.CryptoCode });

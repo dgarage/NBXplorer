@@ -1,10 +1,15 @@
 using NBitcoin;
+using NBitcoin.DataEncoders;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 
 namespace NBXplorer.Models
 {
 	public class CreatePSBTRequest
 	{
+		[JsonProperty("PSBTVersion")]
+		public int? PSBTVersion { get; set; }
 		/// <summary>
 		/// A seed to specific to get a deterministic PSBT (useful for tests)
 		/// </summary>
@@ -71,7 +76,7 @@ namespace NBXplorer.Models
 		/// <summary>
 		/// Use a specific change address (Optional, default: null, mutually exclusive with ReserveChangeAddress)
 		/// </summary>
-		public BitcoinAddress ExplicitChangeAddress { get; set; }
+		public PSBTDestination ExplicitChangeAddress { get; set; }
 
 		/// <summary>
 		/// Rebase the hdkey paths (if no rebase, the key paths are relative to the xpub that NBXplorer knows about)
@@ -106,9 +111,66 @@ namespace NBXplorer.Models
 		/// </summary>
 		public RootedKeyPath AccountKeyPath { get; set; }
 	}
+	public class ScriptDestination : IDestination
+	{
+		public ScriptDestination(Script scriptPubKey)
+		{
+			ScriptPubKey = scriptPubKey;
+		}
+		public Script ScriptPubKey { get; }
+	}
+
+	public abstract class PSBTDestination
+	{
+		public static implicit operator PSBTDestination(Script script) => new ScriptType(script);
+		public static implicit operator PSBTDestination(BitcoinAddress address) => new AddressType(address);
+		public class ScriptType : PSBTDestination
+		{
+			public ScriptType(Script scriptPubKey)
+			{
+				if (scriptPubKey is null)
+					throw new ArgumentNullException(nameof(scriptPubKey));
+				ScriptPubKey = scriptPubKey;
+			}
+			public override Script ScriptPubKey { get; }
+			public override string ToString() => ScriptPubKey.ToHex();
+		}
+		public class AddressType : PSBTDestination
+		{
+			public AddressType(BitcoinAddress address)
+			{
+				if (address is null)
+					throw new ArgumentNullException(nameof(address));
+				Address = address;
+			}
+			public BitcoinAddress Address { get; }
+			public override Script ScriptPubKey => Address.ScriptPubKey;
+			public override string ToString() => Address.ToString();
+		}
+		public abstract Script ScriptPubKey { get; }
+		public static PSBTDestination Create(Script script) => new ScriptType(script);
+		public static PSBTDestination Create(BitcoinAddress address) => new AddressType(address);
+
+		public static PSBTDestination Parse(string str, Network network)
+		{
+			if (str is null)
+				throw new ArgumentNullException(nameof(str));
+			if (network is null)
+				throw new ArgumentNullException(nameof(network));
+			if (HexEncoder.IsWellFormed(str))
+				return new ScriptType(Script.FromHex(str));
+			else
+			{
+				return new AddressType(BitcoinAddress.Create(str, network));
+			}
+		}
+	}
 	public class CreatePSBTDestination
 	{
-		public BitcoinAddress Destination { get; set; }
+		/// <summary>
+		/// The destination as an address or a script. (in hex)
+		/// </summary>
+		public PSBTDestination Destination { get; set; }
 		/// <summary>
 		/// Will Send this amount to this destination (Mutually exclusive with: SweepAll)
 		/// </summary>
@@ -125,11 +187,11 @@ namespace NBXplorer.Models
 	public class FeePreference
 	{
 		/// <summary>
-		/// An explicit fee rate for the transaction in Satoshi per vBytes (Mutually exclusive with: BlockTarget, ExplicitFee, FallbackFeeRate)
+		/// An explicit fee rate for the transaction in Satoshi per vBytes (Mutually exclusive with: BlockTarget, FallbackFeeRate)
 		/// </summary>
 		public FeeRate ExplicitFeeRate { get; set; }
 		/// <summary>
-		/// An explicit fee for the transaction in Satoshi (Mutually exclusive with: BlockTarget, ExplicitFeeRate, FallbackFeeRate)
+		/// An explicit fee for the transaction in Satoshi (Mutually exclusive with: BlockTarget, FallbackFeeRate)
 		/// </summary>
 		public Money ExplicitFee { get; set; }
 		/// <summary>

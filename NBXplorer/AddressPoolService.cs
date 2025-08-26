@@ -68,16 +68,14 @@ namespace NBXplorer
 			}
 		}
 
-		public AddressPoolService(NBXplorerNetworkProvider networks, RepositoryProvider repositoryProvider, KeyPathTemplates keyPathTemplates)
+		public AddressPoolService(NBXplorerNetworkProvider networks, RepositoryProvider repositoryProvider)
 		{
 			this.networks = networks;
 			this.repositoryProvider = repositoryProvider;
-			this.keyPathTemplates = keyPathTemplates;
 		}
 		Dictionary<NBXplorerNetwork, AddressPool> _AddressPoolByNetwork;
 		private readonly NBXplorerNetworkProvider networks;
 		private readonly RepositoryProvider repositoryProvider;
-		private readonly KeyPathTemplates keyPathTemplates;
 
 		public async Task StartAsync(CancellationToken cancellationToken)
 		{
@@ -111,9 +109,10 @@ namespace NBXplorer
 				var derivationStrategy = (m.TrackedSource as Models.DerivationSchemeTrackedSource)?.DerivationStrategy;
 				if (derivationStrategy == null)
 					continue;
-				foreach (var feature in m.KnownKeyPathMapping.Select(kv => keyPathTemplates.GetDerivationFeature(kv.Value)))
+				foreach (var feature in m.InOuts.Select(kv => kv.Feature).Distinct())
 				{
-					refill.Add(GenerateAddresses(network, derivationStrategy, feature));
+					if (feature is not null)
+						refill.Add(GenerateAddresses(network, derivationStrategy, feature.Value));
 				}
 			}
 			return Task.WhenAll(refill.ToArray());

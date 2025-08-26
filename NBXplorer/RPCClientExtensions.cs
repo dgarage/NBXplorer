@@ -16,6 +16,7 @@ using System.Net.Http.Headers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using NBitcoin.Crypto;
+using NBXplorer.Models;
 
 namespace NBXplorer
 {
@@ -143,6 +144,51 @@ namespace NBXplorer
 				return false;
 			}
 		}
+
+		static FeeRate GetFeeRate(Money feePaid, int size) =>
+							(feePaid, size) is (Money f, not 0) ? new FeeRate(f, size) : null;
+		public static TransactionMetadata ToTransactionMetadata(this MempoolEntry entry)
+		=> new()
+		{
+			Fees = entry.BaseFee,
+			VirtualSize = entry.VirtualSizeBytes,
+			FeeRate = GetFeeRate(entry.BaseFee, entry.VirtualSizeBytes)
+		};
+
+		// This method fetch some information from getmempoolentry which may be useful for analysis, it's not critical to have it, so we don't want to fail the whole thing if it fails.
+		public static async Task<Dictionary<uint256, MempoolEntry>> FetchMempoolInfo(this RPCClient rpc,  IEnumerable<uint256> txHashes, CancellationToken cancellationToken)
+		{
+			var batch = rpc.PrepareBatch();
+			var tasks = new List<(uint256 Id, Task<MempoolEntry> MempoolEntry)>();
+			var metadatas = new Dictionary<uint256, MempoolEntry>();
+			foreach (var id in txHashes)
+			{
+				tasks.Add((id, batch.GetMempoolEntryAsync(id, false, cancellationToken)));
+			}
+			if (tasks.Count == 0)
+				return metadatas;
+			try
+			{
+				await batch.SendBatchAsync(cancellationToken);
+				foreach (var t in tasks)
+				{
+					try
+					{
+						var entry = await t.MempoolEntry;
+						if (entry is null) continue;
+						metadatas.TryAdd(t.Id, entry);
+					}
+					catch
+					{
+					}
+				}
+			}
+			// If it fails, that's OK, we don't care about the mempool entry information that much
+			catch
+			{
+			}
+			return metadatas;
+		}
 		public static bool IsWhitelisted(this PeerInfo peer)
 		{
 			if (peer is null)
@@ -251,12 +297,23 @@ namespace NBXplorer
 		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<int> blockHeights, CancellationToken cancellationToken)
 		{
 			var batch = rpc.PrepareBatch();
-			var hashes = blockHeights.Select(h => batch.GetBlockHashAsync(h)).ToArray();
-			await batch.SendBatchAsync();
+			var hashes = blockHeights.Select(h => batch.GetBlockHashAsync(h, cancellationToken)).ToArray();
+			await batch.SendBatchAsync(cancellationToken);
 
 			batch = rpc.PrepareBatch();
 			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(await h, cancellationToken)).ToArray();
-			await batch.SendBatchAsync();
+			await batch.SendBatchAsync(cancellationToken);
+
+			return new BlockHeaders(headers.Select(h => h.GetAwaiter().GetResult()).Where(h => h is not null).ToList());
+		}
+		public static async Task<BlockHeaders> GetBlockHeadersAsync(this RPCClient rpc, IList<uint256> hashes, CancellationToken cancellationToken)
+		{
+			var batch = rpc.PrepareBatch();
+			await batch.SendBatchAsync(cancellationToken);
+
+			batch = rpc.PrepareBatch();
+			var headers = hashes.Select(async h => await batch.GetBlockHeaderAsyncEx(h, cancellationToken)).ToArray();
+			await batch.SendBatchAsync(cancellationToken);
 
 			return new BlockHeaders(headers.Select(h => h.GetAwaiter().GetResult()).Where(h => h is not null).ToList());
 		}
@@ -318,6 +375,85 @@ namespace NBXplorer
 			}
 			return null;
 		}
+
+		public async static Task<Dictionary<uint256, Transaction>> GetTransactionFromBlocks(this RPCClient rpc, HashSet<(uint256 BlockId, uint256 TransactionId)> txBlockIds, CancellationToken cancellationToken = default)
+		{
+			async Task<Dictionary<uint256, Transaction>> GetTransactionFromStoredBlocks(HashSet<(uint256 BlockId, uint256 TransactionId)> txBlockIds)
+			{
+				var result = new Dictionary<uint256, Transaction>();
+				if (txBlockIds.Count == 0)
+					return result;
+				var batch = rpc.PrepareBatch();
+				var fetching = txBlockIds.Select(b => (b.TransactionId, Fetching: batch.GetRawTransactionAsync(b.TransactionId, b.BlockId, false, cancellationToken))).ToArray();
+				await batch.SendBatchAsync(cancellationToken);
+				foreach (var f in fetching)
+				{
+					Transaction tx = null;
+					try
+					{
+						tx = await f.Fetching;
+					}
+					catch
+					{
+					}
+					if (tx is not null)
+						result.TryAdd(f.TransactionId, tx);
+				}
+				return result;
+			}
+			async Task<HashSet<uint256>> FetchFromPeers(HashSet<uint256> blocks)
+			{
+				var downloaded = new HashSet<uint256>();
+				if (blocks.Count == 0)
+					return downloaded;
+				var peers = (await rpc.GetPeersInfoAsync(cancellationToken))
+									.Where(p => p.ServicesNames?.Contains("NETWORK") is true)
+									.ToArray();
+				NBitcoin.Utils.Shuffle(peers);
+				foreach (var block in blocks)
+				{
+					foreach (var peer in peers)
+					{
+						try
+						{
+							var result = await rpc.GetBlockFromPeer(block, peer.Id, cancellationToken);
+							if (result is GetBlockFromPeerResult.BlockHeaderMissing or GetBlockFromPeerResult.NeverSynched)
+								goto end;
+							if (result is GetBlockFromPeerResult.Fetched or GetBlockFromPeerResult.AlreadyDownloaded)
+							{
+								downloaded.Add(block);
+								goto nextBlock;
+							}
+						}
+						catch (RPCException e) when (e.RPCCode == RPCErrorCode.RPC_METHOD_NOT_FOUND) { return downloaded; }
+						catch { }
+					}
+					nextBlock:;
+				}
+				end:;
+				return downloaded;
+			}
+
+			var result = await GetTransactionFromStoredBlocks(txBlockIds);
+			if (rpc.Capabilities?.CanGetBlockFromPeer is not true || result.Count == txBlockIds.Count)
+				return result;
+
+			int retryCount = 10;
+			retry:
+			var blockNotFound = txBlockIds.Where(t => !result.ContainsKey(t.TransactionId)).Select(t => t.BlockId).ToHashSet();
+			var fetchedBlocks = await FetchFromPeers(blockNotFound);
+			var newlyAvailable = txBlockIds.Where(t => !result.ContainsKey(t.TransactionId) && fetchedBlocks.Contains(t.BlockId)).ToHashSet();
+			foreach (var kv in await GetTransactionFromStoredBlocks(newlyAvailable))
+				result.Add(kv.Key, kv.Value);
+			if (result.Count != txBlockIds.Count && retryCount > 0)
+			{
+				// Somehow, sometimes, we need to fetch more than once, or the block is not available during a short delay
+				await Task.Delay(1000, cancellationToken);
+				retryCount--;
+				goto retry;
+			}
+			return result;
+		}
 		static Regex RangeRegex = new Regex("\\[\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\]", RegexOptions.ECMAScript);
 		public async static Task ImportDescriptors(this RPCClient rpc, string descriptor, long from, long to, CancellationToken cancellationToken)
 		{
@@ -366,6 +502,39 @@ namespace NBXplorer
 				goto retry;
 			}
 			throw new NotSupportedException($"Bug of NBXplorer (ERR 3083), please notify the developers");
+		}
+		public static async Task<Dictionary<uint256, Transaction>> GetRawTransactions(this RPCClient rpc, HashSet<uint256> txIds)
+		{
+			if (txIds.Count == 0)
+				return new();
+			var batch = rpc.PrepareBatch();
+			var txs = txIds.Select(t => (Id: t, Tx: batch.GetRawTransactionAsync(t, false))).ToArray();
+			await batch.SendBatchAsync();
+			var res = new Dictionary<uint256, Transaction>();
+			foreach (var txAsync in txs)
+			{
+				var tx = await txAsync.Tx;
+				if (tx is not null)
+					res.TryAdd(txAsync.Id, tx);
+			}
+			return res;
+		}
+		public static async Task<Dictionary<OutPoint, GetTxOutResponse>> GetTxOuts(this RPCClient rpc, IList<OutPoint> outpoints)
+		{
+			var batch = rpc.PrepareBatch();
+			var txOuts = outpoints.Select(o => batch.GetTxOutAsync(o.Hash, (int)o.N, true)).ToArray();
+			await batch.SendBatchAsync();
+			var result = new Dictionary<OutPoint, GetTxOutResponse>();
+			int i = 0;
+			foreach (var txOut in txOuts)
+			{
+				var outpoint = outpoints[i];
+				var r = await txOut;
+				if (r != null)
+					result.TryAdd(outpoint, r);
+				i++;
+			}
+			return result;
 		}
 	}
 }

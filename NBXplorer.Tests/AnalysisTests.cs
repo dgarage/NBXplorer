@@ -8,6 +8,8 @@ using Xunit;
 using System.Net.Http;
 using Xunit.Abstractions;
 using NBXplorer.Analytics;
+using NBXplorer.DerivationStrategy;
+using NBitcoin.Altcoins;
 
 namespace NBXplorer.Tests
 {

@@ -82,7 +82,6 @@ namespace NBXplorer.Backend
 			{
 				return null;
 			}
-
 			var blockchainInfo = await rpc.GetBlockchainInfoAsyncEx(cancellationToken);
 			return blockchainInfo.BestBlockHash != lastBlock.Hash ? lastBlock : null;
 		}
@@ -152,6 +151,8 @@ namespace NBXplorer.Backend
 				if (item is PullBlocks pb)
 				{
 					var headers = ConsolidatePullBlocks(connection.Events.Reader, pb);
+					var slimChainedBlocks = await RPCClient.GetBlockHeadersAsync(headers.Select(b => b.GetHash()).ToList(), token);
+					headers = headers.Where(b => slimChainedBlocks.ByHashes.ContainsKey(b.GetHash())).ToList();
 					foreach (var batch in headers.Chunk(maxinflight))
 					{
 						_ = connection.Node.SendMessageAsync(
@@ -166,9 +167,7 @@ namespace NBXplorer.Backend
 								continue;
 							if (lastIndexedBlock is null || block.Header.HashPrevBlock == lastIndexedBlock.Hash)
 							{
-								SlimChainedBlock slimChainedBlock = lastIndexedBlock is null ?
-									(await RPCClient.GetBlockHeaderAsyncEx(block.Header.GetHash(), token))?.ToSlimChainedBlock() :
-									new SlimChainedBlock(block.Header.GetHash(), lastIndexedBlock.Hash, lastIndexedBlock.Height + 1);
+								SlimChainedBlock slimChainedBlock = slimChainedBlocks.ByHashes[block.Header.GetHash()].ToSlimChainedBlock();
 								await SaveMatches(conn, block, slimChainedBlock);
 							}
 							else
@@ -182,22 +181,15 @@ namespace NBXplorer.Backend
 								//   2. Node decides to send headers without asking.
 								if (unorderedBlocks.Count > 0)
 								{
-									Task<RPCBlockHeader>[] slimChainedBlocks = new Task<RPCBlockHeader>[unorderedBlocks.Count];
-									var rpcBatch = RPCClient.PrepareBatch();
-									for (int i = 0; i < unorderedBlocks.Count; i++)
-									{
-										slimChainedBlocks[i] = rpcBatch.GetBlockHeaderAsyncEx(unorderedBlocks[i].GetHash(), token);
-									}
-									await rpcBatch.SendBatchAsync();
 									// If there is a fork, we should index the unordered blocks
 									bool unconfedBlocks = false;
 									bool fork = await RPCClient.GetBlockHeaderAsyncEx(lastIndexedBlock.Hash, token) == null;
 									foreach (var b in Enumerable.Zip(unorderedBlocks, slimChainedBlocks)
-													.Where(b => fork || b.Second.Result.Height > lastIndexedBlock.Height)
-													.OrderBy(b => b.Second.Result.Height)
+													.Where(b => fork || b.Second.Height > lastIndexedBlock.Height)
+													.OrderBy(b => b.Second.Height)
 													.ToList())
 									{
-										var slimBlock = await b.Second;
+										var slimBlock = b.Second;
 										if (fork && !unconfedBlocks)
 										{
 											await conn.MakeOrphanFrom(slimBlock.Height);
@@ -212,7 +204,7 @@ namespace NBXplorer.Backend
 						await SaveProgress(conn);
 						await UpdateState(connection.Node);
 					}
-					if (connection.Node.State != NodeState.HandShaked)
+					if (connection.Node.State == NodeState.HandShaked)
 						await AskNextHeaders(connection.Node, token);
 				}
 				if (item is Transaction tx)
@@ -304,11 +296,8 @@ namespace NBXplorer.Backend
 				await node.SendMessageAsync(new SendHeadersPayload());
 
 				await RPCArgs.TestRPCAsync(Network, RPCClient, token, Logger);
-				if (await RPCClient.SupportTxIndex() is bool txIndex)
-				{
-					ChainConfiguration.HasTxIndex = txIndex;
-				}
-				if (ChainConfiguration.HasTxIndex)
+				HasTxIndex = await RPCClient.SupportTxIndex() is true;
+				if (HasTxIndex)
 				{
 					Logger.LogInformation($"Has txindex support");
 				}
@@ -421,7 +410,7 @@ namespace NBXplorer.Backend
 		private async Task<BlockLocator> GetDefaultCurrentLocation(CancellationToken token)
 		{
 			if (ChainConfiguration.StartHeight > BlockchainInfo.Headers)
-				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight should not be above the current tip");
+				throw new InvalidOperationException($"{Network.CryptoCode}: StartHeight ({ChainConfiguration.StartHeight}) should not be above the current tip ({BlockchainInfo.Headers})");
 			BlockLocator blockLocator = null;
 			if (ChainConfiguration.StartHeight == -1)
 			{
@@ -445,23 +434,27 @@ namespace NBXplorer.Backend
 		private async Task SaveMatches(DbConnectionHelper conn, Block block, SlimChainedBlock slimChainedBlock)
 		{
 			block.Header.PrecomputeHash(false, false);
-			await SaveMatches(conn, block.Transactions, slimChainedBlock, true);
+			// If we are synching, the block time is better approximation of the received time
+			var seenAt = State == BitcoinDWaiterState.NBXplorerSynching
+							? block.Header.BlockTime
+							: DateTimeOffset.UtcNow;
+			await SaveMatches(conn, block.Transactions, slimChainedBlock, true, seenAt);
 			EventAggregator.Publish(new RawBlockEvent(block, this.Network), true);
 			lastIndexedBlock = slimChainedBlock;
 		}
 
 		SlimChainedBlock _NodeTip;
 
-		private async Task SaveMatches(DbConnectionHelper conn, List<Transaction> transactions, SlimChainedBlock slimChainedBlock, bool fireEvents)
+		private async Task SaveMatches(DbConnectionHelper conn, List<Transaction> transactions, SlimChainedBlock slimChainedBlock, bool fireEvents, DateTimeOffset? seenAt = null)
 		{
 			foreach (var tx in transactions)
 				tx.PrecomputeHash(false, true);
-			var now = DateTimeOffset.UtcNow;
+			var now = seenAt ?? DateTimeOffset.UtcNow;
 			if (slimChainedBlock != null)
 			{
 				await conn.NewBlock(slimChainedBlock);
 			}
-			var matches = await Repository.GetMatchesAndSave(conn, transactions, slimChainedBlock, now, true);
+			var matches = await Repository.GetMatches(conn, transactions, slimChainedBlock, now, useCache: true, cancellationToken: cts.Token);
 			_ = AddressPoolService.GenerateAddresses(Network, matches);
 
 			long confirmations = 0;
@@ -500,9 +493,11 @@ namespace NBXplorer.Backend
 							Confirmations = confirmations,
 							Timestamp = now,
 							Transaction = matches[i].Transaction,
-							TransactionHash = matches[i].TransactionHash
+							TransactionHash = matches[i].TransactionHash,
+							Metadata = matches[i].Metadata
 						},
-						Outputs = matches[i].GetReceivedOutputs().ToList(),
+						Inputs = matches[i].MatchedInputs,
+						Outputs = matches[i].MatchedOutputs,
 						Replacing = matches[i].Replacing.ToList()
 					};
 
@@ -611,6 +606,7 @@ namespace NBXplorer.Backend
 		public ChainConfiguration ChainConfiguration { get; }
 		public EventAggregator EventAggregator { get; }
 		public GetBlockchainInfoResponse BlockchainInfo { get; private set; }
+		public bool HasTxIndex { get; private set; }
 
 		NBXplorerNetwork network;
 		private int maxinflight = 10;
@@ -621,11 +617,10 @@ namespace NBXplorer.Backend
 			await SaveMatches(conn, new List<Transaction>(1) { transaction }, null, false);
 		}
 
-		public RPCClient GetConnectedClient()
+		public RPCClient GetConnectedClient() => State switch
 		{
-			if (State == BitcoinDWaiterState.CoreSynching || State == BitcoinDWaiterState.NBXplorerSynching || State == BitcoinDWaiterState.Ready)
-				return RPCClient;
-			return null;
-		}
+			BitcoinDWaiterState.CoreSynching or BitcoinDWaiterState.NBXplorerSynching or BitcoinDWaiterState.Ready => RPCClient,
+			_ => null
+		};
 	}
 }

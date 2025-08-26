@@ -80,10 +80,27 @@ namespace NBXplorer.Controllers
 			return new GroupChild() { CryptoCode = net?.CryptoCode, TrackedSource = trackedSource.ToString() };
 		}
 
+		[HttpPost($"{CommonRoutes.GroupEndpoint}/children/delete")]
+		public async Task<IActionResult> DeleteGroupChildren(string groupId, [FromBody] GroupChild[] children)
+		{
+			var w = Repository.GetWalletKey(new GroupTrackedSource(groupId));
+			await using (var conn = await ConnectionFactory.CreateConnection())
+			{
+				var rows = children
+					.Select(c => GetWid(c))
+					.Where(c => c is not null)
+					.Select(c => new { child = c, w.wid }).ToArray();
+				await conn.ExecuteAsync("DELETE FROM wallets_wallets WHERE wallet_id=@child AND parent_id=@wid;", rows);
+			}
+			return await GetGroup(groupId);
+		}
+
 		[HttpPost($"{CommonRoutes.GroupEndpoint}/children")]
 		[HttpDelete($"{CommonRoutes.GroupEndpoint}/children")]
 		public async Task<IActionResult> AddDeleteGroupChildren(string groupId, [FromBody] GroupChild[] children)
 		{
+			if (HttpContext.Request.Method == "DELETE")
+				return await DeleteGroupChildren(groupId, children);
 			var w = Repository.GetWalletKey(new GroupTrackedSource(groupId));
 			await using (var conn = await ConnectionFactory.CreateConnection())
 			{
@@ -91,21 +108,18 @@ namespace NBXplorer.Controllers
 						.Select(c => GetWid(c))
 						.Where(c => c is not null)
 						.Select(c => new { child = c, w.wid }).ToArray();
-				if (HttpContext.Request.Method == "POST")
-					try
-					{
-						await conn.ExecuteAsync("INSERT INTO wallets_wallets VALUES (@child, @wid) ON CONFLICT (wallet_id, parent_id) DO NOTHING", rows);
-					}
-					catch (NpgsqlException ex) when (ex.SqlState == PostgresErrorCodes.RaiseException)
-					{
-						throw new NBXplorerException(new NBXplorerError(409, "cycle-detected", "A cycle has been detected"));
-					}
-					catch (NpgsqlException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
-					{
-						throw GroupNotFound();
-					}
-				if (HttpContext.Request.Method == "DELETE")
-					await conn.ExecuteAsync("DELETE FROM wallets_wallets WHERE wallet_id=@child AND parent_id=@wid;", rows);
+				try
+				{
+					await conn.ExecuteAsync("INSERT INTO wallets_wallets VALUES (@child, @wid) ON CONFLICT (wallet_id, parent_id) DO NOTHING", rows);
+				}
+				catch (NpgsqlException ex) when (ex.SqlState == PostgresErrorCodes.RaiseException)
+				{
+					throw new NBXplorerException(new NBXplorerError(409, "cycle-detected", "A cycle has been detected"));
+				}
+				catch (NpgsqlException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
+				{
+					throw GroupNotFound();
+				}
 			}
 			return await GetGroup(groupId);
 		}

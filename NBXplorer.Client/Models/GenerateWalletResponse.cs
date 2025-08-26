@@ -18,7 +18,7 @@ namespace NBXplorer.Models
 		[JsonConverter(typeof(NBitcoin.JsonConverters.KeyPathJsonConverter))]
 		public NBitcoin.RootedKeyPath AccountKeyPath { get; set; }
 		public string AccountDescriptor { get; set; }
-		public DerivationStrategyBase DerivationScheme { get; set; }
+		public StandardDerivationStrategyBase DerivationScheme { get; set; }
 
 		public Mnemonic GetMnemonic()
 		{

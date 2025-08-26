@@ -19,14 +19,12 @@ using Newtonsoft.Json.Linq;
 using NBXplorer.Configuration;
 using System.Net.WebSockets;
 using Newtonsoft.Json;
-using System.Collections.Concurrent;
 using System.Reflection;
 using NBXplorer.Analytics;
 using NBXplorer.Backend;
-using NBitcoin.Scripting;
-using System.Globalization;
-
-using Dapper;
+using static NBXplorer.Backend.DbConnectionHelper;
+using static NBXplorer.ListenEventsRequest;
+using NBXplorer.HostedServices;
 
 namespace NBXplorer.Controllers
 {
@@ -35,23 +33,27 @@ namespace NBXplorer.Controllers
 	public partial class MainController : Controller
 	{
 		public NBXplorerNetworkProvider NetworkProvider { get; }
-		public IRPCClients RPCClients { get; }
+		public RPCClientProvider RPCClients { get; }
 		public RepositoryProvider RepositoryProvider { get; }
 		public Indexers Indexers { get; }
+		public KeyPathTemplates KeyPathTemplates { get; }
 		public CommonRoutesController CommonRoutesController { get; }
+		public UTXOFetcherService UtxoFetcherService { get; }
 
 		JsonSerializerSettings _SerializerSettings;
 		public MainController(
 			ExplorerConfiguration explorerConfiguration,
 			RepositoryProvider repositoryProvider,
 			EventAggregator eventAggregator,
-			IRPCClients rpcClients,
+			RPCClientProvider rpcClients,
 			AddressPoolService addressPoolService,
 			MvcNewtonsoftJsonOptions jsonOptions,
 			NBXplorerNetworkProvider networkProvider,
 			Analytics.FingerprintHostedService fingerprintService,
 			Indexers indexers,
-			CommonRoutesController commonRoutesController
+			KeyPathTemplates keyPathTemplates,
+			CommonRoutesController commonRoutesController,
+			UTXOFetcherService utxoFetcherService
 			)
 		{
 			ExplorerConfiguration = explorerConfiguration;
@@ -63,7 +65,9 @@ namespace NBXplorer.Controllers
 			RPCClients = rpcClients;
 			RepositoryProvider = repositoryProvider;
 			Indexers = indexers;
+			KeyPathTemplates = keyPathTemplates;
 			CommonRoutesController = commonRoutesController;
+			UtxoFetcherService = utxoFetcherService;
 		}
 		EventAggregator _EventAggregator;
 		private readonly FingerprintHostedService fingerprintService;
@@ -73,7 +77,7 @@ namespace NBXplorer.Controllers
 			get;
 		}
 		public ExplorerConfiguration ExplorerConfiguration { get; }
-		
+
 
 		static HashSet<string> WhitelistedRPCMethods = new HashSet<string>()
 		{
@@ -81,7 +85,13 @@ namespace NBXplorer.Controllers
 			"getrawtransaction",
 			"gettxout",
 			"estimatesmartfee",
-			"getmempoolinfo"
+			"getmempoolinfo",
+			"getmempoolentry",
+			"gettxoutproof",
+			"verifytxoutproof",
+			"getblockchaininfo",
+			"getblockhash",
+			"getblockheader"
 		};
 		internal NBXplorerNetwork GetNetwork(string cryptoCode, bool checkRPC)
 		{
@@ -123,30 +133,50 @@ namespace NBXplorer.Controllers
 				jsonRPC = await reader.ReadToEndAsync();
 			}
 
-			if (string.IsNullOrEmpty(jsonRPC))
+			var req = RPCProxyRequest.TryParse(jsonRPC);
+			if (req is RPCProxyRequest.RPCProxyBatchedRequest batch)
+			{
+				var batchRPC = rpc.PrepareBatch();
+				if (batch.Requests.Count is 0)
+					return Json(new JArray());
+				var authorized = batch.Requests.All(r => WhitelistedRPCMethods.Contains(r.Method));
+				if (!exposed && !authorized)
+					throw JsonRPCNotExposed();
+				var results = batch.Requests.Select(r => batchRPC.SendCommandAsync(r)).ToList();
+				await batchRPC.SendBatchAsync();
+				return Json(new JArray(results.Select(task => ToRPCResponse(task.Result))));
+			}
+			else if (req is RPCProxyRequest.RPCProxySingleRequest sr)
+			{
+				var authorized = WhitelistedRPCMethods.Contains(sr.Request.Method);
+				if (!exposed && !authorized)
+					throw JsonRPCNotExposed();
+				var result = ToRPCResponse(await rpc.SendCommandAsync(sr.Request));
+				return Json(result);
+			}
+			else
 			{
 				throw new NBXplorerError(422, "no-json-rpc-request", $"A JSON-RPC request was not provided in the body.").AsException();
 			}
-			if (jsonRPC.StartsWith("["))
-			{
-				var batchRPC = rpc.PrepareBatch();
-				var results = network.Serializer.ToObject<RPCRequest[]>(jsonRPC).Select(rpcRequest =>
-				{
-					if (!exposed && !WhitelistedRPCMethods.Contains(rpcRequest.Method))
-						throw JsonRPCNotExposed();
-					rpcRequest.ThrowIfRPCError = false;
-					return batchRPC.SendCommandAsync(rpcRequest);
-				}).ToList();
-				await batchRPC.SendBatchAsync();
-				return Json(results.Select(task => task.Result));
-			}
-
-			var req = network.Serializer.ToObject<RPCRequest>(jsonRPC);
-			if (!exposed && !WhitelistedRPCMethods.Contains(req.Method))
-				throw JsonRPCNotExposed();
-			req.ThrowIfRPCError = false;
-			return Json(await rpc.SendCommandAsync(req));
 		}
+
+		private JObject ToRPCResponse(RPCResponse result) => result switch
+		{
+			{ Error: RPCError error } => new JObject
+			{
+				{ "error", new JObject
+					{
+						{ "code", (int)error.Code },
+						{ "message", error.Message }
+					}
+				}
+			},
+			{ Result: JToken rpcResult } => new JObject
+			{
+				{ "result", rpcResult }
+			},
+			_ => throw new InvalidOperationException("Unknown result from RPC")
+		};
 
 		[HttpGet]
 		[Route($"{CommonRoutes.BaseCryptoEndpoint}/fees/{{blockCount}}")]
@@ -173,7 +203,10 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> GetUnusedAddress(
 			TrackedSourceContext trackedSourceContext, DerivationFeature feature = DerivationFeature.Deposit, int skip = 0, bool reserve = false, bool autoTrack = false)
 		{
-			var strategy = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
+			var ts = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource);
+			if (!ts.GetDerivationFeatures(KeyPathTemplates).Contains(feature))
+				throw new NBXplorerError(400, "derivation-feature-not-supported", $"The derivation feature {feature} is not supported by this derivation scheme").AsException();
+			var strategy = ts.DerivationStrategy;
 			var network = trackedSourceContext.Network;
 			var repository = trackedSourceContext.Repository;
 			if (skip >= repository.MinPoolSize)
@@ -205,7 +238,7 @@ namespace NBXplorer.Controllers
 		public async Task<IActionResult> CancelReservation(TrackedSourceContext trackedSourceContext, [FromBody] KeyPath[] keyPaths)
 		{
 			var repo = trackedSourceContext.Repository;
-			var strategy = ((DerivationSchemeTrackedSource )trackedSourceContext.TrackedSource).DerivationStrategy;
+			var strategy = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
 			await repo.CancelReservation(strategy, keyPaths);
 			return Ok();
 		}
@@ -230,7 +263,7 @@ namespace NBXplorer.Controllers
 		{
 			var network = trackedSourceContext.Network;
 			var repo = trackedSourceContext.Repository;
-			var strategy = ((DerivationSchemeTrackedSource )trackedSourceContext.TrackedSource).DerivationStrategy;
+			var strategy = ((DerivationSchemeTrackedSource)trackedSourceContext.TrackedSource).DerivationStrategy;
 			var result = (await repo.GetKeyInformations(new[] { script }))
 				.SelectMany(k => k.Value)
 				.FirstOrDefault(k => k.DerivationStrategy == strategy);
@@ -306,109 +339,151 @@ namespace NBXplorer.Controllers
 
 		[HttpGet]
 		[Route($"{CommonRoutes.BaseCryptoEndpoint}/connect")]
-		public async Task<IActionResult> ConnectWebSocket(
+		public Task<IActionResult> ConnectWebSocketLegacy(
 			string cryptoCode,
-			bool includeTransaction = true,
+			CancellationToken cancellation = default)
+		=> ConnectWebSocketCore(new ListenEventsRequest()
+		{
+			DefaultAction = RuleAction.Reject,
+			Rules = []
+		}, cryptoCode, cancellation);
+
+		[HttpGet]
+		[Route($"cryptos/connect")]
+		public Task<IActionResult> ConnectWebSocket(
+			string cryptoCode = null,
+			CancellationToken cancellation = default)
+		=> ConnectWebSocketCore(new ListenEventsRequest()
+		{
+			DefaultAction = RuleAction.Allow,
+			Rules = cryptoCode is (null or "*") ? []
+					: [new() { CryptoCode = cryptoCode, Action = RuleAction.Reject, Inverse = true }]
+		}, cryptoCode, cancellation);
+
+		[NonAction]
+		async Task<IActionResult> ConnectWebSocketCore(
+			ListenEventsRequest policy,
+			string defaultCryptoCode,
 			CancellationToken cancellation = default)
 		{
 			if (!HttpContext.WebSockets.IsWebSocketRequest)
 				return NotFound();
 
-			GetNetwork(cryptoCode, false); // Internally check if cryptoCode is correct
-
-			string listenAllDerivationSchemes = null;
-			string listenAllTrackedSource = null;
-			var listenedBlocks = new ConcurrentDictionary<string, string>();
-			var listenedDerivations = new ConcurrentDictionary<(Network, DerivationStrategyBase), DerivationStrategyBase>();
-			var listenedTrackedSource = new ConcurrentDictionary<(Network, TrackedSource), TrackedSource>();
-
 			WebsocketMessageListener server = new WebsocketMessageListener(await HttpContext.WebSockets.AcceptWebSocketAsync(), _SerializerSettings);
+			async Task ForwardEvent<T>(T o, string cryptoCode) where T : NewEventBase
+			{
+				var action = policy.DefaultAction;
+				foreach (var rule in policy.Rules)
+				{
+					Func<bool, bool> maybeInverse = rule.Inverse ? a => !a : a => a;
+					if (rule.CryptoCode is not (null or "*"))
+					{
+						if (maybeInverse(rule.CryptoCode != cryptoCode))
+							continue;
+					}
+					var typeMatch = (rule.Type, o) switch
+					{
+						(null, _) => true,
+						(ListenRule.EventType.NewBlock, Models.NewBlockEvent) => maybeInverse(true),
+						(ListenRule.EventType.NewTransaction, Models.NewTransactionEvent) => maybeInverse(true),
+						_ => false
+					};
+					if (!typeMatch)
+						continue;
+					if (o is Models.NewTransactionEvent nte)
+					{
+						if (rule.TrackedSource is { } trackedSource)
+						{
+							if (maybeInverse(trackedSource != nte.TrackedSource.ToString()))
+								continue;
+						}
+						if (rule.DerivationScheme is { } derivationScheme)
+						{
+							if (maybeInverse(derivationScheme != (nte.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy?.ToString()))
+								continue;
+						}
+					}
+					action = rule.Action;
+					break;
+				}
+
+				if (action == RuleAction.Allow)
+				{
+					await server.Send(o, GetSerializerSettings(cryptoCode));
+				}
+			}
+
 			CompositeDisposable subscriptions = new CompositeDisposable();
-			subscriptions.Add(_EventAggregator.Subscribe<Models.NewBlockEvent>(async o =>
-			{
-				if (listenedBlocks.ContainsKey(o.CryptoCode))
-				{
-					await server.Send(o, GetSerializerSettings(o.CryptoCode));
-				}
-			}));
-			subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(async o =>
-			{
-				var network = GetNetwork(o.CryptoCode, false);
-				if (network == null)
-					return;
-
-				bool forward = false;
-				var derivationScheme = (o.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-				if (derivationScheme != null)
-				{
-					forward |= listenAllDerivationSchemes == "*" ||
-								listenAllDerivationSchemes == o.CryptoCode ||
-								listenedDerivations.ContainsKey((network.NBitcoinNetwork, derivationScheme));
-				}
-
-				forward |= listenAllTrackedSource == "*" || listenAllTrackedSource == o.CryptoCode ||
-							listenedTrackedSource.ContainsKey((network.NBitcoinNetwork, o.TrackedSource));
-
-				if (forward)
-				{
-					var derivation = (o.TrackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-					await server.Send(o, GetSerializerSettings(o.CryptoCode));
-				}
-			}));
+			subscriptions.Add(_EventAggregator.Subscribe<Models.NewBlockEvent>(o => ForwardEvent(o, o.CryptoCode)));
+			subscriptions.Add(_EventAggregator.Subscribe<Models.NewTransactionEvent>(o => ForwardEvent(o, o.CryptoCode)));
 			try
 			{
 				while (server.Socket.State == WebSocketState.Open)
 				{
+					var rules = policy.Rules.ToList();
 					object message = await server.NextMessageAsync(cancellation);
 					switch (message)
 					{
 						case Models.NewBlockEventRequest r:
-							r.CryptoCode = r.CryptoCode ?? cryptoCode;
-							listenedBlocks.TryAdd(r.CryptoCode, r.CryptoCode);
+							r.CryptoCode ??= defaultCryptoCode;
+							rules.Add(new ListenRule()
+							{
+								CryptoCode = r.CryptoCode,
+								Type = ListenRule.EventType.NewBlock,
+								Action = RuleAction.Allow
+							});
 							break;
 						case Models.NewTransactionEventRequest r:
-							var network = GetNetwork(r.CryptoCode, false);
+							r.CryptoCode ??= defaultCryptoCode;
 							if (r.DerivationSchemes != null)
 							{
-								r.CryptoCode = r.CryptoCode ?? cryptoCode;
-								if (network != null)
+								foreach (var derivation in r.DerivationSchemes)
 								{
-									foreach (var derivation in r.DerivationSchemes)
+									rules.Add(new()
 									{
-										var parsed = network.DerivationStrategyFactory.Parse(derivation);
-										listenedDerivations.TryAdd((network.NBitcoinNetwork, parsed), parsed);
-									}
+										CryptoCode = r.CryptoCode,
+										Type = ListenRule.EventType.NewTransaction,
+										DerivationScheme = derivation
+									});
 								}
 							}
 							else if (
 								// Back compat: If no derivation scheme precised and ListenAllDerivationSchemes not set, we listen all
 								(r.TrackedSources == null && r.ListenAllDerivationSchemes == null) ||
-								(r.ListenAllDerivationSchemes != null && r.ListenAllDerivationSchemes.Value))
+								(r.ListenAllDerivationSchemes is true))
 							{
-								listenAllDerivationSchemes = r.CryptoCode;
+								rules.Add(new()
+								{
+									CryptoCode = r.CryptoCode,
+									Type = ListenRule.EventType.NewTransaction
+								});
 							}
 
-							if (r.ListenAllTrackedSource != null && r.ListenAllTrackedSource.Value)
+							if (r.ListenAllTrackedSource is true)
 							{
-								listenAllTrackedSource = r.CryptoCode;
+								rules.Add(new()
+								{
+									CryptoCode = r.CryptoCode,
+									Type = ListenRule.EventType.NewTransaction
+								});
 							}
 							else if (r.TrackedSources != null)
 							{
-								r.CryptoCode = r.CryptoCode ?? cryptoCode;
-								if (network != null)
+								foreach (var trackedSource in r.TrackedSources)
 								{
-									foreach (var trackedSource in r.TrackedSources)
+									rules.Add(new()
 									{
-										if (TrackedSource.TryParse(trackedSource, out var parsed, network))
-											listenedTrackedSource.TryAdd((network.NBitcoinNetwork, parsed), parsed);
-									}
+										CryptoCode = r.CryptoCode,
+										Type = ListenRule.EventType.NewTransaction,
+										TrackedSource = trackedSource
+									});
 								}
 							}
-
 							break;
 						default:
 							break;
 					}
+					policy.Rules = rules.ToArray();
 				}
 			}
 			catch when (server.Socket.State != WebSocketState.Open)
@@ -482,16 +557,40 @@ namespace NBXplorer.Controllers
 			string cryptoCode = null, CancellationToken cancellationToken = default)
 		{
 			var network = GetNetwork(cryptoCode, false);
+			var rpc = GetAvailableRPC(network);
 			var repo = RepositoryProvider.GetRepository(network);
-			var result = await repo.GetSavedTransactions(txId);
-			if (result.Length == 0)
+			var result = await repo.GetSavedTransaction(txId);
+			if (result is not null && result.Transaction is null)
 			{
-				var rpc = GetAvailableRPC(network);
+				var dummy = Transaction.Create(network.NBitcoinNetwork);
+				dummy.Inputs.Add(new OutPoint(txId, 0));
+				var update = new UpdatePSBTRequest()
+				{
+					PSBT = PSBT.FromTransaction(dummy, network.NBitcoinNetwork),
+					AlwaysIncludeNonWitnessUTXO = true
+				};
+				await this.UtxoFetcherService.UpdateUTXO(update);
+				result.Transaction = (await UtxoFetcherService.FetchTransactions([txId], network)).Select(kv => kv.Value).FirstOrDefault();
+				if (result.Transaction is null)
+					return null;
+			}
+			else if (result is null)
+			{
 				if (rpc is not null &&
-					HasTxIndex(cryptoCode) &&
 					await rpc.TryGetRawTransaction(txId, cancellationToken) is SavedTransaction savedTransaction)
 				{
-					result = new[] { savedTransaction };
+					result = savedTransaction;
+					if (result.BlockHash is null)
+					{
+						try
+						{
+							var entry = await rpc.GetMempoolEntryAsync(txId, false, cancellationToken);
+							if (result.Metadata is null && entry is not null)
+								result.Metadata = entry.ToTransactionMetadata();
+						}
+						// Not essential data, we can ignore if we can't get it
+						catch { }
+					}
 				}
 				else
 				{
@@ -505,16 +604,6 @@ namespace NBXplorer.Controllers
 			return Json(tx, network.Serializer.Settings);
 		}
 
-		private bool HasTxIndex(NBXplorerNetwork network)
-		{
-			return HasTxIndex(network.CryptoCode);
-		}
-		private bool HasTxIndex(string cryptoCode)
-		{
-			var chainConfig = this.ExplorerConfiguration.ChainConfigurations.FirstOrDefault(c => c.CryptoCode.Equals(cryptoCode.Trim(), StringComparison.OrdinalIgnoreCase));
-			return chainConfig?.HasTxIndex is true;
-		}
-
 		[HttpGet]
 		[Route($"{CommonRoutes.DerivationEndpoint}/{CommonRoutes.TransactionsPath}")]
 		[Route($"{CommonRoutes.AddressEndpoint}/{CommonRoutes.TransactionsPath}")]
@@ -523,7 +612,11 @@ namespace NBXplorer.Controllers
 			TrackedSourceContext trackedSourceContext,
 			[ModelBinder(BinderType = typeof(UInt256ModelBinding))]
 			uint256 txId = null,
-			bool includeTransaction = true)
+			bool includeTransaction = true,
+			[ModelBinder(BinderType = typeof(DateTimeOffsetModelBinder))]
+			DateTimeOffset? from = null,
+			[ModelBinder(BinderType = typeof(DateTimeOffsetModelBinder))]
+			DateTimeOffset? to = null)
 		{
 			TransactionInformation fetchedTransactionInfo = null;
 			var network = trackedSourceContext.Network;
@@ -533,7 +626,8 @@ namespace NBXplorer.Controllers
 			var response = new GetTransactionsResponse();
 			int currentHeight = (await repo.GetTip()).Height;
 			response.Height = currentHeight;
-			var txs = await GetAnnotatedTransactions(repo, trackedSource, includeTransaction, txId);
+			var query = GetTransactionQuery.Create(trackedSource, txId, from, to);
+			var txs = await GetAnnotatedTransactions(repo, query, includeTransaction);
 			foreach (var item in new[]
 			{
 					new
@@ -569,9 +663,10 @@ namespace NBXplorer.Controllers
 						Transaction = includeTransaction ? tx.Record.Transaction : null,
 						Confirmations = tx.Height.HasValue ? currentHeight - tx.Height.Value + 1 : 0,
 						Timestamp = tx.Record.FirstSeen,
-						Inputs = tx.Record.SpentOutpoints.Select(o =>txs.GetSpentUTXO(o.Outpoint, o.InputIndex)).Where(o => o != null).ToList(),
-						Outputs = tx.Record.GetReceivedOutputs().ToList(),
+						Inputs = tx.Record.MatchedInputs,
+						Outputs = tx.Record.MatchedOutputs,
 						Replaceable = tx.Replaceable,
+						Metadata = tx.Record.Metadata,
 						ReplacedBy = tx.ReplacedBy == NBXplorerNetwork.UnknownTxId ? null : tx.ReplacedBy,
 						Replacing = tx.Replacing
 					};
@@ -629,12 +724,11 @@ namespace NBXplorer.Controllers
 			{
 				TrackedSourceContext.TrackedSourceContextModelBinder.ThrowRpcUnavailableException();
 			}
-
 			var repo = trackedSourceContext.Repository;
 			var rpc = trackedSourceContext.RpcClient!.PrepareBatch();
 			var fetchingTransactions = rescanRequest
 				.Transactions
-				.Select(t => FetchTransaction(rpc, HasTxIndex(network), t))
+				.Select(t => FetchTransaction(rpc, network, t))
 				.ToArray();
 
 			await rpc.SendBatchAsync();
@@ -644,34 +738,24 @@ namespace NBXplorer.Controllers
 												   .Where(tx => tx.Transaction != null)
 												   .ToArray();
 
-			var blocks = new Dictionary<uint256, Task<RPCBlockHeader>>();
-			var batch = rpc.PrepareBatch();
-			foreach (var tx in transactions)
-			{
-				if (tx.BlockId != null && !blocks.ContainsKey(tx.BlockId))
-				{
-					blocks.Add(tx.BlockId, rpc.GetBlockHeaderAsyncEx(tx.BlockId, cancellationToken));
-				}
-			}
-			await batch.SendBatchAsync(cancellationToken);
-			await repo.SaveBlocks(blocks.Select(b => b.Value.Result.ToSlimChainedBlock()).ToList());
+			var blocks = await rpc.GetBlockHeadersAsync(transactions.Select(t => t.BlockId).Where(b => b != null).ToArray(), cancellationToken);
+			await repo.SaveBlocks(blocks);
 			foreach (var txs in transactions.GroupBy(t => t.BlockId, t => (t.Transaction, t.BlockTime))
 											.OrderBy(t => t.First().BlockTime))
 			{
-				blocks.TryGetValue(txs.Key, out var slimBlock);
-				await repo.SaveTransactions(txs.First().BlockTime, txs.Select(t => t.Transaction).ToArray(), slimBlock.Result.ToSlimChainedBlock());
-				foreach (var tx in txs)
-				{
-					var matches = await repo.GetMatches(tx.Transaction, slimBlock.Result.ToSlimChainedBlock(), tx.BlockTime, false);
-					await repo.SaveMatches(matches);
-					_ = AddressPoolService.GenerateAddresses(network, matches);
-				}
+				blocks.ByHashes.TryGetValue(txs.Key, out var b);
+				var slimBlock = b?.ToSlimChainedBlock();
+				var records = txs.Select(t => SaveTransactionRecord.Create(t.Transaction, slimBlock: slimBlock, seenAt: t.BlockTime)).ToArray();
+				var query = MatchQuery.FromTransactions(records.Select(r => r.Transaction), repo.MinUtxoValue);
+				var matches = await repo.SaveMatches(query, records);
+				_ = AddressPoolService.GenerateAddresses(network, matches);
 			}
 			return Ok();
 		}
 
-		async Task<(uint256 BlockId, Transaction Transaction, DateTimeOffset BlockTime)> FetchTransaction(RPCClient rpc, bool hasTxIndex, RescanRequest.TransactionToRescan transaction)
+		async Task<(uint256 BlockId, Transaction Transaction, DateTimeOffset BlockTime)> FetchTransaction(RPCClient rpc, NBXplorerNetwork network, RescanRequest.TransactionToRescan transaction)
 		{
+			var hasTxIndex = this.Indexers.GetIndexer(network)?.HasTxIndex is true;
 			if (transaction.Transaction != null)
 			{
 				if (transaction.BlockId == null)
@@ -717,20 +801,71 @@ namespace NBXplorer.Controllers
 			}
 		}
 
-		internal async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, TrackedSource trackedSource, bool includeTransaction, uint256 txId = null)
+		[HttpPost]
+		[Route($"{CommonRoutes.BaseCryptoEndpoint}/rescan-utxos")]
+		[TrackedSourceContext.TrackedSourceContextRequirement(false, false, true)]
+		public async Task<IActionResult> ImportUTXOs(TrackedSourceContext trackedSourceContext, [FromBody] ImportUTXORequest request, CancellationToken cancellationToken = default)
 		{
-			var transactions = await repo.GetTransactions(trackedSource, txId, includeTransaction, this.HttpContext?.RequestAborted ?? default);
+			var repo = trackedSourceContext.Repository;
+			if (request.Utxos?.Any() is not true)
+				return Ok();
+
+			var rpc = trackedSourceContext.RpcClient;
+
+			var coinToTxOut = await rpc.GetTxOuts(request.Utxos);
+			var bestBlocksToFetch = coinToTxOut.Select(c => c.Value.BestBlock).ToHashSet().ToList();
+			var bestBlocks = await rpc.GetBlockHeadersAsync(bestBlocksToFetch, cancellationToken);
+			var coinsWithHeights = coinToTxOut
+				.Select(c => new
+				{
+					BestBlock = bestBlocks.ByHashes.TryGet(c.Value.BestBlock),
+					Outpoint = c.Key,
+					RPCTxOut = c.Value
+				})
+				.Select(c => new
+				{
+					Height = c.RPCTxOut.Confirmations == 0 ? null : new int?(c.BestBlock.Height - c.RPCTxOut.Confirmations + 1),
+					c.Outpoint,
+					c.RPCTxOut
+				})
+				.ToList();
+			var blocks = coinsWithHeights.Where(c => c.Height.HasValue).Select(c => c.Height.Value).Distinct().ToList();
+			var blockHeaders = await rpc.GetBlockHeadersAsync(blocks, cancellationToken);
+
+			var now = DateTimeOffset.UtcNow;
+			var records = new List<SaveTransactionRecord>();
+			MatchQuery query = new MatchQuery(coinsWithHeights.Select(c => new Coin(c.Outpoint, c.RPCTxOut.TxOut)));
+			foreach (var c in coinsWithHeights)
+			{
+				var block = c.Height is int h ? blockHeaders.ByHeight.TryGet(h) : null;
+				var record = SaveTransactionRecord.Create(
+									txHash: c.Outpoint.Hash,
+									slimBlock: block?.ToSlimChainedBlock(),
+									seenAt: Extensions.MinDate(block?.Time ?? now, now));
+				records.Add(record);
+			}
+			await repo.SaveBlocks(blockHeaders);
+			repo.RemoveFromCache(records.Select(r => r.Id));
+			var trackedTransactions = await repo.SaveMatches(query, records.ToArray());
+			_ = AddressPoolService.GenerateAddresses(trackedSourceContext.Network, trackedTransactions);
+
+			return Ok();
+		}
+
+		internal async Task<AnnotatedTransactionCollection> GetAnnotatedTransactions(Repository repo, GetTransactionQuery.TrackedSourceTxId query, bool includeTransaction)
+		{
+			var transactions = await repo.GetTransactions(query, includeTransaction, this.HttpContext?.RequestAborted ?? default);
 
 			// If the called is interested by only a single txId, we need to fetch the parents as well
-			if (txId != null)
+			if (query.TxId != null)
 			{
 				var spentOutpoints = transactions.SelectMany(t => t.SpentOutpoints.Select(o => o.Outpoint.Hash)).ToHashSet();
-				var gettingParents = spentOutpoints.Select(async h => await repo.GetTransactions(trackedSource, h)).ToList();
+				var gettingParents = spentOutpoints.Select(async h => await repo.GetTransactions(GetTransactionQuery.Create(query.TrackedSource, h))).ToList();
 				await Task.WhenAll(gettingParents);
 				transactions = gettingParents.SelectMany(p => p.GetAwaiter().GetResult()).Concat(transactions).ToArray();
 			}
 
-			return new AnnotatedTransactionCollection(transactions, trackedSource, repo.Network.NBitcoinNetwork);
+			return new AnnotatedTransactionCollection(transactions, query.TrackedSource, repo.Network.NBitcoinNetwork);
 		}
 
 		[HttpPost]
@@ -777,10 +912,10 @@ namespace NBXplorer.Controllers
 				if (trackedSourceContext.TrackedSource != null && ex.Message.StartsWith("Missing inputs", StringComparison.OrdinalIgnoreCase))
 				{
 					Logs.Explorer.LogInformation($"{network.CryptoCode}: Trying to broadcast unconfirmed of the wallet");
-					var transactions = await GetAnnotatedTransactions(repo, trackedSourceContext.TrackedSource, true);
+					var transactions = await GetAnnotatedTransactions(repo, GetTransactionQuery.Create(trackedSourceContext.TrackedSource), true);
 					foreach (var existing in transactions.UnconfirmedTransactions)
 					{
-						var t = existing.Record.Transaction ?? (await repo.GetSavedTransactions(existing.Record.TransactionHash)).Select(c => c.Transaction).FirstOrDefault();
+						var t = existing.Record.Transaction ?? (await repo.GetSavedTransaction(existing.Record.TransactionHash))?.Transaction;
 						if (t == null)
 							continue;
 						try
@@ -815,7 +950,7 @@ namespace NBXplorer.Controllers
 		{
 			return rejectReason switch
 			{
-				"Transaction already in block chain" => RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN,
+				"Transaction already in block chain" or "Transaction outputs already in utxo set" => RPCErrorCode.RPC_VERIFY_ALREADY_IN_CHAIN,
 				"Transaction rejected by AcceptToMemoryPool" => RPCErrorCode.RPC_TRANSACTION_REJECTED,
 				"AcceptToMemoryPool failed" => RPCErrorCode.RPC_TRANSACTION_REJECTED,
 				"insufficient fee" => RPCErrorCode.RPC_TRANSACTION_REJECTED,

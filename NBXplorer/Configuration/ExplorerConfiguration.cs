@@ -49,7 +49,6 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public bool NoWarmup { get; set; }
-		public bool HasTxIndex { get; set; }
 		public bool ExposeRPC { get; set; }
 	}
 	public class ExplorerConfiguration
@@ -139,7 +138,6 @@ namespace NBXplorer.Configuration
 						}
 					}
 					
-					chainConfiguration.HasTxIndex = config.GetOrDefault<bool>($"{network.CryptoCode}.hastxindex", false);
 					chainConfiguration.ExposeRPC = config.GetOrDefault<bool>($"{network.CryptoCode}.exposerpc", exposeRPCGlobal);
 					chainConfiguration.NoWarmup = config.GetOrDefault<bool>($"nowarmup", false);
 					ChainConfigurations.Add(chainConfiguration);
@@ -201,9 +199,10 @@ namespace NBXplorer.Configuration
 			RabbitMqPassword = config.GetOrDefault<string>("rmqpass", "");
 			RabbitMqTransactionExchange = config.GetOrDefault<string>("rmqtranex", "");
 			RabbitMqBlockExchange = config.GetOrDefault<string>("rmqblockex", "");
+
 			var obsolete = string.Join(", ",
 				new[] { "dbtrie", "automigrate", "nomigrateevts", "nomigraterawtxs", "cachechain", "deleteaftermigration", "dbcache" }
-				.Where(o => config.GetOrDefault<bool>(o, false)));
+				.Where(o => !string.IsNullOrEmpty(config[o])));
 
 			if (obsolete != string.Empty)
 			{

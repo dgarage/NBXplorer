@@ -106,5 +106,6 @@ namespace NBXplorer.Models
 		public uint256 ReplacedBy { get; set; }
 		public uint256 Replacing { get; set; }
 		public bool Replaceable { get; set; }
+		public TransactionMetadata Metadata { get; set; }
 	}
 }

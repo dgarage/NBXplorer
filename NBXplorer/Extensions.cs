@@ -29,11 +29,21 @@ using Npgsql;
 using NBitcoin.Altcoins;
 using System.Threading;
 using Newtonsoft.Json.Linq;
+using static NBXplorer.Backend.Repository;
 
 namespace NBXplorer
 {
 	public static class Extensions
 	{
+		public static MultiValueDictionary<TKey, TValue> ToMultiValueDictionary<TKey, TValue>(this IEnumerable<TValue> input, Func<TValue, TKey> getKey)
+			{
+			var result = new MultiValueDictionary<TKey, TValue>();
+			foreach (var value in input)
+			{
+				result.Add(getKey(value), value);
+			}
+			return result;
+		}
 		public static T ParseJObject<T>(this NBXplorerNetwork network, JObject requestObj)
 		{
 			if (requestObj == null)
@@ -93,16 +103,14 @@ namespace NBXplorer
 			return default;
 		}
 
-		public static async Task<ElementsTransaction> UnblindTransaction(this RPCClient rpc, TrackedTransaction tx, IEnumerable<KeyPathInformation> keyInfos)
+		public static async Task<ElementsTransaction> UnblindTransaction(this RPCClient rpc, DerivationStrategyBase ts, ElementsTransaction tx, IEnumerable<LiquidKeyPathInformation> keyInfos)
 		{
-			if (tx.TrackedSource is DerivationSchemeTrackedSource ts &&
-				!ts.DerivationStrategy.Unblinded() &&
-				tx.Transaction is ElementsTransaction elementsTransaction)
+			if (!ts.Unblinded())
 			{
 				var keys = keyInfos
-					.Select(kv => (KeyPath: kv.KeyPath,
-								   Address: kv.Address as BitcoinBlindedAddress,
-								   BlindingKey: NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts.DerivationStrategy, kv.KeyPath, kv.ScriptPubKey, rpc.Network)))
+					.Select(kv => (Address: kv.Address as BitcoinBlindedAddress,
+								   // Note that the code after ?? should never be reached... but I kept it in case. We can probably remove it later
+								   BlindingKey: kv.BlindingKey ?? NBXplorerNetworkProvider.LiquidNBXplorerNetwork.GenerateBlindingKey(ts, kv.KeyPath, kv.ScriptPubKey, rpc.Network)))
 					.Where(o => o.Address != null)
 					.Select(o => new UnblindTransactionBlindingAddressKey()
 					{
@@ -111,7 +119,7 @@ namespace NBXplorer
 					}).ToList();
 				if (keys.Count != 0)
 				{
-					return await rpc.UnblindTransaction(keys, elementsTransaction, rpc.Network);
+					return await rpc.UnblindTransaction(keys, tx, rpc.Network);
 				}
 			}
 			return null;
@@ -187,7 +195,7 @@ namespace NBXplorer
 
 			services.TryAddSingleton<CookieRepository>();
 			services.TryAddSingleton<Broadcaster>();
-
+			services.AddSingleton<UTXOFetcherService>();
 			services.AddHostedService<HostedServices.DatabaseSetupHostedService>();
 			services.AddSingleton<IHostedService, RepositoryProvider>(o => o.GetRequiredService<RepositoryProvider>());
 			services.TryAddSingleton<RepositoryProvider, RepositoryProvider>();
@@ -205,7 +213,7 @@ namespace NBXplorer
 			services.TryAddSingleton<EventAggregator>();
 			services.TryAddSingleton<AddressPoolService>();
 			services.AddSingleton<IHostedService, AddressPoolService>(o => o.GetRequiredService<AddressPoolService>());
-			services.TryAddSingleton<IRPCClients, RPCClientProvider>();
+			services.TryAddSingleton<RPCClientProvider>();
 			services.AddHostedService<RPCReadyFileHostedService>();
 			services.AddSingleton<IHostedService, ScanUTXOSetService>();
 			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
@@ -227,7 +235,6 @@ namespace NBXplorer
 				var c = o.GetRequiredService<ExplorerConfiguration>();
 				return c.NetworkProvider;
 			});
-			services.TryAddSingleton<IRPCClients>();
 			return services;
 		}
 
@@ -239,6 +246,8 @@ namespace NBXplorer
 			});
 			return services;
 		}
+
+		public static DateTimeOffset MinDate(DateTimeOffset a, DateTimeOffset b) => a < b ? a : b;
 
 		internal class NoObjectModelValidator : IObjectModelValidator
 		{

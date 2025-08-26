@@ -3,6 +3,7 @@ using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using NBXplorer.JsonConverters;
 
 namespace NBXplorer
 {
@@ -28,6 +29,7 @@ namespace NBXplorer
 			if (_Network != null)
 			{
 				settings.Converters.Insert(0, new JsonConverters.CachedSerializer(_Network));
+				settings.Converters.Insert(1, new PSBTDestinationJsonConverter(_Network.NBitcoinNetwork));
 				settings.Converters.Add(new JsonConverters.KeyPathTemplateJsonConverter());
 			}
 			ReplaceConverter<NBitcoin.JsonConverters.MoneyJsonConverter>(settings, new NBXplorer.JsonConverters.MoneyJsonConverter());

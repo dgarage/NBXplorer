@@ -6,9 +6,13 @@ using NBXplorer.Models;
 using System.Threading.Tasks;
 using System;
 using System.Linq;
+using System.Threading;
 using Dapper;
 using NBXplorer.Backend;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NBXplorer.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace NBXplorer.Controllers
 {
@@ -18,11 +22,29 @@ namespace NBXplorer.Controllers
 	[Authorize]
 	public class CommonRoutesController : Controller
 	{
+		public GroupsController GroupsController{ get; }
+		public AddressPoolService AddressPoolService{ get; }
 		public DbConnectionFactory ConnectionFactory { get; }
-		public CommonRoutesController(DbConnectionFactory connectionFactory)
+		public CommonRoutesController(DbConnectionFactory connectionFactory, AddressPoolService addressPoolService, GroupsController groupsController)
 		{
+			GroupsController = groupsController;
+			AddressPoolService = addressPoolService;
 			ConnectionFactory = connectionFactory;
 		}
+		
+		
+		[HttpGet("")]
+		public async Task<IActionResult> IsTracked(TrackedSourceContext trackedSourceContext)
+		{
+			var trackedSource = trackedSourceContext.TrackedSource;
+			var network = trackedSourceContext.Network;
+			var repo = trackedSourceContext.Repository;
+			if(await repo.WalletExists( repo.GetWalletKey(trackedSource)))
+				return Ok();
+			return NotFound();
+		}
+		
+		
 		[HttpGet("balance")]
 		public async Task<IActionResult> GetBalance(TrackedSourceContext trackedSourceContext)
 		{
@@ -97,17 +119,17 @@ namespace NBXplorer.Controllers
 			// On elements, we can't get blinded address from the scriptPubKey, so we need to fetch it rather than compute it
 			string addrColumns = "NULL as address";
 			var derivationScheme = (trackedSource as DerivationSchemeTrackedSource)?.DerivationStrategy;
-			if (network.IsElement && derivationScheme?.Unblinded() is true)
+			if (network.IsElement && derivationScheme is not null && !derivationScheme.Unblinded())
 			{
 				addrColumns = "ds.metadata->>'blindedAddress' as address";
 			}
 
 			string descriptorJoin = string.Empty;
-			string descriptorColumns = "NULL as redeem, NULL as keypath, NULL as feature";
+			string descriptorColumns = "NULL as redeem, NULL as keypath, NULL as keyindex, NULL as feature";
 			if (derivationScheme is not null)
 			{
 				descriptorJoin = " JOIN descriptors_scripts ds USING (code, script) JOIN descriptors d USING (code, descriptor)";
-				descriptorColumns = "ds.metadata->>'redeem' redeem, nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, d.metadata->>'feature' feature";
+				descriptorColumns = "ds.metadata->>'redeem' redeem, nbxv1_get_keypath(d.metadata, ds.idx) AS keypath, ds.idx, d.metadata->>'feature' feature";
 			}
 
 			var utxos = (await conn.QueryAsync<(
@@ -119,6 +141,7 @@ namespace NBXplorer.Controllers
 				string address,
 				string redeem,
 				string keypath,
+				int keyIndex,
 				string feature,
 				bool mempool,
 				bool input_mempool,
@@ -140,7 +163,8 @@ namespace NBXplorer.Controllers
 					Value = Money.Satoshis(utxo.value),
 					ScriptPubKey = Script.FromHex(utxo.script),
 					Redeem = utxo.redeem is null ? null : Script.FromHex(utxo.redeem),
-					TransactionHash = uint256.Parse(utxo.tx_id)
+					TransactionHash = uint256.Parse(utxo.tx_id),
+					KeyIndex = utxo.keyIndex
 				};
 				u.Outpoint = new OutPoint(u.TransactionHash, u.Index);
 				if (utxo.blk_height is long)
@@ -149,10 +173,9 @@ namespace NBXplorer.Controllers
 				}
 
 				if (utxo.keypath is not null)
-				{
 					u.KeyPath = KeyPath.Parse(utxo.keypath);
+				if (utxo.feature is not null)
 					u.Feature = Enum.Parse<DerivationFeature>(utxo.feature);
-				}
 				u.Address = utxo.address is null ? u.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork) : BitcoinAddress.Create(utxo.address, network.NBitcoinNetwork);
 				if (!utxo.mempool)
 				{

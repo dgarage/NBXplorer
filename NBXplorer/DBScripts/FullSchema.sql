@@ -469,10 +469,28 @@ $$;
 CREATE FUNCTION nbxv1_get_keypath(metadata jsonb, idx bigint) RETURNS text
     LANGUAGE sql IMMUTABLE
     AS $$
-	   SELECT CASE WHEN metadata->>'type' = 'NBXv1-Derivation' 
-	   THEN REPLACE(metadata->>'keyPathTemplate', '*', idx::TEXT) 
-	   ELSE NULL END
+	   SELECT REPLACE(metadata->>'keyPathTemplate', '*', idx::TEXT)
 $$;
+
+CREATE FUNCTION nbxv1_get_keypath_index(metadata jsonb, keypath text) RETURNS bigint
+    LANGUAGE sql IMMUTABLE
+    AS $_$
+  SELECT
+  CASE WHEN keypath LIKE (prefix || '%') AND 
+            keypath LIKE ('%' || suffix) AND
+            idx ~ '^\d+$'
+       THEN CAST(idx AS BIGINT) END
+  FROM (SELECT SUBSTRING(
+              keypath
+              FROM LENGTH(prefix) + 1
+              FOR LENGTH(keypath) - LENGTH(prefix) - LENGTH(suffix)
+          ) idx, prefix, suffix
+      FROM (
+      SELECT
+          split_part(metadata->>'keyPathTemplate', '*', 1) AS prefix,
+          split_part(metadata->>'keyPathTemplate', '*', 2) AS suffix
+      ) parts) q;
+$_$;
 
 CREATE FUNCTION nbxv1_get_wallet_id(in_code text, in_scheme_or_address text) RETURNS text
     LANGUAGE sql IMMUTABLE
@@ -959,7 +977,10 @@ CREATE VIEW nbxv1_keypath_info AS
     d.metadata AS descriptor_metadata,
     nbxv1_get_keypath(d.metadata, ds.idx) AS keypath,
     ds.metadata AS descriptors_scripts_metadata,
-    ws.wallet_id
+    ws.wallet_id,
+    ds.idx,
+    ds.used,
+    d.descriptor
    FROM ((wallets_scripts ws
      JOIN scripts s ON (((s.code = ws.code) AND (s.script = ws.script))))
      LEFT JOIN ((wallets_descriptors wd
@@ -997,7 +1018,10 @@ CREATE VIEW nbxv1_tracked_txs AS
     io.mempool,
     io.replaced_by,
     io.seen_at,
-    nbxv1_get_keypath(d.metadata, ds.idx) AS keypath
+    nbxv1_get_keypath(d.metadata, ds.idx) AS keypath,
+    (d.metadata ->> 'feature'::text) AS feature,
+    d.metadata AS descriptor_metadata,
+    ds.idx AS key_idx
    FROM ((wallets_scripts ws
      JOIN ins_outs io ON (((io.code = ws.code) AND (io.script = ws.script))))
      LEFT JOIN ((wallets_descriptors wd
@@ -1367,6 +1391,9 @@ INSERT INTO nbxv1_migrations VALUES ('019.FixDoubleSpendDetection2');
 INSERT INTO nbxv1_migrations VALUES ('020.ReplacingShouldBeIdempotent');
 INSERT INTO nbxv1_migrations VALUES ('021.KeyPathInfoReturnsWalletId');
 INSERT INTO nbxv1_migrations VALUES ('022.WalletsWalletsParentIdIndex');
+INSERT INTO nbxv1_migrations VALUES ('023.KeyPathInfoReturnsIndex');
+INSERT INTO nbxv1_migrations VALUES ('024.TrackedTxsReturnsFeature');
+INSERT INTO nbxv1_migrations VALUES ('025.TrackedTxReturnsDescriptorMetadata');
 
 ALTER TABLE ONLY nbxv1_migrations
     ADD CONSTRAINT nbxv1_migrations_pkey PRIMARY KEY (script_name);

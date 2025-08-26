@@ -26,9 +26,9 @@ namespace NBXplorer
 		public void ConfigureServices(IServiceCollection services)
 		{
 			services.AddHttpClient();
-			services.AddHttpClient(nameof(IRPCClients), httpClient =>
+			services.AddHttpClient(nameof(RPCClientProvider), httpClient =>
 			{
-				httpClient.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+				httpClient.Timeout = TimeSpan.FromMinutes(10.0);
 			});
 			services.AddNBXplorer(Configuration);
 			services.ConfigureNBxplorer(Configuration);
@@ -44,6 +44,7 @@ namespace NBXplorer
 			.AddFormatterMappings();
 			services.AddAuthentication("Basic")
 				.AddNBXplorerAuthentication();
+			services.AddCors();
 		}
 
 		public void Configure(IApplicationBuilder app, IServiceProvider prov,
@@ -66,10 +67,14 @@ namespace NBXplorer
 					await next();
 				});
 			}
+			
+			app.UseDefaultFiles();
+			app.UseStaticFiles();
 			app.UseRouting();
 			app.UseAuthentication();
 			app.UseAuthorization();
 			app.UseWebSockets();
+			
 			//app.UseMiddleware<LogAllRequestsMiddleware>();
 			app.UseEndpoints(endpoints =>
 			{

@@ -1,4 +1,8 @@
-﻿using NBitcoin;
+﻿#nullable enable
+using NBitcoin;
+#if !NO_RECORD
+using NBitcoin.WalletPolicies;
+#endif
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -13,40 +17,42 @@ namespace NBXplorer.DerivationStrategy
 		Direct = 2,
 		Custom = 3,
 	}
-	public abstract class DerivationStrategyBase : IHDScriptPubKey
+
+	public abstract class StandardDerivationStrategyBase : DerivationStrategyBase, IHDScriptPubKey
 	{
-		ReadOnlyDictionary<string, string> Empty = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(0));
+		internal StandardDerivationStrategyBase(ReadOnlyDictionary<string, string> additionalOptions) : base(additionalOptions)
+		{
+		}
+		public abstract Derivation GetDerivation(KeyPath keyPath);
+		public override DerivationLine GetLineFor(KeyPathTemplates keyPathTemplates, DerivationFeature feature)
+		=> new KeyPathTemplateDerivationLine(this, keyPathTemplates, feature);
+		Script IHDScriptPubKey.ScriptPubKey => GetDerivation(KeyPath.Empty).ScriptPubKey;
+		IHDScriptPubKey? IHDScriptPubKey.Derive(KeyPath keyPath) => keyPath.IsHardenedPath ? null : new HDScriptPubKey(this, keyPath);
+		class HDScriptPubKey(StandardDerivationStrategyBase Parent, KeyPath KeyPath) : IHDScriptPubKey
+		{
+			public Script ScriptPubKey => Parent.GetDerivation(KeyPath).ScriptPubKey;
+			public IHDScriptPubKey? Derive(KeyPath keyPath) => KeyPath.IsHardenedPath ? null : new HDScriptPubKey(Parent, KeyPath.Derive(keyPath));
+		}
+	}
+	public abstract class DerivationStrategyBase
+	{
+		readonly ReadOnlyDictionary<string, string> Empty = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(0));
 		public ReadOnlyDictionary<string, string> AdditionalOptions { get; }
 
-		internal DerivationStrategyBase(ReadOnlyDictionary<string,string> additionalOptions)
+		internal DerivationStrategyBase(ReadOnlyDictionary<string,string>? additionalOptions)
 		{
 			AdditionalOptions = additionalOptions ?? Empty;
 		}
 
-		public DerivationLine GetLineFor(KeyPathTemplate keyPathTemplate)
-		{
-			return new DerivationLine(this, keyPathTemplate);
-		}
-		public abstract DerivationStrategyBase GetChild(KeyPath keyPath);
-
-		public Derivation GetDerivation(uint i)
-		{
-			return GetChild(new KeyPath(i)).GetDerivation();
-		}
-		public Derivation GetDerivation(KeyPath keyPath)
-		{
-			if (keyPath == null || keyPath.Length == 0)
-				return GetDerivation();
-			return GetChild(keyPath).GetDerivation();
-		}
-		public abstract Derivation GetDerivation();
+		public DerivationLine GetLineFor(DerivationFeature feature) => GetLineFor(KeyPathTemplates.Default, feature);
+		public abstract DerivationLine GetLineFor(KeyPathTemplates keyPathTemplates, DerivationFeature feature);
 
 		protected internal abstract string StringValueCore
 		{
 			get;
 		}
 
-		string _StringValue;
+		string? _StringValue;
 		string StringValue
 		{
 			get
@@ -66,96 +72,74 @@ namespace NBXplorer.DerivationStrategy
 		{
 			return string.Join("", new SortedDictionary<string, string>(AdditionalOptions).Select(pair => $"-[{pair.Key}{(string.IsNullOrEmpty(pair.Value)?string.Empty: $"={pair.Value}")}]"));
 		}
-		
-		public override bool Equals(object obj)
-		{
-			DerivationStrategyBase item = obj as DerivationStrategyBase;
-			if(item == null)
-				return false;
-			return StringValue.Equals(item.StringValue);
-		}
-		public static bool operator ==(DerivationStrategyBase a, DerivationStrategyBase b)
-		{
-			if(System.Object.ReferenceEquals(a, b))
-				return true;
-			if(((object)a == null) || ((object)b == null))
-				return false;
-			return a.StringValue == b.StringValue;
-		}
-
-		public static bool operator !=(DerivationStrategyBase a, DerivationStrategyBase b)
-		{
-			return !(a == b);
-		}
+#nullable enable
+		public override bool Equals(object? obj) => obj is DerivationStrategyBase o && StringValue.Equals(o.StringValue);
+		public static bool operator ==(DerivationStrategyBase? a, DerivationStrategyBase? b) => a is null ? b is null : a.Equals(b);
+		public static bool operator !=(DerivationStrategyBase? a, DerivationStrategyBase? b) => !(a == b);
+		public override int GetHashCode() => StringValue.GetHashCode();
+#nullable restore
 
 		public abstract IEnumerable<ExtPubKey> GetExtPubKeys();
-
-		public override int GetHashCode()
-		{
-			return StringValue.GetHashCode();
-		}
 
 		public override string ToString()
 		{
 			return StringValue;
 		}
-
-		Script IHDScriptPubKey.ScriptPubKey => GetDerivation().ScriptPubKey;
-		IHDScriptPubKey IHDScriptPubKey.Derive(KeyPath keyPath)
-		{
-			return GetChild(keyPath);
-		}
-
-		class HDRedeemScriptPubKey : IHDScriptPubKey
-		{
-			private readonly DerivationStrategyBase strategyBase;
-			public HDRedeemScriptPubKey(DerivationStrategyBase strategyBase)
-			{
-				this.strategyBase = strategyBase;
-			}
-			public Script ScriptPubKey => strategyBase.GetDerivation().Redeem;
-
-			public bool CanDeriveHardenedPath()
-			{
-				return strategyBase.CanDeriveHardenedPath();
-			}
-			public IHDScriptPubKey Derive(KeyPath keyPath)
-			{
-				return strategyBase.GetChild(keyPath).AsHDRedeemScriptPubKey();
-			}
-		}
-		public IHDScriptPubKey AsHDRedeemScriptPubKey()
-		{
-			return new HDRedeemScriptPubKey(this);
-		}
-
-		public bool CanDeriveHardenedPath()
-		{
-			return false;
-		}
 	}
 
-	public class DerivationLine
+#if !NO_RECORD
+	public class MiniscriptDerivationLine : DerivationLine
 	{
-		public DerivationLine(DerivationStrategyBase derivationStrategyBase, KeyPathTemplate keyPathTemplate)
+		public MiniscriptDerivationLine(PolicyDerivationStrategy derivationStrategy, DerivationFeature derivationFeature) : base(derivationFeature)
+		{
+			DerivationStrategy = derivationStrategy;
+			Intent = ToAddressIntent(derivationFeature);
+		}
+
+		public static AddressIntent ToAddressIntent(DerivationFeature derivationFeature)
+		{
+			return derivationFeature switch
+			{
+				DerivationFeature.Change => AddressIntent.Change,
+				DerivationFeature.Deposit => AddressIntent.Deposit,
+				_ => throw new NotSupportedException("MiniscriptDerivationStrategy only support deposit and change features")
+			};
+		}
+
+		public PolicyDerivationStrategy DerivationStrategy { get; }
+		public AddressIntent Intent { get; }
+
+		public override Derivation Derive(uint index) => DerivationStrategy.GetDerivation(Intent, index);
+	}
+#endif
+	public abstract class DerivationLine
+	{
+		protected DerivationLine(DerivationFeature feature)
+		{
+			Feature = feature;
+		}
+		public DerivationFeature Feature { get; }
+		public abstract Derivation Derive(uint index);
+	}
+	public class KeyPathTemplateDerivationLine : DerivationLine
+	{
+		public KeyPathTemplateDerivationLine(StandardDerivationStrategyBase derivationStrategyBase, KeyPathTemplates keyPathTemplates, DerivationFeature derivationFeature) : base(derivationFeature)
 		{
 			if (derivationStrategyBase == null)
 				throw new ArgumentNullException(nameof(derivationStrategyBase));
-			if (keyPathTemplate == null)
-				throw new ArgumentNullException(nameof(keyPathTemplate));
+			if (keyPathTemplates == null)
+				throw new ArgumentNullException(nameof(keyPathTemplates));
 			DerivationStrategyBase = derivationStrategyBase;
-			KeyPathTemplate = keyPathTemplate;
+			KeyPathTemplate = keyPathTemplates.GetKeyPathTemplate(derivationFeature);
 		}
 
-		public DerivationStrategyBase DerivationStrategyBase { get; }
+		public StandardDerivationStrategyBase DerivationStrategyBase { get; }
 		public KeyPathTemplate KeyPathTemplate { get; }
 
-		DerivationStrategyBase _PreLine;
-
-		public Derivation Derive(uint index)
+		public override Derivation Derive(uint index)
 		{
-			_PreLine = _PreLine ?? DerivationStrategyBase.GetChild(KeyPathTemplate.PreIndexes);
-			return _PreLine.GetDerivation(new KeyPath(index).Derive(KeyPathTemplate.PostIndexes));
+			var kp = KeyPathTemplate.GetKeyPath(index);
+			return DerivationStrategyBase.GetDerivation(kp);
 		}
 	}
 }

@@ -1,8 +1,12 @@
 ﻿using NBitcoin;
+#if !NO_RECORD
+using NBitcoin.WalletPolicies;
+#endif
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace NBXplorer.DerivationStrategy
@@ -52,7 +56,6 @@ namespace NBXplorer.DerivationStrategy
 		public HashSet<string> AuthorizedOptions { get; } = new HashSet<string>();
 
 		readonly Regex MultiSigRegex = new Regex("^([0-9]{1,2})-of(-[A-Za-z0-9]+)+$");
-		static DirectDerivationStrategy DummyPubKey = new DirectDerivationStrategy(new ExtKey().Neuter().GetWif(Network.RegTest), false);
 		public DerivationStrategyBase Parse(string str)
 		{
 			var strategy = ParseCore(str);
@@ -79,6 +82,8 @@ namespace NBXplorer.DerivationStrategy
 				if (!Extensions.TryAdd(optionsDictionary, key, value))
 					throw new FormatException($"The option '{key}' is duplicated");
 			}
+
+			var hasOptions = optionsDictionary.Count != 0;
 			str = _OptionRegex.Replace(str, string.Empty);
 			if (optionsDictionary.Remove("legacy"))
 			{
@@ -142,6 +147,14 @@ namespace NBXplorer.DerivationStrategy
 									.ToArray();
 				return CreateMultiSigDerivationStrategy(pubKeys, sigCount, options);
 			}
+			#if !NO_RECORD
+			else if (PolicyDerivationStrategy._MaybeMiniscript.IsMatch(str))
+			{
+				if (hasOptions)
+					throw new FormatException("The derivation scheme should not contain any option (such as -[legacy])");
+				return PolicyDerivationStrategy.Parse(str, _Network);
+			}
+			#endif
 			else
 			{
 				var key = _Network.Parse<BitcoinExtPubKey>(str);
@@ -155,7 +168,7 @@ namespace NBXplorer.DerivationStrategy
 		/// <param name="publicKey">The public key of the wallet</param>
 		/// <param name="options">Derivation options</param>
 		/// <returns></returns>
-		public DerivationStrategyBase CreateDirectDerivationStrategy(ExtPubKey publicKey, DerivationStrategyOptions options = null)
+		public StandardDerivationStrategyBase CreateDirectDerivationStrategy(ExtPubKey publicKey, DerivationStrategyOptions options = null)
 		{
 			return CreateDirectDerivationStrategy(publicKey.GetWif(Network), options);
 		}
@@ -166,10 +179,10 @@ namespace NBXplorer.DerivationStrategy
 		/// <param name="publicKey">The public key of the wallet</param>
 		/// <param name="options">Derivation options</param>
 		/// <returns></returns>
-		public DerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey, DerivationStrategyOptions options = null)
+		public StandardDerivationStrategyBase CreateDirectDerivationStrategy(BitcoinExtPubKey publicKey, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase strategy = null;
+			StandardDerivationStrategyBase strategy = null;
 #pragma warning disable CS0618 // Type or member is obsolete
 			if (options.ScriptPubKeyType != ScriptPubKeyType.TaprootBIP86)
 #pragma warning restore CS0618 // Type or member is obsolete
@@ -224,7 +237,7 @@ namespace NBXplorer.DerivationStrategy
 		public DerivationStrategyBase CreateMultiSigDerivationStrategy(BitcoinExtPubKey[] pubKeys, int sigCount, DerivationStrategyOptions options = null)
 		{
 			options = options ?? new DerivationStrategyOptions();
-			DerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options.ScriptPubKeyType == ScriptPubKeyType.Legacy, !options.KeepOrder, options.AdditionalOptions);
+			StandardDerivationStrategyBase derivationStrategy = new MultisigDerivationStrategy(sigCount, pubKeys.ToArray(), options.ScriptPubKeyType == ScriptPubKeyType.Legacy, !options.KeepOrder, options.AdditionalOptions);
 			if (options.ScriptPubKeyType == ScriptPubKeyType.Legacy)
 				return new P2SHDerivationStrategy(derivationStrategy, false);
 
@@ -237,19 +250,6 @@ namespace NBXplorer.DerivationStrategy
 			}
 			return derivationStrategy;
 		}
-
-		private void ReadBool(ref string str, string attribute, ref bool value)
-		{
-			value = str.Contains($"[{attribute}]");
-			if (value)
-			{
-				str = str.Replace($"[{attribute}]", string.Empty);
-				str = str.Replace("--", "-");
-				if (str.EndsWith("-"))
-					str = str.Substring(0, str.Length - 1);
-			}
-		}
-
 		readonly static Regex _OptionRegex = new Regex(@"-\[([^ \]\-]+)\]");
 	}
 }

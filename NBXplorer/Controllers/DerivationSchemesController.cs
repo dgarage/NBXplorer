@@ -40,7 +40,8 @@ namespace NBXplorer.Controllers
 			Indexers = indexers;
 			AddressPoolService = addressPoolService;
 		}
-
+		
+		
 		[HttpPost($"~/v1/{CommonRoutes.DerivationEndpoint}")]
 		[HttpPost($"~/v1/{CommonRoutes.AddressEndpoint}")]
 		public async Task<IActionResult> TrackWallet(
@@ -55,18 +56,18 @@ namespace NBXplorer.Controllers
 			{
 				if (request.Wait)
 				{
-					foreach (var feature in KeyPathTemplates.GetSupportedDerivationFeatures())
+					foreach (var feature in dts.GetDerivationFeatures(KeyPathTemplates))
 					{
 						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
 					}
 				}
 				else
 				{
-					foreach (var feature in KeyPathTemplates.GetSupportedDerivationFeatures())
+					foreach (var feature in dts.GetDerivationFeatures(KeyPathTemplates))
 					{
 						await RepositoryProvider.GetRepository(network).GenerateAddresses(dts.DerivationStrategy, feature, new GenerateAddressQuery(minAddresses: 3, null));
 					}
-					foreach (var feature in KeyPathTemplates.GetSupportedDerivationFeatures())
+					foreach (var feature in dts.GetDerivationFeatures(KeyPathTemplates))
 					{
 						_ = AddressPoolService.GenerateAddresses(network, dts.DerivationStrategy, feature, GenerateAddressQuery(request, feature));
 					}
@@ -98,7 +99,7 @@ namespace NBXplorer.Controllers
 		{
 			var repo = trackedSourceContext.Repository;
 			var ts = trackedSourceContext.TrackedSource;
-			var txs = await repo.GetTransactions(trackedSourceContext.TrackedSource);
+			var txs = await repo.GetTransactions(GetTransactionQuery.Create(trackedSourceContext.TrackedSource));
 			await repo.Prune(txs);
 			return Ok();
 		}
@@ -148,7 +149,7 @@ namespace NBXplorer.Controllers
 			var network = trackedSourceContext.Network;
 			var repo = trackedSourceContext.Repository;
 
-			var transactions = await MainController.GetAnnotatedTransactions(repo, trackedSource, false);
+			var transactions = await MainController.GetAnnotatedTransactions(repo, GetTransactionQuery.Create(trackedSource), false);
 			var state = transactions.ConfirmedState;
 			var prunableIds = new HashSet<uint256>();
 
@@ -159,7 +160,7 @@ namespace NBXplorer.Controllers
 			{
 				if (tx.Height is long h && tip - h + 1 > keepConfMax)
 				{
-					if (tx.Record.ReceivedCoins.All(c => state.SpentUTXOs.Contains(c.Outpoint)))
+					if (tx.Record.MatchedOutputs.All(c => state.SpentUTXOs.Contains(new OutPoint(tx.Record.TransactionHash, c.Index))))
 					{
 						prunableIds.Add(tx.Record.Key.TxId);
 					}
@@ -243,7 +244,7 @@ namespace NBXplorer.Controllers
 			var masterKey = mnemonic.DeriveExtKey(request.Passphrase).GetWif(network.NBitcoinNetwork);
 			var keyPath = GetDerivationKeyPath(request.ScriptPubKeyType.Value, request.AccountNumber, network);
 			var accountKey = masterKey.Derive(keyPath);
-			DerivationStrategyBase derivation = network.DerivationStrategyFactory.CreateDirectDerivationStrategy(accountKey.Neuter(), new DerivationStrategyOptions()
+			StandardDerivationStrategyBase derivation = network.DerivationStrategyFactory.CreateDirectDerivationStrategy(accountKey.Neuter(), new DerivationStrategyOptions()
 			{
 				ScriptPubKeyType = request.ScriptPubKeyType.Value,
 				AdditionalOptions = request.AdditionalOptions is not null ? new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(request.AdditionalOptions) : null
@@ -294,24 +295,14 @@ namespace NBXplorer.Controllers
 
 		private KeyPath GetDerivationKeyPath(ScriptPubKeyType scriptPubKeyType, int accountNumber, NBXplorerNetwork network)
 		{
-			var path = "";
-			switch (scriptPubKeyType)
+			var path = scriptPubKeyType switch
 			{
-				case ScriptPubKeyType.Legacy:
-					path = "44'";
-					break;
-				case ScriptPubKeyType.Segwit:
-					path = "84'";
-					break;
-				case ScriptPubKeyType.SegwitP2SH:
-					path = "49'";
-					break;
-				case ScriptPubKeyType.TaprootBIP86:
-					path = "86'";
-					break;
-				default:
-					throw new NotSupportedException(scriptPubKeyType.ToString()); // Should never happen
-			}
+				ScriptPubKeyType.Legacy => "44'",
+				ScriptPubKeyType.Segwit => "84'",
+				ScriptPubKeyType.SegwitP2SH => "49'",
+				ScriptPubKeyType.TaprootBIP86 => "86'",
+				_ => throw new NotSupportedException(scriptPubKeyType.ToString())
+			};
 			var keyPath = new KeyPath(path);
 			return keyPath.Derive(network.CoinType)
 				   .Derive(accountNumber, true);

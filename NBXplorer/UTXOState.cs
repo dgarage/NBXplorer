@@ -44,9 +44,9 @@ namespace NBXplorer
 			var result = ApplyTransactionResult.Passed;
 			var hash = trackedTransaction.Key.TxId;
 
-			foreach(var coin in trackedTransaction.ReceivedCoins)
+			foreach(var coin in trackedTransaction.MatchedOutputs)
 			{
-				if(UTXOByOutpoint.ContainsKey(coin.Outpoint))
+				if(UTXOByOutpoint.ContainsKey(new OutPoint(hash, coin.Index)))
 				{
 					result = ApplyTransactionResult.Conflict;
 				}
@@ -63,9 +63,9 @@ namespace NBXplorer
 			if(result == ApplyTransactionResult.Conflict)
 				return result;
 
-			foreach(var coin in trackedTransaction.ReceivedCoins)
+			foreach(var coin in trackedTransaction.MatchedOutputs)
 			{
-				UTXOByOutpoint.TryAdd(coin.Outpoint, coin);
+				UTXOByOutpoint.TryAdd(new OutPoint(hash, coin.Index), coin);
 			}
 
 			foreach (var spentOutpoint in trackedTransaction.SpentOutpoints.Select(o => o.Outpoint))
