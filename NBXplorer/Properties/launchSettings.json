@@ -7,7 +7,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "NBXPLORER_POSTGRES": "User ID=postgres;Application Name=test;Include Error Detail=true;Host=localhost;Port=39383",
-        "NBXPLORER_BTCSTARTHEIGHT": "860200",
+        "NBXPLORER_BTCSTARTHEIGHT": "911478",
         "NBXPLORER_BTCRESCAN": "1",
         "NBXPLORER_BTCRPCCOOKIEFILE": "D:\\Bitcoin\\.cookie"
       },

@@ -6,6 +6,7 @@ using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Net.Http;
 using RabbitMQ.Client;
 using System;
 using System.Collections.Concurrent;
@@ -17,8 +18,6 @@ using System.Threading.Tasks;
 using NBitcoin.Altcoins.Elements;
 using Xunit;
 using Xunit.Abstractions;
-using System.Net.Http;
-using System.IO;
 using Dapper;
 using NBXplorer.Configuration;
 using NBXplorer.Backend;
@@ -3778,11 +3777,46 @@ namespace NBXplorer.Tests
 				var result = await tester.Client.BroadcastAsync(signed);
 				Assert.True(result.Success);
 				signed.Inputs[0].PrevOut.N = 999;
-				result = await tester.Client.BroadcastAsync(signed);
-				Assert.False(result.Success);
-				var ex = await Assert.ThrowsAsync<NBXplorerException>(() => tester.Client.GetFeeRateAsync(5));
-				Assert.Equal("fee-estimation-unavailable", ex.Error.Code);
+				for (int i = 0; i < 6; i++)
+				{
+					result = await Broadcast(i, tester, signed);
+					Assert.False(result.Success);
+					var ex = await Assert.ThrowsAsync<NBXplorerException>(() => tester.Client.GetFeeRateAsync(5));
+					Assert.Equal("fee-estimation-unavailable", ex.Error.Code);
+				}
 			}
+		}
+
+		private static async Task<BroadcastResult> Broadcast(int format, ServerTester tester, Transaction signed)
+		{
+			BroadcastResult result;
+			if (format == 0)
+				result = await tester.Client.BroadcastAsync(signed);
+			else
+			{
+				var val = format switch 
+				{ 
+					1 => "{\"hex\":\"TX\"}",
+					2 => "{\"psbt\":\"PSBT\"}",
+					3 => "{\"hex\":\"PSBT\"}",
+					4 => "\"PSBT\"",
+					5 => "\"TX\"",
+					_ => throw new Exception()
+				};
+				var noSig = signed.Clone();
+				noSig.RemoveSignatures();
+				var psbt = PSBT.FromTransaction(noSig, Network.RegTest);
+				for (int j = 0; j < psbt.Inputs.Count; j++)
+				{
+					psbt.Inputs[j].FinalScriptSig = signed.Inputs[j].ScriptSig;
+					psbt.Inputs[j].FinalScriptWitness = signed.Inputs[j].WitScript;
+				}
+				val = val.Replace("TX", signed.ToHex());
+				val = val.Replace("PSBT", psbt.ToBase64());
+				result = await tester.Client.SendAsync<BroadcastResult>(HttpMethod.Post, JToken.Parse(val), $"v1/cryptos/BTC/transactions", default);
+			}
+
+			return result;
 		}
 
 		[FactWithTimeout]

@@ -30,6 +30,9 @@
 		<PackageReference Include="NBitcoin" Version="9.0.0" />
 		<PackageReference Include="NBitcoin.Altcoins" Version="5.0.0" />
 	</ItemGroup>
+    <ItemGroup>
+        <InternalsVisibleTo Include="NBXplorer.Tests" />
+    </ItemGroup>
   <ItemGroup>
 	<None Include="..\README.md" Pack="true" PackagePath="\" />
 	<None Include="Bitcoin.png" Pack="true" PackagePath="\" />
