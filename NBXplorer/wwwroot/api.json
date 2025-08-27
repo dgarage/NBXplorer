@@ -1755,16 +1755,9 @@
                 "properties": {
                   "hex": {
                     "type": "string",
-                    "description": "The raw transaction in hexadecimal format."
-                  },
-                  "psbt": {
-                    "type": "string",
-                    "description": "The PSBT in Base64 encoding."
+                    "description": "The raw transaction in hexadecimal format, or finalized PSBT in Base64 or hex.",
+                    "example": "0200000001..."
                   }
-                },
-                "example": {
-                  "hex": "0200000001abcd1234...",
-                  "psbt": "cHNidP8BAHECAAAA..."
                 }
               }
             }
@@ -1778,16 +1771,26 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "transactionId": {
+                    "success": {
+                      "type": "boolean",
+                      "description": "Whether the transaction was successfully broadcast.",
+                      "example": false
+                    },
+                    "rpcCode": {
+                      "type": "integer",
+                      "description": "The RPC code returned by the node.",
+                      "example": -25
+                    },
+                    "rpcCodeMessage": {
                       "type": "string",
-                      "description": "The ID of the transaction."
+                      "description": "The error code message returned during transaction submission.",
+                      "example": "General error during transaction submission"
+                    },
+                    "rpcMessage": {
+                      "type": "string",
+                      "description": "The detailed RPC message returned by the node.",
+                      "example": "bad-txns-inputs-missingorspent"
                     }
-                  },
-                  "required": [
-                    "transactionId"
-                  ],
-                  "example": {
-                    "transactionId": "abcd1234..."
                   }
                 }
               }
@@ -3670,77 +3673,6 @@
                 },
                 "example": {
                   "totalPruned": 10
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/cryptos/{cryptoCode}/broadcast": {
-      "post": {
-        "summary": "Broadcast a transaction",
-        "operationId": "Broadcast",
-        "description": "Broadcasts a raw transaction to the network for the specified cryptocurrency.",
-        "tags": [
-          "Transactions"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/CryptoCode"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "hex": {
-                    "type": "string",
-                    "description": "The raw transaction in hexadecimal format."
-                  }
-                },
-                "required": [
-                  "hex"
-                ]
-              },
-              "example": {
-                "hex": "0200000001abcd1234..."
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Transaction broadcast successfully.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "transactionId": {
-                      "type": "string",
-                      "description": "The ID of the broadcasted transaction."
-                    }
-                  },
-                  "required": [
-                    "transactionId"
-                  ],
-                  "example": {
-                    "transactionId": "abcd1234..."
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad request. Invalid transaction data.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

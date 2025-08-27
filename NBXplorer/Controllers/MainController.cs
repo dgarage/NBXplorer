@@ -20,6 +20,7 @@ using NBXplorer.Configuration;
 using System.Net.WebSockets;
 using Newtonsoft.Json;
 using System.Reflection;
+using NBitcoin.DataEncoders;
 using NBXplorer.Analytics;
 using NBXplorer.Backend;
 using static NBXplorer.Backend.DbConnectionHelper;
@@ -876,11 +877,7 @@ namespace NBXplorer.Controllers
 			bool testMempoolAccept = false)
 		{
 			var network = trackedSourceContext.Network;
-			var tx = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
-			var buffer = new MemoryStream();
-			await Request.Body.CopyToAsync(buffer);
-			buffer.Position = 0;
-			tx.FromBytes(buffer.ToArrayEfficient());
+			var tx = await ParseTx(network);
 
 			if (testMempoolAccept && !trackedSourceContext.RpcClient.Capabilities.SupportTestMempoolAccept)
 				throw new NBXplorerException(new NBXplorerError(400, "not-supported", "This feature is not supported for this crypto currency"));
@@ -943,6 +940,83 @@ namespace NBXplorer.Controllers
 					RPCCodeMessage = rpcEx.RPCCodeMessage,
 					RPCMessage = rpcEx.Message
 				};
+			}
+		}
+
+		private async Task<Transaction> ParseTx(NBXplorerNetwork network)
+		{
+			Transaction ParsePSBT(string psbtStr)
+			{
+				PSBT psbt = null;
+				try
+				{
+					psbt = PSBT.Parse(psbtStr, network.NBitcoinNetwork);
+				}
+				catch (FormatException)
+				{
+					throw;
+				}
+				catch (Exception ex)
+				{
+					throw new FormatException(ex.Message, ex);
+				}
+
+				try
+				{
+					return psbt.ExtractTransaction();
+				}
+				catch (Exception ex)
+				{
+					throw new FormatException("Unable to finalize the PSBT: " + ex.Message, ex);
+				}
+			}
+
+			Transaction ParseTxOrPSBT(string txOrPSBT)
+			{
+				try
+				{
+					return Transaction.Parse(txOrPSBT, network.NBitcoinNetwork);
+				}
+				catch
+				{
+					return ParsePSBT(txOrPSBT);
+				}
+			}
+
+			var buffer = new MemoryStream();
+			await Request.Body.CopyToAsync(buffer);
+			buffer.Position = 0;
+			var body = buffer.ToArrayEfficient();
+
+			JToken tok = null;
+			try
+			{
+				tok = JToken.Parse(Encoding.UTF8.GetString(body));
+			}
+			catch
+			{
+			}
+
+			if (tok is JObject json)
+			{
+				if ((json["hex"] as JValue)?.Value is string hex)
+					return ParseTxOrPSBT(hex);
+
+				if ((json["psbt"] as JValue)?.Value is string psbtStr)
+					return ParsePSBT(psbtStr);
+			}
+			if (tok is JValue { Value: string hex2 })
+				return ParseTxOrPSBT(hex2);
+			
+			try
+			{
+				var tx = network.NBitcoinNetwork.Consensus.ConsensusFactory.CreateTransaction();
+				tx.FromBytes(body);
+				return tx;
+			}
+			catch
+			{
+				throw new FormatException("Invalid transaction format");
 			}
 		}
 
