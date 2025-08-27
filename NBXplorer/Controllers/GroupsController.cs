@@ -161,7 +161,9 @@ namespace NBXplorer.Controllers
 			if (c?.TrackedSource is null)
 				return null;
 			var net = c.CryptoCode is null ? null : NetworkProvider.GetFromCryptoCode(c.CryptoCode);
-			if (c.TrackedSource.StartsWith("ADDRESS:") || c.TrackedSource.StartsWith("DERIVATIONSCHEME:") && c.CryptoCode is null)
+			if (c.CryptoCode is not null && net is null)
+				throw new NBXplorerException(new NBXplorerError(400, "invalid-group-child", "Invalid cryptoCode"));
+			if ((c.TrackedSource.StartsWith("ADDRESS:") || c.TrackedSource.StartsWith("DERIVATIONSCHEME:")) && net is null)
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-group-child", "ADDRESS: and DERIVATIONSCHEME: tracked sources must also include a cryptoCode parameter"));
 			if (!TrackedSource.TryParse(c.TrackedSource, out var ts, net))
 				throw new NBXplorerException(new NBXplorerError(400, "invalid-group-child", "Invalid tracked source format"));
