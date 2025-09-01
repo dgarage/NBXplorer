@@ -42,18 +42,18 @@ namespace NBXplorer
 		class ScanUTXOWorkItem
 		{
 			public ScanUTXOWorkItem(NBXplorerNetwork network,
-									DerivationStrategyBase derivationStrategy)
+									TrackedSource trackedSource)
 			{
 				Network = network;
-				DerivationStrategy = new DerivationSchemeTrackedSource(derivationStrategy);
-				Id = DerivationStrategy.ToString();
+				TrackedSource = trackedSource;
+				Id = TrackedSource.ToString();
 				StartTime = DateTime.UtcNow;
 			}
 			public string Id { get; set; }
 			public DateTimeOffset StartTime { get; set; }
 			public ScanUTXOSetOptions Options { get; set; }
 			public NBXplorerNetwork Network { get; }
-			public DerivationSchemeTrackedSource DerivationStrategy { get; set; }
+			public TrackedSource TrackedSource { get; set; }
 			public ScanUTXOInformation State { get; set; }
 			public bool Finished { get; internal set; }
 		}
@@ -77,9 +77,9 @@ namespace NBXplorer
 		Channel<string> _Channel = Channel.CreateBounded<string>(500);
 		ConcurrentDictionary<string, ScanUTXOWorkItem> _Progress = new ConcurrentDictionary<string, ScanUTXOWorkItem>();
 
-		internal bool EnqueueScan(NBXplorerNetwork network, DerivationStrategyBase derivationScheme, ScanUTXOSetOptions options)
+		internal bool EnqueueScan(NBXplorerNetwork network, TrackedSource trackedSource, ScanUTXOSetOptions options)
 		{
-			var workItem = new ScanUTXOWorkItem(network, derivationScheme)
+			var workItem = new ScanUTXOWorkItem(network, trackedSource)
 			{
 				State = new ScanUTXOInformation()
 				{
@@ -138,7 +138,7 @@ namespace NBXplorer
 						Logs.Explorer.LogError($"{workItem.Network.CryptoCode}: Work has been scheduled for {item}, but the work has not been found in _Progress dictionary. This is likely a bug, contact NBXplorer developers.");
 						continue;
 					}
-					Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning {workItem.DerivationStrategy.ToPrettyString()} from index {workItem.Options.From} with gap limit {workItem.Options.GapLimit}, batch size {workItem.Options.BatchSize}");
+					Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning {workItem.TrackedSource.ToPrettyString()} from index {workItem.Options.From} with gap limit {workItem.Options.GapLimit}, batch size {workItem.Options.BatchSize}");
 					var rpc = RpcClients.Get(workItem.Network);
 					try
 					{
@@ -149,13 +149,25 @@ namespace NBXplorer
 							From = workItem.Options.From,
 							StartedAt = DateTimeOffset.UtcNow
 						};
-						foreach (var feature in workItem.DerivationStrategy.GetDerivationFeatures(keyPathTemplates))
+						switch (workItem.TrackedSource)
 						{
-							workItem.State.Progress.HighestKeyIndexFound.Add(feature, null);
+							case AddressTrackedSource addressTrackedSource:
+								break;
+							case DerivationSchemeTrackedSource derivationSchemeTrackedSource:
+								foreach (var feature in derivationSchemeTrackedSource.GetDerivationFeatures(keyPathTemplates))
+								{
+									workItem.State.Progress.HighestKeyIndexFound.Add(feature, null);
+								}
+								break;
+							case GroupTrackedSource groupTrackedSource:
+								break;
+							default:
+								throw new ArgumentOutOfRangeException();
 						}
+						
 						workItem.State.Progress.UpdateRemainingBatches(workItem.Options.GapLimit);
 						workItem.State.Status = ScanUTXOStatus.Pending;
-						var scannedItems = GetScannedItems(workItem, workItem.State.Progress, workItem.Network);
+						var scannedItems = await GetScannedItems(workItem, workItem.State.Progress, workItem.Network);
 						var scanning = rpc.StartScanTxoutSetExAsync(new ScanTxoutSetParameters(scannedItems.Descriptors), _Cts.Token);
 
 						while (true)
@@ -186,8 +198,8 @@ namespace NBXplorer
 									progressObj.TotalSearched += scannedItems.Descriptors.Count;
 									progressObj.UpdateRemainingBatches(workItem.Options.GapLimit);
 									progressObj.UpdateOverallProgress();
-									Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning of batch {workItem.State.Progress.BatchNumber} for {workItem.DerivationStrategy.ToPrettyString()} complete with {outputs.Length} UTXOs fetched");
-									await UpdateRepository(rpc, workItem.DerivationStrategy, repo, outputs, scannedItems, progressObj);
+									Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning of batch {workItem.State.Progress.BatchNumber} for {workItem.TrackedSource.ToPrettyString()} complete with {outputs.Length} UTXOs fetched");
+									await UpdateRepository(rpc, workItem.TrackedSource, repo, outputs, scannedItems, progressObj);
 
 									if (progressObj.RemainingBatches <= -1)
 									{
@@ -201,12 +213,12 @@ namespace NBXplorer
 										progressObj.UpdateOverallProgress();
 										workItem.State.Progress = progressObj;
 										workItem.State.Status = ScanUTXOStatus.Complete;
-										Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning {workItem.DerivationStrategy.ToPrettyString()} complete {progressObj.Found} UTXOs found in total");
+										Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Scanning {workItem.TrackedSource.ToPrettyString()} complete {progressObj.Found} UTXOs found in total");
 										break;
 									}
 									else
 									{
-										scannedItems = GetScannedItems(workItem, progressObj, workItem.Network);
+										scannedItems = await GetScannedItems(workItem, progressObj, workItem.Network);
 										workItem.State.Progress = progressObj;
 										scanning = rpc.StartScanTxoutSetAsync(new ScanTxoutSetParameters(scannedItems.Descriptors));
 									}
@@ -225,7 +237,7 @@ namespace NBXplorer
 						var progress = workItem.State.Progress.Clone();
 						progress.CompletedAt = DateTimeOffset.UtcNow;
 						workItem.State.Progress = progress;
-						Logs.Explorer.LogError(ex, $"{workItem.Network.CryptoCode}: Error while scanning {workItem.DerivationStrategy.ToPrettyString()}");
+						Logs.Explorer.LogError(ex, $"{workItem.Network.CryptoCode}: Error while scanning {workItem.TrackedSource.ToPrettyString()}");
 					}
 					finally
 					{
@@ -241,7 +253,7 @@ namespace NBXplorer
 			}
 		}
 
-		private async Task UpdateRepository(RPCClient client, DerivationSchemeTrackedSource trackedSource, Repository repo, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
+		private async Task UpdateRepository(RPCClient client, TrackedSource trackedSource, Repository repo, ScanTxoutOutput[] outputs, ScannedItems scannedItems, ScanUTXOProgress progressObj)
 		{
 			var blockHeaders = await client.GetBlockHeadersAsync(outputs.Select(o => o.Height).Distinct().ToList(), _Cts.Token);
 
@@ -250,13 +262,16 @@ namespace NBXplorer
 				.Select(o => (Coins: o.Select(c => c.Coin).ToList(),
 							  BlockHeader: blockHeaders.ByHeight.TryGet(o.First().Height),
 							  TxId: o.Select(c => c.Coin.Outpoint.Hash).FirstOrDefault(),
-							  KeyPathInformations: o.Select(c => scannedItems.KeyPathInformations[c.Coin.ScriptPubKey]).ToList()))
+							  KeyPathInformations: o
+								  .Select(c => scannedItems.KeyPathInformations.TryGet(c.Coin.ScriptPubKey))
+								  .Where(information => information is not null)
+								  .ToList()))
 				.Where(o => o.BlockHeader != null)
 				.Select(o =>
 				{
 					foreach (var keyInfo in o.KeyPathInformations)
 					{
-						var index = keyInfo.Index.Value;
+						var index = keyInfo!.Index!.Value;
 						var highest = progressObj.HighestKeyIndexFound[keyInfo.Feature];
 						if (highest == null || index > highest.Value)
 						{
@@ -275,7 +290,8 @@ namespace NBXplorer
 						return false;
 					return p.Index.Value <= highest.Value;
 				}).ToArray());
-			await repo.UpdateAddressPool(trackedSource, progressObj.HighestKeyIndexFound);
+			if(trackedSource is DerivationSchemeTrackedSource derivationSchemeTrackedSource)
+				await repo.UpdateAddressPool(derivationSchemeTrackedSource, progressObj.HighestKeyIndexFound);
 			DateTimeOffset now = DateTimeOffset.UtcNow;
 
 			var records = data.Select(d => SaveTransactionRecord.Create(
@@ -287,42 +303,57 @@ namespace NBXplorer
 			await repo.SaveMatches(query, records.ToArray());
 		}
 
-		private ScannedItems GetScannedItems(ScanUTXOWorkItem workItem, ScanUTXOProgress progress, NBXplorerNetwork network)
+		private async Task<ScannedItems> GetScannedItems(ScanUTXOWorkItem workItem, ScanUTXOProgress progress, NBXplorerNetwork network)
 		{
 			var items = new ScannedItems();
-			var derivationStrategy = workItem.DerivationStrategy;
-			foreach (var feature in derivationStrategy.GetDerivationFeatures(keyPathTemplates))
+
+			switch (workItem.TrackedSource)
 			{
-				var lineDerivation = workItem.DerivationStrategy.DerivationStrategy.GetLineFor(keyPathTemplates, feature);
-				Enumerable.Range(progress.From, progress.Count)
-						  .Select(index =>
-						  {
-							  var keyPath = (lineDerivation as KeyPathTemplateDerivationLine)?.KeyPathTemplate.GetKeyPath(index, false);
-							  var derivation = lineDerivation.Derive((uint)index);
-							  var info = new KeyPathInformation()
-							  {
-								ScriptPubKey = derivation.ScriptPubKey,
-								DerivationStrategy = derivationStrategy.DerivationStrategy,
-								Feature = feature,
-								KeyPath = keyPath,
-								Redeem = derivation.Redeem,
-								TrackedSource = derivationStrategy,
-								Address = derivation.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork),
-								Index = index
-							  };
-							  if (network.IsElement && !workItem.DerivationStrategy.DerivationStrategy.Unblinded())
-							  {
-								  var blindingPubKey = 
-								  NBXplorer.NBXplorerNetworkProvider.LiquidNBXplorerNetwork
-								  .GenerateBlindingKey(derivationStrategy.DerivationStrategy, keyPath, derivation.ScriptPubKey, network.NBitcoinNetwork).PubKey;
-								  info.Address = new BitcoinBlindedAddress(blindingPubKey, info.Address);
-							  }
-							  items.Descriptors.Add(OutputDescriptor.NewRaw(info.ScriptPubKey, network.NBitcoinNetwork));
-							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
-							  return info;
-						  }).All(_ => true);
+				case AddressTrackedSource addressTrackedSource:
+					items.Descriptors.Add(OutputDescriptor.NewRaw(addressTrackedSource.ScriptPubKey, network.NBitcoinNetwork));
+					break;
+				case DerivationSchemeTrackedSource derivationSchemeTrackedSource:
+					foreach (var feature in derivationSchemeTrackedSource.GetDerivationFeatures(keyPathTemplates))
+					{
+						var lineDerivation = derivationSchemeTrackedSource.DerivationStrategy.GetLineFor(keyPathTemplates, feature);
+						Enumerable.Range(progress.From, progress.Count)
+							.Select(index =>
+							{
+								var keyPath = (lineDerivation as KeyPathTemplateDerivationLine)?.KeyPathTemplate.GetKeyPath(index, false);
+								var derivation = lineDerivation.Derive((uint)index);
+								var info = new KeyPathInformation()
+								{
+									ScriptPubKey = derivation.ScriptPubKey,
+									DerivationStrategy = derivationSchemeTrackedSource.DerivationStrategy,
+									Feature = feature,
+									KeyPath = keyPath,
+									Redeem = derivation.Redeem,
+									TrackedSource = derivationSchemeTrackedSource,
+									Address = derivation.ScriptPubKey.GetDestinationAddress(network.NBitcoinNetwork),
+									Index = index
+								};
+								if (network.IsElement && !derivationSchemeTrackedSource.DerivationStrategy.Unblinded())
+								{
+									var blindingPubKey = 
+										NBXplorer.NBXplorerNetworkProvider.LiquidNBXplorerNetwork
+											.GenerateBlindingKey(derivationSchemeTrackedSource.DerivationStrategy, keyPath, derivation.ScriptPubKey, network.NBitcoinNetwork).PubKey;
+									info.Address = new BitcoinBlindedAddress(blindingPubKey, info.Address);
+								}
+								items.Descriptors.Add(OutputDescriptor.NewRaw(info.ScriptPubKey, network.NBitcoinNetwork));
+								items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
+								return info;
+							}).All(_ => true);
+					}
+					break;
+				case GroupTrackedSource groupTrackedSource:
+					var addresses = await Repositories.GetRepository(network).GetAddresses(groupTrackedSource, network);
+					items.Descriptors.AddRange(addresses.Select(s => OutputDescriptor.NewRaw(BitcoinAddress.Create(s, network.NBitcoinNetwork).ScriptPubKey, network.NBitcoinNetwork)));
+					break;
+				default:
+					throw new ArgumentOutOfRangeException();
 			}
-			Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning batch {progress.BatchNumber} of {workItem.DerivationStrategy.ToPrettyString()} from index {progress.From}");
+			
+			Logs.Explorer.LogInformation($"{workItem.Network.CryptoCode}: Start scanning batch {progress.BatchNumber} of {workItem.TrackedSource.ToPrettyString()} from index {progress.From}");
 			return items;
 		}
 
@@ -333,9 +364,9 @@ namespace NBXplorer
 			return _Task;
 		}
 
-		public ScanUTXOInformation GetInformation(NBXplorerNetwork network, DerivationStrategyBase derivationScheme)
+		public ScanUTXOInformation GetInformation(NBXplorerNetwork network, TrackedSource trackedSource)
 		{
-			_Progress.TryGetValue(new ScanUTXOWorkItem(network, derivationScheme).Id, out var workItem);
+			_Progress.TryGetValue(new ScanUTXOWorkItem(network, trackedSource).Id, out var workItem);
 			return workItem?.State;
 		}
 	}

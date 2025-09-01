@@ -1320,5 +1320,15 @@ namespace NBXplorer.Backend
 
 		internal static readonly string WalletInsertQuery = "INSERT INTO wallets (wallet_id, metadata) VALUES (@wid, @metadata::JSONB) ON CONFLICT DO NOTHING;";
 		internal static readonly string WalletCheckQuery = "SELECT COUNT(*) FROM wallets WHERE wallet_id=@wid";
+ 
+		public async Task<string[]> GetAddresses(TrackedSource trackedSource, NBXplorerNetwork network)
+		{
+			var walletKey =  GetWalletKey(trackedSource, network);
+			await using var conn = await ConnectionFactory.CreateConnection();
+			return (await conn.QueryAsync<string>("SELECT s.addr FROM wallets_scripts JOIN scripts s USING (code, script) WHERE code=@code AND wallet_id=@wid", new
+			{
+				code = network.CryptoCode, walletKey.wid
+			})).ToArray();
+		}
 	}
 }
