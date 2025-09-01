@@ -2559,10 +2559,25 @@
     },
     "/v1/groups": {
       "post": {
-        "summary": "Create a new empty group",
+        "summary": "Create a new group",
         "tags": [
           "Groups"
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "groupId": {
+                    "type": "string",
+                    "description": "The id of the group to create. If not specified, a random one is generated."
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Group created successfully",
@@ -2624,70 +2639,6 @@
                 "example": {
                   "error": "Group not found.",
                   "code": 404
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "summary": "Create or overwrite a group",
-        "operationId": "Create",
-        "description": "Creates a new group with the specified groupId. If a group with the same groupId already exists, it will be overwritten.",
-        "tags": [
-          "Groups"
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/GroupId"
-          }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "children": {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    },
-                    "description": "An array of tracked sources (derivation schemes or other groups) to be included in the group."
-                  }
-                }
-              },
-              "example": {
-                "children": [
-                  "DERIVATIONSCHEME:xpub6CUGRUonZSQ4TWtTMmzXdrXDtypWKiK...",
-                  "GROUP:my-other-group"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Group created or overwritten successfully.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Group"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request. Invalid groupId or children.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "example": {
-                  "error": "Invalid groupId or children.",
-                  "code": 400
                 }
               }
             }

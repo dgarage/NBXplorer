@@ -30,9 +30,9 @@ namespace NBXplorer.Controllers
 		public NBXplorerNetworkProvider NetworkProvider { get; }
 
 		[HttpPost(CommonRoutes.BaseGroupEndpoint)]
-		public async Task<IActionResult> CreateGroup()
+		public async Task<IActionResult> CreateGroup([FromBody] CreateGroupRequest request)
 		{
-			var group = GroupTrackedSource.Generate();
+			var group = string.IsNullOrEmpty(request?.GroupId)? GroupTrackedSource.Generate(): new GroupTrackedSource(request.GroupId);
 			await using var conn = await ConnectionFactory.CreateConnection();
 			await conn.ExecuteAsync(Repository.WalletInsertQuery, Repository.GetWalletKey(group));
 			return base.Ok(ToGroupInfo(group));
