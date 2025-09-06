@@ -8,7 +8,7 @@ COPY . .
 RUN cd NBXplorer && \
     dotnet publish --output /app/ --configuration Release
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.11-bookworm-slim
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.18-bookworm-slim
 WORKDIR /app
 
 RUN mkdir /datadir
