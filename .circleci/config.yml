@@ -36,5 +36,8 @@ workflows:
           filters:
             branches:
               ignore: /.*/
+            # only act on version tags v1.0.0.88 or v1.0.2-1
+            # OR feature tags like abc
+            # OR features on specific versions like v1.0.0.88-abc-1
             tags:
-              only: /v[0-9]+(\.[0-9]+)*/
+              only: /(v[1-9]+(\.[0-9]+)*(-[a-z0-9-]+)?)|(v[a-z0-9-]+)/
