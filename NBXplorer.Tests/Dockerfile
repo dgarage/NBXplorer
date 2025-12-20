@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0.404-bookworm-slim AS builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0.101-noble AS builder
 WORKDIR /source
 COPY . .
 RUN cd NBXplorer.Tests && dotnet build

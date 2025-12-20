@@ -16,7 +16,7 @@ namespace NBXplorer.MessageBrokers
         private readonly string NewBlockExchange;
         
         private IConnection Connection;
-        private IModel Channel;
+        private IChannel Channel;
 
         public RabbitMqBroker(
             NBXplorerNetworkProvider networks, ConnectionFactory connectionFactory, 
@@ -28,33 +28,31 @@ namespace NBXplorer.MessageBrokers
             NewBlockExchange = newBlockExchange;
         }
 
-        private void CheckAndOpenConnection()
+        private async Task CheckAndOpenConnection()
         {
             if(Channel == null) 
             {
-                Connection = ConnectionFactory.CreateConnection();
-                Channel = Connection.CreateModel();
+                Connection = await ConnectionFactory.CreateConnectionAsync();
+                Channel = await Connection.CreateChannelAsync();
 
                 if(!string.IsNullOrEmpty(NewTransactionExchange)) 
-                    Channel.ExchangeDeclare(NewTransactionExchange, ExchangeType.Topic);
+                    await Channel.ExchangeDeclareAsync(NewTransactionExchange, ExchangeType.Topic);
                 if(!string.IsNullOrEmpty(NewBlockExchange)) 
-                    Channel.ExchangeDeclare(NewBlockExchange, ExchangeType.Topic);
+                    await Channel.ExchangeDeclareAsync(NewBlockExchange, ExchangeType.Topic);
             }
         }
 
-        Task IBrokerClient.Close()
+        async Task IBrokerClient.Close()
         {
             if(Connection != null && Connection.IsOpen)
-                Connection.Close();
+                await Connection.CloseAsync();
             if(Channel != null && Channel.IsOpen)
-                Channel.Close();
-
-            return Task.CompletedTask;
+                await Channel.CloseAsync();
         }
 
-        Task IBrokerClient.Send(NewTransactionEvent transactionEvent)
+        async Task IBrokerClient.Send(NewTransactionEvent transactionEvent)
         {
-            CheckAndOpenConnection();
+            await CheckAndOpenConnection();
 
             string jsonMsg = transactionEvent.ToJson(Networks.GetFromCryptoCode(transactionEvent.CryptoCode).JsonSerializerSettings);
             var body = Encoding.UTF8.GetBytes(jsonMsg);
@@ -65,43 +63,41 @@ namespace NBXplorer.MessageBrokers
             string msgIdHash = HashMessageId($"{transactionEvent.TrackedSource}-{transactionEvent.TransactionData.Transaction.GetHash()}-{(transactionEvent.TransactionData.BlockId?.ToString() ?? string.Empty)}");
 			ValidateMessageId(msgIdHash);
 
-            IBasicProperties props = Channel.CreateBasicProperties();
+            var props = new BasicProperties();
             props.MessageId = msgIdHash;
             props.ContentType = typeof(NewTransactionEvent).ToString();
             props.Headers = new Dictionary<string, object>();
             props.Headers.Add("CryptoCode", transactionEvent.CryptoCode);
 
-            Channel.BasicPublish(
+            await Channel.BasicPublishAsync(
                 exchange: NewTransactionExchange, 
                 routingKey: routingKey,
+                mandatory: false,
                 basicProperties: props, 
                 body: body);
-
-            return Task.CompletedTask;
         }
 
-        Task IBrokerClient.Send(NewBlockEvent blockEvent)
+        async Task IBrokerClient.Send(NewBlockEvent blockEvent)
         {
-            CheckAndOpenConnection();
+            await CheckAndOpenConnection();
 
             string jsonMsg = blockEvent.ToJson(Networks.GetFromCryptoCode(blockEvent.CryptoCode).JsonSerializerSettings);
             var body = Encoding.UTF8.GetBytes(jsonMsg);
 
             var routingKey = $"blocks.{blockEvent.CryptoCode}";
             
-            IBasicProperties props = Channel.CreateBasicProperties();
+            var props = new BasicProperties();
             props.MessageId = blockEvent.Hash.ToString();
             props.ContentType = typeof(NewBlockEvent).ToString();
             props.Headers = new Dictionary<string, object>();
             props.Headers.Add("CryptoCode", blockEvent.CryptoCode);
 
-            Channel.BasicPublish(
+            await Channel.BasicPublishAsync(
                 exchange: NewBlockExchange, 
                 routingKey: routingKey,
+                mandatory: false,
                 basicProperties: props, 
                 body: body);
-
-            return Task.CompletedTask;
         }
 
         const int MaxMessageIdLength = 128;
