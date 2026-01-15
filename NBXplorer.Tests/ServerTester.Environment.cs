@@ -3,8 +3,8 @@ using NBitcoin;
 
 namespace NBXplorer.Tests
 {
-    public partial class ServerTester
-    {
+	public partial class ServerTester
+	{
 		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(ChainName.Regtest);
 
 		public bool CreateWallet { get; set; } = false;
@@ -91,6 +91,10 @@ namespace NBXplorer.Tests
 			//CryptoCode = "MUE";
 			//nodeDownloadData = NodeDownloadData.MonetaryUnit.v2_1_6;
 			//Network = NBitcoin.Altcoins.MonetaryUnit.Instance.Regtest;
+
+			// CryptoCode = "DCR";
+			// nodeDownloadData = NodeDownloadData.Decred.v2_0_6;
+			// NBXplorerNetwork = _Provider.GetDCR();
 
 			//CryptoCode = "LBTC";
 			//nodeDownloadData = NodeDownloadData.Elements.v0_21_0_2;
