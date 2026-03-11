@@ -70,7 +70,7 @@ Read our [API Specification](https://dgarage.github.io/NBXplorer/).
 
 ## Prerequisite
 
-* Install [.NET Core SDK v8.0 or above](https://www.microsoft.com/net/download)
+* Install [.NET SDK v10.0 or above](https://www.microsoft.com/net/download)
 * Bitcoin Core instance synched and running (at least 24.0).
 * PostgresSQL v13+
 
