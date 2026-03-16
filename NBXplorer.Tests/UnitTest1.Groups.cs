@@ -120,6 +120,61 @@ namespace NBXplorer.Tests
 			balance = await tester.Client.GetBalanceAsync(gts);
 			Assert.Equal(Money.Coins(1.0m + 1.2m), balance.Unconfirmed);
 		}
+		
+		[Fact]
+		public async Task CanGetGroupAddresses()
+		{
+			using var tester = ServerTester.Create();
+			var g = await tester.Client.CreateGroupAsync();
+			var addresses = Enumerable.Range(0, 10).Select(_ => new Key().GetAddress(ScriptPubKeyType.TaprootBIP86, tester.Network).ToString()).ToArray();
+			await tester.Client.AddGroupAddressAsync("BTC", g.GroupId, addresses);
+
+			var groupAddresses = await tester.Client.GetAddresses(new GroupTrackedSource(g.GroupId));
+			Assert.Equal(addresses.Length, groupAddresses.Length);
+			foreach (var a in addresses)
+			{
+				Assert.Contains(BitcoinAddress.Create(a, tester.Network), groupAddresses);
+			}
+		}
+	
+
+		[Fact]
+		public async Task CanScanUTXOSetForGroups()
+		{
+			using var tester = ServerTester.Create();
+			var g = await tester.Client.CreateGroupAsync(Cancel);
+			var newAddress = new Key().GetAddress(ScriptPubKeyType.TaprootBIP86, tester.Network);
+			await tester.Client.AddGroupAddressAsync("BTC", g.GroupId, [newAddress.ToString()], Cancel);
+
+			var txid = await tester.SendToAddressAsync(newAddress, Money.Coins(1.0m));
+			tester.RPC.Generate(1);
+			var block = await tester.RPC.GetBlockAsync(await tester.RPC.GetBestBlockHashAsync(Cancel), Cancel);
+			var match = block.Transactions.Single(t => t.GetHash() == txid);
+			var coin = match.Outputs.AsCoins().Single(c => c.ScriptPubKey == newAddress.ScriptPubKey);
+
+			var gts = new GroupTrackedSource(g.GroupId);
+			await tester.Client.ScanUTXOSetAsync(gts, cancellation: Cancel);
+
+			ScanUTXOInformation progress = null;
+			while (true)
+			{
+				progress = await tester.Client.GetScanUTXOSetInformationAsync(gts, Cancel);
+				Assert.NotNull(progress);
+				if (progress.Status is ScanUTXOStatus.Complete or ScanUTXOStatus.Error)
+					break;
+				await Task.Delay(100, Cancel);
+			}
+			Assert.Equal(ScanUTXOStatus.Complete, progress.Status);
+			Assert.Equal(1, progress.Progress.Found);
+
+			var utxos = await tester.Client.GetUTXOsAsync(gts, Cancel);
+			var unspent = utxos.GetUnspentCoins();
+			Assert.Single(unspent);
+			Assert.Equal(coin.Outpoint, unspent[0].Outpoint);
+
+			var balance = await tester.Client.GetBalanceAsync(gts, Cancel);
+			Assert.Equal(Money.Coins(1.0m), balance.Confirmed);
+		}
 
 		private async Task<NBXplorerException> AssertNBXplorerException(int httpCode, Task<GroupInformation> task)
 		{
