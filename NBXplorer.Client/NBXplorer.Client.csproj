@@ -28,7 +28,7 @@
         </PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="NBitcoin" Version="9.0.5" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="5.0.2" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="5.0.3" />
 	</ItemGroup>
     <ItemGroup>
         <InternalsVisibleTo Include="NBXplorer.Tests" />
