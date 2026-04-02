@@ -60,6 +60,7 @@ It currently supports the following altcoins:
 * Monacoin
 * MonetaryUnit
 * Monoeci
+* Pepecoin
 * Polis
 * Qtum
 * Terracoin
