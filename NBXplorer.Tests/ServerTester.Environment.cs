@@ -29,6 +29,12 @@ namespace NBXplorer.Tests
 			//Network = NBitcoin.Altcoins.Dogecoin.Instance.Regtest;
 			//RPCStringAmount = false;
 
+			//Tests of PEPE are broken because it outpoint locking seems to work differently
+			//CryptoCode = "PEPE";
+			//nodeDownloadData = NodeDownloadData.Pepecoin.v1_1_0;
+			//Network = NBitcoin.Altcoins.Pepecoin.Instance.Regtest;
+			//RPCStringAmount = false;
+
 			//CryptoCode = "DASH";
 			//nodeDownloadData = NodeDownloadData.Dash.v0_12_2;
 			//Network = NBitcoin.Altcoins.Dash.Instance.Regtest;
