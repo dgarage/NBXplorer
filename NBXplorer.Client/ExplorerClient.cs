@@ -585,7 +585,11 @@ namespace NBXplorer
 
 		public Task<GroupInformation> CreateGroupAsync(CancellationToken cancellationToken = default)
 		{
-			return SendAsync<GroupInformation>(HttpMethod.Post, null, $"v1/groups", cancellationToken);
+			return CreateGroupAsync(null, cancellationToken);
+		}
+		public Task<GroupInformation> CreateGroupAsync(CreateGroupRequest request, CancellationToken cancellationToken = default)
+		{
+			return SendAsync<GroupInformation>(HttpMethod.Post, request, $"v1/groups", cancellationToken);
 		}
 		public Task<GroupInformation> GetGroupAsync(string groupId, CancellationToken cancellationToken = default)
 		{
