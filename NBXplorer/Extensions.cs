@@ -19,14 +19,10 @@ using Microsoft.Extensions.Hosting;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
 using NBXplorer.Authentication;
-using NBXplorer.MessageBrokers;
 using NBXplorer.HostedServices;
-using NBXplorer.Controllers;
-
 using NBXplorer.Backend;
 using NBitcoin.Altcoins.Elements;
 using Npgsql;
-using NBitcoin.Altcoins;
 using System.Threading;
 using Newtonsoft.Json.Linq;
 using static NBXplorer.Backend.Repository;
@@ -217,7 +213,6 @@ namespace NBXplorer
 			services.AddHostedService<RPCReadyFileHostedService>();
 			services.AddSingleton<IHostedService, ScanUTXOSetService>();
 			services.TryAddSingleton<ScanUTXOSetServiceAccessor>();
-			services.AddSingleton<IHostedService, BrokerHostedService>();
 
 			services.AddSingleton<Analytics.FingerprintHostedService>();
 			services.AddSingleton<IHostedService, Analytics.FingerprintHostedService>(o => o.GetRequiredService<Analytics.FingerprintHostedService>());
