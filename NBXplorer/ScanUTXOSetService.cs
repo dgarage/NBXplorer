@@ -12,9 +12,7 @@ using NBitcoin.RPC;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
 using NBXplorer.Logging;
-using NBitcoin.Scripting;
 using NBXplorer.Backend;
-using NBitcoin.Altcoins;
 using static NBXplorer.Backend.DbConnectionHelper;
 using NBitcoin.Altcoins.Elements;
 
@@ -61,7 +59,7 @@ namespace NBXplorer
 		class ScannedItems
 		{
 			public Dictionary<Script, KeyPathInformation> KeyPathInformations = new Dictionary<Script, KeyPathInformation>();
-			public List<OutputDescriptor> Descriptors = new List<OutputDescriptor>();
+			public List<string> Descriptors = new List<string>();
 		}
 
 		public ScanUTXOSetService(ScanUTXOSetServiceAccessor accessor,
@@ -317,7 +315,7 @@ namespace NBXplorer
 								  .GenerateBlindingKey(derivationStrategy.DerivationStrategy, keyPath, derivation.ScriptPubKey, network.NBitcoinNetwork).PubKey;
 								  info.Address = new BitcoinBlindedAddress(blindingPubKey, info.Address);
 							  }
-							  items.Descriptors.Add(OutputDescriptor.NewRaw(info.ScriptPubKey, network.NBitcoinNetwork));
+							  items.Descriptors.Add($"raw({info.ScriptPubKey})");
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
 							  return info;
 						  }).All(_ => true);

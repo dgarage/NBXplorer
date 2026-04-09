@@ -17,8 +17,8 @@ using System.Net;
 using NBXplorer.DerivationStrategy;
 using System.Net.Http;
 using Microsoft.Extensions.DependencyInjection;
+using NBitcoin.WalletPolicies;
 using Newtonsoft.Json.Linq;
-using NBitcoin.Scripting;
 
 namespace NBXplorer.Tests
 {
@@ -395,7 +395,7 @@ namespace NBXplorer.Tests
 						new JArray(
 						new JObject()
 						{
-							["desc"] = OutputDescriptor.AddChecksum(d),
+							["desc"] = Miniscript.AddChecksum(d),
 							["timestamp"] = this.RPC.Network.Consensus.CoinbaseMaturity
 						})
 					}

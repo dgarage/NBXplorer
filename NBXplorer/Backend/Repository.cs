@@ -14,11 +14,12 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NBitcoin.Altcoins.Elements;
 using NBXplorer.Client;
-using NBitcoin.Scripting;
 using System.Text.RegularExpressions;
 using Npgsql;
 using static NBXplorer.Backend.DbConnectionHelper;
 using NBitcoin.DataEncoders;
+using NBitcoin.WalletPolicies;
+using Derivation = NBXplorer.DerivationStrategy.Derivation;
 
 
 namespace NBXplorer.Backend
@@ -267,7 +268,7 @@ namespace NBXplorer.Backend
 					}
 					descriptor = ReplaceBase58(descriptor, $"$0/{keyTemplate}");
 					// descriptor: tr([abcdefaa/49'/0'/0']xpriv/0/*)
-					await rpc.ImportDescriptors(OutputDescriptor.AddChecksum(descriptor), fromIndex, fromIndex + toGenerate - 1, default);
+					await rpc.ImportDescriptors(Miniscript.AddChecksum(descriptor), fromIndex, fromIndex + toGenerate - 1, default);
 				}
 			}
 		}

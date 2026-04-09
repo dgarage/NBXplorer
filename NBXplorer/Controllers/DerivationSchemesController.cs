@@ -9,10 +9,10 @@ using System.Globalization;
 using System;
 using System.Threading.Tasks;
 using NBitcoin.RPC;
-using NBitcoin.Scripting;
 using System.Linq;
 using NBXplorer.Logging;
 using Microsoft.Extensions.Logging;
+using NBitcoin.WalletPolicies;
 
 namespace NBXplorer.Controllers
 {
@@ -351,7 +351,7 @@ namespace NBXplorer.Controllers
 				ScriptPubKeyType.TaprootBIP86 => $"tr({imported})",
 				_ => throw new NotSupportedException($"Bug of NBXplorer (ERR 3082), please notify the developers ({scriptPubKeyType})")
 			};
-			return OutputDescriptor.AddChecksum(descriptor);
+			return Miniscript.AddChecksum(descriptor);
 		}
 	}
 }
