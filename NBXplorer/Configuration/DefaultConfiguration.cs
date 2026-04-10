@@ -43,19 +43,6 @@ namespace NBXplorer.Configuration
 				app.Option($"--{crypto}exposerpc", $"Expose the node RPCs through the REST API (default: false)", CommandOptionType.SingleValue);
 			}
 
-			app.Option("--asbcnstr", "[For Azure Service Bus] Azure Service Bus Connection string. New Block and New Transaction messages will be pushed to queues when this values is set", CommandOptionType.SingleValue);
-			app.Option("--asbblockq", "[For Azure Service Bus] Name of Queue to push new block message to. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--asbtranq", "[For Azure Service Bus] Name of Queue to push new transaction message to. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--asbblockt", "[For Azure Service Bus] Name of Topic to push new block message to. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--asbtrant", "[For Azure Service Bus] Name of Topic to push new transaction message to. Leave blank to turn off", CommandOptionType.SingleValue);
-
-			app.Option("--rmqhost", "[For RabbitMq] RabbitMq host name. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--rmquser", "[For RabbitMq] RabbitMq username. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--rmqpass", "[For RabbitMq] RabbitMq password. Leave blank to turn off", CommandOptionType.SingleValue);
-			app.Option("--rmqvirtual", "[For RabbitMq] RabbitMq virtual host.", CommandOptionType.SingleValue);
-			app.Option("--rmqtranex", "[For RabbitMq] Name of exchange to push transaction messages.", CommandOptionType.SingleValue);
-			app.Option("--rmqblockex", "[For RabbitMq] Name of exchange to push block messages.", CommandOptionType.SingleValue);
-
 			app.Option("--customkeypathtemplate", $"Define an additional derivation path tracked by NBXplorer (Format: m/1/392/*/29, default: empty)", CommandOptionType.SingleValue);
 			app.Option("--maxgapsize", $"The maximum gap address count on which the explorer will track derivation schemes (default: 30)", CommandOptionType.SingleValue);
 			app.Option("--mingapsize", $"The minimum gap address count on which the explorer will track derivation schemes (default: 20)", CommandOptionType.SingleValue);
@@ -179,15 +166,6 @@ namespace NBXplorer.Configuration
 			builder.AppendLine("#port=" + settings.DefaultPort);
 			builder.AppendLine("#bind=127.0.0.1");
 			builder.AppendLine($"#{networkType.ToString().ToLowerInvariant()}=1");
-			builder.AppendLine();
-			builder.AppendLine();
-			builder.AppendLine("####Azure Service Bus####");
-			builder.AppendLine("## Azure Service Bus configuration - set connection string to use Service Bus. Set Queue and / or Topic names to publish message to queues / topics");
-			builder.AppendLine("#asbcnstr=Endpoint=sb://<yourdomain>.servicebus.windows.net/;SharedAccessKeyName=<your key name here>;SharedAccessKey=<your key here>");
-			builder.AppendLine("#asbblockq=<new block queue name>");
-			builder.AppendLine("#asbtranq=<new transaction queue name>");
-			builder.AppendLine("#asbblockt=<new block topic name>");
-			builder.AppendLine("#asbtrant=<new transaction topic name>");
 
 			return builder.ToString();
 		}

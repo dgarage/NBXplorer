@@ -27,15 +27,6 @@ services:
       - "39388:39388"
     volumes:
     - "bitcoin_datadir:/data"
-
-  rabbitmq:
-    image: rabbitmq:3-management
-    hostname: rabbitmq
-    ports:
-      - 4369:4369
-      - 5671:5671
-      - 5672:5672
-      - 15672:15672
   
   postgres:
     image:  postgres:18.1

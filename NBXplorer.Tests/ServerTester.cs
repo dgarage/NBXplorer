@@ -111,7 +111,6 @@ namespace NBXplorer.Tests
 		}
 
 		public int TrimEvents { get; set; } = -1;
-		public bool UseRabbitMQ { get; set; } = false;
 		public List<(string key, string value)> AdditionalConfiguration { get; set; } = new List<(string key, string value)>();
 		public List<string> AdditionalFlags = new List<string>();
 		internal string PostgresConnectionString;
@@ -138,20 +137,6 @@ namespace NBXplorer.Tests
 			keyValues.Add(("mingapsize", "3"));
 			keyValues.Add(("maxgapsize", "8"));
 			keyValues.Add(($"{CryptoCode.ToLowerInvariant()}nodeendpoint", $"{Explorer.Endpoint.Address}:{Explorer.Endpoint.Port}"));
-			keyValues.Add(("asbcnstr", AzureServiceBusTestConfig.ConnectionString));
-			keyValues.Add(("asbblockq", AzureServiceBusTestConfig.NewBlockQueue));
-			keyValues.Add(("asbtranq", AzureServiceBusTestConfig.NewTransactionQueue));
-			keyValues.Add(("asbblockt", AzureServiceBusTestConfig.NewBlockTopic));
-			keyValues.Add(("asbtrant", AzureServiceBusTestConfig.NewTransactionTopic));
-			if (UseRabbitMQ)
-			{
-				keyValues.Add(("rmqhost", RabbitMqTestConfig.RabbitMqHostName));
-				keyValues.Add(("rmqvirtual", RabbitMqTestConfig.RabbitMqVirtualHost));
-				keyValues.Add(("rmquser", RabbitMqTestConfig.RabbitMqUsername));
-				keyValues.Add(("rmqpass", RabbitMqTestConfig.RabbitMqPassword));
-				keyValues.Add(("rmqtranex", RabbitMqTestConfig.RabbitMqTransactionExchange));
-				keyValues.Add(("rmqblockex", RabbitMqTestConfig.RabbitMqBlockExchange));
-			}
 			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value })
 			.Concat(AdditionalFlags)
 			.Concat(additionalFlags).ToArray();

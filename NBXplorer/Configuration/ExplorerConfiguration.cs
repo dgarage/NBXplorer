@@ -187,19 +187,6 @@ namespace NBXplorer.Configuration
 				CustomKeyPathTemplate = v;
 			}
 
-			AzureServiceBusConnectionString = config.GetOrDefault<string>("asbcnstr", "");
-			AzureServiceBusBlockQueue = config.GetOrDefault<string>("asbblockq", "");
-			AzureServiceBusTransactionQueue = config.GetOrDefault<string>("asbtranq", "");
-			AzureServiceBusBlockTopic = config.GetOrDefault<string>("asbblockt", "");
-			AzureServiceBusTransactionTopic = config.GetOrDefault<string>("asbtrant", "");
-
-			RabbitMqHostName = config.GetOrDefault<string>("rmqhost", "");
-			RabbitMqVirtualHost = config.GetOrDefault<string>("rmqvirtual", "");
-			RabbitMqUsername = config.GetOrDefault<string>("rmquser", "");
-			RabbitMqPassword = config.GetOrDefault<string>("rmqpass", "");
-			RabbitMqTransactionExchange = config.GetOrDefault<string>("rmqtranex", "");
-			RabbitMqBlockExchange = config.GetOrDefault<string>("rmqblockex", "");
-
 			var obsolete = string.Join(", ",
 				new[] { "dbtrie", "automigrate", "nomigrateevts", "nomigraterawtxs", "cachechain", "deleteaftermigration", "dbcache" }
 				.Where(o => !string.IsNullOrEmpty(config[o])));
@@ -239,41 +226,6 @@ namespace NBXplorer.Configuration
 			set;
 		}
 		public int TrimEvents { get; set; }
-		public string AzureServiceBusConnectionString
-		{
-			get;
-			set;
-		}
-
-		public string AzureServiceBusBlockQueue
-		{
-			get;
-			set;
-		}
-
-		public string AzureServiceBusBlockTopic
-		{
-			get;
-			set;
-		}
-
-		public string AzureServiceBusTransactionQueue
-		{
-			get;
-			set;
-		}
-		public string AzureServiceBusTransactionTopic
-		{
-			get;
-			set;
-		}
-
-		public string RabbitMqHostName { get; set; }
-        public string RabbitMqVirtualHost { get; set; }
-        public string RabbitMqUsername { get; set; }
-        public string RabbitMqPassword { get; set; }
-        public string RabbitMqTransactionExchange { get; set; }
-        public string RabbitMqBlockExchange { get; set; }
 
 		public KeyPathTemplate CustomKeyPathTemplate { get; set; }
 		public EndPoint SocksEndpoint { get; set; }
