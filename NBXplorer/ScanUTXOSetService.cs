@@ -315,7 +315,7 @@ namespace NBXplorer
 								  .GenerateBlindingKey(derivationStrategy.DerivationStrategy, keyPath, derivation.ScriptPubKey, network.NBitcoinNetwork).PubKey;
 								  info.Address = new BitcoinBlindedAddress(blindingPubKey, info.Address);
 							  }
-							  items.Descriptors.Add($"raw({info.ScriptPubKey})");
+							  items.Descriptors.Add($"raw({info.ScriptPubKey.ToHex()})");
 							  items.KeyPathInformations.TryAdd(info.ScriptPubKey, info);
 							  return info;
 						  }).All(_ => true);
