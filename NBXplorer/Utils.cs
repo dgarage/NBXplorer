@@ -3,11 +3,20 @@ using NBXplorer.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace NBXplorer
 {
 	public static class Utils
 	{
+		public static T GetServerFeatures<T>(this IHost host) where T : class
+		{
+			var server = host.Services.GetRequiredService<IServer>();
+			var features = server.Features;
+			return features.Get<T>();
+		}
 		public static ICollection<AnnotatedTransaction> TopologicalSort(this ICollection<AnnotatedTransaction> transactions)
 		{
 			var confirmed = new MultiValueDictionary<long, AnnotatedTransaction>();

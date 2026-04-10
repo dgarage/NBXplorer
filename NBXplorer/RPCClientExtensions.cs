@@ -194,8 +194,10 @@ namespace NBXplorer
 		{
 			if (peer is null)
 				return false;
+#pragma warning disable CS0618 // Type or member is obsolete
 			if (peer.IsWhiteListed)
 				return true;
+#pragma warning restore CS0618 // Type or member is obsolete
 			if (peer.Permissions.Contains("noban", StringComparer.OrdinalIgnoreCase))
 				return true;
 			return false;

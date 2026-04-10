@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Hosting;
 using NBXplorer.Configuration;
-using Microsoft.AspNetCore.Hosting;
 using NBitcoin;
 using NBitcoin.Tests;
 using System;
@@ -16,6 +16,8 @@ using NBitcoin.RPC;
 using System.Net;
 using NBXplorer.DerivationStrategy;
 using System.Net.Http;
+using System.Net.Sockets;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using NBitcoin.WalletPolicies;
 using Newtonsoft.Json.Linq;
@@ -109,6 +111,15 @@ namespace NBXplorer.Tests
 				throw;
 			}
 		}
+		
+		static int FreeTcpPort()
+		{
+			TcpListener l = new TcpListener(IPAddress.Loopback, 0);
+			l.Start();
+			int port = ((IPEndPoint)l.LocalEndpoint).Port;
+			l.Stop();
+			return port;
+		}
 
 		public int TrimEvents { get; set; } = -1;
 		public List<(string key, string value)> AdditionalConfiguration { get; set; } = new List<(string key, string value)>();
@@ -117,7 +128,7 @@ namespace NBXplorer.Tests
 		private void StartNBXplorer()
 		{
 			var additionalFlags = new List<string>();
-			var port = CustomServer.FreeTcpPort();
+			var port = FreeTcpPort();
 			List<(string key, string value)> keyValues = new List<(string key, string value)>();
 			keyValues.Add(("conf", Path.Combine(datadir, "settings.config")));
 			PostgresConnectionString ??= GetTestPostgres(null, _Name);
@@ -140,9 +151,7 @@ namespace NBXplorer.Tests
 			var args = keyValues.SelectMany(kv => new[] { $"--{kv.key}", kv.value })
 			.Concat(AdditionalFlags)
 			.Concat(additionalFlags).ToArray();
-			Host = new WebHostBuilder()
-				.UseConfiguration(new DefaultConfiguration().CreateConfiguration(args))
-				.UseKestrel()
+			Host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder()
 				.ConfigureLogging(l =>
 				{
 					l.SetMinimumLevel(LogLevel.Information)
@@ -152,7 +161,13 @@ namespace NBXplorer.Tests
 						.AddFilter("NBXplorer.Authentication.BasicAuthenticationHandler", LogLevel.Critical)
 						.AddProvider(Logs.LogProvider);
 				})
-				.UseStartup<Startup>()
+				.ConfigureWebHostDefaults(webBuilder =>
+				{
+					webBuilder
+						.UseKestrel()
+						.UseConfiguration(new DefaultConfiguration().CreateConfiguration(args))
+						.UseStartup<Startup>();
+				})
 				.Build();
 			NBXplorer.Logging.Logs.Configure(Host.Services.GetRequiredService<ILoggerFactory>());
 			NBXplorerNetwork = ((NBXplorerNetworkProvider)Host.Services.GetService(typeof(NBXplorerNetworkProvider))).GetFromCryptoCode(CryptoCode);
@@ -216,7 +231,7 @@ namespace NBXplorer.Tests
 		{
 			get
 			{
-				var address = Host.ServerFeatures.Get<IServerAddressesFeature>().Addresses.FirstOrDefault();
+				var address = Host.GetServerFeatures<IServerAddressesFeature>().Addresses.First();
 				return new Uri(address);
 			}
 		}
@@ -247,7 +262,7 @@ namespace NBXplorer.Tests
 		}
 
 
-		public IWebHost Host
+		public IHost Host
 		{
 			get; set;
 		}
@@ -359,7 +374,9 @@ namespace NBXplorer.Tests
 			var k = PrivateKeyOf(key, path);
 			try
 			{
+#pragma warning disable CS0618 // Type or member is obsolete
 				await RPC.ImportPrivKeyAsync(k).ConfigureAwait(false);
+#pragma warning restore CS0618 // Type or member is obsolete
 			}
 			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR)
 			{

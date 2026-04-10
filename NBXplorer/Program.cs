@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using CommandLine;
 using System.Runtime.CompilerServices;
 using System.Reflection;
+using Microsoft.Extensions.Hosting;
 
 [assembly: InternalsVisibleTo("NBXplorer.Tests")]
 namespace NBXplorer
@@ -21,7 +22,7 @@ namespace NBXplorer
 			Logs.Configure(new FuncLoggerFactory(i => new CustomerConsoleLogger(i, (a, b) => true, null, processor)));
 			if (version is { InformationalVersion: { } v })
 			Logs.Configuration.LogInformation($"NBXplorer version {v.Split('+')[0]}");
-			IWebHost host = null;
+			IHost host = null;
 			try
 			{
 				var conf = new DefaultConfiguration() { Logger = Logs.Configuration }.CreateConfiguration(args);
@@ -32,13 +33,9 @@ namespace NBXplorer
 				// However, a bug in .NET Core fixed in 2.1 will prevent the app from stopping if an exception is thrown by the host
 				// at startup. We need to remove this line later
 				new ExplorerConfiguration().LoadArgs(conf);
-
-				ConfigurationBuilder builder = new ConfigurationBuilder();
-				host = new WebHostBuilder()
+				
+				host = Host.CreateDefaultBuilder()
 					.UseContentRoot(Directory.GetCurrentDirectory()) 
-					.UseKestrel()
-					.UseIISIntegration()
-					.UseConfiguration(conf)
 					.ConfigureLogging(l =>
 					{
 						l.AddFilter("Microsoft", LogLevel.Error);
@@ -50,7 +47,12 @@ namespace NBXplorer
 						}
 						l.AddProvider(new CustomConsoleLogProvider(processor));
 					})
-					.UseStartup<Startup>()
+					.ConfigureWebHostDefaults(webBuilder => {
+						webBuilder
+							.UseKestrel()
+							.UseConfiguration(conf)
+							.UseStartup<Startup>();
+					})
 					.Build();
 				host.Run();
 			}
