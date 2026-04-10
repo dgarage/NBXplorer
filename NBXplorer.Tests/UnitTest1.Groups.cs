@@ -14,7 +14,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public async Task CanCRUDGroups()
 		{
-			using var tester = ServerTester.Create();
+			using var tester = CreateTester();
 			var g1 = await tester.Client.CreateGroupAsync();
 			void AssertG1Empty()
 			{
@@ -90,7 +90,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public async Task CanAliceAndBobShareWallet()
 		{
-			using var tester = ServerTester.Create();
+			using var tester = CreateTester();
 			var bobW = tester.Client.GenerateWallet(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Segwit });
 			var aliceW = tester.Client.GenerateWallet(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Segwit });
 

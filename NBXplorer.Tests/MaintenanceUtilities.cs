@@ -8,18 +8,13 @@ using Xunit.Abstractions;
 
 namespace NBXplorer.Tests
 {
-	public class MaintenanceUtilities
+	public class MaintenanceUtilities(ITestOutputHelper helper) : UnitTestBase(helper)
 	{
-		public MaintenanceUtilities(ITestOutputHelper helper)
-		{
-			Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
-			Logs.LogProvider = new XUnitLoggerProvider(helper);
-		}
 		[Fact]
 		[Trait("Maintenance", "Maintenance")]
 		public async Task GenerateFullSchema()
 		{
-			using var t = ServerTester.Create();
+			using var t = CreateTester();
 			var script = await GenerateDbScript(t);
 			File.WriteAllText(GetFullSchemaFile(), script);
 		}

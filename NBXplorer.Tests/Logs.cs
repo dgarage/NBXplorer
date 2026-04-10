@@ -77,16 +77,4 @@ namespace NBXplorer.Tests
 				catch { }
 		}
 	}
-	public class Logs
-	{
-		public static ILog Tester
-		{
-			get; set;
-		}
-		public static XUnitLoggerProvider LogProvider
-		{
-			get;
-			set;
-		}
-	}
 }

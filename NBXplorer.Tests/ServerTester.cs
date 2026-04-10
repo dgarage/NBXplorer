@@ -28,14 +28,14 @@ namespace NBXplorer.Tests
 	{
 		private readonly string _Directory;
 
-		public static ServerTester Create([CallerMemberNameAttribute] string caller = null)
+		public static ServerTester Create(TesterLogs logs, [CallerMemberNameAttribute] string caller = null)
 		{
-			return new ServerTester(caller, true);
+			return new ServerTester(logs, caller, true);
 		}
 
-		public static ServerTester CreateNoAutoStart([CallerMemberNameAttribute] string caller = null)
+		public static ServerTester CreateNoAutoStart(TesterLogs logs, [CallerMemberNameAttribute] string caller = null)
 		{
-			return new ServerTester(caller, false);
+			return new ServerTester(logs, caller, false);
 		}
 
 		public void Dispose()
@@ -59,11 +59,13 @@ namespace NBXplorer.Tests
 			get; set;
 		}
 
+		public TesterLogs Logs { get; }
 		public string Caller { get; }
-		public ServerTester(string directory, bool autoStart = true)
+		public ServerTester(TesterLogs logs, string directory, bool autoStart = true)
 		{
 			_Name = directory;
 			SetEnvironment();
+			Logs = logs;
 			Caller = directory;
 			var rootTestData = "TestData";
 			directory = Path.Combine(rootTestData, directory);

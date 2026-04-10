@@ -2,14 +2,11 @@ using NBitcoin;
 using NBitcoin.RPC;
 using NBXplorer.DerivationStrategy;
 using NBXplorer.Models;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net.Http;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using NBitcoin.Altcoins.Elements;
@@ -25,17 +22,11 @@ using System.Net;
 using NBXplorer.HostedServices;
 using static NBXplorer.Backend.DbConnectionHelper;
 using NBitcoin.WalletPolicies;
-using System.Diagnostics.Metrics;
 
 namespace NBXplorer.Tests
 {
-	public partial class UnitTest1
+	public partial class UnitTest1(ITestOutputHelper helper) : UnitTestBase(helper)
 	{
-		public UnitTest1(ITestOutputHelper helper)
-		{
-			Logs.Tester = new XUnitLog(helper) { Name = "Tests" };
-			Logs.LogProvider = new XUnitLoggerProvider(helper);
-		}
 		NBXplorerNetworkProvider _Provider = new NBXplorerNetworkProvider(ChainName.Regtest);
 		private NBXplorerNetwork GetNetwork(INetworkSet network)
 		{
@@ -276,7 +267,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanEasilySpendUTXOs()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var userExtKey = new ExtKey();
 				var userDerivationScheme = tester.Client.Network.DerivationStrategyFactory.CreateDirectDerivationStrategy(userExtKey.Neuter(), new DerivationStrategyOptions()
@@ -344,7 +335,7 @@ namespace NBXplorer.Tests
 		[InlineData("tr(@0/**)", 0, 1)]
 		public async Task CanCreatePSBTInMiniscript(string template, int depositIndex, int changeIndex)
 		{
-			using var tester = ServerTester.Create();
+			using var tester = CreateTester();
 			
 			var root = new ExtKey();
 			var path = new KeyPath("86'/1'/0'");
@@ -415,7 +406,7 @@ namespace NBXplorer.Tests
 		public async Task CanCreatePSBT(PSBTVersion v, bool useMiniscript)
 		{
 			var version = v == PSBTVersion.PSBTv0 ? 0 : 2;
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				// We need to check if we can get utxo information of segwit utxos
 				var segwit = await tester.RPC.GetNewAddressAsync(new GetNewAddressRequest()
@@ -491,9 +482,8 @@ namespace NBXplorer.Tests
 			}
 		}
 
-		private static void CanCreatePSBTCore(ServerTester tester, int psbtVersion, ScriptPubKeyType type, bool useMiniscript = false)
+		private void CanCreatePSBTCore(ServerTester tester, int psbtVersion, ScriptPubKeyType type, bool useMiniscript = false)
 		{
-
 			var userExtKey = new ExtKey();
 			var userExtKey2 = new ExtKey();
 
@@ -1219,7 +1209,7 @@ namespace NBXplorer.Tests
 		[InlineData(false)]
 		public async Task CanDoubleSpend(bool onConfirmedUTXO)
 		{
-			using var tester = ServerTester.Create();
+			using var tester = CreateTester();
 			var bobW = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest() { ScriptPubKeyType = ScriptPubKeyType.Segwit });
 			var bob = bobW.DerivationScheme;
 			var bobAddr = await tester.Client.GetUnusedAsync(bob, DerivationFeature.Deposit, 0);
@@ -1286,7 +1276,7 @@ namespace NBXplorer.Tests
 			// Mine a block without B.
 			// Double-Spend A with B'
 			// Check that B' is replacing B in events
-			using var tester = ServerTester.Create();
+			using var tester = CreateTester();
 			var bobW = tester.Client.GenerateWallet();
 			var bob = bobW.DerivationScheme;
 			var bobAddr = tester.Client.GetUnused(bob, DerivationFeature.Deposit, 0);
@@ -1360,7 +1350,7 @@ namespace NBXplorer.Tests
 			// Else, B' just bump the fees.
 			// We should make sure that B' is still saved in the database, and B properly marked as replaced.
 			// If cancelB is true, then B' output shouldn't be related to Bob.
-			using var tester = ServerTester.Create();
+			using var tester = CreateTester();
 
 			var bobW = await tester.Client.GenerateWalletAsync();
 			var bob = bobW.DerivationScheme;
@@ -1430,7 +1420,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task ShowRBFedTransaction()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var bob = tester.CreateDerivationStrategy();
 				var bobSource = new DerivationSchemeTrackedSource(bob);
@@ -1563,7 +1553,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanGetUnusedAddresses()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var bob = tester.CreateDerivationStrategy();
 				var utxo = tester.Client.GetUTXOs(bob); //Track things do not wait
@@ -1619,7 +1609,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public void CanTrimEvents()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var ids = tester.Explorer.Generate(100);
@@ -1644,7 +1634,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanGetAndSetMetadata()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1677,7 +1667,7 @@ namespace NBXplorer.Tests
 			// In this test we have fundingTxId with 2 output and spending1
 			// We make sure that only once the 2 outputs of fundingTxId have been consumed
 			// fundingTxId get pruned
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1786,7 +1776,7 @@ namespace NBXplorer.Tests
 			// In this test we have fundingTxId with 2 output and spending1
 			// We make sure that if only 1 outputs of fundingTxId have been consumed
 			// spending1 does not get pruned, even if its output got consumed
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1855,7 +1845,7 @@ namespace NBXplorer.Tests
 		[InlineData(true)]
 		public async Task CanUseWebSockets(bool legacyAPI)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1904,7 +1894,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanUseLongPollingNotifications()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -1947,7 +1937,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanUseWebSockets2()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -2062,7 +2052,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task DoNotLoseTimestampForLongConfirmations()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var bob = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var bobPubKey = tester.CreateDerivationStrategy(bob.Neuter());
@@ -2087,7 +2077,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanTrack4()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var bob = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var alice = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -2148,7 +2138,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanTrack3()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2210,7 +2200,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanTrackSeveralTransactions()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2263,7 +2253,7 @@ namespace NBXplorer.Tests
 		[InlineData(true)]
 		public async Task CanUseWebSocketsOnAddress(bool legacyAPI)
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new Key();
@@ -2315,7 +2305,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanUseWebSocketsOnAddress2()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var key = new Key();
@@ -2350,7 +2340,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanTrackAddress()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var extkey = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.NBXplorerNetwork.DerivationStrategyFactory.Parse($"{extkey.Neuter()}-[legacy]");
@@ -2441,7 +2431,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanTrack2()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2483,7 +2473,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanReserveAddress()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				//WaitServerStarted not needed, just a sanity check
 				var bob = tester.CreateDerivationStrategy();
@@ -2632,7 +2622,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanGetStatus()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted(Timeout);
 				var status = await tester.Client.GetStatusAsync();
@@ -2659,7 +2649,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanGetTransactionsOfDerivation()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2725,7 +2715,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanTrack5()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2785,7 +2775,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanRescan()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted(Timeout);
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
@@ -2841,7 +2831,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanTrackManyAddressesAtOnce()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -2869,7 +2859,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanTrack()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -3047,7 +3037,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanCacheTransactions()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -3067,7 +3057,7 @@ namespace NBXplorer.Tests
 		[Fact(Timeout = 60 * 1000)]
 		public async Task CanUseLongPollingOnEvents()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				//WaitServerStarted not needed, just a sanity check
 				tester.Client.WaitServerStarted(Timeout);
@@ -3405,7 +3395,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanBroadcast()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				tester.Client.WaitServerStarted();
 				var tx = tester.Network.Consensus.ConsensusFactory.CreateTransaction();
@@ -3460,7 +3450,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanGetKeyInformations()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -3564,7 +3554,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanRescanFullyIndexedTransaction()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -3600,7 +3590,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanScanUTXOSet()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				var key = new BitcoinExtKey(new ExtKey(), tester.Network);
 				var pubkey = tester.CreateDerivationStrategy(key.Neuter());
@@ -3835,7 +3825,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task ElementsTests()
 		{
-			using (var tester = ServerTester.CreateNoAutoStart())
+			using (var tester = CreateTesterNoAutoStart())
 			{
 				if (tester.Network.NetworkSet != NBitcoin.Altcoins.Liquid.Instance)
 				{
@@ -3970,7 +3960,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public async Task CanGenerateWithRPCTracking()
 		{
-			using (var tester = ServerTester.CreateNoAutoStart())
+			using (var tester = CreateTesterNoAutoStart())
 			{
 				tester.RPCWalletType = RPCWalletType.Descriptors;
 				tester.Start();
@@ -4023,7 +4013,7 @@ namespace NBXplorer.Tests
 		[InlineData(RPCWalletType.Legacy)]
 		public async Task CanGenerateWallet(RPCWalletType walletType)
 		{
-			using (var tester = ServerTester.CreateNoAutoStart())
+			using (var tester = CreateTesterNoAutoStart())
 			{
 				tester.CreateWallet = true;
 				tester.RPCWalletType = walletType;
@@ -4175,7 +4165,7 @@ namespace NBXplorer.Tests
 		[FactWithTimeout]
 		public async Task CanUseRPCProxy()
 		{
-			using (var tester = ServerTester.Create())
+			using (var tester = CreateTester())
 			{
 				Assert.NotNull(await tester.Client.RPCClient.GetBlockchainInfoAsync());
 
@@ -4213,7 +4203,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public async Task DoNotHangDuringReorg()
 		{
-			using var tester = ServerTester.Create();
+			using var tester = CreateTester();
 			var wallet = await tester.Client.GenerateWalletAsync(new GenerateWalletRequest());
 			var addr = await tester.Client.GetUnusedAsync(wallet.DerivationScheme, DerivationFeature.Deposit);
 			var txId = tester.SendToAddress(addr.Address, Money.Coins(1.0m));
@@ -4243,7 +4233,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public async Task IsTrackedTests()
 		{
-			using var tester = ServerTester.Create();
+			using var tester = CreateTester();
 			var xpub = new DerivationSchemeTrackedSource(new DirectDerivationStrategy(
 				new BitcoinExtPubKey(new Mnemonic(Wordlist.English).DeriveExtKey().Neuter(), tester.Network), true));
 			Assert.False(await tester.Client.IsTrackedAsync(xpub, Cancel));
@@ -4264,7 +4254,7 @@ namespace NBXplorer.Tests
 		[Fact]
 		public async Task CanImportUTXOs()
 		{
-			using var tester = ServerTester.Create();
+			using var tester = CreateTester();
 
 			var wallet1 = await tester.Client.CreateGroupAsync();
 			var wallet1TS = new GroupTrackedSource(wallet1.GroupId);
