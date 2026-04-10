@@ -547,7 +547,14 @@ namespace NBXplorer.Backend
 
 		private void Node_Disconnected(Node node)
 		{
-			Logger.LogInformation($"Node disconnected ({node.DisconnectReason.Reason})");
+			if (node.DisconnectReason.Exception != null)
+			{
+				Logger.LogError(node.DisconnectReason.Exception, $"Node disconnected with exception");
+			}
+			else
+			{
+				Logger.LogInformation($"Node disconnected ({node.DisconnectReason.Reason})");
+			}
 			_Connection?.Dispose();
 			node.MessageReceived -= Node_MessageReceived;
 			node.Disconnected -= Node_Disconnected;
