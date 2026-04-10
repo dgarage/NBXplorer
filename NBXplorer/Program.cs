@@ -8,6 +8,8 @@ using Microsoft.Extensions.Configuration;
 using CommandLine;
 using System.Runtime.CompilerServices;
 using System.Reflection;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 [assembly: InternalsVisibleTo("NBXplorer.Tests")]
@@ -15,7 +17,7 @@ namespace NBXplorer
 {
 	public class Program
 	{
-		public static void Main(string[] args)
+		public static async Task Main(string[] args)
 		{
 			var version = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
 			var processor = new ConsoleLoggerProcessor();
@@ -45,6 +47,7 @@ namespace NBXplorer
 						{
 							l.SetMinimumLevel(LogLevel.Debug);
 						}
+						l.ClearProviders();
 						l.AddProvider(new CustomConsoleLogProvider(processor));
 					})
 					.ConfigureWebHostDefaults(webBuilder => {
@@ -54,7 +57,15 @@ namespace NBXplorer
 							.UseStartup<Startup>();
 					})
 					.Build();
-				host.Run();
+				await host.StartAsync();
+				var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Configuration");
+				var urls = host.GetServerFeatures<IServerAddressesFeature>().Addresses;
+				foreach (var url in urls)
+				{
+					// Some tools such as dotnet watch parse this exact log to open the browser
+					logger.LogInformation("Now listening on: " + url);
+				}
+				await host.WaitForShutdownAsync();
 			}
 			catch (ConfigException ex)
 			{
