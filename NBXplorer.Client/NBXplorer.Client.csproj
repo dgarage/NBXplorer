@@ -27,8 +27,8 @@
 		  <NoWarn>$(NoWarn);1591;1573;1572;1584;1570;3021</NoWarn>
         </PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="NBitcoin" Version="10.0.0" />
-		<PackageReference Include="NBitcoin.Altcoins" Version="6.0.2" />
+		<PackageReference Include="NBitcoin" Version="10.0.1" />
+		<PackageReference Include="NBitcoin.Altcoins" Version="6.0.3" />
 	</ItemGroup>
     <ItemGroup>
         <InternalsVisibleTo Include="NBXplorer.Tests" />
