@@ -267,6 +267,11 @@ namespace NBXplorer
 				// Not supported
 				return;
 			}
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_INVALID_PARAMETER && walletName == "")
+			{
+				logger.LogInformation($"{network.CryptoCode}: RPC wallet features are disabled because neither `{network.CryptoCode}.rpc.defaultwallet` nor `{network.CryptoCode.ToUpperInvariant()}_RPC_DEFAULTWALLET` is configured.");
+				return;
+			}
 			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR ||
 			                              ex.RPCCode == RPCErrorCode.RPC_WALLET_ALREADY_EXISTS)
 			{
@@ -275,7 +280,7 @@ namespace NBXplorer
 			catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized ||
 			                                      ex.StatusCode is HttpStatusCode.Forbidden)
 			{
-				// Not allowed, which is fine
+				logger.LogInformation($"{network.CryptoCode}: RPC wallet features are disabled due to the node's policy");
 				return;
 			}
 			catch (Exception ex)
