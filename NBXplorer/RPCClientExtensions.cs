@@ -251,6 +251,7 @@ namespace NBXplorer
 			var network = client.Network.NetworkSet;
 			var walletName = client.CredentialString.WalletName ?? "";
 			bool created = false;
+			retry:
 			try
 			{
 				await client.CreateWalletAsync(walletName, new CreateWalletOptions()
@@ -266,19 +267,23 @@ namespace NBXplorer
 				// Not supported
 				return;
 			}
-			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR || ex.RPCCode == RPCErrorCode.RPC_WALLET_ALREADY_EXISTS)
+			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR ||
+			                              ex.RPCCode == RPCErrorCode.RPC_WALLET_ALREADY_EXISTS)
 			{
 				// Already exists, let's load it
 			}
-			catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized || ex.StatusCode is HttpStatusCode.Forbidden)
+			catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized ||
+			                                      ex.StatusCode is HttpStatusCode.Forbidden)
 			{
 				// Not allowed, which is fine
 				return;
 			}
 			catch (Exception ex)
 			{
-				logger.LogWarning(ex, $"{network.CryptoCode}: Failed to create a RPC wallet with unknown error, skipping...");
+				logger.LogWarning(ex,
+					$"{network.CryptoCode}: Failed to create a RPC wallet with unknown error, skipping...");
 			}
+
 			try
 			{
 				await client.LoadWalletAsync(walletName, true);
