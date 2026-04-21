@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0.201-noble AS builder
+FROM mcr.microsoft.com/dotnet/sdk:10.0.202-noble AS builder
 WORKDIR /source
 COPY . .
 RUN cd NBXplorer.Tests && dotnet build
