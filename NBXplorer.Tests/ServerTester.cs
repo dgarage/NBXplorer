@@ -402,7 +402,7 @@ namespace NBXplorer.Tests
 						new JObject()
 						{
 							["desc"] = Miniscript.AddChecksum(d),
-							["timestamp"] = this.RPC.Network.Consensus.CoinbaseMaturity
+							["timestamp"] = "now"
 						})
 					}
 					}).ConfigureAwait(false);
