@@ -2224,6 +2224,22 @@ namespace NBXplorer.Tests
 					await tester.Client.GetUnusedAsync(pubkey, DerivationFeature.Deposit, reserve: true);
 				}
 				uint256 lastTx = null;
+				
+				Logs.Tester.LogInformation($"Importing 20 descriptions...");
+				await tester.RPC.SendCommandAsync(new RPCRequest()
+				{
+					Method = "importdescriptors",
+					ThrowIfRPCError = true,
+					Params = new JArray[]{new JArray(Enumerable.Range(0, 20)
+						.Select(i => tester.PrivateKeyOf(key, $"0/{i + 1}"))
+						.Select(k => 
+							new JObject()
+							{
+								["desc"] = Miniscript.AddChecksum($"wpkh({k})"),
+								["timestamp"] = "now"
+							}))}
+				}).ConfigureAwait(false);
+
 				for (i = 0; i < 20; i++)
 				{
 					LockTestCoins(tester.RPC, addresses);
@@ -2231,7 +2247,6 @@ namespace NBXplorer.Tests
 					coins = coins - Money.Coins(0.001m);
 					var path = $"0/{i + 1}";
 					var destination = tester.AddressOf(key, path);
-					await tester.ImportPrivKeyAsync(key, path);
 					var txId = await tester.SendToAddressAsync(destination, coins);
 					Logs.Tester.LogInformation($"Sent to {path} in {txId}");
 					addresses.Add(destination.ScriptPubKey);
