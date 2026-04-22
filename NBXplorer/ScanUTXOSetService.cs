@@ -327,7 +327,7 @@ namespace NBXplorer
 		public Task StopAsync(CancellationToken cancellationToken)
 		{
 			_Cts.Cancel();
-			_Channel.Writer.Complete();
+			_Channel.Writer.TryComplete();
 			return _Task;
 		}
 

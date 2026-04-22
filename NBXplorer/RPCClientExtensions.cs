@@ -269,7 +269,7 @@ namespace NBXplorer
 			}
 			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_INVALID_PARAMETER && walletName == "")
 			{
-				logger.LogInformation($"{network.CryptoCode}: RPC wallet features are disabled because neither `{network.CryptoCode}.rpc.defaultwallet` nor `{network.CryptoCode.ToUpperInvariant()}_RPC_DEFAULTWALLET` is configured.");
+				logger.LogInformation($"{network.CryptoCode}: RPC wallet features are disabled because neither `{network.CryptoCode}.rpc.defaultwallet` nor `NBXPLORER_{network.CryptoCode.ToUpperInvariant()}_RPC_DEFAULTWALLET` is configured.");
 				return;
 			}
 			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR ||

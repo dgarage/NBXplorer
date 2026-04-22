@@ -212,7 +212,8 @@ namespace NBXplorer.Tests
 		string datadir;
 		public void ResetExplorer(bool deleteAll = true)
 		{
-			Host.Dispose();
+			_ = Host.StopAsync();
+			Host.WaitForShutdown();
 			if (deleteAll)
 			{
 				PostgresConnectionString = null;

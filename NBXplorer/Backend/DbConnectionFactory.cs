@@ -33,7 +33,6 @@ namespace NBXplorer.Backend
 			action?.Invoke(connStrBuilder);
 			var builder = new NpgsqlDataSourceBuilder(connStrBuilder.ConnectionString);
 			DbConnectionHelper.Register(builder);
-			builder.Build();
 			return builder;
 		}
 
