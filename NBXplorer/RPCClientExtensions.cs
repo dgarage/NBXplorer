@@ -120,8 +120,9 @@ namespace NBXplorer
 			if (await WithRetry(() => rpc.GetBlockCountAsync()) < rpc.Network.Consensus.CoinbaseMaturity)
 			{
 				logger.LogInformation($"Less than {rpc.Network.Consensus.CoinbaseMaturity} blocks, mining some block for regtest (you can disable with NBXPLORER_NOWARMUP=1)");
-				await rpc.GenerateToAddressAsync(rpc.Network.Consensus.CoinbaseMaturity + 1,
-					new Key().GetAddress(ScriptPubKeyType.Legacy, rpc.Network));
+				await rpc.UnloadWalletAsync("default");
+				await rpc.EnsureGenerateAsync(rpc.Network.Consensus.CoinbaseMaturity + 1);
+				await rpc.LoadWalletAsync("default");
 				return true;
 			}
 			else
