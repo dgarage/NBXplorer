@@ -162,6 +162,7 @@ namespace NBXplorer.Tests
 						.AddFilter("Microsoft", LogLevel.Error)
 						.AddFilter("Hangfire", LogLevel.Error)
 						.AddFilter("NBXplorer.Authentication.BasicAuthenticationHandler", LogLevel.Critical)
+						.ClearProviders()
 						.AddProvider(Logs.LogProvider);
 				})
 				.ConfigureWebHostDefaults(webBuilder =>
