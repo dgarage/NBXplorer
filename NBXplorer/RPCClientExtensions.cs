@@ -152,8 +152,15 @@ namespace NBXplorer
 		=> new()
 		{
 			Fees = entry.BaseFee,
+			Chunk = entry.ChunkFees is null || entry.ChunkWeight is 0 ? null :
+				new TransactionMetadata.ChunkMetadata()
+				{
+					Fees = entry.ChunkFees,
+					Weight = entry.ChunkWeight,
+					FeeRate = GetFeeRate(entry.ChunkFees, ((entry.ChunkWeight + 3) / 4)),
+				},
 			VirtualSize = entry.VirtualSizeBytes,
-			FeeRate = GetFeeRate(entry.BaseFee, entry.VirtualSizeBytes)
+			FeeRate = GetFeeRate(entry.BaseFee, entry.VirtualSizeBytes),
 		};
 
 		// This method fetch some information from getmempoolentry which may be useful for analysis, it's not critical to have it, so we don't want to fail the whole thing if it fails.

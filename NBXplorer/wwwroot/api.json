@@ -107,6 +107,31 @@
             "description": "The estimated fee rate in satoshis per vByte. Only available if the transaction has been indexed when it was in the mempool.",
             "example": 20.0,
             "nullable": true
+          },
+          "chunk": {
+            "type": "object",
+            "description": "Fee metadata for the transaction chunk, as reported by Bitcoin Core mempool entry data.",
+            "nullable": true,
+            "properties": {
+              "fees": {
+                "type": "integer",
+                "description": "Total fee of this chunk in satoshi.",
+                "example": 2820,
+                "nullable": true
+              },
+              "weight": {
+                "type": "integer",
+                "description": "Total chunk weight in weight units.",
+                "example": 564,
+                "nullable": true
+              },
+              "feeRate": {
+                "type": "number",
+                "description": "Chunk fee rate in satoshis per vByte.",
+                "example": 20.0,
+                "nullable": true
+              }
+            }
           }
         }
       },

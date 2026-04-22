@@ -2724,6 +2724,14 @@ namespace NBXplorer.Tests
 				Assert.NotNull(metadata.Fees);
 				Assert.NotNull(metadata.FeeRate);
 				Assert.NotNull(metadata.VirtualSize);
+				Assert.NotNull(metadata.Chunk);
+				Assert.NotNull(metadata.Chunk.Fees);
+				Assert.NotEqual(0, metadata.Chunk.Fees.Satoshi);
+				Assert.NotEqual(0, metadata.Chunk.Weight);
+				Assert.NotNull(metadata.Chunk.FeeRate);
+				// Those are equal because the chunk is composed of a single transaction
+				Assert.Equal(metadata.Chunk.FeeRate, metadata.FeeRate);
+				Assert.Equal((metadata.Chunk.Weight + 3) / 4, metadata.VirtualSize);
 			}
 		}
 
