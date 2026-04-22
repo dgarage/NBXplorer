@@ -120,9 +120,11 @@ namespace NBXplorer
 			if (await WithRetry(() => rpc.GetBlockCountAsync()) < rpc.Network.Consensus.CoinbaseMaturity)
 			{
 				logger.LogInformation($"Less than {rpc.Network.Consensus.CoinbaseMaturity} blocks, mining some block for regtest (you can disable with NBXPLORER_NOWARMUP=1)");
-				await rpc.UnloadWalletAsync("default");
-				await rpc.EnsureGenerateAsync(rpc.Network.Consensus.CoinbaseMaturity + 1);
-				await rpc.LoadWalletAsync("default");
+				var dest = await rpc.GetNewAddressAsync();
+				// Need to disable the wallet to workaround https://github.com/bitcoin/bitcoin/issues/33618
+				await rpc.UnloadWalletAsync(rpc.CredentialString.WalletName);
+				await rpc.GenerateToAddressAsync(rpc.Network.Consensus.CoinbaseMaturity + 1, dest);
+				await rpc.LoadWalletAsync(rpc.CredentialString.WalletName);
 				return true;
 			}
 			else
