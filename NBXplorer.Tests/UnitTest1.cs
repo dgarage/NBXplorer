@@ -4010,7 +4010,6 @@ namespace NBXplorer.Tests
 
 		[TheoryWithTimeout]
 		[InlineData(RPCWalletType.Descriptors)]
-		[InlineData(RPCWalletType.Legacy)]
 		public async Task CanGenerateWallet(RPCWalletType walletType)
 		{
 			using (var tester = CreateTesterNoAutoStart())

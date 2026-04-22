@@ -80,7 +80,7 @@ namespace NBXplorer.Tests
 		{
 			get;
 			set;
-		} = NBitcoin.Tests.RPCWalletType.Legacy;
+		}
 
 		public void Start()
 		{
@@ -381,7 +381,7 @@ namespace NBXplorer.Tests
 				await RPC.ImportPrivKeyAsync(k).ConfigureAwait(false);
 #pragma warning restore CS0618 // Type or member is obsolete
 			}
-			catch (RPCException ex) when (ex.RPCCode == RPCErrorCode.RPC_WALLET_ERROR)
+			catch (RPCException ex) when (ex.RPCCode is RPCErrorCode.RPC_WALLET_ERROR or RPCErrorCode.RPC_METHOD_NOT_FOUND)
 			{
 				string[] desc;
 				if (this.RPC.Capabilities.SupportSegwit)
