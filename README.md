@@ -2,7 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/NBxplorer.Client.svg)](https://www.nuget.org/packages/NBxplorer.Client)
 [![Docker Automated buil](https://img.shields.io/docker/automated/jrottenberg/ffmpeg.svg)](https://hub.docker.com/r/nicolasdorier/nbxplorer/)
-[![CircleCI](https://circleci.com/gh/dgarage/NBXplorer.svg?style=svg)](https://circleci.com/gh/dgarage/NBXplorer)
+[![CircleCI](https://circleci.com/gh/btcpayserver/NBXplorer.svg?style=svg)](https://circleci.com/gh/btcpayserver/NBXplorer)
 
 A minimalist UTXO tracker for HD wallets.
 The goal is to provide a flexible, .NET-based UTXO tracker for HD wallets.
@@ -14,24 +14,24 @@ This explorer is not intended to be exposed to the internet; it should be used a
 
 ## Typical usage
 
-You start by [Creating a wallet (hot wallet)](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/GenerateWallet), or [Tracking a derivation scheme (cold wallet)](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/Track).
+You start by [Creating a wallet (hot wallet)](https://btcpayserver.github.io/NBXplorer/#tag/Derivations/operation/GenerateWallet), or [Tracking a derivation scheme (cold wallet)](https://btcpayserver.github.io/NBXplorer/#tag/Derivations/operation/Track).
 
-Second, [Get the next unused address](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/GetUnused) to get paid.
+Second, [Get the next unused address](https://btcpayserver.github.io/NBXplorer/#tag/Derivations/operation/GetUnused) to get paid.
 
-Listen to events through [Polling](https://dgarage.github.io/NBXplorer/#tag/Events/operation/GetLatest), [Long Polling](https://dgarage.github.io/NBXplorer/#tag/Events/operation/EventStream) or [Web Sockets](https://dgarage.github.io/NBXplorer/#tag/Events/operation/WebSocket).
+Listen to events through [Polling](https://btcpayserver.github.io/NBXplorer/#tag/Events/operation/GetLatest), [Long Polling](https://btcpayserver.github.io/NBXplorer/#tag/Events/operation/EventStream) or [Web Sockets](https://btcpayserver.github.io/NBXplorer/#tag/Events/operation/WebSocket).
 
-You can then [List transactions](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/ListTransactionDerivationScheme), [List UTXOs](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/ListUTXOsDerivationScheme), or [Create a PSBT](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/CreatePSBT) for your app to sign.
+You can then [List transactions](https://btcpayserver.github.io/NBXplorer/#tag/Derivations/operation/ListTransactionDerivationScheme), [List UTXOs](https://btcpayserver.github.io/NBXplorer/#tag/Derivations/operation/ListUTXOsDerivationScheme), or [Create a PSBT](https://btcpayserver.github.io/NBXplorer/#tag/Derivations/operation/CreatePSBT) for your app to sign.
 
-When the transaction is signed, [Broadcast it](https://dgarage.github.io/NBXplorer/#tag/Transactions/operation/Broadcast).
+When the transaction is signed, [Broadcast it](https://btcpayserver.github.io/NBXplorer/#tag/Transactions/operation/Broadcast).
 
-You can also track multiple derivation schemes or individual addresses by [Creating a group](https://dgarage.github.io/NBXplorer/#tag/Groups/operation/Create).
+You can also track multiple derivation schemes or individual addresses by [Creating a group](https://btcpayserver.github.io/NBXplorer/#tag/Groups/operation/Create).
 
 ## General features
 
 * Miniscript support via [Wallet Policies (BIP0388)](https://github.com/bitcoin/bips/blob/master/bip-0388.mediawiki).
 * Can pass arguments via environment variable, command line or configuration file
 * Automatically reconnect to your node if the connection goes temporarily down
-* An easy to use [REST API](https://dgarage.github.io/NBXplorer/) ([Overview](./docs/API.md).)
+* An easy to use [REST API](https://btcpayserver.github.io/NBXplorer/) ([Overview](./docs/API.md).)
 * Persistence via [Postgres](./docs/docs/Postgres-Schema.md)
 * Connect via RPC to broadcast transaction instead of using the P2P protocol like this example
 * Connect via RPC to your trusted node to get the proper fee rate.
@@ -67,7 +67,7 @@ It currently supports the following altcoins:
 * Ufo
 * Viacoin
 
-Read our [API Specification](https://dgarage.github.io/NBXplorer/).
+Read our [API Specification](https://btcpayserver.github.io/NBXplorer/).
 
 ## Prerequisite
 
@@ -119,7 +119,7 @@ Example, if you have ltc node and btc node on regtest (default configuration), a
 
 ## How to use the API?
 
-Check [the API documentation](https://dgarage.github.io/NBXplorer/), you can then use any client library:
+Check [the API documentation](https://btcpayserver.github.io/NBXplorer/), you can then use any client library:
 
 * [NBXplorer.NodeJS](https://github.com/junderw/NBXplorer.NodeJS) for NodeJS clients.
 * [NBXplorer.Client](https://www.nuget.org/packages/NBxplorer.Client) for .NET clients.
@@ -216,7 +216,7 @@ If you need to see old payments, you need to configure `--[crypto]startheight` t
 
 [Postman](https://www.getpostman.com) is a useful tool for testing and experimenting with REST API's.
 
-You can test the [NBXplorer API](https://dgarage.github.io/NBXplorer/) quickly and easily using Postman.
+You can test the [NBXplorer API](https://btcpayserver.github.io/NBXplorer/) quickly and easily using Postman.
 
 If you use cookie authentication (enabled by default) in your locally run NBXplorer, you need to set that up in Postman:
 
@@ -263,7 +263,7 @@ If you receive a 404 or timeout then Postman cannot see the endpoint
 
 A better documentation is on the way, for now the only documentation is the client API in C# on [nuget](https://www.nuget.org/packages/NBxplorer.Client).
 The `ExplorerClient` classes allows you to query unused addresses, and the UTXO of an HD PubKey.
-You can take a look at [the tests](https://github.com/dgarage/NBXplorer/blob/master/NBXplorer.Tests/UnitTest1.cs) to see how it works.
+You can take a look at [the tests](https://github.com/btcpayserver/NBXplorer/blob/master/NBXplorer.Tests/UnitTest1.cs) to see how it works.
 
 There is a simple use case documented on [Blockchain Programming in C#](https://programmingblockchain.gitbooks.io/programmingblockchain/content/wallet/web-api.html).
 
@@ -296,7 +296,7 @@ Then run the tests.
 4. `Electrum protocol` is cumbersome for HD wallets.
 5. `Bitcoin Core RPC` is inflexible and difficult to use. It also scales poorly when a wallet has too many addresses or UTXOs.
 6. `Bitcoin Core RPC` supports multiple wallets but isn't designed to handle thousands of them. Having too many wallets will not scale.
-7. While NBXplorer exposes an [API](https://dgarage.github.io/NBXplorer/), it also allows you to query the data using the most expressive and flexible language designed for this purpose: [SQL](./docs/docs/Postgres-Schema.md).
+7. While NBXplorer exposes an [API](https://btcpayserver.github.io/NBXplorer/), it also allows you to query the data using the most expressive and flexible language designed for this purpose: [SQL](./docs/docs/Postgres-Schema.md).
 8. Alternative SaaS infrastructure providers depend on third parties, forcing you to compromise your privacy by sharing financial information while relinquishing control over API changes and service level agreements (SLAs).
 
 ## Licence

@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "NBXplorer API",
-    "description": "NBXplorer is a multi-cryptocurrency lightweight block explorer that does not index the whole blockchain. \nInstead, it listens to transactions and blocks from a trusted full node and indexes only addresses and \ntransactions that belong to tracked DerivationSchemes.\n\nBy default, NBXplorer is are using [Basic Authentication with a cookie file](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#authentication) for authentication.",
+    "description": "NBXplorer is a multi-cryptocurrency lightweight block explorer that does not index the whole blockchain. \nInstead, it listens to transactions and blocks from a trusted full node and indexes only addresses and \ntransactions that belong to tracked DerivationSchemes.\n\nBy default, NBXplorer is are using [Basic Authentication with a cookie file](https://github.com/btcpayserver/NBXplorer/blob/master/docs/API.md#authentication) for authentication.",
     "version": "1.0.0"
   },
   "servers": [
@@ -14,11 +14,11 @@
   "tags": [
     {
       "name": "Groups",
-      "description": "A group is a tracked source which serves as a logical method for grouping several tracked sources into a single entity. You can add or remove tracked sources to and from a group.\n\nFor more details, check out the documentation on [GitHub](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#groups)."
+      "description": "A group is a tracked source which serves as a logical method for grouping several tracked sources into a single entity. You can add or remove tracked sources to and from a group.\n\nFor more details, check out the documentation on [GitHub](https://github.com/btcpayserver/NBXplorer/blob/master/docs/API.md#groups)."
     },
     {
       "name": "Derivations",
-      "description": "A derivation scheme, (also called derivationStrategy) is a flexible way to define how to generate deterministic addresses for a wallet. NBXplorer will track any addresses on the `0/x`, `1/x` and `x` path.\n\nFor more details, check out the documentation on [GitHub](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#derivation-scheme)."
+      "description": "A derivation scheme, (also called derivationStrategy) is a flexible way to define how to generate deterministic addresses for a wallet. NBXplorer will track any addresses on the `0/x`, `1/x` and `x` path.\n\nFor more details, check out the documentation on [GitHub](https://github.com/btcpayserver/NBXplorer/blob/master/docs/API.md#derivation-scheme)."
     }
   ],
   "components": {
@@ -47,7 +47,7 @@
           "type": "string"
         },
         "example": "2-of-xpub1-xpub2",
-        "description": "The derivation scheme ([See documentation](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#derivation-scheme))"
+        "description": "The derivation scheme ([See documentation](https://github.com/btcpayserver/NBXplorer/blob/master/docs/API.md#derivation-scheme))"
       },
       "GroupId": {
         "name": "groupId",
@@ -3789,7 +3789,7 @@
     "/cryptos/{cryptoCode}/node/rpc": {
       "post": {
         "summary": "Proxy RPC call to the underlying node",
-        "description": "Allows you to make RPC calls to the underlying cryptocurrency node (e.g., Bitcoin Core) via NBXplorer. This endpoint acts as a proxy, forwarding your RPC requests to the node and returning the node's responses.\n\nBy default, only a handful of RPC methods are authorized. You can use [configuration](https://github.com/dgarage/NBXplorer/blob/master/docs/API.md#configuration) `--btcexposerpc` or `NBXPLORER_BTCEXPOSERPC=1` to allow all methods.\n\nGo to [The JSON-RPC specification page](https://www.jsonrpc.org/specification) and the [Bitcoin Core RPC page](https://developer.bitcoin.org/reference/rpc) for more information.",
+        "description": "Allows you to make RPC calls to the underlying cryptocurrency node (e.g., Bitcoin Core) via NBXplorer. This endpoint acts as a proxy, forwarding your RPC requests to the node and returning the node's responses.\n\nBy default, only a handful of RPC methods are authorized. You can use [configuration](https://github.com/btcpayserver/NBXplorer/blob/master/docs/API.md#configuration) `--btcexposerpc` or `NBXPLORER_BTCEXPOSERPC=1` to allow all methods.\n\nGo to [The JSON-RPC specification page](https://www.jsonrpc.org/specification) and the [Bitcoin Core RPC page](https://developer.bitcoin.org/reference/rpc) for more information.",
         "tags": [
           "Blockchain"
         ],

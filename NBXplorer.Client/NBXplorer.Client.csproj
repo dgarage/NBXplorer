@@ -8,9 +8,9 @@
 		<Description>Client API for the minimalist HD Wallet Tracker NBXplorer</Description>
 		<PackageIcon>Bitcoin.png</PackageIcon>
 		<PackageTags>bitcoin</PackageTags>
-		<PackageProjectUrl>https://github.com/dgarage/NBXplorer/</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/btcpayserver/NBXplorer/</PackageProjectUrl>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
-		<RepositoryUrl>https://github.com/dgarage/NBXplorer</RepositoryUrl>
+		<RepositoryUrl>https://github.com/btcpayserver/NBXplorer</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<LangVersion>12</LangVersion>

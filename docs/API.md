@@ -4,7 +4,7 @@ NBXplorer is a multi crypto currency lightweight block explorer.
 
 NBXplorer does not index the whole blockchain, rather, it listens transactions and blocks from a trusted full node and index only addresses and transactions which belongs to a `DerivationScheme` that you decide to track.
 
-This document describes the concepts, while the [API endpoints are documented here](https://dgarage.github.io/NBXplorer/).
+This document describes the concepts, while the [API endpoints are documented here](https://btcpayserver.github.io/NBXplorer/).
 
 ## Table of content
 
@@ -58,7 +58,7 @@ And there are three different types: `Derivation Schemes`, `Groups` and `Standal
 A derivation scheme, also called `derivationStrategy` internally, is a flexible way to define how to generate deterministic addresses for a wallet.
 
 A derivation scheme tracked source's format is `DERIVATIONSCHEME:derivationScheme` (eg. `DERIVATIONSCHEME:xpub1`).
-You can create one by calling [Tracking derivation scheme](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/Track).
+You can create one by calling [Tracking derivation scheme](https://btcpayserver.github.io/NBXplorer/#tag/Derivations/operation/Track).
 
 There are two types of derivation schemes:
 * [Standard](#standard-derivation-scheme), for simple and standard use cases (single sig, or multi sig)
@@ -130,7 +130,7 @@ Where:
 wsh(and_v(or_c(pk([973a74ba/48'/1'/0']tprv8gZh1wDxtsw28saCHAXAKGRStbAZpWAzuT13AVv5erS3CxHMNLmmJUFfpUKtvfBzQx5qajkzcHkghNp8kuPknDhMTwxPdzPA29NZQcr17ZT/**),or_c(pk([39bad04c/48'/1'/1']tprv8fkJnxvpWbmwWd8Ep6YdXoYrhp1WNDFLvVJKsioFwatwA2kyZtfpFhSqi84QGb83VXqPHWBiH4xV8rcrHz1WeWtk1gWS1MwJsE3dJWfp1Fj/**),v:older(1000))),pk([f19e9416/48'/1'/2']tprv8fuFjBofiYNzDW3GAyPeoMqDf2QdrQZxozJjAT74CxaeYkQv7cKZvrPLSTuB2Z6qX8nxfBbTQaGCzDpPzaH1jyV9RiRj8xVFmo34hFzsKb8/**)))
 ```
 
-When passing this derivation scheme to the API via a URL path (like when calling [Tracking derivation scheme](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/Track)), don’t forget to escape it properly.
+When passing this derivation scheme to the API via a URL path (like when calling [Tracking derivation scheme](https://btcpayserver.github.io/NBXplorer/#tag/Derivations/operation/Track)), don’t forget to escape it properly.
 
 For example, if you need to track this policy, replace:
 
@@ -146,7 +146,7 @@ For example, if you need to track this policy, replace:
 | `:`       | `%3A`           |
 | `*`       | `%2A`           |
 
-The call to [Tracking derivation scheme](https://dgarage.github.io/NBXplorer/#tag/Derivations/operation/Track) would then be:
+The call to [Tracking derivation scheme](https://btcpayserver.github.io/NBXplorer/#tag/Derivations/operation/Track) would then be:
 ```
 HTTP POST /v1/cryptos/BTC/derivations/wsh%28and_v%28or_c%28pk%28%5B973a74ba%2F48%27%2F1%27%2F0%27%5Dtprv8gZh1wDxtsw28saCHAXAKGRStbAZpWAzuT13AVv5erS3CxHMNLmmJUFfpUKtvfBzQx5qajkzcHkghNp8kuPknDhMTwxPdzPA29NZQcr17ZT%2F%2A%2A%29%2Cor_c%28pk%28%5B39bad04c%2F48%27%2F1%27%2F1%27%5Dtprv8fkJnxvpWbmwWd8Ep6YdXoYrhp1WNDFLvVJKsioFwatwA2kyZtfpFhSqi84QGb83VXqPHWBiH4xV8rcrHz1WeWtk1gWS1MwJsE3dJWfp1Fj%2F%2A%2A%29%2Cv%3Aolder%281000%29%29%29%2Cpk%28%5Bf19e9416%2F48%27%2F1%27%2F2%27%5Dtprv8fuFjBofiYNzDW3GAyPeoMqDf2QdrQZxozJjAT74CxaeYkQv7cKZvrPLSTuB2Z6qX8nxfBbTQaGCzDpPzaH1jyV9RiRj8xVFmo34hFzsKb8%2F%2A%2A%29%29%29%23adgpkx0s
 ```
@@ -160,11 +160,11 @@ Additionally, specific addresses can be tracked through the group.
 Every address attached by a child tracked source will be added to the group, including all related UTXOs and transactions. 
 
 A group can have any number of children, and a group can also be a child of another group.
-Please note that all the children are returned by [Get a group](https://dgarage.github.io/NBXplorer/#tag/Groups/operation/Get). As such, it is advised not to add too many children to avoid slowing down this call.
+Please note that all the children are returned by [Get a group](https://btcpayserver.github.io/NBXplorer/#tag/Groups/operation/Get). As such, it is advised not to add too many children to avoid slowing down this call.
 
 A group tracked source's format is `GROUP:groupid`.
 
-You can create a new group by calling [Create a group](https://dgarage.github.io/NBXplorer/#tag/Groups/operation/Create).
+You can create a new group by calling [Create a group](https://btcpayserver.github.io/NBXplorer/#tag/Groups/operation/Create).
 
 ### <a name="addresses"></a>Standalone addresses
 
@@ -172,7 +172,7 @@ This refers to a tracked source that monitors a single address. It functions sim
 
 The address tracked source's format is `ADDRESS:bc1...`.
 
-You can create one by calling [Tracking an address](https://dgarage.github.io/NBXplorer/#tag/Legacy/operation/TrackSingleAddress).
+You can create one by calling [Tracking an address](https://btcpayserver.github.io/NBXplorer/#tag/Legacy/operation/TrackSingleAddress).
 
 ## Authentication
 

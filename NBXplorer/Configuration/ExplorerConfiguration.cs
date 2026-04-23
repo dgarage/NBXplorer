@@ -194,7 +194,7 @@ namespace NBXplorer.Configuration
 			if (obsolete != string.Empty)
 			{
 				if (Directory.Exists(Path.Combine(DataDir, "db")))
-					throw new ConfigException($"Options '{obsolete}' are not supported anymore, if you need to migrate an old instance to the new postgres backend, please use NBXplorer v2.5.2 and follow https://github.com/dgarage/NBXplorer/blob/master/docs/Postgres-Migration.md.");
+					throw new ConfigException($"Options '{obsolete}' are not supported anymore, if you need to migrate an old instance to the new postgres backend, please use NBXplorer v2.5.2 and follow https://github.com/btcpayserver/NBXplorer/blob/master/docs/Postgres-Migration.md.");
 				else
 					Logs.Explorer.LogWarning($"Options '{obsolete}' is obsolete and ignored...");
 			}

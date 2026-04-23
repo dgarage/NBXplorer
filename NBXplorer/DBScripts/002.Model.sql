@@ -1,4 +1,4 @@
-﻿-- For documentation see https://github.com/dgarage/NBXplorer/tree/master/docs/Postgres-Schema.md
+﻿-- For documentation see https://github.com/btcpayserver/NBXplorer/tree/master/docs/Postgres-Schema.md
 -- This file contains additional comments about column meaning.
 
 -- The main tables are blks, blks_txs, txs, ins, outs, ins_outs, descriptors, desriptors_scripts, scripts, wallets, wallets_descriptors, wallets_scripts.

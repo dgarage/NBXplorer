@@ -3262,7 +3262,7 @@ namespace NBXplorer.Tests
 		}
 
 		/// <summary>
-		/// To understand this test, read https://github.com/dgarage/NBXplorer/blob/master/docs/Design.md
+		/// To understand this test, read https://github.com/btcpayserver/NBXplorer/blob/master/docs/Design.md
 		/// This create a specific graph of transaction and make sure that it computes the UTXO set as expected.
 		/// </summary>
 		[Fact]
