@@ -88,6 +88,7 @@ namespace NBXplorer.Tests
 			{
 				var cryptoSettings = new NBXplorerNetworkProvider(ChainName.Regtest).GetFromCryptoCode(CryptoCode);
 				NodeBuilder = NodeBuilder.Create(nodeDownloadData, Network, _Directory);
+				NodeBuilder.ConfigParameters.Add("unsafesqlitesync", "1");
 				NodeBuilder.RPCWalletType = RPCWalletType;
 				NodeBuilder.CreateWallet = CreateWallet;
 				if (KeepPreviousData)
