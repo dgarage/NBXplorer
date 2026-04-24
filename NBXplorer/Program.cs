@@ -11,6 +11,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NBitcoin;
 
 [assembly: InternalsVisibleTo("NBXplorer.Tests")]
 namespace NBXplorer
@@ -19,6 +20,7 @@ namespace NBXplorer
 	{
 		public static async Task Main(string[] args)
 		{
+			ExtPubKey.SkipInvalidMasterExtPubKeyCheck = true;
 			var version = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
 			var processor = new ConsoleLoggerProcessor();
 			Logs.Configure(new FuncLoggerFactory(i => new CustomerConsoleLogger(i, (a, b) => true, null, processor)));
