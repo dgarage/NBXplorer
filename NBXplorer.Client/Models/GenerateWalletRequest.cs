@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using System;
+using Newtonsoft.Json;
 using System.Collections.Generic;
 
 namespace NBXplorer.Models
@@ -14,6 +15,7 @@ namespace NBXplorer.Models
 		[JsonConverter(typeof(NBXplorer.JsonConverters.ScriptPubKeyTypeConverter))]
 		public NBitcoin.ScriptPubKeyType? ScriptPubKeyType { get; set; }
 		public string Passphrase { get; set; }
+		[Obsolete("We will remove this feature in a future release.")]
 		public bool ImportKeysToRPC { get; set; }
 		public bool SavePrivateKeys { get; set; }
 		public Dictionary<string, string> AdditionalOptions { get; set; }

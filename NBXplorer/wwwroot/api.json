@@ -703,11 +703,6 @@
             "type": "string",
             "description": "Optional. The [BIP39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki) passphrase to use with the mnemonic. This is also known as the 'wallet password'. Default is an empty string."
           },
-          "importKeysToRPC": {
-            "type": "boolean",
-            "default": false,
-            "description": "Optional. If **true**, every time a new unused address is generated, the corresponding private key will be imported into the underlying node via RPC's `importprivkey`. Useful if you need to manage your wallet via the node's command-line interface or RPC calls. Default is **false**."
-          },
           "savePrivateKeys": {
             "type": "boolean",
             "description": "Optional. If **true**, the private keys (mnemonic seed and derived keys) will be saved in NBXplorer's metadata under `Mnemonic`, `MasterHDKey`, and `AccountHDKey`. Be cautious when enabling this option, as storing private keys increases security risks."
