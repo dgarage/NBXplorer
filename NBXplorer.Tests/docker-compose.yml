@@ -19,7 +19,7 @@ services:
   postgres:
     image:  postgres:18.1
     container_name: nbxplorertests_postgres_1
-    command: [ "-c", "random_page_cost=1.0", "-c", "shared_preload_libraries=pg_stat_statements" ]
+    command: [ "-c", "random_page_cost=1.0", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off"]
     environment:
         POSTGRES_HOST_AUTH_METHOD: trust
     ports:
