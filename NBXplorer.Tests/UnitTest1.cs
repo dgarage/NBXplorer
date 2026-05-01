@@ -2197,6 +2197,15 @@ namespace NBXplorer.Tests
 			}
 		}
 
+		[Fact]
+		public async Task DoNothing()
+		{
+			using (var tester = CreateTester())
+			{
+				throw new Exception("Boom");
+			}
+		}
+
 		[FactWithTimeout]
 		public async Task CanTrackSeveralTransactions()
 		{
